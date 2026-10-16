@@ -11,8 +11,8 @@
 <title>Расширенные настройки – keen-pbr</title>
   <meta name="description" content="Большинству пользователей эта страница не понадобится.
 Здесь описаны настройки для продвинутых сценариев и на уровне сервиса: daemon, api, fwmark, iproute и lists_autoupdate.
-daemon Управляет путём к PID-файлу, каталогом кэша и глобальным поведением маршрутизации.
-Поле Тип По умолчанию Описание pid_file string — Путь к PID-файлу cache_dir string /var/cache/keen-pbr Каталог для кэшированных данных списков firewall_backend string &#34;auto&#34; Бэкенд firewall: auto, iptables или nftables clear_dynamic_sets_on_apply boolean false Очищать динамические наборы (IP-адреса доменов, собранные из DNS-ответов и соединений) при каждом применении конфигурации или перезапуске сервиса. При обновлении списков и переключении каналов они не очищаются. ipset_hashsize integer отсутствует Необязательный начальный размер хеш-таблицы ipset , создаваемых бэкендом iptables (по умолчанию 1024). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. При изменении наборы пересоздаются, а динамические наборы очищаются. ipset_maxelem integer отсутствует Необязательное максимальное число элементов ipset, создаваемых бэкендом iptables (по умолчанию 65536). Не действует с nftables. Допустимый диапазон: от 1 до 4294967295. При изменении наборы пересоздаются, а динамические наборы очищаются. reuse_static_sets_on_runtime_refresh boolean true Не перезаполнять наборы списков при SIGUSR1, переключении urltest/icmptest и изменении состояния интерфейсов: обновляются только правила, это быстрее. При false наборы перезаполняются каждый раз. strict_enforcement boolean false Если интерфейс или шлюз outbound типа interface недоступен, не выпускать его трафик через обычное соединение: в таблицу outbound ставится маршрут из strict_enforcement_action. Можно задать для каждого outbound отдельно. strict_enforcement_action string &#34;unreachable&#34; Что делать с трафиком при strict_enforcement: unreachable сразу возвращает приложению сетевую ошибку, а blackhole молча отбрасывает пакеты до тайм-аута приложения. max_file_size_bytes integer 8388608 (8 MiB) Максимальный размер загруженного удалённого списка в байтах firewall_verify_max_bytes integer 262144 Сколько байт вывода iptables/nft читать при проверке правил firewall (keen-pbr status, страница состояния); 0 — без ограничения config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;firewall_backend&#34;: &#34;auto&#34;, &#34;clear_dynamic_sets_on_apply&#34;: false, &#34;ipset_hashsize&#34;: null, &#34;ipset_maxelem&#34;: null, &#34;reuse_static_sets_on_runtime_refresh&#34;: true, &#34;strict_enforcement&#34;: false, &#34;strict_enforcement_action&#34;: &#34;unreachable&#34;, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } Каталог кэша хранит загруженные удалённые списки, чтобы они были доступны, если сеть недоступна при запуске." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/advanced/" itemprop="url" />
+Часть настроек есть в веб-интерфейсе: Общее &gt; Настройки &gt; Общие, Автообновление списков и Расширенные настройки маршрутизации. Низкоуровневые поля видны после переключения Режим настроек на Продвинутый. Страница описывает все поля config.json; рядом с полем указано, где его найти в интерфейсе.
+daemon Управляет путём к PID-файлу (файлу с номером процесса сервиса), каталогом кэша и общим поведением маршрутизации." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/advanced/" itemprop="url" />
 
 <meta property="og:title" content="Расширенные настройки">
 <meta
@@ -21,112 +21,9 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
     
       Большинству пользователей эта страница не понадобится.
 Здесь описаны настройки для продвинутых сценариев и на уровне сервиса: daemon, api, fwmark, iproute и lists_autoupdate.
+Часть настроек есть в веб-интерфейсе: Общее &gt; Настройки &gt; Общие, Автообновление списков и Расширенные настройки маршрутизации. Низкоуровневые поля видны после переключения Режим настроек на Продвинутый. Страница описывает все поля config.json; рядом с полем указано, где его найти в интерфейсе.
 daemon
-    Управляет путём к PID-файлу, каталогом кэша и глобальным поведением маршрутизации.
-
-	
-			
-					Поле
-					Тип
-					По умолчанию
-					Описание
-			
-	
-	
-			
-					pid_file
-					string
-					—
-					Путь к PID-файлу
-			
-			
-					cache_dir
-					string
-					/var/cache/keen-pbr
-					Каталог для кэшированных данных списков
-			
-			
-					firewall_backend
-					string
-					&quot;auto&quot;
-					Бэкенд firewall: auto, iptables или nftables
-			
-			
-					clear_dynamic_sets_on_apply
-					boolean
-					false
-					Очищать динамические наборы (IP-адреса доменов, собранные из DNS-ответов и соединений) при каждом применении конфигурации или перезапуске сервиса. При обновлении списков и переключении каналов они не очищаются.
-			
-			
-					ipset_hashsize
-					integer
-					отсутствует
-					Необязательный начальный размер хеш-таблицы 
-  ipset
-, создаваемых бэкендом iptables (по умолчанию 1024). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. При изменении наборы пересоздаются, а динамические наборы очищаются.
-			
-			
-					ipset_maxelem
-					integer
-					отсутствует
-					Необязательное максимальное число элементов ipset, создаваемых бэкендом iptables (по умолчанию 65536). Не действует с nftables. Допустимый диапазон: от 1 до 4294967295. При изменении наборы пересоздаются, а динамические наборы очищаются.
-			
-			
-					reuse_static_sets_on_runtime_refresh
-					boolean
-					true
-					Не перезаполнять наборы списков при SIGUSR1, переключении urltest/icmptest и изменении состояния интерфейсов: обновляются только правила, это быстрее. При false наборы перезаполняются каждый раз.
-			
-			
-					strict_enforcement
-					boolean
-					false
-					Если интерфейс или шлюз outbound типа interface недоступен, не выпускать его трафик через обычное соединение: в таблицу outbound ставится маршрут из strict_enforcement_action. Можно задать для каждого outbound отдельно.
-			
-			
-					strict_enforcement_action
-					string
-					&quot;unreachable&quot;
-					Что делать с трафиком при strict_enforcement: unreachable сразу возвращает приложению сетевую ошибку, а blackhole молча отбрасывает пакеты до тайм-аута приложения.
-			
-			
-					max_file_size_bytes
-					integer
-					8388608 (8 MiB)
-					Максимальный размер загруженного удалённого списка в байтах
-			
-			
-					firewall_verify_max_bytes
-					integer
-					262144
-					Сколько байт вывода iptables/nft читать при проверке правил firewall (keen-pbr status, страница состояния); 0 — без ограничения
-			
-	
-
-
-
-config.json{
-  &#34;daemon&#34;: {
-    &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;,
-    &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;,
-    &#34;firewall_backend&#34;: &#34;auto&#34;,
-    &#34;clear_dynamic_sets_on_apply&#34;: false,
-    &#34;ipset_hashsize&#34;: null,
-    &#34;ipset_maxelem&#34;: null,
-    &#34;reuse_static_sets_on_runtime_refresh&#34;: true,
-    &#34;strict_enforcement&#34;: false,
-    &#34;strict_enforcement_action&#34;: &#34;unreachable&#34;,
-    &#34;max_file_size_bytes&#34;: 8388608,
-    &#34;firewall_verify_max_bytes&#34;: 262144
-  }
-}
-  
-    
-
-  
-
-
-Каталог кэша хранит загруженные удалённые списки, чтобы они были доступны, если сеть недоступна при запуске.
+    Управляет путём к PID-файлу (файлу с номером процесса сервиса), каталогом кэша и общим поведением маршрутизации.
     
   ">
 <meta
@@ -142,15 +39,15 @@ config.json{
 	<meta itemprop="name" content="Расширенные настройки">
 	<meta itemprop="description" content="Большинству пользователей эта страница не понадобится.
 Здесь описаны настройки для продвинутых сценариев и на уровне сервиса: daemon, api, fwmark, iproute и lists_autoupdate.
-daemon Управляет путём к PID-файлу, каталогом кэша и глобальным поведением маршрутизации.
-Поле Тип По умолчанию Описание pid_file string — Путь к PID-файлу cache_dir string /var/cache/keen-pbr Каталог для кэшированных данных списков firewall_backend string &#34;auto&#34; Бэкенд firewall: auto, iptables или nftables clear_dynamic_sets_on_apply boolean false Очищать динамические наборы (IP-адреса доменов, собранные из DNS-ответов и соединений) при каждом применении конфигурации или перезапуске сервиса. При обновлении списков и переключении каналов они не очищаются. ipset_hashsize integer отсутствует Необязательный начальный размер хеш-таблицы ipset , создаваемых бэкендом iptables (по умолчанию 1024). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. При изменении наборы пересоздаются, а динамические наборы очищаются. ipset_maxelem integer отсутствует Необязательное максимальное число элементов ipset, создаваемых бэкендом iptables (по умолчанию 65536). Не действует с nftables. Допустимый диапазон: от 1 до 4294967295. При изменении наборы пересоздаются, а динамические наборы очищаются. reuse_static_sets_on_runtime_refresh boolean true Не перезаполнять наборы списков при SIGUSR1, переключении urltest/icmptest и изменении состояния интерфейсов: обновляются только правила, это быстрее. При false наборы перезаполняются каждый раз. strict_enforcement boolean false Если интерфейс или шлюз outbound типа interface недоступен, не выпускать его трафик через обычное соединение: в таблицу outbound ставится маршрут из strict_enforcement_action. Можно задать для каждого outbound отдельно. strict_enforcement_action string &#34;unreachable&#34; Что делать с трафиком при strict_enforcement: unreachable сразу возвращает приложению сетевую ошибку, а blackhole молча отбрасывает пакеты до тайм-аута приложения. max_file_size_bytes integer 8388608 (8 MiB) Максимальный размер загруженного удалённого списка в байтах firewall_verify_max_bytes integer 262144 Сколько байт вывода iptables/nft читать при проверке правил firewall (keen-pbr status, страница состояния); 0 — без ограничения config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;firewall_backend&#34;: &#34;auto&#34;, &#34;clear_dynamic_sets_on_apply&#34;: false, &#34;ipset_hashsize&#34;: null, &#34;ipset_maxelem&#34;: null, &#34;reuse_static_sets_on_runtime_refresh&#34;: true, &#34;strict_enforcement&#34;: false, &#34;strict_enforcement_action&#34;: &#34;unreachable&#34;, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } Каталог кэша хранит загруженные удалённые списки, чтобы они были доступны, если сеть недоступна при запуске.">
-	<meta itemprop="wordCount" content="1100">
+Часть настроек есть в веб-интерфейсе: Общее &gt; Настройки &gt; Общие, Автообновление списков и Расширенные настройки маршрутизации. Низкоуровневые поля видны после переключения Режим настроек на Продвинутый. Страница описывает все поля config.json; рядом с полем указано, где его найти в интерфейсе.
+daemon Управляет путём к PID-файлу (файлу с номером процесса сервиса), каталогом кэша и общим поведением маршрутизации.">
+	<meta itemprop="wordCount" content="1397">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Расширенные настройки">
 	<meta name="twitter:description" content="Большинству пользователей эта страница не понадобится.
 Здесь описаны настройки для продвинутых сценариев и на уровне сервиса: daemon, api, fwmark, iproute и lists_autoupdate.
-daemon Управляет путём к PID-файлу, каталогом кэша и глобальным поведением маршрутизации.
-Поле Тип По умолчанию Описание pid_file string — Путь к PID-файлу cache_dir string /var/cache/keen-pbr Каталог для кэшированных данных списков firewall_backend string &#34;auto&#34; Бэкенд firewall: auto, iptables или nftables clear_dynamic_sets_on_apply boolean false Очищать динамические наборы (IP-адреса доменов, собранные из DNS-ответов и соединений) при каждом применении конфигурации или перезапуске сервиса. При обновлении списков и переключении каналов они не очищаются. ipset_hashsize integer отсутствует Необязательный начальный размер хеш-таблицы ipset , создаваемых бэкендом iptables (по умолчанию 1024). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. При изменении наборы пересоздаются, а динамические наборы очищаются. ipset_maxelem integer отсутствует Необязательное максимальное число элементов ipset, создаваемых бэкендом iptables (по умолчанию 65536). Не действует с nftables. Допустимый диапазон: от 1 до 4294967295. При изменении наборы пересоздаются, а динамические наборы очищаются. reuse_static_sets_on_runtime_refresh boolean true Не перезаполнять наборы списков при SIGUSR1, переключении urltest/icmptest и изменении состояния интерфейсов: обновляются только правила, это быстрее. При false наборы перезаполняются каждый раз. strict_enforcement boolean false Если интерфейс или шлюз outbound типа interface недоступен, не выпускать его трафик через обычное соединение: в таблицу outbound ставится маршрут из strict_enforcement_action. Можно задать для каждого outbound отдельно. strict_enforcement_action string &#34;unreachable&#34; Что делать с трафиком при strict_enforcement: unreachable сразу возвращает приложению сетевую ошибку, а blackhole молча отбрасывает пакеты до тайм-аута приложения. max_file_size_bytes integer 8388608 (8 MiB) Максимальный размер загруженного удалённого списка в байтах firewall_verify_max_bytes integer 262144 Сколько байт вывода iptables/nft читать при проверке правил firewall (keen-pbr status, страница состояния); 0 — без ограничения config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;firewall_backend&#34;: &#34;auto&#34;, &#34;clear_dynamic_sets_on_apply&#34;: false, &#34;ipset_hashsize&#34;: null, &#34;ipset_maxelem&#34;: null, &#34;reuse_static_sets_on_runtime_refresh&#34;: true, &#34;strict_enforcement&#34;: false, &#34;strict_enforcement_action&#34;: &#34;unreachable&#34;, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } Каталог кэша хранит загруженные удалённые списки, чтобы они были доступны, если сеть недоступна при запуске.">
+Часть настроек есть в веб-интерфейсе: Общее &gt; Настройки &gt; Общие, Автообновление списков и Расширенные настройки маршрутизации. Низкоуровневые поля видны после переключения Режим настроек на Продвинутый. Страница описывает все поля config.json; рядом с полем указано, где его найти в интерфейсе.
+daemon Управляет путём к PID-файлу (файлу с номером процесса сервиса), каталогом кэша и общим поведением маршрутизации.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -483,9 +380,9 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
             </li>
           <li>
               <a
-                href="#%d1%87%d1%82%d0%be-keen-pbr-%d0%bd%d0%b5-%d0%b4%d0%b5%d0%bb%d0%b0%d0%b5%d1%82"
+                href="#%d1%87%d1%82%d0%be-%d0%b2%d0%b0%d0%b6%d0%bd%d0%be-%d0%b7%d0%bd%d0%b0%d1%82%d1%8c"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Что keen-pbr не делает</a>
+              >Что важно знать</a>
             </li>
           <li>
               <a
@@ -1064,7 +961,7 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%87%d1%82%d0%be-keen-pbr-%d0%bd%d0%b5-%d0%b4%d0%b5%d0%bb%d0%b0%d0%b5%d1%82">Что keen-pbr не делает
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%87%d1%82%d0%be-%d0%b2%d0%b0%d0%b6%d0%bd%d0%be-%d0%b7%d0%bd%d0%b0%d1%82%d1%8c">Что важно знать
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1160,8 +1057,9 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
           
           <p>Большинству пользователей эта страница не понадобится.</p>
 <p>Здесь описаны настройки для продвинутых сценариев и на уровне сервиса: <code>daemon</code>, <code>api</code>, <code>fwmark</code>, <code>iproute</code> и <code>lists_autoupdate</code>.</p>
+<p>Часть настроек есть в веб-интерфейсе: <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Общие</strong>, <strong>Автообновление списков</strong> и <strong>Расширенные настройки маршрутизации</strong>. Низкоуровневые поля видны после переключения <strong>Режим настроек</strong> на <strong>Продвинутый</strong>. Страница описывает все поля <code>config.json</code>; рядом с полем указано, где его найти в интерфейсе.</p>
 <h2>daemon<span class="hx:absolute hx:-mt-20" id="daemon"></span>
-    <a href="#daemon" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Управляет путём к PID-файлу, каталогом кэша и глобальным поведением маршрутизации.</p>
+    <a href="#daemon" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Управляет путём к PID-файлу (файлу с номером процесса сервиса), каталогом кэша и общим поведением маршрутизации.</p>
 <table>
 	<thead>
 			<tr>
@@ -1176,7 +1074,7 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
 					<td><code>pid_file</code></td>
 					<td>string</td>
 					<td>—</td>
-					<td>Путь к PID-файлу</td>
+					<td>Путь к PID-файлу. Можно переопределить флагом <code>--pid-file</code></td>
 			</tr>
 			<tr>
 					<td><code>cache_dir</code></td>
@@ -1188,13 +1086,13 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
 					<td><code>firewall_backend</code></td>
 					<td>string</td>
 					<td><code>&quot;auto&quot;</code></td>
-					<td>Бэкенд firewall: <code>auto</code>, <code>iptables</code> или <code>nftables</code></td>
+					<td>Какой firewall использовать: <code>auto</code> (выбрать автоматически), <code>iptables</code> или <code>nftables</code></td>
 			</tr>
 			<tr>
 					<td><code>clear_dynamic_sets_on_apply</code></td>
 					<td>boolean</td>
 					<td><code>false</code></td>
-					<td>Очищать динамические наборы (IP-адреса доменов, собранные из DNS-ответов и соединений) при каждом применении конфигурации или перезапуске сервиса. При обновлении списков и переключении каналов они не очищаются.</td>
+					<td>Очищать динамические наборы (IP-адреса доменов, собранные из DNS-ответов и соединений) при каждом применении конфигурации или перезапуске сервиса. При обновлении списков и переключении каналов они не очищаются. Веб-интерфейс: <strong>Очищать изученные адреса доменов при применении</strong>.</td>
 			</tr>
 			<tr>
 					<td><code>ipset_hashsize</code></td>
@@ -1202,13 +1100,13 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
 					<td>отсутствует</td>
 					<td>Необязательный начальный размер хеш-таблицы 
   <abbr title="Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.">ipset</abbr>
-, создаваемых бэкендом iptables (по умолчанию <code>1024</code>). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. При изменении наборы пересоздаются, а динамические наборы очищаются.</td>
+, создаваемых бэкендом iptables (по умолчанию <code>1024</code>). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. Веб-интерфейс (<strong>Продвинутый</strong> режим): <strong>Размер хеш-таблицы IPSet (ipset hashsize)</strong>. При изменении наборы пересоздаются, а динамические наборы очищаются.</td>
 			</tr>
 			<tr>
 					<td><code>ipset_maxelem</code></td>
 					<td>integer</td>
 					<td>отсутствует</td>
-					<td>Необязательное максимальное число элементов ipset, создаваемых бэкендом iptables (по умолчанию <code>65536</code>). Не действует с nftables. Допустимый диапазон: от 1 до 4294967295. При изменении наборы пересоздаются, а динамические наборы очищаются.</td>
+					<td>Необязательное максимальное число элементов ipset, создаваемых бэкендом iptables (по умолчанию <code>65536</code>). Не действует с nftables. Допустимый диапазон: от 1 до 4294967295. Веб-интерфейс: <strong>Максимальное количество элементов в ipset (ipset maxelem)</strong>. При изменении наборы пересоздаются, а динамические наборы очищаются.</td>
 			</tr>
 			<tr>
 					<td><code>reuse_static_sets_on_runtime_refresh</code></td>
@@ -1217,10 +1115,22 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
 					<td>Не перезаполнять наборы списков при <code>SIGUSR1</code>, переключении <code>urltest</code>/<code>icmptest</code> и изменении состояния интерфейсов: обновляются только правила, это быстрее. При <code>false</code> наборы перезаполняются каждый раз.</td>
 			</tr>
 			<tr>
+					<td><code>skip_marked_packets</code></td>
+					<td>boolean</td>
+					<td><code>true</code></td>
+					<td>Не обрабатывать пакеты, которые уже помечены другой программой. Веб-интерфейс: <strong>Не обрабатывать маркированные пакеты</strong>.</td>
+			</tr>
+			<tr>
+					<td><code>ipv6_enabled</code></td>
+					<td>boolean</td>
+					<td><code>true</code></td>
+					<td>Маршрутизировать IPv6-трафик. При <code>false</code> IPv6 идёт как обычно, мимо keen-pbr. Веб-интерфейс: <strong>Включить поддержку IPv6</strong>.</td>
+			</tr>
+			<tr>
 					<td><code>strict_enforcement</code></td>
 					<td>boolean</td>
 					<td><code>false</code></td>
-					<td>Если интерфейс или шлюз outbound типа <code>interface</code> недоступен, не выпускать его трафик через обычное соединение: в таблицу outbound ставится маршрут из <code>strict_enforcement_action</code>. Можно задать для каждого outbound отдельно.</td>
+					<td>Если интерфейс или шлюз outbound типа <code>interface</code> недоступен, не выпускать его трафик через обычное соединение: в таблицу outbound ставится маршрут из <code>strict_enforcement_action</code>. Можно задать для каждого outbound отдельно. Веб-интерфейс: <strong>Блокировать трафик при недоступности outbound (kill-switch)</strong>.</td>
 			</tr>
 			<tr>
 					<td><code>strict_enforcement_action</code></td>
@@ -1240,6 +1150,18 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
 					<td><code>262144</code></td>
 					<td>Сколько байт вывода <code>iptables</code>/<code>nft</code> читать при проверке правил firewall (<code>keen-pbr status</code>, страница состояния); <code>0</code> — без ограничения</td>
 			</tr>
+			<tr>
+					<td><code>exec_timeout_seconds</code></td>
+					<td>integer</td>
+					<td><code>30</code></td>
+					<td>Сколько секунд ждать вспомогательные скрипты keen-pbr (например, скрипт для dnsmasq), прежде чем остановить их. Минимум 1.</td>
+			</tr>
+			<tr>
+					<td><code>exec_kill_grace_seconds</code></td>
+					<td>integer</td>
+					<td><code>2</code></td>
+					<td>Сколько секунд дать скрипту на завершение после остановки, прежде чем убить его принудительно. Минимум 0.</td>
+			</tr>
 	</tbody>
 </table>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1253,10 +1175,14 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;ipset_hashsize&#34;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;ipset_maxelem&#34;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;reuse_static_sets_on_runtime_refresh&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;skip_marked_packets&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;ipv6_enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;strict_enforcement&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;strict_enforcement_action&#34;</span><span class="p">:</span> <span class="s2">&#34;unreachable&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;max_file_size_bytes&#34;</span><span class="p">:</span> <span class="mi">8388608</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;firewall_verify_max_bytes&#34;</span><span class="p">:</span> <span class="mi">262144</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;firewall_verify_max_bytes&#34;</span><span class="p">:</span> <span class="mi">262144</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;exec_timeout_seconds&#34;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;exec_kill_grace_seconds&#34;</span><span class="p">:</span> <span class="mi">2</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -1272,7 +1198,7 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
 </div>
 <p>Каталог кэша хранит загруженные удалённые списки, чтобы они были доступны, если сеть недоступна при запуске.</p>
 <h2>api<span class="hx:absolute hx:-mt-20" id="api"></span>
-    <a href="#api" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Управляет встроенным HTTP API-сервером.</p>
+    <a href="#api" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Управляет встроенным HTTP API-сервером, на котором работает веб-интерфейс.</p>
 <table>
 	<thead>
 			<tr>
@@ -1287,13 +1213,49 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
 					<td><code>enabled</code></td>
 					<td>boolean</td>
 					<td><code>false</code></td>
-					<td>Включить HTTP API</td>
+					<td>Включить HTTP API и веб-интерфейс. В конфиге, который ставит пакет <code>keen-pbr</code>, уже включено</td>
 			</tr>
 			<tr>
 					<td><code>listen</code></td>
 					<td>string</td>
 					<td><code>&quot;0.0.0.0:12121&quot;</code></td>
 					<td>Адрес и порт для прослушивания</td>
+			</tr>
+			<tr>
+					<td><code>max_request_body_bytes</code></td>
+					<td>integer</td>
+					<td><code>1048576</code></td>
+					<td>Максимальный размер тела запроса в байтах. Минимум 1024.</td>
+			</tr>
+			<tr>
+					<td><code>read_timeout_seconds</code></td>
+					<td>integer</td>
+					<td><code>15</code></td>
+					<td>Сколько секунд ждать запрос от клиента. Минимум 1.</td>
+			</tr>
+			<tr>
+					<td><code>write_timeout_seconds</code></td>
+					<td>integer</td>
+					<td><code>15</code></td>
+					<td>Сколько секунд отправлять ответ клиенту. Минимум 1.</td>
+			</tr>
+			<tr>
+					<td><code>keep_alive_timeout_seconds</code></td>
+					<td>integer</td>
+					<td><code>20</code></td>
+					<td>Сколько секунд держать соединение открытым между запросами. Минимум 1.</td>
+			</tr>
+			<tr>
+					<td><code>authentication</code></td>
+					<td>object</td>
+					<td>отключена</td>
+					<td>Вход по паролю: <code>enabled</code> и <code>password_hash</code>. При <code>enabled: true</code> хеш обязателен. Хеш создаёт <code>keen-pbr hash-password --update</code> или веб-интерфейс: <strong>Безопасность</strong>.</td>
+			</tr>
+			<tr>
+					<td><code>cors.allowed_origins</code></td>
+					<td>array</td>
+					<td>—</td>
+					<td>Адреса сайтов (origin), которым разрешено обращаться к API из браузера, например <code>&quot;https://router.example&quot;</code>. Только точные адреса <code>http://</code> или <code>https://</code>, без пути и масок.</td>
 			</tr>
 	</tbody>
 </table>
@@ -1302,7 +1264,13 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;api&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;listen&#34;</span><span class="p">:</span> <span class="s2">&#34;0.0.0.0:12121&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;listen&#34;</span><span class="p">:</span> <span class="s2">&#34;0.0.0.0:12121&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;max_request_body_bytes&#34;</span><span class="p">:</span> <span class="mi">1048576</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;read_timeout_seconds&#34;</span><span class="p">:</span> <span class="mi">15</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;write_timeout_seconds&#34;</span><span class="p">:</span> <span class="mi">15</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;keep_alive_timeout_seconds&#34;</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;authentication&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">false</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;cors&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;allowed_origins&#34;</span><span class="p">:</span> <span class="p">[]</span> <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -1316,11 +1284,11 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
   </button>
 </div>
 </div>
-<p>API также может быть отключён во время выполнения с помощью <code>--no-api</code>, независимо от настройки в конфиге. См. <a href="/ru/docs/rest-api/">REST API</a> для документации эндпоинтов и управлений во время выполнения.</p>
+<p>Запустите <code>keen-pbr</code> с флагом <code>--no-api</code>, чтобы отключить API независимо от конфига. См. <a href="/ru/docs/rest-api/">REST API</a> для описания эндпоинтов и управления сервисом во время работы.</p>
 <h2>fwmark<span class="hx:absolute hx:-mt-20" id="fwmark"></span>
     <a href="#fwmark" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Задаёт диапазон значений 
   <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
-, которые keen-pbr ставит пакетам, чтобы направить их в нужную таблицу маршрутизации. См. <a href="/ru/docs/concepts/#fwmark-и-conntrack">fwmark и conntrack</a>.</p>
+. fwmark — метка, которую keen-pbr ставит на пакет, чтобы система отправила его в нужную таблицу маршрутизации (таблицу с маршрутами одного outbound). См. <a href="/ru/docs/concepts/#fwmark-и-conntrack">fwmark и conntrack</a>.</p>
 <table>
 	<thead>
 			<tr>
@@ -1335,13 +1303,13 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
 					<td><code>start</code></td>
 					<td>string</td>
 					<td><code>&quot;0x00010000&quot;</code></td>
-					<td>Первое значение fwmark для назначения outbounds</td>
+					<td>Первое значение fwmark для назначения outbounds. Веб-интерфейс: <strong>Начальное значение fwmark</strong></td>
 			</tr>
 			<tr>
 					<td><code>mask</code></td>
 					<td>string</td>
 					<td><code>&quot;0x00FF0000&quot;</code></td>
-					<td>Битовая маска fwmark</td>
+					<td>Битовая маска fwmark. Веб-интерфейс: <strong>Маска fwmark</strong></td>
 			</tr>
 	</tbody>
 </table>
@@ -1374,7 +1342,7 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
 </div>
 
 <h2>iproute<span class="hx:absolute hx:-mt-20" id="iproute"></span>
-    <a href="#iproute" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Задаёт номера таблиц маршрутизации и приоритеты <code>ip rule</code>, которые keen-pbr создаёт для outbounds.</p>
+    <a href="#iproute" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Задаёт номера таблиц маршрутизации и приоритеты правил <code>ip rule</code> (правил, по которым система выбирает таблицу по метке fwmark), которые keen-pbr создаёт для outbounds.</p>
 <table>
 	<thead>
 			<tr>
@@ -1389,7 +1357,7 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
 					<td><code>table_start</code></td>
 					<td>integer</td>
 					<td><code>150</code></td>
-					<td>Первый ID таблицы маршрутизации для выделения под outbounds</td>
+					<td>Первый ID таблицы маршрутизации для выделения под outbounds. Веб-интерфейс: <strong>Начальное значение таблицы маршрутизации IP</strong></td>
 			</tr>
 			<tr>
 					<td><code>rule_priority_start</code></td>
@@ -1401,7 +1369,7 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
 					<td><code>process_router_traffic</code></td>
 					<td>boolean</td>
 					<td><code>false</code></td>
-					<td>Применять правила маршрутизации к трафику самого роутера и собирать по нему IP-адреса доменов. При <code>false</code> keen-pbr обрабатывает только трафик устройств в сети. <code>detour</code> у DNS-серверов работает в любом случае.</td>
+					<td>Применять правила маршрутизации к трафику самого роутера и собирать по нему IP-адреса доменов. При <code>false</code> keen-pbr обрабатывает только трафик устройств в сети. <code>detour</code> у DNS-серверов работает в любом случае. Веб-интерфейс (<strong>Продвинутый</strong> режим): <strong>Обрабатывать собственный трафик роутера</strong>.</td>
 			</tr>
 	</tbody>
 </table>
@@ -1425,8 +1393,8 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
   </button>
 </div>
 </div>
-<p>Outbounds получают последовательные ID таблиц, начиная с <code>table_start</code>. Убедитесь, что эти ID не конфликтуют с существующими таблицами маршрутизации в вашей системе.</p>
-<p>keen-pbr удаляет из таблицы только те маршруты, которые добавил сам. Маршруты, добавленные вами или другими программами, остаются на месте при перезагрузке и остановке keen-pbr.</p>
+<p>Outbounds получают последовательные ID таблиц, начиная с <code>table_start</code>. Проверьте, что эти ID не пересекаются с существующими таблицами маршрутизации. Нельзя начинать с зарезервированных ID: 0, 128, 250-260 и всех от 32000. Конфиг с таким <code>table_start</code> не пройдёт проверку, а при выделении номеров зарезервированные ID пропускаются.</p>
+<p>При остановке keen-pbr убирает только свои маршруты. Маршруты, которые добавили вы или другие программы, остаются на месте.</p>
 <h2>Резервный канал (failover)<span class="hx:absolute hx:-mt-20" id="резервный-канал-failover"></span>
     <a href="#%d1%80%d0%b5%d0%b7%d0%b5%d1%80%d0%b2%d0%bd%d1%8b%d0%b9-%d0%ba%d0%b0%d0%bd%d0%b0%d0%bb-failover" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Правила проверяются сверху вниз, и срабатывает первое подходящее. Поэтому два одинаковых правила с разными outbound не дают резервирования: до второго правила пакет никогда не дойдёт.</p>
 <p>Если интерфейс первого outbound пропадёт, поведение зависит от <code>strict_enforcement</code>:</p>
@@ -1437,32 +1405,32 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
 <p>Чтобы трафик переключался на запасной канал, создайте один outbound типа <code>urltest</code> и добавьте в него оба интерфейса. Параметр <code>conntrack_on_switch</code> определяет, что происходит с уже открытыми соединениями, когда <code>urltest</code> переходит на более быстрый канал: <code>preserve</code> (по умолчанию) оставляет их на старом канале, <code>delete</code> удаляет их записи из 
   <abbr title="Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).">conntrack</abbr>
 , и приложения переподключаются через новый. Если выбранный канал перестал работать, записи conntrack его соединений удаляются всегда.</p>
-<h2>Что keen-pbr не делает<span class="hx:absolute hx:-mt-20" id="что-keen-pbr-не-делает"></span>
-    <a href="#%d1%87%d1%82%d0%be-keen-pbr-%d0%bd%d0%b5-%d0%b4%d0%b5%d0%bb%d0%b0%d0%b5%d1%82" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><ul>
-<li><code>ipv6_enabled: false</code> не блокирует IPv6. keen-pbr просто перестаёт маршрутизировать IPv6-трафик, и он идёт как обычно.</li>
-<li>keen-pbr узнаёт IP-адреса доменов из обычных DNS-ответов, которые проходят через роутер, даже если клиент пользуется сторонним DNS-сервером. Зашифрованный DNS (
+<h2>Что важно знать<span class="hx:absolute hx:-mt-20" id="что-важно-знать"></span>
+    <a href="#%d1%87%d1%82%d0%be-%d0%b2%d0%b0%d0%b6%d0%bd%d0%be-%d0%b7%d0%bd%d0%b0%d1%82%d1%8c" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><ul>
+<li>При <code>ipv6_enabled: false</code> IPv6-трафик идёт как обычно, мимо keen-pbr.</li>
+<li>keen-pbr узнаёт IP-адреса доменов из обычных DNS-ответов, которые проходят через роутер, даже если клиент пользуется сторонним DNS-сервером. Если устройство использует зашифрованный DNS (
   <abbr title="DNS over HTTPS — зашифрованный DNS. Роутер не может прочитать такие запросы.">DoH</abbr>
 , 
   <abbr title="DNS over TLS — зашифрованный DNS. Роутер не может прочитать такие запросы.">DoT</abbr>
-) прочитать нельзя. Если устройство использует его, keen-pbr узнает адрес сайта только из самого соединения (имя сервера в TLS, HTTP или 
+), keen-pbr узнает адрес сайта только из самого соединения (имя сервера в TLS, HTTP или 
   <abbr title="Транспортный протокол поверх UDP, на нём работает HTTP/3.">QUIC</abbr>
 ), и первые соединения могут пройти мимо VPN. Чтобы этого избежать, отключите на устройстве «безопасный DNS» и настройте DoH/DoT на самом роутере.</li>
-<li>Когда у адреса домена истекает срок в списке, это влияет только на новые соединения. Уже открытые соединения продолжают идти прежним маршрутом: их 
+<li>Когда у адреса домена истекает срок в списке, новые соединения идут уже по другому маршруту, а открытые продолжают идти прежним: их 
   <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
  хранится в 
   <abbr title="Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).">conntrack</abbr>
 .</li>
-<li><code>keen-pbr download</code> только скачивает списки в кэш. Чтобы работающий сервис начал их использовать, выполните <code>keen-pbr download --reload</code> или перезапустите сервис.</li>
-<li>Не меняйте <code>fwmark.mask</code>, пока keen-pbr остановлен после сбоя. Иначе при следующем запуске он не узнает свои старые правила и не сможет их удалить. Если так уже случилось, перезагрузите роутер.</li>
+<li><code>keen-pbr download</code> скачивает списки в кэш. Чтобы работающий сервис начал их использовать, выполните <code>keen-pbr download --reload</code> или перезапустите сервис.</li>
+<li>Если keen-pbr остановился после сбоя, не меняйте <code>fwmark.mask</code> до следующего запуска: иначе он не узнает свои старые правила и не сможет их удалить. Если так уже случилось, перезагрузите роутер.</li>
 </ul>
 <h2>Только один экземпляр<span class="hx:absolute hx:-mt-20" id="только-один-экземпляр"></span>
     <a href="#%d1%82%d0%be%d0%bb%d1%8c%d0%ba%d0%be-%d0%be%d0%b4%d0%b8%d0%bd-%d1%8d%d0%ba%d0%b7%d0%b5%d0%bc%d0%bf%d0%bb%d1%8f%d1%80" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>На одном роутере может работать только один keen-pbr. Отдельный <code>pid_file</code> не помогает: второй экземпляр использует те же имена правил и наборов firewall и сломает правила первого.</p>
-<p>Все outbound и правила маршрутизации описывайте в одной конфигурации. Если вам действительно нужны два независимых экземпляра, запускайте их в разных сетевых пространствах имён (
+<p>Все outbound и правила маршрутизации описывайте в одной конфигурации. Если нужны два независимых экземпляра, запускайте их в разных сетевых пространствах имён (
   <abbr title="Изолированная копия сетевого стека Linux со своими интерфейсами, маршрутами и firewall.">network namespace</abbr>
 ).</p>
 <h2>lists_autoupdate<span class="hx:absolute hx:-mt-20" id="lists_autoupdate"></span>
-    <a href="#lists_autoupdate" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Управляет автоматическим периодическим обновлением удалённых списков.</p>
-<p>Если секция <code>lists_autoupdate</code> не указана, автоматическое обновление выключено.</p>
+    <a href="#lists_autoupdate" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Обновление удалённых списков по расписанию.</p>
+<p>Если секции <code>lists_autoupdate</code> нет, автоматическое обновление выключено. В веб-интерфейсе: <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Автообновление списков</strong>.</p>
 <table>
 	<thead>
 			<tr>
@@ -1477,13 +1445,13 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
 					<td><code>enabled</code></td>
 					<td>boolean</td>
 					<td><code>false</code></td>
-					<td>Включить автоматическое обновление списков</td>
+					<td>Включить автоматическое обновление списков. Веб-интерфейс: <strong>Включить автообновление списков</strong></td>
 			</tr>
 			<tr>
 					<td><code>cron</code></td>
 					<td>string</td>
 					<td>—</td>
-					<td>Стандартное 5-полевное выражение cron для расписания обновления</td>
+					<td>Расписание обновления: выражение cron из 5 полей (формат ниже). Веб-интерфейс: <strong>Расписание обновления</strong></td>
 			</tr>
 	</tbody>
 </table>
@@ -1506,13 +1474,24 @@ daemon Управляет путём к PID-файлу, каталогом кэ�
   </button>
 </div>
 </div>
-<p>Поле <code>cron</code> использует стандартный 5-полевой формат: <code>минута час день-месяца месяц день-недели</code>. Пример выше запускается раз в неделю в воскресенье в 04:00.</p>
-<p>Поле <code>cron</code> валидируется, даже когда <code>enabled</code> установлен в <code>false</code>.</p>
-<p>Если удалённый список не удалось скачать при старте, демон повторяет попытки в фоне с увеличивающимися паузами (10 секунд, 30 секунд, 2 минуты, затем каждые 5 минут), пока загрузка не удастся. Это не зависит от <code>lists_autoupdate</code>. Первая загрузка списка, которого ещё нет в кэше, происходит до того, как keen-pbr применит новые настройки dnsmasq, поэтому отдельные DNS-серверы для списков к ней могут не примениться. Повторные попытки их уже используют.</p>
-<p>Вы также можете запустить обновление вручную в любое время:</p>
-<ul>
-<li>Отправьте <code>SIGHUP</code> в процесс демона: <code>kill -HUP $(cat /var/run/keen-pbr.pid)</code></li>
-</ul>
+<p>Формат <code>cron</code>: <code>минута час день-месяца месяц день-недели</code>. Пример выше запускается раз в неделю в воскресенье в 04:00.</p>
+<p>Если <code>cron</code> заполнено, оно проверяется, даже когда <code>enabled</code> равно <code>false</code>. При <code>enabled: true</code> оно обязательно.</p>
+<p>Если удалённый список не удалось скачать при старте, демон повторяет попытки в фоне с увеличивающимися паузами (10 секунд, 30 секунд, 2 минуты, затем каждые 5 минут), пока загрузка не удастся. Это не зависит от <code>lists_autoupdate</code>.</p>
+<p>Обновить списки вручную можно в любой момент:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr download --reload</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

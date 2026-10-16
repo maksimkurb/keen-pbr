@@ -1,6 +1,12 @@
 # REST API
 
-This page documents the built-in HTTP REST API.
+The REST API lets scripts and external systems control and monitor keen-pbr. For example:
+
+- Prometheus and Grafana show VPN channel health and latency (see [GET /metrics](#get-metrics)).
+- A cron job refreshes lists on a schedule through `POST /api/lists/refresh`.
+- A script restarts routing through `POST /api/service/restart`.
+
+If you only use the web interface, you can skip this page.
 
 The REST API is available when:
 - Full package version is installed (`keen-pbr`, not `keen-pbr-headless`)
@@ -8,6 +14,12 @@ The REST API is available when:
 - The `--no-api` flag was not passed at startup
 
 ## Configuration
+
+In the web interface, open **Security** > **Authentication and CORS**. Turn on **Enable authentication**, enter a **New password** and confirm it. If a website on another address must call the API from a browser, add its address to **Allowed CORS origins** (one per line). Changes take effect immediately.
+
+Set the device name in **General** > **Settings** > **General** > **Device name**. It appears in the browser tab title and under the keen-pbr logo, which helps tell several routers apart.
+
+The same settings in `config.json`:
 
 ```json { filename="config.json" }
 {
@@ -26,55 +38,47 @@ The REST API is available when:
 }
 ```
 
-Generate a verifier interactively:
+`device_name` is optional and may be empty.
+
+If you edit `config.json` by hand, generate the password hash with this command (it asks for the password):
 
 ```bash
 keen-pbr hash-password
 ```
 
-To enable authentication and write the generated verifier directly to the
-configured `config.json`, use `keen-pbr --config /path/to/config.json hash-password --update`.
-The command updates the file atomically and reminds you to restart the keen-pbr
-service because it edits the file outside the running daemon. Authentication
-and CORS changes made through the WebUI are persisted and take effect
-immediately, without applying a pending routing configuration draft.
+To write the hash straight into the file, run `keen-pbr --config /path/to/config.json hash-password --update`. Then restart the keen-pbr service: the daemon does not notice changes made to the file from outside.
 
-`device_name` is optional and may be empty. When set, the WebUI uses it in the
-browser page title and beneath the keen-pbr logo to distinguish devices.
+The password is stored as an Argon2id hash. Hashes from older keen-pbr versions do not work: set the password again.
 
-The password is stored as an Argon2id hash. Hashes from older keen-pbr versions do not work: if the password was set in an older version, set it again.
-The config API never returns or accepts the stored verifier. The WebUI reads
-only `GET /api/auth/password` state and sends a new clear-text password only to
-the write-only `POST /api/auth/settings` operation; hashing happens in the daemon.
+When authentication is on, requests to the API use one of two methods:
 
-Authenticated API clients may use Basic authentication with username `admin`
-or a Bearer token returned by `POST /api/auth/login`. Only one Bearer session is
-valid at a time; a successful login immediately invalidates the previous UI
-session. Bearer sessions expire after 24 hours and are lost on daemon restart.
+- Basic authentication: username `admin` and your password (`curl -u admin:password ...`).
+- Bearer token: a temporary key issued by `POST /api/auth/login` and sent in the header `Authorization: Bearer <token>`. A token is valid for 24 hours. Only one token is valid at a time: a new login, including one in the web interface, cancels the previous one. After the daemon restarts, get a new token.
 
-When authentication is disabled, cross-origin browser requests are rejected.
-When enabled, exact configured origins and Chrome/Firefox extension origins are
-allowed. Since passwords are sent to the API during login or Basic auth, use a
-trusted network or an HTTPS reverse proxy.
+Without logging in, only `GET /api/auth/status` and `POST /api/auth/login` are available. `/metrics` is protected like the rest of the API.
 
-By default, the API listens on `0.0.0.0:12121`. All endpoints are served at the configured `api.listen` address.
+When authentication is off, requests from other websites in a browser are blocked. When it is on, addresses from **Allowed CORS origins** are allowed, as well as Chrome and Firefox extensions. The password travels over the network in clear text, so use a trusted network or HTTPS through a reverse proxy (a web server in front of keen-pbr).
 
-The [OpenAPI document](https://github.com/maksimkurb/keen-pbr/blob/main/docs/openapi.yaml) is the complete request and response schema. The main routes are:
+By default, the API listens on `0.0.0.0:12121` (`api.listen`). All routes are served at that address.
+
+The [OpenAPI document](https://github.com/maksimkurb/keen-pbr/blob/main/docs/openapi.yaml) is the complete request and response schema. The main routes are listed below (an outbound is a channel that traffic goes through: a VPN interface, your ISP, or a block):
 
 | Route | Purpose |
 |---|---|
-| `GET /api/health/service` | Service, config draft, lifecycle operation, and rollback status. |
+| `GET /api/health/service` | Service, config draft, current start/stop operation, and rollback status. |
 | `POST /api/service/start`, `/stop`, `/restart` | Start, stop, or restart routing asynchronously. |
 | `GET /api/config`, `POST /api/config` | Read or stage a validated config draft. |
-| `POST /api/config/discard`, `/save`, `/rollback` | Discard a draft, persist/apply it, or explicitly roll back a failed apply. |
-| `GET /api/status/events` | Server-Sent Events for service, outbound, interface, and health issue, and routing health, authentication status, and config changes (`snapshot`, `service`, `outbounds`, `interfaces`, `issues`, `routing`, `auth`, `config`). The `config` event only carries a revision that changes with the active config, the draft, or the list refresh state; read the data with `GET /api/config`. The REST endpoints, including `GET /api/health/issues`, `GET /api/health/routing`, and `GET /api/auth/status`, stay available. |
-| `GET /api/runtime/outbounds`, `/api/runtime/interfaces` | Current outbound health and system interface inventory. |
-| `GET /api/health/routing`, `POST /api/routing/test` | Cached routing/firewall health and a per-target routing diagnostic. |
+| `GET /api/config/defaults` | Default values for settings that are not set in the config. |
+| `POST /api/config/discard`, `/save`, `/rollback` | Discard a draft, save and apply it, or return to the previous config after a failed apply. |
+| `GET /api/status/events` | Server-Sent Events (SSE) stream: the server pushes changes, so you do not need to poll. Events: `snapshot` (full state on connect), `service`, `outbounds`, `interfaces`, `issues`, `routing`, `auth`, `config`. A keep-alive signal arrives every 15 seconds. The `config` event carries only a revision number; read the data with `GET /api/config`. After a dropped connection, the new connection starts with a fresh `snapshot`. |
+| `GET /api/health/issues` | Detected problems and kernel check results: the same list as the overview page and `keen-pbr status`. |
+| `GET /api/runtime/outbounds`, `/api/runtime/interfaces` | Current outbound state and the list of system interfaces. |
+| `GET /api/health/routing`, `POST /api/routing/test` | Routing and firewall diagnostics, and a route check for a specific domain or IP address. |
 | `POST /api/lists/refresh` | Refresh one or all remote URL lists. |
-| `GET /api/dns/test` | Stream DNS and L7 interception events or run the Web UI DNS marker check. |
-| `GET /api/diagnostics/command-failure` | Read the recent command failure log. |
+| `GET /api/dns/test` | Stream of DNS and TLS/QUIC interception events, or the DNS check in the web interface. |
+| `GET /api/diagnostics/command-failure` | Log of recent system command failures. |
 | `GET /metrics` | Prometheus text metrics. |
-| `/api/auth/status`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/password`, `/api/auth/settings` | Authentication status and session/password management. |
+| `/api/auth/status`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/password`, `/api/auth/settings` | Authentication status, login and logout, password (`GET` shows whether one is set; `POST` sets a new one), and authentication and CORS settings. |
 
 ---
 
@@ -90,7 +94,7 @@ curl http://127.0.0.1:12121/api/health/service
 
 ```json
 {
-  "version": "3.0.0",
+  "version": "3.4.0",
   "build": "20261010120000",
   "status": "running",
   "runtime_state": "running",
@@ -103,29 +107,21 @@ curl http://127.0.0.1:12121/api/health/service
 }
 ```
 
-When interception is configured, the same response includes an `intercept`
-object. It reports `dns_hold_active` and `l7_active` independently, capability
-flags (`nfqueue`, `nflog`, `connbytes`), and counters for DNS parsing/holds,
-partial TCP, L7 packets, set updates, {{< term "conntrack" >}} cleanup, and {{< term "NFQUEUE" >}}/NFLOG
-overruns. A missing NFQUEUE capability does not imply that L7 is unavailable,
-and vice versa.
+`status` is `running`, `degraded` (DNS interception is enabled but unavailable) or `stopped`.
 
-For live outbound runtime state (health, latency, circuit breaker) use `GET /api/runtime/outbounds`.
+When interception is enabled, the response includes an `intercept` object: whether DNS interception (`dns_hold_active`) and traffic analysis (`l7_active`) are active, the kernel features available (`nfqueue`, `nflog`, `connbytes`, `addrtype`), and counters of processed packets, errors and queue overruns ({{< term "NFQUEUE" >}}/NFLOG). These values are mostly useful for diagnostics.
+
+For channel state (health, latency) see `GET /api/runtime/outbounds`.
 
 ## GET /metrics
 
-Returns Prometheus text format 0.0.4. It uses the same authentication as the API,
-including when authentication is enabled; scrape it with Basic auth or the
-current Bearer token. It may return `503` if the metrics provider is unavailable:
+Returns metrics in Prometheus text format 0.0.4. Prometheus requests this address periodically (a scrape) and stores the values. Authentication is the same as for the API: use Basic authentication or the current Bearer token. If metrics are unavailable, the response is `503`:
 
 ```bash
 curl -u admin:password http://127.0.0.1:12121/metrics
 ```
 
-All durations are floating-point **seconds**. A series that is not meaningful is
-**omitted** instead of being exported as `0` (see "Omitted series" below).
-Every family has `# HELP` and `# TYPE` exactly once; families without samples
-are not printed.
+All durations are in **seconds** (fractional numbers). If a value is unknown, the metric is **omitted** instead of being exported as `0` (see "Omitted series" below).
 
 ### Process and configuration
 
@@ -133,25 +129,19 @@ are not printed.
 |---|---|---|---|
 | `keen_pbr_build_info` | gauge | `version`, `commit`, `firewall_backend` | Always `1`; build identity. |
 | `keen_pbr_process_start_time_seconds` | gauge | - | Unix start time; uptime is `time() - keen_pbr_process_start_time_seconds`. |
-| `keen_pbr_active_rules` | gauge | - | Realized firewall rules. |
-| `keen_pbr_config_reload_last_success_timestamp_seconds` | gauge | - | Unix time the runtime last finished applying a configuration (startup counts). Omitted until the first one. |
+| `keen_pbr_active_rules` | gauge | - | Number of applied firewall rules. |
+| `keen_pbr_config_reload_last_success_timestamp_seconds` | gauge | - | Unix time of the last completed config apply (startup counts). Omitted until the first one. |
 | `keen_pbr_config_reload_errors_total` | counter | - | Failed config reloads and applies (parse, validation, prepare or apply failures). |
-| `keen_pbr_list_last_update_timestamp_seconds` | gauge | `list` | Unix time of the last successful check of a remote (URL) list, whether or not its content changed. In-memory: omitted until a refresh succeeded in this process. |
+| `keen_pbr_list_last_update_timestamp_seconds` | gauge | `list` | Unix time of the last successful check of a remote (URL) list, whether or not its content changed. Omitted until the first successful refresh after startup. |
 | `keen_pbr_list_update_errors_total` | counter | `list` | Failed refresh attempts of a remote list. |
 
 ### Errors
 
-`keen_pbr_errors_total{subsystem}` is a single counter family; all values are
-always present (zeros included): `firewall_apply` (failed firewall applies),
-`netlink` (route / policy-rule operations), `set_write` (dynamic set writes),
-`conntrack` (cleanup errors), `dns_parse`, `dns_tcp_partial` (DNS-over-TCP
-messages not fully reassembled) and `dns_late_write` (failed deferred DNS
-writes).
+`keen_pbr_errors_total{subsystem}` counts errors by subsystem. All values are always present, zeros included: `firewall_apply` (applying firewall rules), `netlink` (setting up routes), `set_write` (writing addresses to sets), `conntrack`, `dns_parse` (parsing DNS packets), `dns_tcp_partial` (incomplete DNS-over-TCP messages) and `dns_late_write` (failed deferred writes after a DNS answer).
 
 ### Probes (urltest / icmptest)
 
-Labelled with the child `outbound`, test group `test_outbound`, `interface` and
-`type` (`urltest` or `icmptest`).
+A probe is a periodic check of a channel: a request to a URL (`urltest`) or a ping (`icmptest`). Labels: `outbound` (the channel being checked), `test_outbound` (the probe group), `interface`, `type` (`urltest` or `icmptest`).
 
 | Metric | Type | Meaning |
 |---|---|---|
@@ -164,7 +154,7 @@ Labelled with the child `outbound`, test group `test_outbound`, `interface` and
 | `keen_pbr_probe_latency_seconds` | gauge | Latency of the last successful probe: ICMP is the mean of the received replies, URL is the request time. Sub-millisecond precision. |
 | `keen_pbr_probe_latency_min_seconds`, `keen_pbr_probe_latency_max_seconds` | gauge | Fastest and slowest reply of the last successful ICMP probe. `type="icmptest"` only. |
 | `keen_pbr_urltest_selected` | gauge | Labels `group`, `outbound`: `1` for the group's currently selected outbound, `0` for the other members. |
-| `keen_pbr_urltest_selection_changes_total` | counter | Label `group`: selection changes since the group was registered (a config apply registers it again, which resets the counter). |
+| `keen_pbr_urltest_selection_changes_total` | counter | Label `group`: selection changes since the config was last applied (the counter resets on apply). |
 
 #### Omitted series
 
@@ -178,9 +168,7 @@ Labelled with the child `outbound`, test group `test_outbound`, `interface` and
 
 ### Interception
 
-All of these are updated on the DNS / L7 packet paths with a single relaxed
-atomic increment on a pre-allocated counter; labels are fixed array slots that
-are only rendered when `/metrics` is scraped.
+Metrics for DNS interception and traffic (L7) analysis. `path` is `dns` or `l7`.
 
 | Metric | Type | Labels | Meaning |
 |---|---|---|---|
@@ -199,13 +187,17 @@ are only rendered when `/metrics` is scraped.
 | `keen_pbr_conntrack_requests_total` | counter | - | Conntrack cleanup requests. |
 | `keen_pbr_conntrack_deleted_total` | counter | - | Conntrack entries deleted. |
 
+### Balancing and marked packets
+
+These metrics exist only with the iptables firewall backend. A series with no data is omitted. Counters restart from zero when the firewall rules are rebuilt.
+
+| Metric | Type | Labels | Meaning |
+|---|---|---|---|
+| `keen_pbr_balance_classifications_total` | counter | `outbound`, `candidate`, `family` = `ipv4`, `ipv6` | New connections that a balance group sent through the `candidate` channel. |
+| `keen_pbr_skip_marked_packets_total` | counter | `family` = `ipv4`, `ipv6` | Packets keen-pbr skipped because they were already marked (**General** > **Settings** > **General** > **Skip packets that are already marked**). |
+
 The "slow write" share is derived from the `le="0.025"` bucket of
 `keen_pbr_set_write_duration_seconds` (writes slower than 25 ms).
-
-Not exported: per-outbound routed bytes/packets and per-set element counts.
-Both would need the firewall counters or a {{< term "netlink" >}} set dump to be read on every
-scrape (through a subprocess or a kernel dump, with a different mechanism per
-firewall backend), which is deliberately kept out of the daemon.
 
 Prometheus scrape configuration:
 
@@ -250,12 +242,7 @@ sum by (subsystem) (increase(keen_pbr_errors_total[1h])) > 0
 
 ### Grafana dashboard and alerts
 
-Import [keen-pbr-dashboard.json](https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json)
-into Grafana (Dashboards - New - Import). It expects a Prometheus data source
-with UID `prometheus`, and has `job` and `outbound` variables, a 30 s refresh,
-and the rows Status, Outbounds, DNS interception, Sets & lists and Errors. Use a
-scrape interval of 30 s or less: the bar panels compute `increase()` over
-one-minute windows.
+Import [keen-pbr-dashboard.json](https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json) into Grafana (Dashboards > New > Import). It needs a Prometheus data source with UID `prometheus`. The dashboard has `job` and `outbound` variables, a 30 s refresh, and the sections Status, Outbounds, DNS interception, Sets & lists and Errors. Use a scrape interval of 30 s or less: the bar panels compute `increase()` over one-minute windows.
 
 Example alerting rules:
 
@@ -299,7 +286,7 @@ Refreshes remote URL-backed lists from the active daemon config.
 
 - If `name` is provided, only that URL-backed list is refreshed.
 - If `name` is omitted, all URL-backed lists are refreshed.
-- If refreshed data changed and affects active routing/DNS while the runtime is running, keen-pbr rebuilds runtime state so updates take effect immediately.
+- If list contents changed and that affects routing or DNS, keen-pbr applies the changes immediately.
 
 ```bash {filename="bash"}
 curl -X POST http://127.0.0.1:12121/api/lists/refresh \
@@ -341,14 +328,14 @@ Success payload fields:
 - `refreshed_lists` *(array[string])*: URL-backed lists that were refreshed.
 - `changed_lists` *(array[string])*: Refreshed lists whose cached contents changed.
 - `failed_lists` *(array[string])*: URL-backed lists that could not be refreshed.
-- `reloaded` *(boolean)*: Whether the running routing runtime was rebuilt because relevant changed lists were in active use.
+- `reloaded` *(boolean)*: Whether the changes were applied because the changed lists are in use.
 
 ### Status / Error Behavior
 
 - `200`: Refresh operation completed.
 - `400`: Requested list exists but is not URL-backed.
 - `404`: Requested list not found.
-- `409`: Refresh rejected because a staged draft exists or another config/runtime operation is already in progress.
+- `409`: Refresh rejected: there is an unsaved config draft or another operation is already running.
 
 Error response body:
 
@@ -362,7 +349,7 @@ Error response body:
 
 ## GET /api/config
 
-Returns the visible configuration and a flag indicating whether a staged in-memory draft exists. The `api` security settings are intentionally omitted. The response also includes per-list refresh state.
+Returns the current configuration and a flag showing whether an unsaved draft exists. The `api` settings (password, CORS) are not included. The response also contains list refresh state.
 
 ```bash {filename="bash"}
 curl http://127.0.0.1:12121/api/config
@@ -383,7 +370,7 @@ curl http://127.0.0.1:12121/api/config
 }
 ```
 
-`is_draft` is `true` when a config has been staged via `POST /api/config` but not yet saved to disk.
+`is_draft` is `true` when a config was submitted via `POST /api/config` but not yet saved to disk.
 
 ### Error Response (500)
 
@@ -397,9 +384,9 @@ curl http://127.0.0.1:12121/api/config
 
 ## POST /api/config
 
-Validates the provided JSON body as a config file and stages it in memory. The config is **not** written to disk and the routing runtime is **not** changed. Use `POST /api/config/save` to persist and apply the staged draft.
+Validates the submitted JSON as a config file and keeps it in memory as a draft. Nothing is written to disk and routing does not change. To save and apply the draft, call `POST /api/config/save`.
 
-The `api` field in the submitted body is ignored; the daemon keeps the security settings already in effect.
+The `api` field in the request is ignored.
 
 ```bash {filename="bash"}
 curl -X POST http://127.0.0.1:12121/api/config \
@@ -431,7 +418,7 @@ curl -X POST http://127.0.0.1:12121/api/config \
 
 ## POST /api/config/save
 
-Accepts an asynchronous operation that persists the staged config to disk and then reconciles the routing runtime. HTTP `202` confirms acceptance only; it does not mean the runtime apply has completed.
+Starts saving the draft to disk and applying the configuration in the background. `202` means only that the operation was accepted, not that it has finished.
 
 ```bash {filename="bash"}
 curl -X POST http://127.0.0.1:12121/api/config/save
@@ -446,7 +433,7 @@ curl -X POST http://127.0.0.1:12121/api/config/save
 }
 ```
 
-### Error Response (400 — no staged config)
+### Error Response (400 — no draft)
 
 ```json
 {
@@ -454,13 +441,17 @@ curl -X POST http://127.0.0.1:12121/api/config/save
 }
 ```
 
-After acceptance, inspect `GET /api/health/service` and its `lifecycle_operation` field, or subscribe to `/api/status/events`, until the operation reaches a terminal state. Persistence happens before runtime reconciliation. If reconciliation fails after the file was committed, the daemon reports a broken runtime and sets `rollback_available`; it does not automatically restore the prior file or runtime. `POST /api/config/rollback` explicitly restores the retained previous config and reconciles it. On success the runtime becomes active and the staged revision is cleared. `POST /api/config/discard` only discards an unsaved in-memory draft; it does not change the file or runtime.
+Other errors: `400` (the draft failed validation), `409` (another operation is already running), `500`.
+
+After `202`, watch the `lifecycle_operation` field in `GET /api/health/service`, or subscribe to `/api/status/events`, until the operation finishes.
+
+If applying failed after the file was saved, `GET /api/health/service` shows `rollback_available: true`. The file stays new. To return to the previous config, call `POST /api/config/rollback` (`409` if there is nothing to roll back or another operation is running). `POST /api/config/discard` only drops an unsaved draft; it changes neither the file nor routing.
 
 ---
 
 ## GET /api/runtime/outbounds
 
-Returns the daemon's current outbound runtime state: live urltest selection, interface reachability, and circuit breaker status.
+Returns the current state of outbounds: which channel a urltest group has selected right now (the group picks the channel with the lowest latency on its own), whether an interface is reachable, and whether it was switched off after a series of failures.
 
 ```bash {filename="bash"}
 curl http://127.0.0.1:12121/api/runtime/outbounds
@@ -476,24 +467,32 @@ curl http://127.0.0.1:12121/api/runtime/outbounds
       "type": "interface",
       "status": "healthy",
       "interfaces": [
-        { "name": "tun0", "status": "up" }
+        { "outbound_tag": "vpn", "interface_name": "tun0", "status": "active" }
       ]
     },
     {
       "tag": "auto_select",
       "type": "urltest",
       "status": "healthy",
-      "selected_outbound": "vpn"
+      "interfaces": [
+        { "outbound_tag": "vpn", "interface_name": "tun0", "status": "active" },
+        { "outbound_tag": "vpn2", "interface_name": "tun1", "status": "backup" }
+      ]
     }
   ]
 }
 ```
 
+- `type`: `interface`, `table`, `blackhole`, `ignore`, `urltest` or `icmptest`.
+- Outbound `status`: `healthy` (working), `degraded` (partly working), `unavailable` (no usable path), `unknown`.
+- `status` in `interfaces`: `active` (traffic goes through it), `backup` (standby), `degraded`, `unavailable` (switched off after a series of failures), `unknown`. In a urltest group the selected channel is `active`.
+- Optional fields: `latency_ms`, `probe_target`, `detail` and packet counters.
+
 ---
 
 ## POST /api/routing/test
 
-Resolves the target (if a domain), scans configured route rules against cached list data to determine the expected outbound, and queries the live kernel firewall sets to determine the actual outbound. Useful for diagnosing routing mismatches without restarting the daemon.
+Shows which outbound traffic to a domain or IP address will use. For a domain it first resolves the IP addresses. It then checks the routing rules against the lists (the expected outbound) and the firewall sets (the actual outbound). This helps find a mismatch without restarting the daemon.
 
 ```bash {filename="bash"}
 curl -X POST http://127.0.0.1:12121/api/routing/test \
@@ -520,15 +519,21 @@ address, or {{< term "DSCP" >}}. Without them, only list membership of the targe
       "ok": true,
       "list_match": { "list": "my_domains", "via": "domain" }
     }
-  ]
+  ],
+  "warnings": [],
+  "rule_diagnostics": [],
+  "no_matching_rule": false
 }
 ```
+
+- `ok` means the expected and actual outbound match. Instead of an outbound name you may see `(default)` (no rule matched, traffic uses the default) or `(unknown)` (could not be determined).
+- `warnings` holds non-fatal warnings, for example a DNS error. `rule_diagnostics` is a per-rule breakdown (shown in the web interface). `no_matching_rule` is `true` when no rule matched.
 
 ---
 
 ## GET /api/health/routing
 
-Returns the daemon's cached canonical report of kernel routing and firewall state. A cold or stale snapshot triggers an off-loop refresh and may temporarily report a pending/degraded result; each request does not synchronously inspect the kernel.
+Returns a report on whether routes and the firewall are set up correctly: firewall rules with packet marks (an fwmark is a number the kernel uses to pick a route), route tables, and the rules that select a table. The report is refreshed in the background, so right after startup it may briefly show an incomplete result.
 
 ```bash {filename="bash"}
 curl http://127.0.0.1:12121/api/health/routing
@@ -544,7 +549,7 @@ curl http://127.0.0.1:12121/api/health/routing
     "chain_present": true,
     "prerouting_hook_present": true,
     "verification_state": "verified",
-    "detail": "chain KeenPbrTable found in table mangle"
+    "detail": "ok"
   },
   "firewall_rules": [
     {
@@ -582,6 +587,8 @@ curl http://127.0.0.1:12121/api/health/routing
 }
 ```
 
+`firewall.verification_state` is `verified`, `unavailable` (firewall data not available) or `failed`. `firewall.detail` is `ok` on success and describes the cause otherwise. The optional `warnings` array lists warnings (for example, NAT is not set up or strict `rp_filter` is on); they do not affect `overall`.
+
 **Overall status values:**
 - `ok` — all checks passed
 - `degraded` — one or more checks failed
@@ -605,17 +612,12 @@ curl http://127.0.0.1:12121/api/health/routing
 
 ## GET /api/dns/test
 
-Streams the daemon's traffic interception events as Server-Sent Events. Each
-connection receives `HELLO` first. The default `show=keen-pbr` view delivers
-only marker events and closes after the matching marker; `show=all` (or the
-compatibility alias `show=full`) stays open and delivers DNS, TLS {{< term "SNI" >}}, HTTP
-Host, {{< term "QUIC" >}} Initial, and marker observations, including domains that did not
-match a configured list. Pass `domain=<generated
-marker>` with the default view to keep unrelated checks from closing it.
+Streams interception events as Server-Sent Events (the server sends events as they happen). `HELLO` comes first. The DNS check in the web interface uses this stream: it requests a special marker domain (`check.keen-pbr.fyi`) and waits for it to appear in the stream.
 
-`show=all` exposes the traffic of every client, so it requires API
-authentication to be enabled. Without it the endpoint answers `403`; the
-default marker view stays available.
+- `show=keen-pbr` (default): only marker events. The stream closes when the matching marker arrives. Pass `domain=<marker>` to keep your check separate from others.
+- `show=all` (or `show=full`): the stream stays open and shows DNS queries, TLS {{< term "SNI" >}}, HTTP Host, {{< term "QUIC" >}} Initial and markers, including domains that are not in any list.
+
+`show=all` exposes the traffic of every client, so it works only when API authentication is on. Without it the response is `403`. The default view is always available. An invalid `show` or `domain` returns `400`.
 
 ```bash {filename="bash"}
 curl -N -u admin:password 'http://127.0.0.1:12121/api/dns/test?show=all'

@@ -23,7 +23,7 @@
       <description>
         
         
-        &lt;p&gt;This page is for developers and package maintainers who want to build keen-pbr from source.&lt;/p&gt;
+        &lt;p&gt;This page is for developers and package maintainers who want to build keen-pbr from source. If you just need a ready-made package, see &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/&#34;&gt;installation&lt;/a&gt;.&lt;/p&gt;
 &lt;h2&gt;Prerequisites&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;prerequisites&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#prerequisites&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;table&gt;
 	&lt;thead&gt;
@@ -50,52 +50,70 @@
 					&lt;td&gt;any&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
-					&lt;td&gt;Docker (for cross-compilation)&lt;/td&gt;
+					&lt;td&gt;git&lt;/td&gt;
+					&lt;td&gt;any&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Docker with Buildx (for package builds)&lt;/td&gt;
 					&lt;td&gt;any&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;h2&gt;Dependencies&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dependencies&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#dependencies&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Dependencies are bundled as git submodules or resolved from system packages during the CMake build.&lt;/p&gt;
+    &lt;a href=&#34;#dependencies&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Some libraries are bundled in the repository as git submodules (the &lt;code&gt;third_party&lt;/code&gt; folder); the rest come from system packages during the CMake build. For a host build, install the development headers of the system libraries (on Debian and Ubuntu: &lt;code&gt;libcurl4-openssl-dev&lt;/code&gt;, &lt;code&gt;libnl-3-dev&lt;/code&gt;, &lt;code&gt;libnl-route-3-dev&lt;/code&gt;, &lt;code&gt;zlib1g-dev&lt;/code&gt;).&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;
 					&lt;th&gt;Library&lt;/th&gt;
+					&lt;th&gt;Source&lt;/th&gt;
 					&lt;th&gt;Purpose&lt;/th&gt;
 			&lt;/tr&gt;
 	&lt;/thead&gt;
 	&lt;tbody&gt;
 			&lt;tr&gt;
 					&lt;td&gt;libcurl&lt;/td&gt;
+					&lt;td&gt;system&lt;/td&gt;
 					&lt;td&gt;Downloading remote lists&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
-					&lt;td&gt;nlohmann_json&lt;/td&gt;
-					&lt;td&gt;JSON parsing&lt;/td&gt;
+					&lt;td&gt;libnl-3, libnl-route-3&lt;/td&gt;
+					&lt;td&gt;system&lt;/td&gt;
+					&lt;td&gt;Routes and rules through Netlink&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
-					&lt;td&gt;libnl&lt;/td&gt;
-					&lt;td&gt;Netlink socket communication (routing/rules)&lt;/td&gt;
+					&lt;td&gt;zlib&lt;/td&gt;
+					&lt;td&gt;system&lt;/td&gt;
+					&lt;td&gt;Needed by the built-in HTTP server (&lt;code&gt;WITH_API=ON&lt;/code&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;libresolv&lt;/td&gt;
+					&lt;td&gt;part of libc&lt;/td&gt;
 					&lt;td&gt;DNS resolution&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;libunwind&lt;/td&gt;
-					&lt;td&gt;Debian builds use it for signal-context stack unwinding by default. OpenWrt and Keenetic builds use register-only crash diagnostics if it is unavailable; &lt;code&gt;KEEN_PBR_USE_LIBUNWIND&lt;/code&gt; controls whether CMake attempts to find it.&lt;/td&gt;
+					&lt;td&gt;system&lt;/td&gt;
+					&lt;td&gt;Call stacks on crashes. Debian builds need it by default. OpenWrt and Keenetic builds work without it and show only registers on a crash. &lt;code&gt;KEEN_PBR_USE_LIBUNWIND&lt;/code&gt; controls whether CMake looks for it.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;nlohmann_json&lt;/td&gt;
+					&lt;td&gt;submodule&lt;/td&gt;
+					&lt;td&gt;JSON parsing&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;fmt&lt;/td&gt;
-					&lt;td&gt;C++17 formatting polyfill&lt;/td&gt;
+					&lt;td&gt;submodule&lt;/td&gt;
+					&lt;td&gt;String formatting&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
-					&lt;td&gt;cpptrace&lt;/td&gt;
-					&lt;td&gt;Vendored crash diagnostics library&lt;/td&gt;
+					&lt;td&gt;Monocypher&lt;/td&gt;
+					&lt;td&gt;submodule&lt;/td&gt;
+					&lt;td&gt;Cryptography (password hashing)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;cpp-httplib&lt;/td&gt;
-					&lt;td&gt;Embedded HTTP API server when &lt;code&gt;WITH_API=ON&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;submodule&lt;/td&gt;
+					&lt;td&gt;Built-in HTTP server when &lt;code&gt;WITH_API=ON&lt;/code&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
@@ -103,14 +121,14 @@
     &lt;a href=&#34;#build&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;A &lt;code&gt;Makefile&lt;/code&gt; wraps all build steps:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Clone the repository&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;git clone https://github.com/maksimkurb/keen-pbr.git
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Clone the repository with submodules&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;git clone --recurse-submodules https://github.com/maksimkurb/keen-pbr.git
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;nb&#34;&gt;cd&lt;/span&gt; keen-pbr
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Build&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Run tests&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Run tests (needs python3 and sh; dnsmasq is optional)&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make &lt;span class=&#34;nb&#34;&gt;test&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Clean build artifacts&lt;/span&gt;
@@ -142,11 +160,10 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;The binary is produced at &lt;code&gt;cmake-build-gcc/keen-pbr&lt;/code&gt; (&lt;code&gt;cmake-build-clang&lt;/code&gt; is
-used by the Clang targets).&lt;/p&gt;
-&lt;p&gt;Run &lt;code&gt;make help&lt;/code&gt; to see all available build and packaging targets.&lt;/p&gt;
+&lt;p&gt;The binary is produced at &lt;code&gt;cmake-build-gcc/keen-pbr&lt;/code&gt;. The Clang targets (&lt;code&gt;make clang-build&lt;/code&gt;) build into &lt;code&gt;cmake-build-clang&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Run &lt;code&gt;make help&lt;/code&gt; to see all build and packaging targets.&lt;/p&gt;
 &lt;h2&gt;Build Options&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;build-options&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#build-options&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Pass options during &lt;code&gt;cmake&lt;/code&gt; configure:&lt;/p&gt;
+    &lt;a href=&#34;#build-options&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Pass options when configuring with &lt;code&gt;cmake&lt;/code&gt;:&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;
@@ -159,19 +176,35 @@ used by the Clang targets).&lt;/p&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;WITH_API&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;ON&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;Build with embedded HTTP API server&lt;/td&gt;
+					&lt;td&gt;Build with the built-in HTTP server (REST API and web interface)&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;USE_KEENETIC_API&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;OFF&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Enable the Keenetic integration (DNS server type &lt;code&gt;keenetic&lt;/code&gt;)&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;KEEN_PBR_PLATFORM_KEENETIC&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;OFF&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Build for KeeneticOS: iptables only, no balancing&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;KEEN_PBR_USE_LIBUNWIND&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;ON&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;Attempt to find and use &lt;code&gt;libunwind&lt;/code&gt; for crash diagnostics. Debian builds require it when enabled; OpenWrt and Keenetic can fall back to register-only diagnostics when it is missing or disabled.&lt;/td&gt;
+					&lt;td&gt;Look for and use &lt;code&gt;libunwind&lt;/code&gt; for crash diagnostics. Debian builds require it when enabled; OpenWrt and Keenetic use register-only diagnostics when it is missing or disabled.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;BUILD_TESTS&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;OFF&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Build unit tests (&lt;code&gt;make test&lt;/code&gt; turns it on itself)&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
-&lt;p&gt;Example:&lt;/p&gt;
+&lt;p&gt;Example: build without the HTTP server (like the &lt;code&gt;keen-pbr-headless&lt;/code&gt; package):&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;cmake -S . -B cmake-build-gcc -DWITH_API&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;OFF&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;cmake -S . -B cmake-build-gcc -DWITH_API&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;OFF
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;cmake --build cmake-build-gcc&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;
@@ -184,8 +217,7 @@ used by the Clang targets).&lt;/p&gt;
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;h2&gt;Debian / Ubuntu Packages&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;debian--ubuntu-packages&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#debian--ubuntu-packages&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;For Debian/Ubuntu targets, use the Docker-backed package build targets from the root &lt;code&gt;Makefile&lt;/code&gt;.&lt;/p&gt;
-&lt;p&gt;Build Debian packages from the repository root:&lt;/p&gt;
+    &lt;a href=&#34;#debian--ubuntu-packages&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Debian and Ubuntu packages are built in Docker with targets from the root &lt;code&gt;Makefile&lt;/code&gt;. You need Docker and the Buildx plugin. Run from the repository root:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make deb-packages&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
@@ -200,7 +232,7 @@ used by the Clang targets).&lt;/p&gt;
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Use an explicit Debian release and architecture inside &lt;code&gt;build/packages/&lt;/code&gt;:&lt;/p&gt;
+&lt;p&gt;You can set the Debian release (&lt;code&gt;bookworm&lt;/code&gt; or &lt;code&gt;trixie&lt;/code&gt;) and the architecture (&lt;code&gt;amd64&lt;/code&gt; or &lt;code&gt;arm64&lt;/code&gt;) explicitly. The defaults are &lt;code&gt;bookworm&lt;/code&gt; and &lt;code&gt;amd64&lt;/code&gt;:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# AMD64&lt;/span&gt;
@@ -219,7 +251,7 @@ used by the Clang targets).&lt;/p&gt;
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Rebuild the reusable Debian builder image explicitly:&lt;/p&gt;
+&lt;p&gt;To recreate the Debian builder image:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make debian-builder-image&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
@@ -234,23 +266,15 @@ used by the Clang targets).&lt;/p&gt;
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Artifacts are written to &lt;code&gt;build/packages/&lt;/code&gt;:&lt;/p&gt;
+&lt;p&gt;The finished packages (full and &lt;code&gt;headless&lt;/code&gt;) appear in &lt;code&gt;build/packages/&lt;/code&gt;:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;build/packages/debian/&amp;lt;debian-version&amp;gt;/&amp;lt;architecture&amp;gt;/keen-pbr_&amp;lt;version&amp;gt;_debian_&amp;lt;architecture&amp;gt;.deb&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;build/packages/debian/&amp;lt;debian-version&amp;gt;/&amp;lt;architecture&amp;gt;/keen-pbr-headless_&amp;lt;version&amp;gt;_debian_&amp;lt;architecture&amp;gt;.deb&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;The published repository also provides Ubuntu aliases: Ubuntu noble (24.04)
-uses the Debian bookworm packages, and Ubuntu resolute (26.04) uses Debian
-trixie packages. The aliases reuse the Debian package and index paths.&lt;/p&gt;
-&lt;p&gt;The Debian packaging flow:&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;builds the frontend with &lt;code&gt;bun&lt;/code&gt; for the full package&lt;/li&gt;
-&lt;li&gt;compiles dedicated native binaries with Debian install paths under &lt;code&gt;/etc/keen-pbr&lt;/code&gt; and &lt;code&gt;/usr/share/keen-pbr/frontend&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;installs a &lt;code&gt;systemd&lt;/code&gt; unit at &lt;code&gt;/lib/systemd/system/keen-pbr.service&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;enables and starts the service on package installation&lt;/li&gt;
-&lt;/ul&gt;
+&lt;p&gt;The published repository also contains packages for Ubuntu: Ubuntu noble (24.04) uses the Debian bookworm packages, and Ubuntu resolute (26.04) uses the Debian trixie packages.&lt;/p&gt;
+&lt;p&gt;For the full package, the web interface is built with &lt;code&gt;bun&lt;/code&gt;. Installing the package enables and starts the &lt;code&gt;keen-pbr&lt;/code&gt; service (a &lt;code&gt;systemd&lt;/code&gt; unit); the configuration lives in &lt;code&gt;/etc/keen-pbr&lt;/code&gt;.&lt;/p&gt;
 &lt;h2&gt;Router Package Builds&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;router-package-builds&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#router-package-builds&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;For router targets, use the Docker-backed package build targets from the root &lt;code&gt;Makefile&lt;/code&gt;. They mirror the GitHub Actions workflows and write normalized artifacts into &lt;code&gt;build/packages/&lt;/code&gt;.&lt;/p&gt;
+    &lt;a href=&#34;#router-package-builds&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Router packages are also built in Docker with targets from the root &lt;code&gt;Makefile&lt;/code&gt;. They repeat the GitHub Actions build, and the finished packages appear in &lt;code&gt;build/packages/&lt;/code&gt;.&lt;/p&gt;
 &lt;h3&gt;Entware (for Keenetic and Netcraze routers)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;entware-for-keenetic-and-netcraze-routers&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#entware-for-keenetic-and-netcraze-routers&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Build an 
   &lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt;
@@ -284,7 +308,7 @@ trixie packages. The aliases reuse the Debian package and index paths.&lt;/p&gt;
 					&lt;td&gt;&lt;code&gt;KEENETIC_VERSION&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;yes&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;current&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;Keenetic channel version used in the &lt;code&gt;build/packages&lt;/code&gt; layout.&lt;/td&gt;
+					&lt;td&gt;Keenetic firmware channel: the name of the subfolder in &lt;code&gt;build/packages/keenetic/&lt;/code&gt;.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;KEENETIC_CONFIG&lt;/code&gt;&lt;/td&gt;
@@ -296,9 +320,9 @@ trixie packages. The aliases reuse the Debian package and index paths.&lt;/p&gt;
 &lt;/table&gt;
 &lt;p&gt;Behavior:&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;Uses the prebuilt &lt;code&gt;ghcr.io/maksimkurb/entware-builder:&amp;lt;config&amp;gt;&lt;/code&gt; image&lt;/li&gt;
-&lt;li&gt;Mounts the repo into the container at &lt;code&gt;/workspace&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;Builds and collects artifacts into &lt;code&gt;build/packages/&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;It uses the prebuilt &lt;code&gt;ghcr.io/maksimkurb/entware-builder:&amp;lt;config&amp;gt;&lt;/code&gt; image.&lt;/li&gt;
+&lt;li&gt;The repository is mounted into the container at &lt;code&gt;/workspace&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;Packages (&lt;code&gt;keen-pbr&lt;/code&gt; and &lt;code&gt;keen-pbr-headless&lt;/code&gt;) are copied to &lt;code&gt;build/packages/keenetic/&amp;lt;version&amp;gt;/&amp;lt;architecture&amp;gt;/&lt;/code&gt;, for example &lt;code&gt;keen-pbr_&amp;lt;version&amp;gt;_keenetic_mipsel-3.4.ipk&lt;/code&gt;.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3&gt;OpenWrt&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;openwrt&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#openwrt&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;List available architectures first:&lt;/p&gt;
@@ -331,13 +355,10 @@ trixie packages. The aliases reuse the Debian package and index paths.&lt;/p&gt;
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Or with an explicit release:&lt;/p&gt;
+&lt;p&gt;Another example:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-packages &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4 &lt;span class=&#34;nv&#34;&gt;OPENWRT_ARCHITECTURE&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;aarch64_cortex-a53
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# another common example&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-packages &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;25.12.2 &lt;span class=&#34;nv&#34;&gt;OPENWRT_ARCHITECTURE&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;x86_64&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-packages &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;25.12.2 &lt;span class=&#34;nv&#34;&gt;OPENWRT_ARCHITECTURE&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;x86_64&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;
@@ -366,30 +387,25 @@ trixie packages. The aliases reuse the Debian package and index paths.&lt;/p&gt;
 					&lt;td&gt;yes&lt;/td&gt;
 					&lt;td&gt;-&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;24.10.4&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;OpenWrt release used to select the SDK image.&lt;/td&gt;
+					&lt;td&gt;OpenWrt version (selects the SDK image).&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;OPENWRT_ARCHITECTURE&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;yes&lt;/td&gt;
 					&lt;td&gt;-&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;aarch64_cortex-a53&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;OpenWrt package architecture and SDK image tag prefix.&lt;/td&gt;
+					&lt;td&gt;OpenWrt package architecture.&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;p&gt;Behavior:&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;Mounts the repo into the container at &lt;code&gt;/workspace&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;Uses the official SDK image &lt;code&gt;ghcr.io/openwrt/sdk:&amp;lt;architecture&amp;gt;-&amp;lt;version&amp;gt;&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;Copies resulting &lt;code&gt;.ipk&lt;/code&gt; / &lt;code&gt;.apk&lt;/code&gt; artifacts into &lt;code&gt;build/packages/&lt;/code&gt;&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;Notes&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;notes&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#notes&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
-&lt;li&gt;The repo is bind-mounted into &lt;code&gt;/workspace&lt;/code&gt;, so source and packaging-script edits are picked up on the next build.&lt;/li&gt;
-&lt;li&gt;OpenWrt packages are built inside the SDK image that matches the requested version and architecture.&lt;/li&gt;
+&lt;li&gt;It uses the official SDK image &lt;code&gt;ghcr.io/openwrt/sdk:&amp;lt;architecture&amp;gt;-&amp;lt;version&amp;gt;&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;The repository is mounted into the container at &lt;code&gt;/workspace&lt;/code&gt;, so source edits are picked up on the next build.&lt;/li&gt;
+&lt;li&gt;The &lt;code&gt;.ipk&lt;/code&gt; / &lt;code&gt;.apk&lt;/code&gt; packages are copied to &lt;code&gt;build/packages/openwrt/&amp;lt;version&amp;gt;/&amp;lt;architecture&amp;gt;/&lt;/code&gt;.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2&gt;Deployment to Router&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;deployment-to-router&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#deployment-to-router&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Copy a built package and a config file to your router:&lt;/p&gt;
+    &lt;a href=&#34;#deployment-to-router&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Copy the built package to your router and install it (replace &lt;code&gt;192.168.1.1&lt;/code&gt; with your router&amp;rsquo;s address):&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Keenetic example&lt;/span&gt;
@@ -401,8 +417,9 @@ trixie packages. The aliases reuse the Debian package and index paths.&lt;/p&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ssh root@192.168.1.1 opkg install /tmp/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;architecture&amp;gt;.ipk
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# OpenWrt .apk example&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;scp build/packages/openwrt/&amp;lt;openwrt_version&amp;gt;/&amp;lt;pkg_arch&amp;gt;/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;architecture&amp;gt;.apk root@192.168.1.1:/tmp/
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;architecture&amp;gt;.apk&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# the .apk file keeps the name the OpenWrt SDK gave it&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;scp build/packages/openwrt/&amp;lt;openwrt_version&amp;gt;/&amp;lt;pkg_arch&amp;gt;/keen-pbr-&amp;lt;version&amp;gt;.apk root@192.168.1.1:/tmp/
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr-&amp;lt;version&amp;gt;.apk&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;
@@ -414,7 +431,7 @@ trixie packages. The aliases reuse the Debian package and index paths.&lt;/p&gt;
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Run on the router:&lt;/p&gt;
+&lt;p&gt;After installation the service is usually already running. If not, start it on the router:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Keenetic&lt;/span&gt;

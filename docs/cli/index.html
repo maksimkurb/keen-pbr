@@ -10,7 +10,8 @@
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>keen-pbr CLI usage – keen-pbr</title>
   <meta name="description" content="keen-pbr can run the service, inspect live routing state, download list data, and test routing decisions.
-Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download test-routing &lt;ip-or-domain&gt; [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...] dnsmasq detect [--json] dnsmasq remove &lt;selector&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze." /><link rel="canonical" href="https://keen-pbr.fyi/docs/cli/" itemprop="url" />
+The status, download and test-routing commands talk to the running service. If the service is not running, they fail with exit code 1. Start the service first (on a router it starts with the system).
+Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file (default: &lt;KEEN_PBR_DEFAULT_CONFIG_PATH&gt;) --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug (default: info) --log-target &lt;target&gt; Log destination: stderr, syslog, or both (default: both) --pid-file &lt;path&gt; Override daemon.pid_file when running the service command --crash-report &lt;path&gt; Last-crash report path (default: /tmp/keen-pbr-crash.log) --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service Start the routing service (foreground) status Show routing/firewall status and exit download Download all configured lists to cache and exit test-routing &lt;ip-or-domain&gt; [packet options] Test expected vs actual routing for an IP or domain --proto &lt;tcp|udp|other&gt; Packet protocol --src-addr &lt;ip&gt; Packet source address --src-port &lt;port&gt; Packet source port --dest-port &lt;port&gt; Packet destination port --dscp &lt;0-63&gt; Packet DSCP (default: 0) generate-resolver-config dnsmasq Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0) dnsmasq detect [--json] List dnsmasq instances, their DNS endpoints and which one keen-pbr uses dnsmasq remove &lt;selector&gt; Restart one dnsmasq instance without keen-pbr&#39;s generated config (OpenWrt: also return the moved servers) dnsmasq finish-upgrade &lt;keep|off&gt; After an upgrade from 3.3.x: keep dnsmasq management on or turn it off, and stamp the config version hash-password [--update] Generate an authentication password hash; --update writes config.json The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze." /><link rel="canonical" href="https://keen-pbr.fyi/docs/cli/" itemprop="url" />
 
 <meta property="og:title" content="keen-pbr CLI usage">
 <meta
@@ -18,14 +19,18 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
   content="
     
       keen-pbr can run the service, inspect live routing state, download list data, and test routing decisions.
+The status, download and test-routing commands talk to the running service. If the service is not running, they fail with exit code 1. Start the service first (on a router it starts with the system).
 Usage
     
 
 Usage: keen-pbr [options] &lt;command&gt;
 
 Options:
-  --config &lt;path&gt;    Path to JSON config file
-  --log-level &lt;lvl&gt;  Log level: error, warn, info, verbose, debug
+  --config &lt;path&gt;    Path to JSON config file (default: &lt;KEEN_PBR_DEFAULT_CONFIG_PATH&gt;)
+  --log-level &lt;lvl&gt;  Log level: error, warn, info, verbose, debug (default: info)
+  --log-target &lt;target&gt;  Log destination: stderr, syslog, or both (default: both)
+  --pid-file &lt;path&gt;  Override daemon.pid_file when running the service command
+  --crash-report &lt;path&gt;  Last-crash report path (default: /tmp/keen-pbr-crash.log)
   --no-api           Disable REST API at runtime
   --use-raw-prerouting  Use raw PREROUTING for IPv4 forwarded traffic (iptables only)
   --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only)
@@ -33,12 +38,21 @@ Options:
   --help             Show this help and exit
 
 Commands:
-  service
-  status
-  download
-  test-routing &lt;ip-or-domain&gt; [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...]
-  dnsmasq detect [--json]
-  dnsmasq remove &lt;selector&gt;
+  service                            Start the routing service (foreground)
+  status                             Show routing/firewall status and exit
+  download                           Download all configured lists to cache and exit
+  test-routing &lt;ip-or-domain&gt; [packet options]
+                                     Test expected vs actual routing for an IP or domain
+      --proto &lt;tcp|udp|other&gt;        Packet protocol
+      --src-addr &lt;ip&gt;                Packet source address
+      --src-port &lt;port&gt;              Packet source port
+      --dest-port &lt;port&gt;             Packet destination port
+      --dscp &lt;0-63&gt;                  Packet DSCP (default: 0)
+  generate-resolver-config dnsmasq   Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
+  dnsmasq detect [--json]            List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
+  dnsmasq remove &lt;selector&gt;          Restart one dnsmasq instance without keen-pbr&#39;s generated config (OpenWrt: also return the moved servers)
+  dnsmasq finish-upgrade &lt;keep|off&gt;  After an upgrade from 3.3.x: keep dnsmasq management on or turn it off, and stamp the config version
+  hash-password [--update]           Generate an authentication password hash; --update writes config.json
   
     
 
@@ -60,12 +74,14 @@ The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and 
 
 	<meta itemprop="name" content="keen-pbr CLI usage">
 	<meta itemprop="description" content="keen-pbr can run the service, inspect live routing state, download list data, and test routing decisions.
-Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download test-routing &lt;ip-or-domain&gt; [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...] dnsmasq detect [--json] dnsmasq remove &lt;selector&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
-	<meta itemprop="wordCount" content="1296">
+The status, download and test-routing commands talk to the running service. If the service is not running, they fail with exit code 1. Start the service first (on a router it starts with the system).
+Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file (default: &lt;KEEN_PBR_DEFAULT_CONFIG_PATH&gt;) --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug (default: info) --log-target &lt;target&gt; Log destination: stderr, syslog, or both (default: both) --pid-file &lt;path&gt; Override daemon.pid_file when running the service command --crash-report &lt;path&gt; Last-crash report path (default: /tmp/keen-pbr-crash.log) --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service Start the routing service (foreground) status Show routing/firewall status and exit download Download all configured lists to cache and exit test-routing &lt;ip-or-domain&gt; [packet options] Test expected vs actual routing for an IP or domain --proto &lt;tcp|udp|other&gt; Packet protocol --src-addr &lt;ip&gt; Packet source address --src-port &lt;port&gt; Packet source port --dest-port &lt;port&gt; Packet destination port --dscp &lt;0-63&gt; Packet DSCP (default: 0) generate-resolver-config dnsmasq Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0) dnsmasq detect [--json] List dnsmasq instances, their DNS endpoints and which one keen-pbr uses dnsmasq remove &lt;selector&gt; Restart one dnsmasq instance without keen-pbr&#39;s generated config (OpenWrt: also return the moved servers) dnsmasq finish-upgrade &lt;keep|off&gt; After an upgrade from 3.3.x: keep dnsmasq management on or turn it off, and stamp the config version hash-password [--update] Generate an authentication password hash; --update writes config.json The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
+	<meta itemprop="wordCount" content="1665">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="keen-pbr CLI usage">
 	<meta name="twitter:description" content="keen-pbr can run the service, inspect live routing state, download list data, and test routing decisions.
-Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download test-routing &lt;ip-or-domain&gt; [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...] dnsmasq detect [--json] dnsmasq remove &lt;selector&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
+The status, download and test-routing commands talk to the running service. If the service is not running, they fail with exit code 1. Start the service first (on a router it starts with the system).
+Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file (default: &lt;KEEN_PBR_DEFAULT_CONFIG_PATH&gt;) --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug (default: info) --log-target &lt;target&gt; Log destination: stderr, syslog, or both (default: both) --pid-file &lt;path&gt; Override daemon.pid_file when running the service command --crash-report &lt;path&gt; Last-crash report path (default: /tmp/keen-pbr-crash.log) --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service Start the routing service (foreground) status Show routing/firewall status and exit download Download all configured lists to cache and exit test-routing &lt;ip-or-domain&gt; [packet options] Test expected vs actual routing for an IP or domain --proto &lt;tcp|udp|other&gt; Packet protocol --src-addr &lt;ip&gt; Packet source address --src-port &lt;port&gt; Packet source port --dest-port &lt;port&gt; Packet destination port --dscp &lt;0-63&gt; Packet DSCP (default: 0) generate-resolver-config dnsmasq Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0) dnsmasq detect [--json] List dnsmasq instances, their DNS endpoints and which one keen-pbr uses dnsmasq remove &lt;selector&gt; Restart one dnsmasq instance without keen-pbr&#39;s generated config (OpenWrt: also return the moved servers) dnsmasq finish-upgrade &lt;keep|off&gt; After an upgrade from 3.3.x: keep dnsmasq management on or turn it off, and stamp the config version hash-password [--update] Generate an authentication password hash; --update writes config.json The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -961,6 +977,10 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#hash-password">hash-password
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dnsmasq-detect-and-remove">dnsmasq detect and remove
         </a>
       </li>
@@ -1053,14 +1073,18 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
           </div>
           
           <p><code>keen-pbr</code> can run the service, inspect live routing state, download list data, and test routing decisions.</p>
+<p>The <code>status</code>, <code>download</code> and <code>test-routing</code> commands talk to the running service. If the service is not running, they fail with exit code 1. Start the service first (on a router it starts with the system).</p>
 <h2>Usage<span class="hx:absolute hx:-mt-20" id="usage"></span>
     <a href="#usage" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">Usage: keen-pbr [options] &lt;command&gt;
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">Options:
-</span></span><span class="line"><span class="cl">  --config &lt;path&gt;    Path to JSON config file
-</span></span><span class="line"><span class="cl">  --log-level &lt;lvl&gt;  Log level: error, warn, info, verbose, debug
+</span></span><span class="line"><span class="cl">  --config &lt;path&gt;    Path to JSON config file (default: &lt;KEEN_PBR_DEFAULT_CONFIG_PATH&gt;)
+</span></span><span class="line"><span class="cl">  --log-level &lt;lvl&gt;  Log level: error, warn, info, verbose, debug (default: info)
+</span></span><span class="line"><span class="cl">  --log-target &lt;target&gt;  Log destination: stderr, syslog, or both (default: both)
+</span></span><span class="line"><span class="cl">  --pid-file &lt;path&gt;  Override daemon.pid_file when running the service command
+</span></span><span class="line"><span class="cl">  --crash-report &lt;path&gt;  Last-crash report path (default: /tmp/keen-pbr-crash.log)
 </span></span><span class="line"><span class="cl">  --no-api           Disable REST API at runtime
 </span></span><span class="line"><span class="cl">  --use-raw-prerouting  Use raw PREROUTING for IPv4 forwarded traffic (iptables only)
 </span></span><span class="line"><span class="cl">  --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only)
@@ -1068,12 +1092,21 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 </span></span><span class="line"><span class="cl">  --help             Show this help and exit
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">Commands:
-</span></span><span class="line"><span class="cl">  service
-</span></span><span class="line"><span class="cl">  status
-</span></span><span class="line"><span class="cl">  download
-</span></span><span class="line"><span class="cl">  test-routing &lt;ip-or-domain&gt; [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...]
-</span></span><span class="line"><span class="cl">  dnsmasq detect [--json]
-</span></span><span class="line"><span class="cl">  dnsmasq remove &lt;selector&gt;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+</span></span><span class="line"><span class="cl">  service                            Start the routing service (foreground)
+</span></span><span class="line"><span class="cl">  status                             Show routing/firewall status and exit
+</span></span><span class="line"><span class="cl">  download                           Download all configured lists to cache and exit
+</span></span><span class="line"><span class="cl">  test-routing &lt;ip-or-domain&gt; [packet options]
+</span></span><span class="line"><span class="cl">                                     Test expected vs actual routing for an IP or domain
+</span></span><span class="line"><span class="cl">      --proto &lt;tcp|udp|other&gt;        Packet protocol
+</span></span><span class="line"><span class="cl">      --src-addr &lt;ip&gt;                Packet source address
+</span></span><span class="line"><span class="cl">      --src-port &lt;port&gt;              Packet source port
+</span></span><span class="line"><span class="cl">      --dest-port &lt;port&gt;             Packet destination port
+</span></span><span class="line"><span class="cl">      --dscp &lt;0-63&gt;                  Packet DSCP (default: 0)
+</span></span><span class="line"><span class="cl">  generate-resolver-config dnsmasq   Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
+</span></span><span class="line"><span class="cl">  dnsmasq detect [--json]            List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
+</span></span><span class="line"><span class="cl">  dnsmasq remove &lt;selector&gt;          Restart one dnsmasq instance without keen-pbr&#39;s generated config (OpenWrt: also return the moved servers)
+</span></span><span class="line"><span class="cl">  dnsmasq finish-upgrade &lt;keep|off&gt;  After an upgrade from 3.3.x: keep dnsmasq management on or turn it off, and stamp the config version
+</span></span><span class="line"><span class="cl">  hash-password [--update]           Generate an authentication password hash; --update writes config.json</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1097,7 +1130,7 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 	<tbody>
 			<tr>
 					<td><code>--config &lt;path&gt;</code></td>
-					<td>Path to the JSON config file.</td>
+					<td>Path to the JSON config file. Works only with the <code>service</code> command.</td>
 			</tr>
 			<tr>
 					<td><code>--log-level &lt;lvl&gt;</code></td>
@@ -1106,6 +1139,14 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 			<tr>
 					<td><code>--log-target &lt;target&gt;</code></td>
 					<td>External log destination: <code>stderr</code>, <code>syslog</code>, or <code>both</code>. Defaults to <code>both</code> for every command. The packaged service files (systemd, OpenWrt procd, Keenetic init script) pass <code>--log-target syslog</code> so logs are not duplicated when stdout/stderr are also captured by the init system.</td>
+			</tr>
+			<tr>
+					<td><code>--pid-file &lt;path&gt;</code></td>
+					<td>Path to the PID file (the file holding the service&rsquo;s process number). Replaces <code>daemon.pid_file</code> from the config; <code>service</code> only.</td>
+			</tr>
+			<tr>
+					<td><code>--crash-report &lt;path&gt;</code></td>
+					<td>Where to write the report about the last crash. Defaults to <code>/tmp/keen-pbr-crash.log</code>.</td>
 			</tr>
 			<tr>
 					<td><code>--no-api</code></td>
@@ -1130,7 +1171,7 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 	</tbody>
 </table>
 <h3><code>--use-raw-prerouting</code><span class="hx:absolute hx:-mt-20" id="--use-raw-prerouting"></span>
-    <a href="#--use-raw-prerouting" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>This flag is mainly for Keenetic / NetCraze, where the firmware periodically rebuilds the <code>mangle</code> table and keen-pbr&rsquo;s rules briefly disappear. With this flag keen-pbr puts the rules for forwarded IPv4 traffic into the <code>raw</code> table, which the firmware leaves alone. IPv6 has a separate flag, <code>--use-raw6-prerouting</code>. The router&rsquo;s own traffic is always handled in <code>mangle OUTPUT</code>.</p>
+    <a href="#--use-raw-prerouting" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>This flag is mainly for Keenetic / NetCraze. The firmware periodically rebuilds the <code>mangle</code> firewall table, and keen-pbr&rsquo;s rules briefly disappear. With this flag keen-pbr puts the rules for IPv4 traffic passing through the router into the <code>raw</code> table, which the firmware does not rebuild. IPv6 has a separate flag, <code>--use-raw6-prerouting</code>.</p>
 <p>On Keenetic / NetCraze the start script sets these flags. The mode is set with <code>KEEN_PBR_RAW_PREROUTING</code> in <code>/opt/etc/keen-pbr/defaults</code>:</p>
 <table>
 	<thead>
@@ -1197,12 +1238,16 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 					<td>Show service, outbound, routing, firewall and kernel health, then the issue list the web UI overview shows, and exit. Exits with 1 when any check failed or any issue is an error.</td>
 			</tr>
 			<tr>
-					<td><code>download</code></td>
-					<td>Download all URL-backed lists into cache, then exit.</td>
+					<td><code>download [--reload]</code></td>
+					<td>Download all URL-backed lists into the cache and exit. With <code>--reload</code> the service applies the lists that changed right away.</td>
 			</tr>
 			<tr>
 					<td><code>generate-resolver-config dnsmasq</code></td>
-					<td>Print dnsmasq configuration for per-list DNS servers to stdout.</td>
+					<td>Print the dnsmasq configuration for per-list DNS servers.</td>
+			</tr>
+			<tr>
+					<td><code>hash-password [--update]</code></td>
+					<td>Create a password hash for logging in to the web UI and API.</td>
 			</tr>
 			<tr>
 					<td><code>dnsmasq detect [--json]</code></td>
@@ -1213,13 +1258,17 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 					<td>Restart one dnsmasq instance without keen-pbr&rsquo;s config.</td>
 			</tr>
 			<tr>
+					<td><code>dnsmasq finish-upgrade &lt;keep|off&gt;</code></td>
+					<td>After an upgrade from 3.3.x, keep dnsmasq management on (<code>keep</code>) or turn it off (<code>off</code>). Writes the <code>version</code> field to the config. Restart the service afterwards.</td>
+			</tr>
+			<tr>
 					<td><code>test-routing &lt;ip-or-domain&gt; [packet options]</code></td>
 					<td>Compare expected and actual routing for the given IP or domain. The daemon runs the check, the same way as the routing test in the web UI.</td>
 			</tr>
 	</tbody>
 </table>
 <h3><code>generate-resolver-config dnsmasq</code><span class="hx:absolute hx:-mt-20" id="generate-resolver-config-dnsmasq"></span>
-    <a href="#generate-resolver-config-dnsmasq" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>When <code>dns.resolver_integration: &quot;dnsmasq&quot;</code> is enabled, this command prints the generated dnsmasq configuration to stdout. It contains domain-to-server mappings, 
+    <a href="#generate-resolver-config-dnsmasq" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>When <code>dns.resolver_integration: &quot;dnsmasq&quot;</code> is enabled, this command prints the dnsmasq configuration built by keen-pbr. Lists are taken from the cache only; nothing is downloaded. It contains domain-to-server mappings, 
   <abbr title="An attack in which a public domain resolves to a private address. dnsmasq can block such answers.">DNS rebinding</abbr>
  protection exceptions, and <code>fallback</code> servers.</p>
 <p><strong>Usage:</strong></p>
@@ -1269,6 +1318,24 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
   <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr>
 ).</li>
 </ul>
+<h3><code>hash-password</code><span class="hx:absolute hx:-mt-20" id="hash-password"></span>
+    <a href="#hash-password" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Creates a password hash for logging in to the web UI and API. The command asks for the password twice.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr hash-password
+</span></span><span class="line"><span class="cl">keen-pbr hash-password --update</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Without <code>--update</code> the command prints <code>Password hash: &lt;hash&gt;</code>, which you paste into <code>api.authentication.password_hash</code> yourself. With <code>--update</code> it writes <code>api.enabled: true</code>, <code>api.authentication.enabled: true</code> and the hash into <code>config.json</code>. Then restart the service: <code>Restart the keen-pbr service for authentication changes to take effect.</code></p>
 <h3><code>dnsmasq detect</code> and <code>remove</code><span class="hx:absolute hx:-mt-20" id="dnsmasq-detect-and-remove"></span>
     <a href="#dnsmasq-detect-and-remove" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Inspect and clean up the dnsmasq integration without the daemon. Neither command needs the control socket.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1325,7 +1392,7 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 <li>If the integration is still enabled for this instance, the command prints a note: the daemon may apply its config to dnsmasq again on its next sync. Disable the integration first.</li>
 </ul>
 <h2>Signals<span class="hx:absolute hx:-mt-20" id="signals"></span>
-    <a href="#signals" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>When <code>keen-pbr</code> is running as a managed service (daemon), you can also control it with Unix signals:</p>
+    <a href="#signals" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>You can control the running <code>keen-pbr</code> service with signals:</p>
 <table>
 	<thead>
 			<tr>
@@ -1336,11 +1403,11 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 	<tbody>
 			<tr>
 					<td><code>SIGUSR1</code></td>
-					<td>Re-verify routing tables and trigger immediate <code>urltest</code> latency checks</td>
+					<td>Rebuild routes and firewall rules</td>
 			</tr>
 			<tr>
 					<td><code>SIGHUP</code></td>
-					<td>Full reload: re-download lists if changed, re-apply firewall and routing rules</td>
+					<td>Re-read <code>config.json</code> and apply it again. Does not work in the <code>keen-pbr-headless</code> build</td>
 			</tr>
 			<tr>
 					<td><code>SIGTERM</code> / <code>SIGINT</code></td>
@@ -1348,7 +1415,7 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 			</tr>
 	</tbody>
 </table>
-<p>Example full reload via signal:</p>
+<p>Example: re-read the config with SIGHUP:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">kill</span> -HUP <span class="k">$(</span>cat /var/run/keen-pbr.pid<span class="k">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1447,12 +1514,10 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
   </button>
 </div>
 </div>
-<p>Example output:</p>
+<p>The command prints the service&rsquo;s answer as one JSON line. <code>refreshed_lists</code> holds the lists that were updated, <code>changed_lists</code> those whose content changed:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">[google] Not modified (304)
-</span></span><span class="line"><span class="cl">[internal.site] Skipped (no URL)
-</span></span><span class="line"><span class="cl">[generic] Skipped (no URL)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">{&#34;ok&#34;:true,&#34;protocol_version&#34;:2,&#34;request_id&#34;:&#34;cli-download&#34;,&#34;result&#34;:{&#34;changed_lists&#34;:[&#34;google&#34;],&#34;failed_lists&#34;:[],&#34;refreshed_lists&#34;:[&#34;google&#34;],&#34;reloaded&#34;:false}}</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1464,7 +1529,8 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
   </button>
 </div>
 </div>
-<p>Test expected vs actual routing:</p>
+<p>If a list fails to download, the command prints an error and exits with code 1.</p>
+<p>Compare expected and actual routing:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr test-routing google.com</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">

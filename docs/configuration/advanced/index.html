@@ -11,8 +11,7 @@
 <title>Advanced – keen-pbr</title>
   <meta name="description" content="Most users can skip this page.
 These settings are for advanced setups and service-level tuning: daemon, api, fwmark, iproute, and lists_autoupdate.
-daemon Controls the PID file path, cache directory, and global routing behaviour.
-Field Type Default Description pid_file string — Path to write the PID file cache_dir string /var/cache/keen-pbr Directory for cached list data firewall_backend string &#34;auto&#34; Firewall backend selection: auto, iptables, or nftables clear_dynamic_sets_on_apply boolean false Clear the dynamic sets (domain IP addresses collected from DNS replies and connections) on every config apply or service restart. List refreshes and link switches never clear them. ipset_hashsize integer absent Optional initial hash table size for ipsets created by the iptables backend (default 1024). Has no effect with nftables. Must be between 1 and 2147483648. Changing it recreates the sets and empties the dynamic sets. ipset_maxelem integer absent Optional maximum element count for ipsets created by the iptables backend (default 65536). Has no effect with nftables. Must be between 1 and 4294967295. Changing it recreates the sets and empties the dynamic sets. reuse_static_sets_on_runtime_refresh boolean true Do not refill list sets on SIGUSR1, urltest/icmptest switches and interface state changes: only rules are updated, which is faster. If false, sets are refilled every time. strict_enforcement boolean false If the interface or gateway of an interface outbound is down, do not let its traffic go out through the normal connection: the outbound’s table gets the route from strict_enforcement_action instead. Can be set per outbound. strict_enforcement_action string &#34;unreachable&#34; What to do with traffic under strict_enforcement: unreachable returns an immediate network error; blackhole silently drops packets until the application times out. max_file_size_bytes integer 8388608 (8 MiB) Maximum allowed size in bytes for downloaded remote list content firewall_verify_max_bytes integer 262144 How many bytes of iptables/nft output to read when checking firewall rules (keen-pbr status, status page); 0 means no limit config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;firewall_backend&#34;: &#34;auto&#34;, &#34;clear_dynamic_sets_on_apply&#34;: false, &#34;ipset_hashsize&#34;: null, &#34;ipset_maxelem&#34;: null, &#34;reuse_static_sets_on_runtime_refresh&#34;: true, &#34;strict_enforcement&#34;: false, &#34;strict_enforcement_action&#34;: &#34;unreachable&#34;, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/advanced/" itemprop="url" />
+Some of these settings are in the web UI: General &gt; Settings &gt; General, Lists autoupdate and Advanced routing settings. The low-level fields appear after you switch Settings mode to Advanced. This page describes every config.json field; next to a field you will find where it is in the UI." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/advanced/" itemprop="url" />
 
 <meta property="og:title" content="Advanced">
 <meta
@@ -21,110 +20,7 @@ Field Type Default Description pid_file string — Path to write the PID file ca
     
       Most users can skip this page.
 These settings are for advanced setups and service-level tuning: daemon, api, fwmark, iproute, and lists_autoupdate.
-daemon
-    Controls the PID file path, cache directory, and global routing behaviour.
-
-	
-			
-					Field
-					Type
-					Default
-					Description
-			
-	
-	
-			
-					pid_file
-					string
-					—
-					Path to write the PID file
-			
-			
-					cache_dir
-					string
-					/var/cache/keen-pbr
-					Directory for cached list data
-			
-			
-					firewall_backend
-					string
-					&quot;auto&quot;
-					Firewall backend selection: auto, iptables, or nftables
-			
-			
-					clear_dynamic_sets_on_apply
-					boolean
-					false
-					Clear the dynamic sets (domain IP addresses collected from DNS replies and connections) on every config apply or service restart. List refreshes and link switches never clear them.
-			
-			
-					ipset_hashsize
-					integer
-					absent
-					Optional initial hash table size for ipsets created by the iptables backend (default 1024). Has no effect with nftables. Must be between 1 and 2147483648. Changing it recreates the sets and empties the dynamic sets.
-			
-			
-					ipset_maxelem
-					integer
-					absent
-					Optional maximum element count for ipsets created by the iptables backend (default 65536). Has no effect with nftables. Must be between 1 and 4294967295. Changing it recreates the sets and empties the dynamic sets.
-			
-			
-					reuse_static_sets_on_runtime_refresh
-					boolean
-					true
-					Do not refill list sets on SIGUSR1, urltest/icmptest switches and interface state changes: only rules are updated, which is faster. If false, sets are refilled every time.
-			
-			
-					strict_enforcement
-					boolean
-					false
-					If the interface or gateway of an interface outbound is down, do not let its traffic go out through the normal connection: the outbound&rsquo;s table gets the route from strict_enforcement_action instead. Can be set per outbound.
-			
-			
-					strict_enforcement_action
-					string
-					&quot;unreachable&quot;
-					What to do with traffic under strict_enforcement: unreachable returns an immediate network error; blackhole silently drops packets until the application times out.
-			
-			
-					max_file_size_bytes
-					integer
-					8388608 (8 MiB)
-					Maximum allowed size in bytes for downloaded remote list content
-			
-			
-					firewall_verify_max_bytes
-					integer
-					262144
-					How many bytes of iptables/nft output to read when checking firewall rules (keen-pbr status, status page); 0 means no limit
-			
-	
-
-
-
-config.json{
-  &#34;daemon&#34;: {
-    &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;,
-    &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;,
-    &#34;firewall_backend&#34;: &#34;auto&#34;,
-    &#34;clear_dynamic_sets_on_apply&#34;: false,
-    &#34;ipset_hashsize&#34;: null,
-    &#34;ipset_maxelem&#34;: null,
-    &#34;reuse_static_sets_on_runtime_refresh&#34;: true,
-    &#34;strict_enforcement&#34;: false,
-    &#34;strict_enforcement_action&#34;: &#34;unreachable&#34;,
-    &#34;max_file_size_bytes&#34;: 8388608,
-    &#34;firewall_verify_max_bytes&#34;: 262144
-  }
-}
-  
-    
-
-  
-
-
-The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup.
+Some of these settings are in the web UI: General &gt; Settings &gt; General, Lists autoupdate and Advanced routing settings. The low-level fields appear after you switch Settings mode to Advanced. This page describes every config.json field; next to a field you will find where it is in the UI.
     
   ">
 <meta
@@ -140,15 +36,13 @@ The cache directory stores downloaded remote lists so they are available if the 
 	<meta itemprop="name" content="Advanced">
 	<meta itemprop="description" content="Most users can skip this page.
 These settings are for advanced setups and service-level tuning: daemon, api, fwmark, iproute, and lists_autoupdate.
-daemon Controls the PID file path, cache directory, and global routing behaviour.
-Field Type Default Description pid_file string — Path to write the PID file cache_dir string /var/cache/keen-pbr Directory for cached list data firewall_backend string &#34;auto&#34; Firewall backend selection: auto, iptables, or nftables clear_dynamic_sets_on_apply boolean false Clear the dynamic sets (domain IP addresses collected from DNS replies and connections) on every config apply or service restart. List refreshes and link switches never clear them. ipset_hashsize integer absent Optional initial hash table size for ipsets created by the iptables backend (default 1024). Has no effect with nftables. Must be between 1 and 2147483648. Changing it recreates the sets and empties the dynamic sets. ipset_maxelem integer absent Optional maximum element count for ipsets created by the iptables backend (default 65536). Has no effect with nftables. Must be between 1 and 4294967295. Changing it recreates the sets and empties the dynamic sets. reuse_static_sets_on_runtime_refresh boolean true Do not refill list sets on SIGUSR1, urltest/icmptest switches and interface state changes: only rules are updated, which is faster. If false, sets are refilled every time. strict_enforcement boolean false If the interface or gateway of an interface outbound is down, do not let its traffic go out through the normal connection: the outbound’s table gets the route from strict_enforcement_action instead. Can be set per outbound. strict_enforcement_action string &#34;unreachable&#34; What to do with traffic under strict_enforcement: unreachable returns an immediate network error; blackhole silently drops packets until the application times out. max_file_size_bytes integer 8388608 (8 MiB) Maximum allowed size in bytes for downloaded remote list content firewall_verify_max_bytes integer 262144 How many bytes of iptables/nft output to read when checking firewall rules (keen-pbr status, status page); 0 means no limit config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;firewall_backend&#34;: &#34;auto&#34;, &#34;clear_dynamic_sets_on_apply&#34;: false, &#34;ipset_hashsize&#34;: null, &#34;ipset_maxelem&#34;: null, &#34;reuse_static_sets_on_runtime_refresh&#34;: true, &#34;strict_enforcement&#34;: false, &#34;strict_enforcement_action&#34;: &#34;unreachable&#34;, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup.">
-	<meta itemprop="wordCount" content="1189">
+Some of these settings are in the web UI: General &gt; Settings &gt; General, Lists autoupdate and Advanced routing settings. The low-level fields appear after you switch Settings mode to Advanced. This page describes every config.json field; next to a field you will find where it is in the UI.">
+	<meta itemprop="wordCount" content="1582">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Advanced">
 	<meta name="twitter:description" content="Most users can skip this page.
 These settings are for advanced setups and service-level tuning: daemon, api, fwmark, iproute, and lists_autoupdate.
-daemon Controls the PID file path, cache directory, and global routing behaviour.
-Field Type Default Description pid_file string — Path to write the PID file cache_dir string /var/cache/keen-pbr Directory for cached list data firewall_backend string &#34;auto&#34; Firewall backend selection: auto, iptables, or nftables clear_dynamic_sets_on_apply boolean false Clear the dynamic sets (domain IP addresses collected from DNS replies and connections) on every config apply or service restart. List refreshes and link switches never clear them. ipset_hashsize integer absent Optional initial hash table size for ipsets created by the iptables backend (default 1024). Has no effect with nftables. Must be between 1 and 2147483648. Changing it recreates the sets and empties the dynamic sets. ipset_maxelem integer absent Optional maximum element count for ipsets created by the iptables backend (default 65536). Has no effect with nftables. Must be between 1 and 4294967295. Changing it recreates the sets and empties the dynamic sets. reuse_static_sets_on_runtime_refresh boolean true Do not refill list sets on SIGUSR1, urltest/icmptest switches and interface state changes: only rules are updated, which is faster. If false, sets are refilled every time. strict_enforcement boolean false If the interface or gateway of an interface outbound is down, do not let its traffic go out through the normal connection: the outbound’s table gets the route from strict_enforcement_action instead. Can be set per outbound. strict_enforcement_action string &#34;unreachable&#34; What to do with traffic under strict_enforcement: unreachable returns an immediate network error; blackhole silently drops packets until the application times out. max_file_size_bytes integer 8388608 (8 MiB) Maximum allowed size in bytes for downloaded remote list content firewall_verify_max_bytes integer 262144 How many bytes of iptables/nft output to read when checking firewall rules (keen-pbr status, status page); 0 means no limit config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;firewall_backend&#34;: &#34;auto&#34;, &#34;clear_dynamic_sets_on_apply&#34;: false, &#34;ipset_hashsize&#34;: null, &#34;ipset_maxelem&#34;: null, &#34;reuse_static_sets_on_runtime_refresh&#34;: true, &#34;strict_enforcement&#34;: false, &#34;strict_enforcement_action&#34;: &#34;unreachable&#34;, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup.">
+Some of these settings are in the web UI: General &gt; Settings &gt; General, Lists autoupdate and Advanced routing settings. The low-level fields appear after you switch Settings mode to Advanced. This page describes every config.json field; next to a field you will find where it is in the UI.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -481,9 +375,9 @@ Field Type Default Description pid_file string — Path to write the PID file ca
             </li>
           <li>
               <a
-                href="#what-keen-pbr-does-not-do"
+                href="#good-to-know"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >What keen-pbr does not do</a>
+              >Good to know</a>
             </li>
           <li>
               <a
@@ -1062,7 +956,7 @@ Field Type Default Description pid_file string — Path to write the PID file ca
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#what-keen-pbr-does-not-do">What keen-pbr does not do
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#good-to-know">Good to know
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1158,8 +1052,9 @@ Field Type Default Description pid_file string — Path to write the PID file ca
           
           <p>Most users can skip this page.</p>
 <p>These settings are for advanced setups and service-level tuning: <code>daemon</code>, <code>api</code>, <code>fwmark</code>, <code>iproute</code>, and <code>lists_autoupdate</code>.</p>
+<p>Some of these settings are in the web UI: <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>General</strong>, <strong>Lists autoupdate</strong> and <strong>Advanced routing settings</strong>. The low-level fields appear after you switch <strong>Settings mode</strong> to <strong>Advanced</strong>. This page describes every <code>config.json</code> field; next to a field you will find where it is in the UI.</p>
 <h2>daemon<span class="hx:absolute hx:-mt-20" id="daemon"></span>
-    <a href="#daemon" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Controls the PID file path, cache directory, and global routing behaviour.</p>
+    <a href="#daemon" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Controls the PID file path (the file holding the service&rsquo;s process number), the cache directory, and general routing behaviour.</p>
 <table>
 	<thead>
 			<tr>
@@ -1174,7 +1069,7 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 					<td><code>pid_file</code></td>
 					<td>string</td>
 					<td>—</td>
-					<td>Path to write the PID file</td>
+					<td>Path to write the PID file. Can be overridden with the <code>--pid-file</code> flag</td>
 			</tr>
 			<tr>
 					<td><code>cache_dir</code></td>
@@ -1186,25 +1081,25 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 					<td><code>firewall_backend</code></td>
 					<td>string</td>
 					<td><code>&quot;auto&quot;</code></td>
-					<td>Firewall backend selection: <code>auto</code>, <code>iptables</code>, or <code>nftables</code></td>
+					<td>Which firewall to use: <code>auto</code> (pick automatically), <code>iptables</code>, or <code>nftables</code></td>
 			</tr>
 			<tr>
 					<td><code>clear_dynamic_sets_on_apply</code></td>
 					<td>boolean</td>
 					<td><code>false</code></td>
-					<td>Clear the dynamic sets (domain IP addresses collected from DNS replies and connections) on every config apply or service restart. List refreshes and link switches never clear them.</td>
+					<td>Clear the dynamic sets (domain IP addresses collected from DNS replies and connections) on every config apply or service restart. List refreshes and link switches never clear them. Web UI: <strong>Clear learned domain addresses on apply</strong>.</td>
 			</tr>
 			<tr>
 					<td><code>ipset_hashsize</code></td>
 					<td>integer</td>
 					<td>absent</td>
-					<td>Optional initial hash table size for ipsets created by the iptables backend (default <code>1024</code>). Has no effect with nftables. Must be between 1 and 2147483648. Changing it recreates the sets and empties the dynamic sets.</td>
+					<td>Optional initial hash table size for ipsets created by the iptables backend (default <code>1024</code>). Has no effect with nftables. Must be between 1 and 2147483648. Web UI (<strong>Advanced</strong> mode): <strong>IPSet hash table size (ipset hashsize)</strong>. Changing it recreates the sets and empties the dynamic sets.</td>
 			</tr>
 			<tr>
 					<td><code>ipset_maxelem</code></td>
 					<td>integer</td>
 					<td>absent</td>
-					<td>Optional maximum element count for ipsets created by the iptables backend (default <code>65536</code>). Has no effect with nftables. Must be between 1 and 4294967295. Changing it recreates the sets and empties the dynamic sets.</td>
+					<td>Optional maximum element count for ipsets created by the iptables backend (default <code>65536</code>). Has no effect with nftables. Must be between 1 and 4294967295. Web UI: <strong>Maximum entries in ipset (ipset maxelem)</strong>. Changing it recreates the sets and empties the dynamic sets.</td>
 			</tr>
 			<tr>
 					<td><code>reuse_static_sets_on_runtime_refresh</code></td>
@@ -1213,10 +1108,22 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 					<td>Do not refill list sets on <code>SIGUSR1</code>, <code>urltest</code>/<code>icmptest</code> switches and interface state changes: only rules are updated, which is faster. If <code>false</code>, sets are refilled every time.</td>
 			</tr>
 			<tr>
+					<td><code>skip_marked_packets</code></td>
+					<td>boolean</td>
+					<td><code>true</code></td>
+					<td>Do not process packets that another program has already marked. Web UI: <strong>Skip packets that are already marked</strong>.</td>
+			</tr>
+			<tr>
+					<td><code>ipv6_enabled</code></td>
+					<td>boolean</td>
+					<td><code>true</code></td>
+					<td>Route IPv6 traffic. When <code>false</code>, IPv6 flows as usual, bypassing keen-pbr. Web UI: <strong>Enable IPv6 support</strong>.</td>
+			</tr>
+			<tr>
 					<td><code>strict_enforcement</code></td>
 					<td>boolean</td>
 					<td><code>false</code></td>
-					<td>If the interface or gateway of an <code>interface</code> outbound is down, do not let its traffic go out through the normal connection: the outbound&rsquo;s table gets the route from <code>strict_enforcement_action</code> instead. Can be set per outbound.</td>
+					<td>If the interface or gateway of an <code>interface</code> outbound is down, do not let its traffic go out through the normal connection: the outbound&rsquo;s table gets the route from <code>strict_enforcement_action</code> instead. Can be set per outbound. Web UI: <strong>Block traffic when an outbound is unavailable (kill-switch)</strong>.</td>
 			</tr>
 			<tr>
 					<td><code>strict_enforcement_action</code></td>
@@ -1236,6 +1143,18 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 					<td><code>262144</code></td>
 					<td>How many bytes of <code>iptables</code>/<code>nft</code> output to read when checking firewall rules (<code>keen-pbr status</code>, status page); <code>0</code> means no limit</td>
 			</tr>
+			<tr>
+					<td><code>exec_timeout_seconds</code></td>
+					<td>integer</td>
+					<td><code>30</code></td>
+					<td>How many seconds to wait for keen-pbr&rsquo;s helper scripts (for example the dnsmasq script) before stopping them. Minimum 1.</td>
+			</tr>
+			<tr>
+					<td><code>exec_kill_grace_seconds</code></td>
+					<td>integer</td>
+					<td><code>2</code></td>
+					<td>How many seconds to give a script to exit after it is stopped before it is killed. Minimum 0.</td>
+			</tr>
 	</tbody>
 </table>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1249,10 +1168,14 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;ipset_hashsize&#34;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;ipset_maxelem&#34;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;reuse_static_sets_on_runtime_refresh&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;skip_marked_packets&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;ipv6_enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;strict_enforcement&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;strict_enforcement_action&#34;</span><span class="p">:</span> <span class="s2">&#34;unreachable&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;max_file_size_bytes&#34;</span><span class="p">:</span> <span class="mi">8388608</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;firewall_verify_max_bytes&#34;</span><span class="p">:</span> <span class="mi">262144</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;firewall_verify_max_bytes&#34;</span><span class="p">:</span> <span class="mi">262144</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;exec_timeout_seconds&#34;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;exec_kill_grace_seconds&#34;</span><span class="p">:</span> <span class="mi">2</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -1268,7 +1191,7 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 </div>
 <p>The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup.</p>
 <h2>api<span class="hx:absolute hx:-mt-20" id="api"></span>
-    <a href="#api" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Controls the embedded HTTP API server.</p>
+    <a href="#api" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Controls the embedded HTTP API server that the web UI runs on.</p>
 <table>
 	<thead>
 			<tr>
@@ -1283,13 +1206,49 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 					<td><code>enabled</code></td>
 					<td>boolean</td>
 					<td><code>false</code></td>
-					<td>Enable the HTTP API</td>
+					<td>Enable the HTTP API and the web UI. The config installed by the <code>keen-pbr</code> package already has it on</td>
 			</tr>
 			<tr>
 					<td><code>listen</code></td>
 					<td>string</td>
 					<td><code>&quot;0.0.0.0:12121&quot;</code></td>
 					<td>Address and port to listen on</td>
+			</tr>
+			<tr>
+					<td><code>max_request_body_bytes</code></td>
+					<td>integer</td>
+					<td><code>1048576</code></td>
+					<td>Maximum request body size in bytes. Minimum 1024.</td>
+			</tr>
+			<tr>
+					<td><code>read_timeout_seconds</code></td>
+					<td>integer</td>
+					<td><code>15</code></td>
+					<td>How many seconds to wait for a request from the client. Minimum 1.</td>
+			</tr>
+			<tr>
+					<td><code>write_timeout_seconds</code></td>
+					<td>integer</td>
+					<td><code>15</code></td>
+					<td>How many seconds to send a response to the client. Minimum 1.</td>
+			</tr>
+			<tr>
+					<td><code>keep_alive_timeout_seconds</code></td>
+					<td>integer</td>
+					<td><code>20</code></td>
+					<td>How many seconds to keep a connection open between requests. Minimum 1.</td>
+			</tr>
+			<tr>
+					<td><code>authentication</code></td>
+					<td>object</td>
+					<td>off</td>
+					<td>Password login: <code>enabled</code> and <code>password_hash</code>. With <code>enabled: true</code> the hash is required. Create it with <code>keen-pbr hash-password --update</code> or in the web UI: <strong>Security</strong>.</td>
+			</tr>
+			<tr>
+					<td><code>cors.allowed_origins</code></td>
+					<td>array</td>
+					<td>—</td>
+					<td>Site addresses (origins) allowed to call the API from a browser, for example <code>&quot;https://router.example&quot;</code>. Exact <code>http://</code> or <code>https://</code> addresses only, no path or wildcards.</td>
 			</tr>
 	</tbody>
 </table>
@@ -1298,7 +1257,13 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;api&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;listen&#34;</span><span class="p">:</span> <span class="s2">&#34;0.0.0.0:12121&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;listen&#34;</span><span class="p">:</span> <span class="s2">&#34;0.0.0.0:12121&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;max_request_body_bytes&#34;</span><span class="p">:</span> <span class="mi">1048576</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;read_timeout_seconds&#34;</span><span class="p">:</span> <span class="mi">15</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;write_timeout_seconds&#34;</span><span class="p">:</span> <span class="mi">15</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;keep_alive_timeout_seconds&#34;</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;authentication&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">false</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;cors&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;allowed_origins&#34;</span><span class="p">:</span> <span class="p">[]</span> <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -1312,11 +1277,11 @@ Field Type Default Description pid_file string — Path to write the PID file ca
   </button>
 </div>
 </div>
-<p>The API can also be disabled at runtime with <code>--no-api</code>, regardless of the config setting. See <a href="/docs/rest-api/">REST API</a> for endpoint documentation and runtime controls.</p>
+<p>Start <code>keen-pbr</code> with <code>--no-api</code> to disable the API regardless of the config. See <a href="/docs/rest-api/">REST API</a> for endpoint documentation and runtime controls.</p>
 <h2>fwmark<span class="hx:absolute hx:-mt-20" id="fwmark"></span>
     <a href="#fwmark" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Sets the range of 
   <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
- values keen-pbr puts on packets to send them to the right routing table. See <a href="/docs/concepts/#fwmark-and-conntrack">fwmark and conntrack</a>.</p>
+ values. A fwmark is a label keen-pbr puts on a packet so the system sends it to the right routing table (the table holding one outbound&rsquo;s routes). See <a href="/docs/concepts/#fwmark-and-conntrack">fwmark and conntrack</a>.</p>
 <table>
 	<thead>
 			<tr>
@@ -1331,13 +1296,13 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 					<td><code>start</code></td>
 					<td>string</td>
 					<td><code>&quot;0x00010000&quot;</code></td>
-					<td>First fwmark value to assign to outbounds</td>
+					<td>First fwmark value to assign to outbounds. Web UI: <strong>fwmark starting value</strong></td>
 			</tr>
 			<tr>
 					<td><code>mask</code></td>
 					<td>string</td>
 					<td><code>&quot;0x00FF0000&quot;</code></td>
-					<td>Fwmark bitmask</td>
+					<td>Fwmark bitmask. Web UI: <strong>fwmark mask</strong></td>
 			</tr>
 	</tbody>
 </table>
@@ -1370,7 +1335,7 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 </div>
 
 <h2>iproute<span class="hx:absolute hx:-mt-20" id="iproute"></span>
-    <a href="#iproute" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Sets the routing table numbers and <code>ip rule</code> priorities keen-pbr uses for outbounds.</p>
+    <a href="#iproute" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Sets the routing table numbers and the priorities of the <code>ip rule</code> entries that keen-pbr creates for outbounds. An <code>ip rule</code> entry is a rule that picks a routing table by fwmark.</p>
 <table>
 	<thead>
 			<tr>
@@ -1385,7 +1350,7 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 					<td><code>table_start</code></td>
 					<td>integer</td>
 					<td><code>150</code></td>
-					<td>First routing table ID to allocate for outbounds</td>
+					<td>First routing table ID to allocate for outbounds. Web UI: <strong>IP routing table starting value</strong></td>
 			</tr>
 			<tr>
 					<td><code>rule_priority_start</code></td>
@@ -1397,7 +1362,7 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 					<td><code>process_router_traffic</code></td>
 					<td>boolean</td>
 					<td><code>false</code></td>
-					<td>Apply route rules to traffic of the router itself and collect domain IPs from it. When <code>false</code>, keen-pbr handles only traffic of devices in the network. <code>detour</code> of DNS servers works either way.</td>
+					<td>Apply route rules to traffic of the router itself and collect domain IPs from it. When <code>false</code>, keen-pbr handles only traffic of devices in the network. <code>detour</code> of DNS servers works either way. Web UI (<strong>Advanced</strong> mode): <strong>Process router&rsquo;s own traffic</strong>.</td>
 			</tr>
 	</tbody>
 </table>
@@ -1421,8 +1386,8 @@ Field Type Default Description pid_file string — Path to write the PID file ca
   </button>
 </div>
 </div>
-<p>Outbounds are assigned sequential table IDs starting from <code>table_start</code>. Ensure these IDs don&rsquo;t conflict with existing routing tables on your system.</p>
-<p>keen-pbr removes only the routes it added itself. Routes added by you or by other software stay in place when keen-pbr reloads or stops.</p>
+<p>Outbounds are assigned sequential table IDs starting from <code>table_start</code>. Check that these IDs do not clash with existing routing tables. Do not start from reserved IDs: 0, 128, 250-260 and everything from 32000. A config with such a <code>table_start</code> fails validation, and reserved IDs are skipped when numbers are allocated.</p>
+<p>When keen-pbr stops, it removes only its own routes. Routes added by you or by other software stay in place.</p>
 <h2>Failover<span class="hx:absolute hx:-mt-20" id="failover"></span>
     <a href="#failover" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Rules are checked top to bottom and the first match wins. Two identical rules with different outbounds therefore do not give you a backup: packets never reach the second rule.</p>
 <p>If the first outbound&rsquo;s interface goes down, the result depends on <code>strict_enforcement</code>:</p>
@@ -1433,30 +1398,30 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 <p>To switch traffic to a backup link, create one <code>urltest</code> outbound and put both interfaces in it. <code>conntrack_on_switch</code> controls what happens to open connections when <code>urltest</code> moves to a faster link: <code>preserve</code> (the default) keeps them on the old link, <code>delete</code> deletes their 
   <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
  entries, so applications reconnect through the new one. When the selected link stops working, conntrack entries of its connections are always deleted.</p>
-<h2>What keen-pbr does not do<span class="hx:absolute hx:-mt-20" id="what-keen-pbr-does-not-do"></span>
-    <a href="#what-keen-pbr-does-not-do" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><ul>
-<li><code>ipv6_enabled: false</code> does not block IPv6. keen-pbr simply stops routing IPv6 traffic, and it flows as usual.</li>
-<li>keen-pbr learns domain IPs from ordinary DNS replies passing through the router, even when a client uses a third-party DNS server. It cannot read encrypted DNS (
+<h2>Good to know<span class="hx:absolute hx:-mt-20" id="good-to-know"></span>
+    <a href="#good-to-know" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><ul>
+<li>With <code>ipv6_enabled: false</code>, IPv6 traffic flows as usual, bypassing keen-pbr.</li>
+<li>keen-pbr learns domain IPs from ordinary DNS replies passing through the router, even when a client uses a third-party DNS server. If a device uses encrypted DNS (
   <abbr title="DNS over HTTPS: encrypted DNS. The router cannot read these queries.">DoH</abbr>
 , 
   <abbr title="DNS over TLS: encrypted DNS. The router cannot read these queries.">DoT</abbr>
-). If a device uses it, keen-pbr learns the site&rsquo;s address only from the connection itself (the server name in TLS, HTTP or 
+), keen-pbr learns the site&rsquo;s address only from the connection itself (the server name in TLS, HTTP or 
   <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr>
 ), and the first connections may bypass the VPN. To avoid this, turn off &ldquo;secure DNS&rdquo; on the device and set up DoH/DoT on the router itself.</li>
-<li>When a learned domain IP expires from a list, only new connections are affected. Connections that are already open keep their route, because their 
+<li>When a learned domain IP expires from a list, new connections take a different route, while connections that are already open keep their route, because their 
   <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
  is stored in 
   <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
 .</li>
-<li><code>keen-pbr download</code> only downloads lists into the cache. To make the running service use them, run <code>keen-pbr download --reload</code> or restart the service.</li>
-<li>Do not change <code>fwmark.mask</code> while keen-pbr is stopped after a crash. On the next start it will not recognise its old rules and cannot remove them. If that has already happened, reboot the router.</li>
+<li><code>keen-pbr download</code> downloads lists into the cache. To make the running service use them, run <code>keen-pbr download --reload</code> or restart the service.</li>
+<li>If keen-pbr stopped after a crash, do not change <code>fwmark.mask</code> before the next start: otherwise it will not recognise its old rules and cannot remove them. If that has already happened, reboot the router.</li>
 </ul>
 <h2>One instance only<span class="hx:absolute hx:-mt-20" id="one-instance-only"></span>
     <a href="#one-instance-only" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Run only one keen-pbr per router. A separate <code>pid_file</code> does not help: a second instance uses the same firewall rule and set names and breaks the first one&rsquo;s rules.</p>
-<p>Put all outbounds and routing rules into one configuration. If you really need two independent instances, run them in separate network namespaces.</p>
+<p>Put all outbounds and routing rules into one configuration. If you need two independent instances, run them in separate network namespaces.</p>
 <h2>lists_autoupdate<span class="hx:absolute hx:-mt-20" id="lists_autoupdate"></span>
-    <a href="#lists_autoupdate" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Controls automatic periodic refresh of remote lists.</p>
-<p>If the <code>lists_autoupdate</code> section is omitted, automatic refresh is disabled.</p>
+    <a href="#lists_autoupdate" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Scheduled refresh of remote lists.</p>
+<p>If the <code>lists_autoupdate</code> section is omitted, automatic refresh is disabled. In the web UI: <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Lists autoupdate</strong>.</p>
 <table>
 	<thead>
 			<tr>
@@ -1471,13 +1436,13 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 					<td><code>enabled</code></td>
 					<td>boolean</td>
 					<td><code>false</code></td>
-					<td>Enable automatic list refresh</td>
+					<td>Enable automatic list refresh. Web UI: <strong>Enable lists autoupdate</strong></td>
 			</tr>
 			<tr>
 					<td><code>cron</code></td>
 					<td>string</td>
 					<td>—</td>
-					<td>Standard 5-field cron expression for the refresh schedule</td>
+					<td>Refresh schedule: a 5-field cron expression (format below). Web UI: <strong>Refresh schedule</strong></td>
 			</tr>
 	</tbody>
 </table>
@@ -1500,13 +1465,24 @@ Field Type Default Description pid_file string — Path to write the PID file ca
   </button>
 </div>
 </div>
-<p>The <code>cron</code> field uses the standard 5-field format: <code>minute hour day-of-month month day-of-week</code>. The example above runs weekly at 04:00 on Sunday.</p>
-<p>The <code>cron</code> field is validated even when <code>enabled</code> is <code>false</code>.</p>
-<p>If a remote list could not be downloaded at startup, the daemon keeps retrying it in the background with increasing delays (10 seconds, 30 seconds, 2 minutes, then every 5 minutes) until it succeeds. This does not depend on <code>lists_autoupdate</code>. The first download of a list that is not cached yet happens before keen-pbr applies the new dnsmasq settings, so per-list DNS servers may not be used for it. Later retries use them.</p>
-<p>You can also trigger a manual refresh at any time:</p>
-<ul>
-<li>Send <code>SIGHUP</code> to the daemon process: <code>kill -HUP $(cat /var/run/keen-pbr.pid)</code></li>
-</ul>
+<p>The <code>cron</code> format: <code>minute hour day-of-month month day-of-week</code>. The example above runs weekly at 04:00 on Sunday.</p>
+<p>If <code>cron</code> is filled in, it is validated even when <code>enabled</code> is <code>false</code>. With <code>enabled: true</code> it is required.</p>
+<p>If a remote list could not be downloaded at startup, the daemon keeps retrying it in the background with increasing delays (10 seconds, 30 seconds, 2 minutes, then every 5 minutes) until it succeeds. This does not depend on <code>lists_autoupdate</code>.</p>
+<p>You can refresh the lists by hand at any time:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr download --reload</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

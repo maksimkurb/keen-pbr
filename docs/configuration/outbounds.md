@@ -1,16 +1,18 @@
 # Outbounds
 
-Outbounds tell keen-pbr where matching traffic should go.
+An outbound is a channel that traffic can take: a VPN interface, your ISP connection, or a block. You choose which traffic goes to which outbound in [route rules]({{< relref "/docs/configuration/route-rules" >}}).
 
-An outbound `tag` uses lowercase Latin letters, digits and `_`, starts with a letter, and is at most 24 characters long (`^[a-z][a-z0-9_]*$`).
+**In the Web UI:** open **Routing** > **Outbounds**, click **Add outbound**, enter a **Name** (called `tag` in the config) and pick a type. Then click **Apply** in the draft bar.
+
+The name (`tag`) uses lowercase Latin letters, digits and `_`, starts with a letter, and is at most 24 characters long (`^[a-z][a-z0-9_]*$`).
 
 Most users only need:
 
-- one `interface` outbound for the VPN connection
-- one `table` outbound with `table: 254` (the system's main routing table) for the normal connection, often `wan`
-- optionally one `urltest` outbound if they want automatic failover between several connections
+- one **Interface** (`interface`) outbound for the VPN connection
+- one **Routing table** (`table`) outbound with `table: 254` (the system's main routing table) for the normal connection, often `wan`
+- optionally one **Auto-select (urltest)** outbound, so keen-pbr picks a working one among several connections
 
-If you are not sure, start with `interface` outbounds and come back to the others later.
+If you are not sure, start with **Interface** and come back to the other types later.
 
 ## Common Example
 
@@ -37,19 +39,25 @@ If you are not sure, start with `interface` outbounds and come back to the other
 
 ## `interface`
 
-Use this when you want to send traffic through a specific connection such as a VPN tunnel or your normal internet uplink.
+Use it when traffic must go through a specific network interface: a VPN tunnel (`tun0`, `wg0`) or a separate internet connection.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `tag` | string | yes | Unique identifier |
 | `type` | string | yes | `"interface"` |
 | `interface` | string | yes | Egress network interface name (e.g. `tun0`) |
-| `gateway` | string | no | Optional IPv4 gateway address |
-| `gateway6` | string | no | Optional IPv6 gateway address |
+| `gateway` | string | no | IPv4 gateway address or `"auto"`. In the Web UI: **Default gateway IPv4** |
+| `gateway6` | string | no | IPv6 gateway address or `"auto"`. In the Web UI: **Default gateway IPv6** |
+| `strict_enforcement` | boolean | no | Whether to block this outbound's traffic while its interface or gateway is down. If unset, the global **Block traffic when an outbound is unavailable (kill-switch)** setting in **General** > **Settings** > **General** applies |
+| `strict_enforcement_action` | string | no | How to block: `"unreachable"` (connections fail immediately) or `"blackhole"` (packets are silently dropped) |
 
-For tunnels such as `tun0` or `wg0`, a gateway is usually not needed: without `gateway` and `gateway6`, both IPv4 and IPv6 traffic is sent straight into the interface. Set a gateway when the next hop has to be named, for example a second WAN behind the ISP's router.
+For tunnels such as `tun0` or `wg0`, a gateway is usually not needed: without `gateway` and `gateway6`, both IPv4 and IPv6 traffic is sent straight into the interface. You need a gateway when the interface is connected to your ISP's router and traffic must be handed to its address, for example a second WAN.
 
-If you set only one of them, traffic of the other IP version for this outbound is blocked rather than leaking past the VPN.
+You do not have to look the gateway up yourself: enter `"auto"` (type `auto` in the Web UI) and keen-pbr takes the gateway from this interface's default route in the main routing table (if there are several, from the one with the lowest metric). If the interface has no such route, or its best routes have different gateways, the outbound counts as unavailable for that IP version.
+
+If you set a gateway for only one IP version, traffic of the other version for this outbound is blocked rather than leaking past the VPN.
+
+**Kill-switch** in the outbound form sets what happens to traffic while the interface or gateway is down. Options: **Default behavior** (the global setting applies), **Do not block** (traffic bypasses the outbound via the main route), **Block with an error** (`strict_enforcement_action: "unreachable"`), **Block silently** (`"blackhole"`).
 
 ```json { filename="config.json" }
 {
@@ -67,7 +75,7 @@ If you set only one of them, traffic of the other IP version for this outbound i
 
 ## `table`
 
-Sends traffic through an existing routing table: usually `254`, the system's main table (the normal internet connection), or a table another service has created.
+Use it when traffic must follow an existing routing table (a set of system routes): `254` is the main table, meaning the normal internet connection, or a table another service has created.
 
 To see which tables exist and their names, run:
 
@@ -80,7 +88,7 @@ cat /etc/iproute2/rt_tables
 |---|---|---|---|
 | `tag` | string | yes | Unique identifier |
 | `type` | string | yes | `"table"` |
-| `table` | integer | yes | Existing routing table number |
+| `table` | integer | yes | Existing routing table number. In the Web UI: **Table ID** |
 
 ```json { filename="config.json" }
 {
@@ -96,7 +104,7 @@ cat /etc/iproute2/rt_tables
 
 ## `blackhole`
 
-Drops all matching traffic. Useful for blocking access to specific resources.
+Use it to block access to sites or addresses: matching traffic is dropped.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -116,9 +124,9 @@ Drops all matching traffic. Useful for blocking access to specific resources.
 
 ## `ignore`
 
-Leaves traffic alone: keen-pbr does not touch it, and it follows the router's normal routing as if keen-pbr were not there.
+Use it for exceptions: traffic follows the router's normal routing, as if keen-pbr did not touch it.
 
-Use it for exceptions. Rules are checked from top to bottom and the first match wins, so put the `ignore` rule above a broader one. For example, the whole `streaming` list goes through the VPN except addresses from the `streaming_direct` list (`direct` is the `ignore` outbound from the example below):
+Rules are checked from top to bottom and the first match wins, so put the `ignore` rule above a broader one. For example, the whole `streaming` list goes through the VPN except addresses from the `streaming_direct` list (`direct` is the `ignore` outbound from the example below):
 
 ```json { filename="config.json" }
 "rules": [
@@ -145,7 +153,7 @@ Use it for exceptions. Rules are checked from top to bottom and the first match 
 
 ## `urltest`
 
-Use this when you have several links (for example two VPNs and your normal internet) and want keen-pbr to pick a working one automatically. keen-pbr periodically opens `url` through each link and measures the response time.
+Use it when you have several links (for example two VPNs and your normal internet) and want keen-pbr to pick a working one automatically. keen-pbr periodically opens `url` through each link and measures the response time. In the Web UI the type is called **Auto-select (urltest)**.
 
 If no link works, traffic for this outbound is blocked rather than leaking through your normal internet connection around the VPN.
 
@@ -157,9 +165,9 @@ If no link works, traffic for this outbound is blocked rather than leaking throu
 | `interval_ms` | integer | no (default: `180000`) | Interval between checks in milliseconds |
 | `probe_timeout_ms` | integer | no (default: `5000`) | Timeout for one check in milliseconds |
 | `tolerance_ms` | integer | no (default: `100`) | Do not switch to another link if it is faster than the current one by less than this many milliseconds |
-| `strategy` | string | no (default: `"priority"`) | `"priority"`: all traffic goes through the single fastest link. `"balance"`: new connections are spread across the working links of the first working group in proportion to `weight` (not available on Keenetic) |
-| `conntrack_on_switch` | string | no (default: `"preserve"`) | What to do with open connections when moving to a faster link: `"preserve"` keeps them on the old link, `"delete"` deletes their {{< term "conntrack" >}} entries so they reconnect. See [Failover]({{< relref "/docs/configuration/advanced#failover" >}}) |
-| `outbound_groups` | array | yes | Ordered list of link groups (see below) |
+| `strategy` | string | no (default: `"priority"`) | How to pick a link. In the Web UI: **Selection strategy**. `"priority"` (**Fastest**): all traffic goes through one link, the one with the lowest latency in the first working tier. `"balance"` (**Multipath**): new connections are spread across the working links by weight (not available on Keenetic) |
+| `conntrack_on_switch` | string | no (default: `"preserve"`) | What to do with open connections when switching to another link. In the Web UI: **Existing connections on switch**. `"preserve"` (**Keep**) keeps them on the old link, `"delete"` (**Reset**) deletes their {{< term "conntrack" >}} entries so they reconnect. See [Failover]({{< relref "/docs/configuration/advanced#failover" >}}) |
+| `outbound_groups` | array | yes | Ordered list of link groups, called tiers in the Web UI (see below) |
 | `retry` | object | no | Check retries (see below) |
 | `circuit_breaker` | object | no | Temporary exclusion of an unstable link (see below) |
 
@@ -192,9 +200,11 @@ If no link works, traffic for this outbound is blocked rather than leaking throu
 }
 ```
 
-### Outbound Groups
+### Outbound Groups (tiers)
 
-`outbound_groups` is a list of groups in priority order. keen-pbr uses the first group that has at least one working link. If no link in a group works, the next group is used.
+A group is a set of links to pick a working one from. You can have several groups, checked in order: the first is the primary one, the rest are backups. keen-pbr uses the first group that has at least one working link. A backup group is used only when no link in the groups above it works.
+
+In the Web UI groups are called tiers: **Primary tier** and **Backup tier N**. Click **Add backup tier** to add a fallback.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -204,8 +214,8 @@ Each link in a group:
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `outbound` | string | yes | Outbound tag (`interface`, `table` or `blackhole`) |
-| `weight` | integer 1-100 | no (default: `1`) | Share of new connections with `strategy: "balance"`; ignored by `priority`. Links with weights 7 and 3 get 70% and 30% of new connections while both work |
+| `outbound` | string | yes | Tag of an `interface` or `table` outbound. You do not need a tier that blocks traffic: when no link works, traffic is blocked anyway |
+| `weight` | integer 1-100 | no (default: `1`) | Link weight; in the Web UI, **Weight**. Used only with `strategy: "balance"`: the higher the weight, the more new connections the link gets. Links with weights 7 and 3 get 70% and 30% of new connections while both work. If one link is down, its share is split among the others. Connections that are already open are not moved |
 
 ```json { filename="config.json" }
 "outbound_groups": [
@@ -214,15 +224,11 @@ Each link in a group:
 ]
 ```
 
-{{< callout type="info" >}}
-The older group format (`outbounds: ["a", "b"]` with a group-level `weight` as its priority) is still supported. On the first start keen-pbr rewrites `config.json` in the new format and keeps the old file next to it as `config.json.bak-pre-members`. Comments from the old file are not carried over. Old and new fields cannot be mixed in one group.
-{{< /callout >}}
+### Multipath (`strategy: "balance"`)
 
-### Load balancing (`strategy: "balance"`)
+This strategy spreads load across the working links of the first working tier. A link is chosen per new connection, not per request: the whole connection, including HTTP/2 and {{< term "QUIC" >}}, stays on one link. `tolerance_ms` and `conntrack_on_switch` are not used with balancing. When a link stops working, {{< term "conntrack" >}} entries of its connections are deleted, and new connections are spread across the remaining links.
 
-A link is chosen per new connection, not per request: the whole connection, including HTTP/2 and {{< term "QUIC" >}}, stays on one link. `tolerance_ms` and `conntrack_on_switch` are not used with balancing. When a link stops working, {{< term "conntrack" >}} entries of its connections are deleted, and new connections are spread across the remaining links.
-
-With nftables, connections are split exactly by weight. With iptables, a link is picked at random with the right probability, so with only a few connections the shares can differ noticeably from the weights; with many connections they even out. iptables needs the `xt_statistic` kernel module; if it is missing, keen-pbr reports it when applying the configuration. Balancing is not available with `--use-raw-prerouting`.
+With nftables, connections are split exactly by weight. With iptables, a link is picked at random with the right probability, so with only a few connections the shares can differ noticeably from the weights; with many connections they even out. iptables needs the `xt_statistic` kernel module; if it is missing, keen-pbr reports it when applying the configuration. This strategy is not available on Keenetic. Balancing is not available with `--use-raw-prerouting`.
 
 {{< callout type="info" >}}
 Balancing across several WANs needs {{< term "NAT" >}} on every uplink, loose `rp_filter`, and an {{< term "fwmark" >}} range that other software does not use. See [Multi-WAN Load Balancing]({{< relref "/docs/configuration/multi-wan" >}}) for a complete Debian/iptables setup.
@@ -232,12 +238,12 @@ Balancing across several WANs needs {{< term "NAT" >}} on every uplink, loose `r
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `attempts` | integer | no (default: `3`) | How many times to retry a check before treating the link as down |
+| `attempts` | integer | no (default: `1`) | How many times to run the check in total, including the first try, before treating it as failed |
 | `interval_ms` | integer | no (default: `1000`) | Pause between attempts in milliseconds |
 
 ### Excluding an unstable link (`circuit_breaker`)
 
-If a link fails several checks in a row, keen-pbr stops using it for a while. This keeps traffic from bouncing back and forth while a link keeps going up and down.
+If a link fails several checks in a row, keen-pbr stops using it for a while. This keeps traffic from bouncing back and forth while a link keeps going up and down. The defaults suit most setups; you do not need to change them.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -246,11 +252,11 @@ If a link fails several checks in a row, keen-pbr stops using it for a while. Th
 | `success_threshold` | integer | no (default: `2`) | Successful checks in a row needed to bring the link back |
 | `half_open_max_requests` | integer | no (default: `1`) | How many checks may run at once while an excluded link is being rechecked |
 
-An excluded link is shown as **Unavailable** on the **Outbounds** page of the web UI and as `unavailable` in `GET /api/runtime/outbounds`.
+An excluded link is shown as **Unavailable** on the **Routing** > **Outbounds** page of the web UI and as `unavailable` in `GET /api/runtime/outbounds`.
 
 ## `icmptest`
 
-Same as `urltest`, but links are checked with ping ({{< term "ICMP" >}} Echo) instead of an HTTP request. For every link in a group, set `target`: the IP address to ping through that link.
+Use it instead of `urltest` when HTTP checks do not work for you. In the Web UI the type is called **Auto-select (ICMP)**. A link is checked by pinging a specific address ({{< term "ICMP" >}} Echo). For every link in a group, set `target` (in the Web UI, **Ping target**): the IP address to ping through that link.
 
 ```json { filename="config.json" }
 {
@@ -282,9 +288,9 @@ Same as `urltest`, but links are checked with ping ({{< term "ICMP" >}} Echo) in
 | `packet_interval_ms` | integer | no (default: `200`) | Pause between pings, 100 to 1000 ms |
 | `probe_timeout_ms` | integer | no (default: `1000`) | How long to wait for one ping reply, 100 to 5000 ms |
 | `max_rtt_ms` | integer | no (default: `500`) | A slower reply counts as lost. Must not exceed `probe_timeout_ms` |
-| `outbound_groups[].members[].target` | string | yes | IPv4 or IPv6 address to ping through this link |
+| `outbound_groups[].members[].target` | string | yes | IPv4 or IPv6 address to ping through this link (**Ping target**) |
 
-`tolerance_ms`, `strategy`, `conntrack_on_switch`, groups and weights work the same as in `urltest`.
+`tolerance_ms`, `strategy`, `conntrack_on_switch`, groups (tiers) and weights work the same as in `urltest`.
 
 Pings are sent one after another, so checking all links takes time. `interval_ms` must exceed that time by at least 25%; otherwise keen-pbr rejects the configuration and tells you the minimum allowed value. Groups may contain at most 16 links in total.
 

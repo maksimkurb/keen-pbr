@@ -9,38 +9,16 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Route Rules – keen-pbr</title>
-  <meta name="description" content="Route rules connect your lists to your outbounds.
-Most users only need one simple rule for each list, for example:
-config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Rules are checked from top to bottom. The first match wins. Traffic that matches no rule gets no fwmark and follows normal system routing." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/route-rules/" itemprop="url" />
+  <meta name="description" content="A route rule links a condition (“traffic to sites from this list”) with an outbound (“send it through this channel”). An outbound is a channel for traffic: a VPN, your ISP connection or a block; see Outbounds.
+In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick a Rule type, set the conditions and the Outbound, then click Apply in the draft bar. To turn a rule off temporarily, clear the Enable rule switch." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/route-rules/" itemprop="url" />
 
 <meta property="og:title" content="Route Rules">
 <meta
   property="og:description"
   content="
     
-      Route rules connect your lists to your outbounds.
-Most users only need one simple rule for each list, for example:
-
-
-config.json{
-  &#34;route&#34;: {
-    &#34;rules&#34;: [
-      {
-        &#34;list&#34;: [&#34;my_sites&#34;],
-        &#34;outbound&#34;: &#34;vpn&#34;
-      }
-    ]
-  }
-}
-  
-    
-
-  
-
-
-Rules are checked from top to bottom. The first match wins. Traffic that matches no rule gets no 
-  fwmark
- and follows normal system routing.
+      A route rule links a condition (&ldquo;traffic to sites from this list&rdquo;) with an outbound (&ldquo;send it through this channel&rdquo;). An outbound is a channel for traffic: a VPN, your ISP connection or a block; see Outbounds.
+In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick a Rule type, set the conditions and the Outbound, then click Apply in the draft bar. To turn a rule off temporarily, clear the Enable rule switch.
     
   ">
 <meta
@@ -54,15 +32,13 @@ Rules are checked from top to bottom. The first match wins. Traffic that matches
 
 
 	<meta itemprop="name" content="Route Rules">
-	<meta itemprop="description" content="Route rules connect your lists to your outbounds.
-Most users only need one simple rule for each list, for example:
-config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Rules are checked from top to bottom. The first match wins. Traffic that matches no rule gets no fwmark and follows normal system routing.">
-	<meta itemprop="wordCount" content="1457">
+	<meta itemprop="description" content="A route rule links a condition (“traffic to sites from this list”) with an outbound (“send it through this channel”). An outbound is a channel for traffic: a VPN, your ISP connection or a block; see Outbounds.
+In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick a Rule type, set the conditions and the Outbound, then click Apply in the draft bar. To turn a rule off temporarily, clear the Enable rule switch.">
+	<meta itemprop="wordCount" content="1756">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Route Rules">
-	<meta name="twitter:description" content="Route rules connect your lists to your outbounds.
-Most users only need one simple rule for each list, for example:
-config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Rules are checked from top to bottom. The first match wins. Traffic that matches no rule gets no fwmark and follows normal system routing.">
+	<meta name="twitter:description" content="A route rule links a condition (“traffic to sites from this list”) with an outbound (“send it through this channel”). An outbound is a channel for traffic: a VPN, your ISP connection or a block; see Outbounds.
+In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick a Rule type, set the conditions and the Outbound, then click Apply in the draft bar. To turn a rule off temporarily, clear the Enable rule switch.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -347,9 +323,9 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
             </li>
           <li>
               <a
-                href="#configuration"
+                href="#ingress-interface-filter"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Configuration</a>
+              >Ingress interface filter</a>
             </li>
           <li>
               <a
@@ -942,7 +918,7 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#configuration">Configuration
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#ingress-interface-filter">Ingress interface filter
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -958,23 +934,31 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#basic--route-a-list-through-vpn">Basic — route a list through VPN
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#a-list-through-the-vpn">A list through the VPN
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#disable-a-rule-temporarily-without-deleting-it">Disable a rule temporarily without deleting it
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#an-exception-to-a-broader-rule">An exception to a broader rule
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#ingress-interface-filter--process-only-packets-from-br0">Ingress interface filter — process only packets from br0
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#blocking-a-list">Blocking a list
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#ingress-interface-filter-disabled-omitted-or-empty">Ingress interface filter disabled (omitted or empty)
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#one-device-or-subnet">One device or subnet
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#port-filter--only-https-tcp-from-two-subnets">Port filter — only HTTPS TCP from two subnets
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#disabling-a-rule-temporarily">Disabling a rule temporarily
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#ports-and-protocol-https-from-two-subnets">Ports and protocol: HTTPS from two subnets
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#all-conditions-at-once-dns-queries-to-google-dns-from-a-subnet">All conditions at once: DNS queries to Google DNS from a subnet
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -990,27 +974,19 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#address-filter--match-a-specific-source-subnet">Address filter — match a specific source subnet
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#exclusions-with--all-sources-except-the-local-lan">Exclusions with !: all sources except the local LAN
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#full-filter--google-dns-from-a-subnet-through-vpn">Full filter — Google DNS from a subnet through VPN
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#exclusions-with--tcp-traffic-to-addresses-from-a-list-except-https">Exclusions with !: TCP traffic to addresses from a list, except HTTPS
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#negation--all-sources-except-local-lan">Negation — all sources except local LAN
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#exclusions-with--udp-traffic-to-addresses-from-a-list-except-dns-and-ntp">Exclusions with !: UDP traffic to addresses from a list, except DNS and NTP
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#negation--all-tcp-except-https-goes-through-vpn">Negation — all TCP except HTTPS goes through VPN
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#negation--all-udp-except-dns-and-ntp-goes-through-vpn">Negation — all UDP except DNS and NTP goes through VPN
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#negation--block-traffic-not-going-to-a-trusted-subnet">Negation — block traffic NOT going to a trusted subnet
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#exclusions-with--block-everything-from-a-list-except-trusted-subnets">Exclusions with !: block everything from a list except trusted subnets
         </a>
       </li></ul>
       <div class="hx:mt-8 hx:border-t hx:bg-white hx:pt-8 hx:shadow-[0_-12px_16px_white] hx:dark:bg-dark hx:dark:shadow-[0_-12px_16px_#111] hx:sticky hx:bottom-0 hx:flex hx:flex-col hx:items-start hx:gap-2 hx:pb-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-t hx:contrast-more:border-neutral-400 hx:contrast-more:shadow-none hx:contrast-more:dark:border-neutral-400">
@@ -1096,8 +1072,9 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
     </div>
           </div>
           
-          <p>Route rules connect your lists to your outbounds.</p>
-<p>Most users only need one simple rule for each list, for example:</p>
+          <p>A route rule links a condition (&ldquo;traffic to sites from this list&rdquo;) with an outbound (&ldquo;send it through this channel&rdquo;). An outbound is a channel for traffic: a VPN, your ISP connection or a block; see <a href="/docs/configuration/outbounds/">Outbounds</a>.</p>
+<p><strong>In the Web UI:</strong> open <strong>Routing</strong> &gt; <strong>Routing rules</strong> and click <strong>Add routing rule</strong>. Pick a <strong>Rule type</strong>, set the conditions and the <strong>Outbound</strong>, then click <strong>Apply</strong> in the draft bar. To turn a rule off temporarily, clear the <strong>Enable rule</strong> switch.</p>
+<p>Most users need one simple rule per list, for example:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1121,11 +1098,9 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
-<p>Rules are checked from top to bottom. The first match wins. Traffic that matches no rule gets no 
-  <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
- and follows normal system routing.</p>
+<p>Rules are checked from top to bottom, and the first match wins. Traffic that matches no rule follows the router&rsquo;s normal routing.</p>
 <h2>Default local networks rule<span class="hx:absolute hx:-mt-20" id="default-local-networks-rule"></span>
-    <a href="#default-local-networks-rule" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>All shipped example configurations include a default rule at the top of the rules list that prevents local and special networks from being routed into tunnels:</p>
+    <a href="#default-local-networks-rule" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Every example configuration starts its rule list with a rule that keeps local and special networks out of tunnels:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1150,7 +1125,7 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
-<p>The <code>local_networks</code> list contains RFC-reserved IP ranges that should always use local routing:</p>
+<p>The <code>local_networks</code> list holds reserved address ranges that always use local routing:</p>
 <ul>
 <li>Link-local addresses: <code>169.254.0.0/16</code>, <code>fe80::/10</code></li>
 <li>Loopback: <code>127.0.0.0/8</code>, <code>::1/128</code></li>
@@ -1158,16 +1133,15 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 <li>Unique local addresses: <code>fc00::/7</code></li>
 <li>Special use ranges: <code>0.0.0.0/8</code>, <code>100.64.0.0/10</code>, <code>224.0.0.0/4</code>, <code>240.0.0.0/4</code>, <code>ff00::/8</code></li>
 </ul>
-<p><code>direct_local</code> is an <code>ignore</code> outbound: traffic to these networks is left to the router&rsquo;s normal routing.</p>
-<p><strong>Why this matters:</strong> without this rule, a rule for all addresses such as <code>&quot;dest_addr&quot;: &quot;0.0.0.0/0&quot;</code> would also send traffic to local and service addresses into the tunnel, and the router or other local addresses may become unreachable. Rules with <code>default_gateway</code> skip these addresses on their own.</p>
-<p><strong>If your private network should go through a tunnel:</strong> If you have a corporate 10.x or 172.16.x network that should be routed via tunnel (e.g., to a VPN), add a rule for it <em>above</em> the default local_networks rule:</p>
+<p><code>direct_local</code> is an <code>ignore</code> outbound: traffic to these networks follows the router&rsquo;s normal routing.</p>
+<p><strong>Why you need it:</strong> without this rule, a rule for all addresses such as <code>&quot;dest_addr&quot;: &quot;0.0.0.0/0&quot;</code> would also send traffic to local addresses into the tunnel, and the router or other devices on your network may become unreachable. Rules with <code>default_gateway</code> skip these addresses on their own.</p>
+<p><strong>If your private network should go through a tunnel</strong> (for example a corporate 10.x or 172.16.x network behind a VPN), add a rule for it <em>above</em> the <code>local_networks</code> rule:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;corporate_vpn&#34;</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;dest_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;10.0.0.0/8&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">},</span>
@@ -1190,12 +1164,13 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
-<h2>Configuration<span class="hx:absolute hx:-mt-20" id="configuration"></span>
-    <a href="#configuration" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h2>Ingress interface filter<span class="hx:absolute hx:-mt-20" id="ingress-interface-filter"></span>
+    <a href="#ingress-interface-filter" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>By default rules apply to traffic from all interfaces. To process only traffic from some networks (for example only the LAN, <code>br0</code>), list them in <code>inbound_interfaces</code>. In the Web UI: <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>General</strong> &gt; <strong>Processed (inbound) interfaces</strong>.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;inbound_interfaces&#34;</span><span class="p">:</span> <span class="p">[</span><span class="err">...</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;inbound_interfaces&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;br0&#34;</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span><span class="err">...</span><span class="p">]</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1224,7 +1199,7 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 					<td><code>inbound_interfaces</code></td>
 					<td>array of string</td>
 					<td>no</td>
-					<td>Optional ingress-interface filter. If omitted or empty, all interfaces are eligible. If non-empty, keen-pbr handles only packets that arrive through the listed interfaces.</td>
+					<td>Interfaces whose traffic is processed. If omitted or empty, all interfaces are processed</td>
 			</tr>
 			<tr>
 					<td><code>rules</code></td>
@@ -1234,10 +1209,11 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 			</tr>
 	</tbody>
 </table>
-<p>With <code>process_router_traffic</code> enabled, rules do not apply to the router&rsquo;s own packets that leave through an interface listed in <code>inbound_interfaces</code> (for example DHCP replies to LAN clients), or to the router&rsquo;s broadcast and multicast packets. So do not list the interface the router uses to reach the internet in <code>inbound_interfaces</code>: the router&rsquo;s own traffic would then never be routed by keen-pbr.</p>
-<p>keen-pbr never routes DHCP (UDP ports 67–68 for IPv4 and 546–547 for IPv6), whatever the rules say, so devices always get their addresses from the router.</p>
+<p>The router&rsquo;s own traffic is processed only if <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>General</strong> &gt; <strong>Process router&rsquo;s own traffic</strong> (shown in <strong>Advanced</strong> settings mode) (<code>iproute.process_router_traffic</code>) is on. Do not list the interface the router uses to reach the internet in <code>inbound_interfaces</code>: the router&rsquo;s own traffic would then not be routed.</p>
+<p>keen-pbr never routes DHCP (UDP ports 67–68 for IPv4 and 546–547 for IPv6), so devices always get their addresses from the router.</p>
 <h2>Route Rule Fields<span class="hx:absolute hx:-mt-20" id="route-rule-fields"></span>
-    <a href="#route-rule-fields" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><table>
+    <a href="#route-rule-fields" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>In the rule form in the Web UI you can add these conditions: <strong>Lists</strong>, <strong>Protocol</strong>, <strong>DSCP</strong>, <strong>Source IP</strong>, <strong>Destination IP</strong>, <strong>Source port</strong>, <strong>Destination port</strong>. All conditions you set must match at the same time.</p>
+<table>
 	<thead>
 			<tr>
 					<th>Field</th>
@@ -1251,25 +1227,25 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 					<td><code>enabled</code></td>
 					<td>boolean</td>
 					<td>no</td>
-					<td>Whether this rule is active. <code>false</code> disables it. <code>true</code>, omitted, or <code>null</code> all mean enabled.</td>
+					<td>Whether the rule is active. <code>false</code> disables it; <code>true</code>, an omitted field and <code>null</code> mean enabled. In the Web UI: <strong>Enable rule</strong></td>
 			</tr>
 			<tr>
 					<td><code>list</code></td>
 					<td>array of string</td>
 					<td>no</td>
-					<td>List names whose traffic this rule matches. Omit it when another match condition is present; every rule needs at least one match condition.</td>
+					<td>List names whose traffic this rule matches (<strong>Lists</strong>). Omit it when another condition is present; every rule needs at least one condition</td>
 			</tr>
 			<tr>
 					<td><code>outbound</code></td>
 					<td>string</td>
 					<td>yes</td>
-					<td>Outbound tag to route matched traffic through</td>
+					<td>Outbound tag to route matched traffic through (<strong>Outbound</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>proto</code></td>
 					<td>string</td>
 					<td>no</td>
-					<td>Protocol: <code>&quot;tcp&quot;</code>, <code>&quot;udp&quot;</code>, or <code>&quot;tcp/udp&quot;</code></td>
+					<td>Protocol: <code>&quot;tcp&quot;</code>, <code>&quot;udp&quot;</code>, or <code>&quot;tcp/udp&quot;</code> (<strong>Protocol</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>dscp</code></td>
@@ -1277,43 +1253,43 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 					<td>no</td>
 					<td>
   <abbr title="A 6-bit field in the IP header used to mark traffic classes for QoS.">DSCP</abbr>
- tag value from <code>1</code> to <code>63</code></td>
+ tag value from <code>1</code> to <code>63</code> (<strong>DSCP</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>src_port</code></td>
 					<td>string</td>
 					<td>no</td>
-					<td>Match only specific source ports</td>
+					<td>Only these source ports (<strong>Source port</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>dest_port</code></td>
 					<td>string</td>
 					<td>no</td>
-					<td>Match only specific destination ports</td>
+					<td>Only these destination ports (<strong>Destination port</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>src_addr</code></td>
 					<td>string</td>
 					<td>no</td>
-					<td>Match only specific source addresses</td>
+					<td>Only these source addresses: the devices or subnets the traffic comes from (<strong>Source addresses</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>dest_addr</code></td>
 					<td>string</td>
 					<td>no</td>
-					<td>Match only specific destination addresses</td>
+					<td>Only these destination addresses (<strong>Destination addresses</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>default_gateway</code></td>
 					<td><code>&quot;ipv4&quot;</code> or <code>&quot;ipv6&quot;</code></td>
 					<td>no</td>
-					<td>All traffic that would otherwise use the main default gateway, except local, directly connected, link-local, and multicast destinations. nftables only. Put these rules last</td>
+					<td>All internet traffic that would otherwise go through the router&rsquo;s main gateway (except local network addresses). In the Web UI: <strong>Rule type</strong> &gt; <strong>IPv4 default gateway</strong> / <strong>IPv6 default gateway</strong>. nftables only. Put these rules last</td>
 			</tr>
 	</tbody>
 </table>
 <h2>Failover or balancing for all internet traffic<span class="hx:absolute hx:-mt-20" id="failover-or-balancing-for-all-internet-traffic"></span>
-    <a href="#failover-or-balancing-for-all-internet-traffic" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>To send all internet traffic through a <code>urltest</code> or <code>icmptest</code> outbound, add one <code>default_gateway</code> rule for IPv4 and one for IPv6 at the end of the rule list (nftables only). keen-pbr takes the LAN and directly connected networks from the main routing table and leaves them on normal routing.</p>
-<p>By default these rules apply only to traffic from devices on your network. To include traffic from the router itself, set <code>iproute.process_router_traffic</code> to <code>true</code>.</p>
+    <a href="#failover-or-balancing-for-all-internet-traffic" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use this to send all internet traffic through an auto-select outbound (<code>urltest</code> or <code>icmptest</code>): if the main link fails, traffic switches to a backup, and with <code>balance</code> it is spread across several links. Add one <code>default_gateway</code> rule for IPv4 and one for IPv6 at the end of the rule list. This works only with nftables; with iptables the configuration fails validation. Addresses on your local network keep normal routing.</p>
+<p>By default these rules apply only to traffic from devices on your network. To include the router&rsquo;s own traffic, turn on <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>General</strong> &gt; <strong>Process router&rsquo;s own traffic</strong> (<code>iproute.process_router_traffic: true</code>).</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1335,14 +1311,14 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 </div>
 </div>
 <h2>Examples<span class="hx:absolute hx:-mt-20" id="examples"></span>
-    <a href="#examples" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>Basic — route a list through VPN<span class="hx:absolute hx:-mt-20" id="basic--route-a-list-through-vpn"></span>
-    <a href="#basic--route-a-list-through-vpn" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+    <a href="#examples" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>A list through the VPN<span class="hx:absolute hx:-mt-20" id="a-list-through-the-vpn"></span>
+    <a href="#a-list-through-the-vpn" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>The most common case: sites and IPs from your lists go through the VPN.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_domains&#34;</span><span class="p">,</span> <span class="s2">&#34;my_ips&#34;</span><span class="p">,</span> <span class="s2">&#34;remote_list&#34;</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">}</span>
@@ -1360,8 +1336,107 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
-<h3>Disable a rule temporarily without deleting it<span class="hx:absolute hx:-mt-20" id="disable-a-rule-temporarily-without-deleting-it"></span>
-    <a href="#disable-a-rule-temporarily-without-deleting-it" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>An exception to a broader rule<span class="hx:absolute hx:-mt-20" id="an-exception-to-a-broader-rule"></span>
+    <a href="#an-exception-to-a-broader-rule" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Rules are checked from top to bottom, so put the exception above the broader rule. Here the whole <code>streaming</code> list goes through the VPN except addresses from the <code>streaming_direct</code> list. The <code>direct</code> outbound has the <code>ignore</code> type (traffic takes its usual path).</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span> <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;streaming_direct&#34;</span><span class="p">],</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;direct&#34;</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span> <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;streaming&#34;</span><span class="p">],</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<h3>Blocking a list<span class="hx:absolute hx:-mt-20" id="blocking-a-list"></span>
+    <a href="#blocking-a-list" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>The <code>block</code> outbound has the <code>blackhole</code> type: traffic to addresses from the list is dropped.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;ads&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;block&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<h3>One device or subnet<span class="hx:absolute hx:-mt-20" id="one-device-or-subnet"></span>
+    <a href="#one-device-or-subnet" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>All traffic from the device <code>192.168.10.20</code> goes through the VPN. To pick a whole subnet, use it instead: <code>192.168.10.0/24</code>.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;src_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;192.168.10.20&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Conditions can be combined: the rule below sends only addresses from the <code>my_ips</code> list through the VPN, and only from devices in <code>192.168.10.0/24</code>.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_ips&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;src_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;192.168.10.0/24&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<h3>Disabling a rule temporarily<span class="hx:absolute hx:-mt-20" id="disabling-a-rule-temporarily"></span>
+    <a href="#disabling-a-rule-temporarily" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Set <code>&quot;enabled&quot;: false</code> (in the Web UI, clear <strong>Enable rule</strong>) and the rule stops working but stays in the config.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
@@ -1385,60 +1460,8 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
-<p>When <code>enabled</code> is omitted or set to <code>null</code>, the rule is treated as enabled.</p>
-<h3>Ingress interface filter — process only packets from <code>br0</code><span class="hx:absolute hx:-mt-20" id="ingress-interface-filter--process-only-packets-from-br0"></span>
-    <a href="#ingress-interface-filter--process-only-packets-from-br0" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;inbound_interfaces&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;br0&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_domains&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">]</span>
-</span></span><span class="line"><span class="cl">  <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<h3>Ingress interface filter disabled (omitted or empty)<span class="hx:absolute hx:-mt-20" id="ingress-interface-filter-disabled-omitted-or-empty"></span>
-    <a href="#ingress-interface-filter-disabled-omitted-or-empty" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>If <code>inbound_interfaces</code> is omitted (default) or explicitly set to an empty array, interface filtering is disabled and route rules are applied regardless of ingress interface.</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;inbound_interfaces&#34;</span><span class="p">:</span> <span class="p">[],</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_domains&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">]</span>
-</span></span><span class="line"><span class="cl">  <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<h3>Port filter — only HTTPS TCP from two subnets<span class="hx:absolute hx:-mt-20" id="port-filter--only-https-tcp-from-two-subnets"></span>
-    <a href="#port-filter--only-https-tcp-from-two-subnets" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Ports and protocol: HTTPS from two subnets<span class="hx:absolute hx:-mt-20" id="ports-and-protocol-https-from-two-subnets"></span>
+    <a href="#ports-and-protocol-https-from-two-subnets" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
@@ -1448,6 +1471,33 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;src_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;192.168.20.0/24,192.168.30.0/24&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;proto&#34;</span><span class="p">:</span> <span class="s2">&#34;tcp&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;dest_port&#34;</span><span class="p">:</span> <span class="s2">&#34;443&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<h3>All conditions at once: DNS queries to Google DNS from a subnet<span class="hx:absolute hx:-mt-20" id="all-conditions-at-once-dns-queries-to-google-dns-from-a-subnet"></span>
+    <a href="#all-conditions-at-once-dns-queries-to-google-dns-from-a-subnet" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>The rule matches only if all conditions hold: the query comes from <code>192.168.10.0/24</code>, goes to <code>8.8.8.8</code>, on port 53.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;src_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;192.168.10.0/24&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;dest_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;dest_port&#34;</span><span class="p">:</span> <span class="s2">&#34;53&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">}</span>
 </span></span><span class="line"><span class="cl">    <span class="p">]</span>
@@ -1551,60 +1601,9 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 </div>
 </div>
 <p><code>owner</code> only sees packets created on the same computer, so add these rules on the Linux laptop or PC that runs the application, not on the keen-pbr router.</p>
-<h3>Address filter — match a specific source subnet<span class="hx:absolute hx:-mt-20" id="address-filter--match-a-specific-source-subnet"></span>
-    <a href="#address-filter--match-a-specific-source-subnet" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_ips&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;src_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;192.168.10.0/24&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">]</span>
-</span></span><span class="line"><span class="cl">  <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<h3>Full filter — Google DNS from a subnet through VPN<span class="hx:absolute hx:-mt-20" id="full-filter--google-dns-from-a-subnet-through-vpn"></span>
-    <a href="#full-filter--google-dns-from-a-subnet-through-vpn" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_domains&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;src_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;192.168.10.0/24&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;dest_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;dest_port&#34;</span><span class="p">:</span> <span class="s2">&#34;53&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">]</span>
-</span></span><span class="line"><span class="cl">  <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<h3>Negation — all sources except local LAN<span class="hx:absolute hx:-mt-20" id="negation--all-sources-except-local-lan"></span>
-    <a href="#negation--all-sources-except-local-lan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Exclusions with <code>!</code>: all sources except the local LAN<span class="hx:absolute hx:-mt-20" id="exclusions-with--all-sources-except-the-local-lan"></span>
+    <a href="#exclusions-with--all-sources-except-the-local-lan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><code>!</code> means &ldquo;everything except&rdquo;. The rule below sends addresses from <code>my_ips</code> through the VPN unless the request comes from <code>192.168.1.0/24</code>.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
@@ -1628,8 +1627,8 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
-<h3>Negation — all TCP except HTTPS goes through VPN<span class="hx:absolute hx:-mt-20" id="negation--all-tcp-except-https-goes-through-vpn"></span>
-    <a href="#negation--all-tcp-except-https-goes-through-vpn" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Exclusions with <code>!</code>: TCP traffic to addresses from a list, except HTTPS<span class="hx:absolute hx:-mt-20" id="exclusions-with--tcp-traffic-to-addresses-from-a-list-except-https"></span>
+    <a href="#exclusions-with--tcp-traffic-to-addresses-from-a-list-except-https" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
@@ -1654,8 +1653,8 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
-<h3>Negation — all UDP except DNS and NTP goes through VPN<span class="hx:absolute hx:-mt-20" id="negation--all-udp-except-dns-and-ntp-goes-through-vpn"></span>
-    <a href="#negation--all-udp-except-dns-and-ntp-goes-through-vpn" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Exclusions with <code>!</code>: UDP traffic to addresses from a list, except DNS and NTP<span class="hx:absolute hx:-mt-20" id="exclusions-with--udp-traffic-to-addresses-from-a-list-except-dns-and-ntp"></span>
+    <a href="#exclusions-with--udp-traffic-to-addresses-from-a-list-except-dns-and-ntp" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
@@ -1684,12 +1683,13 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Keep in mind that DNS is working over TCP and UDP, but this rule covers only UDP. This rule is shown just for your reference, in real life you would probably like to add TCP rule for port 53 as well.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">DNS runs over both TCP and UDP, and this rule covers only UDP. The example is for reference: in practice you usually need the same rule for TCP port 53.</div>
   </div>
 </div>
 
-<h3>Negation — block traffic NOT going to a trusted subnet<span class="hx:absolute hx:-mt-20" id="negation--block-traffic-not-going-to-a-trusted-subnet"></span>
-    <a href="#negation--block-traffic-not-going-to-a-trusted-subnet" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Exclusions with <code>!</code>: block everything from a list except trusted subnets<span class="hx:absolute hx:-mt-20" id="exclusions-with--block-everything-from-a-list-except-trusted-subnets"></span>
+    <a href="#exclusions-with--block-everything-from-a-list-except-trusted-subnets" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Addresses from the <code>my_ips</code> list are blocked unless they are inside <code>10.0.0.0/8</code> or <code>172.16.0.0/12</code>.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>

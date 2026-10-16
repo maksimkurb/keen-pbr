@@ -9,20 +9,29 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Upgrade from 2.x – keen-pbr</title>
-  <meta name="description" content="Use this guide if you already run keen-pbr 2.x on Keenetic / NetCraze and want to migrate to the current package and config format.
-1. Replace the repository Open the repository instructions page, select Keenetic / NetCraze in the OS selector on the left, select your router architecture, and follow the generated commands to replace the old keen-pbr 2.x repository with the current one:
-keen-pbr repository Use the commands exactly as shown for Keenetic / NetCraze on the repository page." /><link rel="canonical" href="https://keen-pbr.fyi/docs/getting-started/upgrade-from-2x/" itemprop="url" />
+  <meta name="description" content="This guide is for those who already run keen-pbr 2.x on Keenetic / NetCraze. You will replace the repository and the package and move your configuration to the new format. Run all commands over SSH.
+1. Make a backup Save your current 2.x configuration. If something goes wrong, you can compare it with the converted result:
+bashcp /opt/etc/keen-pbr/keen-pbr.conf /opt/etc/keen-pbr/keen-pbr.conf.bak 2. Replace the repository Open the repository page, select the OS Keenetic / NetCraze on the left and your router architecture. Run the commands it shows, in order, to replace the old keen-pbr 2.x repository with the current one:" /><link rel="canonical" href="https://keen-pbr.fyi/docs/getting-started/upgrade-from-2x/" itemprop="url" />
 
 <meta property="og:title" content="Upgrade from 2.x">
 <meta
   property="og:description"
   content="
     
-      Use this guide if you already run keen-pbr 2.x on Keenetic / NetCraze and want to migrate to the current package and config format.
-1. Replace the repository
-    Open the repository instructions page, select Keenetic / NetCraze in the OS selector on the left, select your router architecture, and follow the generated commands to replace the old keen-pbr 2.x repository with the current one:
-keen-pbr repository
-Use the commands exactly as shown for Keenetic / NetCraze on the repository page.
+      This guide is for those who already run keen-pbr 2.x on Keenetic / NetCraze. You will replace the repository and the package and move your configuration to the new format. Run all commands over SSH.
+1. Make a backup
+    Save your current 2.x configuration. If something goes wrong, you can compare it with the converted result:
+
+
+bashcp /opt/etc/keen-pbr/keen-pbr.conf /opt/etc/keen-pbr/keen-pbr.conf.bak
+  
+    
+
+  
+
+
+2. Replace the repository
+    Open the repository page, select the OS Keenetic / NetCraze on the left and your router architecture. Run the commands it shows, in order, to replace the old keen-pbr 2.x repository with the current one:
     
   ">
 <meta
@@ -36,15 +45,15 @@ Use the commands exactly as shown for Keenetic / NetCraze on the repository page
 
 
 	<meta itemprop="name" content="Upgrade from 2.x">
-	<meta itemprop="description" content="Use this guide if you already run keen-pbr 2.x on Keenetic / NetCraze and want to migrate to the current package and config format.
-1. Replace the repository Open the repository instructions page, select Keenetic / NetCraze in the OS selector on the left, select your router architecture, and follow the generated commands to replace the old keen-pbr 2.x repository with the current one:
-keen-pbr repository Use the commands exactly as shown for Keenetic / NetCraze on the repository page.">
-	<meta itemprop="wordCount" content="227">
+	<meta itemprop="description" content="This guide is for those who already run keen-pbr 2.x on Keenetic / NetCraze. You will replace the repository and the package and move your configuration to the new format. Run all commands over SSH.
+1. Make a backup Save your current 2.x configuration. If something goes wrong, you can compare it with the converted result:
+bashcp /opt/etc/keen-pbr/keen-pbr.conf /opt/etc/keen-pbr/keen-pbr.conf.bak 2. Replace the repository Open the repository page, select the OS Keenetic / NetCraze on the left and your router architecture. Run the commands it shows, in order, to replace the old keen-pbr 2.x repository with the current one:">
+	<meta itemprop="wordCount" content="222">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Upgrade from 2.x">
-	<meta name="twitter:description" content="Use this guide if you already run keen-pbr 2.x on Keenetic / NetCraze and want to migrate to the current package and config format.
-1. Replace the repository Open the repository instructions page, select Keenetic / NetCraze in the OS selector on the left, select your router architecture, and follow the generated commands to replace the old keen-pbr 2.x repository with the current one:
-keen-pbr repository Use the commands exactly as shown for Keenetic / NetCraze on the repository page.">
+	<meta name="twitter:description" content="This guide is for those who already run keen-pbr 2.x on Keenetic / NetCraze. You will replace the repository and the package and move your configuration to the new format. Run all commands over SSH.
+1. Make a backup Save your current 2.x configuration. If something goes wrong, you can compare it with the converted result:
+bashcp /opt/etc/keen-pbr/keen-pbr.conf /opt/etc/keen-pbr/keen-pbr.conf.bak 2. Replace the repository Open the repository page, select the OS Keenetic / NetCraze on the left and your router architecture. Run the commands it shows, in order, to replace the old keen-pbr 2.x repository with the current one:">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -260,27 +269,33 @@ keen-pbr repository Use the commands exactly as shown for Keenetic / NetCraze on
   
     <ul class='hx:flex hx:flex-col hx:gap-1 hx:relative hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:dark:before:bg-neutral-800 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:pr-3 hx:rtl:before:right-0 hx:ltr:ml-3 hx:rtl:mr-3'><li>
               <a
-                href="#1-replace-the-repository"
+                href="#1-make-a-backup"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >1. Replace the repository</a>
+              >1. Make a backup</a>
             </li>
           <li>
               <a
-                href="#2-install-keen-pbr"
+                href="#2-replace-the-repository"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >2. Install keen-pbr</a>
+              >2. Replace the repository</a>
             </li>
           <li>
               <a
-                href="#3-upgrade-the-config-to-the-new-format"
+                href="#3-install-keen-pbr"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >3. Upgrade the config to the new format</a>
+              >3. Install keen-pbr</a>
             </li>
           <li>
               <a
-                href="#4-restart-keen-pbr"
+                href="#4-convert-the-config-to-the-new-format"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >4. Restart keen-pbr</a>
+              >4. Convert the config to the new format</a>
+            </li>
+          <li>
+              <a
+                href="#5-restart-keen-pbr"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >5. Restart keen-pbr</a>
             </li>
           </ul>
   
@@ -914,23 +929,23 @@ keen-pbr repository Use the commands exactly as shown for Keenetic / NetCraze on
 <nav class="hextra-toc hx:order-last hx:hidden hx:w-64 hx:shrink-0 hx:xl:block hx:print:hidden hx:px-4" aria-label="Table of contents">
     <div class="hextra-scrollbar hx:sticky hx:top-16 hx:overflow-y-auto hx:pr-4 hx:pt-6 hx:text-sm [hyphens:auto] hx:max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] hx:ltr:-mr-4 hx:rtl:-ml-4"><p class="hx:mb-4 hx:font-semibold hx:tracking-tight">On this page</p><ul>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#1-replace-the-repository">1. Replace the repository
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#1-make-a-backup">1. Make a backup
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#2-install-keen-pbr">2. Install keen-pbr
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#2-replace-the-repository">2. Replace the repository
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#keenetic--netcraze">Keenetic / NetCraze
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#3-install-keen-pbr">3. Install keen-pbr
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#3-upgrade-the-config-to-the-new-format">3. Upgrade the config to the new format
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#4-convert-the-config-to-the-new-format">4. Convert the config to the new format
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#4-restart-keen-pbr">4. Restart keen-pbr
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#5-restart-keen-pbr">5. Restart keen-pbr
         </a>
       </li></ul>
       <div class="hx:mt-8 hx:border-t hx:bg-white hx:pt-8 hx:shadow-[0_-12px_16px_white] hx:dark:bg-dark hx:dark:shadow-[0_-12px_16px_#111] hx:sticky hx:bottom-0 hx:flex hx:flex-col hx:items-start hx:gap-2 hx:pb-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-t hx:contrast-more:border-neutral-400 hx:contrast-more:shadow-none hx:contrast-more:dark:border-neutral-400">
@@ -1016,31 +1031,36 @@ keen-pbr repository Use the commands exactly as shown for Keenetic / NetCraze on
     </div>
           </div>
           
-          <p>Use this guide if you already run keen-pbr 2.x on Keenetic / NetCraze and want to migrate to the current package and config format.</p>
-<h2>1. Replace the repository<span class="hx:absolute hx:-mt-20" id="1-replace-the-repository"></span>
-    <a href="#1-replace-the-repository" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Open the repository instructions page, select <strong>Keenetic / NetCraze</strong> in the OS selector on the left, select your router architecture, and follow the generated commands to replace the old keen-pbr 2.x repository with the current one:</p>
+          <p>This guide is for those who already run keen-pbr 2.x on Keenetic / NetCraze. You will replace the repository and the package and move your configuration to the new format. Run all commands over SSH.</p>
+<h2>1. Make a backup<span class="hx:absolute hx:-mt-20" id="1-make-a-backup"></span>
+    <a href="#1-make-a-backup" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Save your current 2.x configuration. If something goes wrong, you can compare it with the converted result:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">cp /opt/etc/keen-pbr/keen-pbr.conf /opt/etc/keen-pbr/keen-pbr.conf.bak</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<h2>2. Replace the repository<span class="hx:absolute hx:-mt-20" id="2-replace-the-repository"></span>
+    <a href="#2-replace-the-repository" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Open the repository page, select the OS <strong>Keenetic / NetCraze</strong> on the left and your router architecture. Run the commands it shows, in order, to replace the old keen-pbr 2.x repository with the current one:</p>
 <a
   href="https://repo.keen-pbr.fyi/repository/stable/?lang=en"
   class="not-prose hero-button"
   
   target="_blank" rel="noreferrer"><span>keen-pbr repository</span></a>
-<p>Use the commands exactly as shown for Keenetic / NetCraze on the repository page.</p>
-<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
-  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-
-  <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Before changing packages, keep a backup copy of your current 2.x config so you can compare it with the converted result if needed.</div>
-  </div>
-</div>
-
-<h2>2. Install keen-pbr<span class="hx:absolute hx:-mt-20" id="2-install-keen-pbr"></span>
-    <a href="#2-install-keen-pbr" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>After replacing the repository, install the current package.</p>
-<h3>Keenetic / NetCraze<span class="hx:absolute hx:-mt-20" id="keenetic--netcraze"></span>
-    <a href="#keenetic--netcraze" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h2>3. Install keen-pbr<span class="hx:absolute hx:-mt-20" id="3-install-keen-pbr"></span>
+    <a href="#3-install-keen-pbr" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opkg install keen-pbr
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># or if you want headless version (without API and without WebUI)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># version without the web UI and API:</span>
 </span></span><span class="line"><span class="cl"><span class="c1"># opkg install keen-pbr-headless</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1053,24 +1073,9 @@ keen-pbr repository Use the commands exactly as shown for Keenetic / NetCraze on
   </button>
 </div>
 </div>
-<p>Config path:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">/opt/etc/keen-pbr/config.json</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<h2>3. Upgrade the config to the new format<span class="hx:absolute hx:-mt-20" id="3-upgrade-the-config-to-the-new-format"></span>
-    <a href="#3-upgrade-the-config-to-the-new-format" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Open the <a href="https://keen-pbr.fyi/converter/"target="_blank" rel="noopener">Config Converter</a></p>
-<p>Then:</p>
+<p>The new configuration is in <code>/opt/etc/keen-pbr/config.json</code>.</p>
+<h2>4. Convert the config to the new format<span class="hx:absolute hx:-mt-20" id="4-convert-the-config-to-the-new-format"></span>
+    <a href="#4-convert-the-config-to-the-new-format" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Open the <a href="https://keen-pbr.fyi/converter/"target="_blank" rel="noopener">Config Converter</a>. Then:</p>
 <ol>
 <li>Copy the content of <code>/opt/etc/keen-pbr/keen-pbr.conf</code> into the converter input field on the left.</li>
 <li>Review the generated config.</li>
@@ -1080,15 +1085,15 @@ keen-pbr repository Use the commands exactly as shown for Keenetic / NetCraze on
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Replace the config file with the converted output only after you have reviewed it.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Replace the config file only after you have reviewed the converted output.</div>
   </div>
 </div>
 
-<h2>4. Restart keen-pbr<span class="hx:absolute hx:-mt-20" id="4-restart-keen-pbr"></span>
-    <a href="#4-restart-keen-pbr" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Restart the service after saving the config.</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h2>5. Restart keen-pbr<span class="hx:absolute hx:-mt-20" id="5-restart-keen-pbr"></span>
+    <a href="#5-restart-keen-pbr" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">/opt/etc/init.d/S80keen-pbr restart</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">/opt/etc/init.d/S80keen-pbr restart
+</span></span><span class="line"><span class="cl">/opt/etc/init.d/S80keen-pbr status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1100,7 +1105,8 @@ keen-pbr repository Use the commands exactly as shown for Keenetic / NetCraze on
   </button>
 </div>
 </div>
-<p>After restart, open <a href="/docs/getting-started/quick-start/">Quick Start</a> if you want to verify the service in the Web UI or continue with JSON / CLI setup.</p>
+<p>If everything is fine, <code>status</code> prints <code>alive</code>. If it says <code>dead</code>, open <a href="/docs/troubleshooting/#service-does-not-start">Service does not start</a>.</p>
+<p>Then open <a href="/docs/getting-started/quick-start/">Quick Start</a>: the <strong>Web UI</strong> tab helps you check the setup, and the <strong>JSON</strong> tab is for working with the config file.</p>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

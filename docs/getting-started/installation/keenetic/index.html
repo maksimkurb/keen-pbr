@@ -9,75 +9,66 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Keenetic / NetCraze – keen-pbr</title>
-  <meta name="description" content="keen-pbr can be installed on Keenetic / NetCraze routers via Entware ’s opkg package manager.
-Install Entware on the router First, ensure that Entware is installed on your router. Please consult the official router manual for Keenetic or NetCraze:
-Find your router’s manual. In the search field, search for “Installing the Entware repository on a USB drive”. Read and follow the instructions carefully. Install required components Open your router’s configuration page, navigate to Management -&gt; System settings, and install the following additional components:
-Network Functions / IPv6 Protocol (On NDMS 5.0&#43; is absent because it is a part of core now) OPKG Packages / Open Package System Support OPKG Packages / Netfilter Subsystem Kernel Modules OPKG Packages / Xtables-addons Extension Package for Netfilter Utilities and services / DNS-over-TLS proxy (optional, but highly recommended) Utilities and services / DNS-over-HTTPS proxy (optional, but highly recommended) Configure DoH/DoT on the router It is recommended to set up DoH /DoT DNS servers on your router to protect yourself from DNS spoofing attacks.
-Consult the official Keenetic documentation on how to do it: DoH and DoT proxy servers for DNS requests encryption.
-Install keen-pbr from the repository Open keen-pbr repository page. Select “Keenetic / NetCraze” in the OS selector on the left, choose the “current” version, and select the architecture that matches your router. TIP: You can run opkg print-architecture in an SSH session to see your router’s architecture. Follow the instructions on the repository page carefully. Run the opkg install keen-pbr command. Example install command: bashopkg install keen-pbr # or if you want headless version (without API and without WebUI) # opkg install keen-pbr-headless Ensure that keen-pbr service is up and running Before continuing to the next step, it is recommended to check whether keen-pbr started successfully and has not crashed. Run /opt/etc/init.d/S80keen-pbr status. If it is dead, see Troubleshooting.
-Example:
-~ # /opt/etc/init.d/S80keen-pbr status Checking keen-pbr... alive. If the service is alive, continue to the next step.
-Configure the service Open http://my.keenetic.net:12121 to configure keen-pbr (if you installed the full version; the headless version does not provide a Web UI).
-You can also configure keen-pbr manually by modifying the configuration file: /opt/etc/keen-pbr/config.json.
-Choose RAW or mangle PREROUTING This choice exists only on Keenetic / NetCraze. keen-pbr sets fwmark in one of two firewall tables:
-** mangle **: Keenetic rebuilds this table from time to time (for example after a DHCP lease renewal), and keen-pbr’s rules are briefly missing until keen-pbr restores them; raw: Keenetic does not touch it, but rules from Connection Policies &gt; Policy Bindings run later and overwrite keen-pbr’s fwmark. See also the Keenetic Community forum thread about Keenetic rebuilding iptables.
-Mode Benefit Trade-off RAW (default when available) PBR remains active across a Keenetic mangle rebuild. Long-running, sensitive flows such as gaming sessions avoid rebuild-related breaks, and packets have fewer chances to bypass the VPN. After keen-pbr sets its fwmark in RAW, Keenetic’s Connection Policies &gt; Policy Bindings rules overwrite it. RAW mode therefore works only for devices assigned the Default policy. mangle keen-pbr runs after Keenetic sets its own fwmarks for Connection Policy, so it can override routing for devices with a non-default policy. When Keenetic rebuilds its mangle table (usually about every five minutes), keen-pbr rules disappear briefly. A few packets can use the ordinary route before keen-pbr restores them, disrupting a gaming session or another sensitive flow. For the most predictable Keenetic setup, do not assign Connection Policies to devices in Keenetic. Instead, create the equivalent per-device keen-pbr route rules using the src_addr (Source address) field. This keeps routing policy in keen-pbr and avoids conflicts with Keenetic policy bindings. By default keen-pbr checks separately for IPv4 and IPv6 whether RAW is available, and uses it if so; otherwise mangle. The system log shows the selected mode after the service starts:
-IPv4 raw PREROUTING available WARNING: IPv6 raw PREROUTING unavailable: ... To always use mangle, add this line to /opt/etc/keen-pbr/defaults:
-KEEN_PBR_RAW_PREROUTING=&#34;disable&#34; and restart the service:
-/opt/etc/init.d/S80keen-pbr restart The other values of this variable are described in CLI.
-Basic commands:
-Action Command Start service /opt/etc/init.d/S80keen-pbr start Restart service /opt/etc/init.d/S80keen-pbr restart Check if keen-pbr alive /opt/etc/init.d/S80keen-pbr status If you do not plan to use the keen-pbr Web UI or API, consider installing the keen-pbr-headless package. It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. You can also disable the API server at any time via a config flag, even when using the full package version. Next steps Go to the Quick Start page and use the Web UI tab for the easiest initial setup. If you installed the headless version, see the JSON / CLI tab instead." /><link rel="canonical" href="https://keen-pbr.fyi/docs/getting-started/installation/keenetic/" itemprop="url" />
+  <meta name="description" content="On Keenetic and NetCraze, keen-pbr is installed from Entware . Entware is a set of extra programs for the router, installed on a USB drive. Do use a USB drive: that way installing packages and running programs does not wear out the router’s built-in memory. You install programs from Entware with the opkg command over SSH.
+Install Entware If Entware is already on your router, go to the next step.
+Installation instructions are in the Keenetic or NetCraze knowledge base:
+Find the page for your router model. Search for “Installing the Entware repository on a USB drive”. Follow the instructions step by step. They also explain how to connect to the router over SSH, which you need later. Install KeeneticOS components Open the router’s components page in a browser: http://my.keenetic.net/system/osAndUpdates (or http://&lt;router-IP&gt;/system/osAndUpdates). Install these components:
+Network Functions / IPv6 Protocol. NDMS 5.0 and newer do not have this item: the protocol is built in. OPKG Packages / Open Package System Support OPKG Packages / Netfilter Subsystem Kernel Modules OPKG Packages / Xtables-addons Extension Package for Netfilter Utilities and services / DNS-over-TLS proxy (optional, but recommended) Utilities and services / DNS-over-HTTPS proxy (optional, but recommended) Turn on DNS encryption (recommended) DoH (DNS-over-HTTPS) and DoT (DNS-over-TLS) send DNS requests in encrypted form. Your provider cannot tamper with the answers, so sites open at the correct addresses.
+How to set it up: DoH and DoT proxy servers for DNS requests encryption.
+Install keen-pbr Open the keen-pbr repository page. On the left, select the OS Keenetic / NetCraze, the OS version current (Keenetic has only this one) and the architecture of your router. To find the architecture, run opkg print-architecture over SSH. Connect to the router over SSH and run the commands from the repository page, in order. Install the package: bashopkg install keen-pbr # version without the web UI and API: # opkg install keen-pbr-headless At the end of the installation you will see Installation complete! and the web UI address.
+keen-pbr-headless takes less space: about 1.2 MB instead of 2.8 MB. It has no web UI and no API, so you configure it through the config file. If in doubt, install the regular keen-pbr. Check that the service is running Run over SSH:
+bash/opt/etc/init.d/S80keen-pbr status If everything is fine, you will see alive:
+~ # /opt/etc/init.d/S80keen-pbr status Checking keen-pbr... alive. If it says dead instead, open Service does not start.
+Open the web UI Open http://my.keenetic.net:12121 in your browser. If the address does not open, enter http://&lt;router-ip&gt;:12121, for example http://192.168.1.1:12121.
+The headless version has no web UI. Its configuration is the file /opt/etc/keen-pbr/config.json.
+Set up your first rules Go to the Quick Start page and open the Web UI tab. If you installed keen-pbr-headless, open the JSON tab." /><link rel="canonical" href="https://keen-pbr.fyi/docs/getting-started/installation/keenetic/" itemprop="url" />
 
 <meta property="og:title" content="Keenetic / NetCraze">
 <meta
   property="og:description"
   content="
     
-      keen-pbr can be installed on Keenetic / NetCraze routers via 
+      On Keenetic and NetCraze, keen-pbr is installed from 
   Entware
-&rsquo;s opkg package manager.
+. Entware is a set of extra programs for the router, installed on a USB drive. Do use a USB drive: that way installing packages and running programs does not wear out the router&rsquo;s built-in memory. You install programs from Entware with the opkg command over SSH.
 
-Install Entware on the router
-    First, ensure that
-Entware
-is installed on your router. Please consult the official router manual for Keenetic or NetCraze:
+Install Entware
+    If Entware is already on your router, go to the next step.
+Installation instructions are in the Keenetic or NetCraze knowledge base:
 
-Find your router&rsquo;s manual.
-In the search field, search for &ldquo;Installing the Entware repository on a USB drive&rdquo;.
-Read and follow the instructions carefully.
+Find the page for your router model.
+Search for &ldquo;Installing the Entware repository on a USB drive&rdquo;.
+Follow the instructions step by step. They also explain how to connect to the router over SSH, which you need later.
 
-Install required components
-    Open your router&rsquo;s configuration page, navigate to Management -&gt; System settings, and install the following additional components:
+Install KeeneticOS components
+    Open the router&rsquo;s components page in a browser: http://my.keenetic.net/system/osAndUpdates (or http://&lt;router-IP&gt;/system/osAndUpdates). Install these components:
 
-Network Functions / IPv6 Protocol (On NDMS 5.0&#43; is absent because it is a part of core now)
+Network Functions / IPv6 Protocol. NDMS 5.0 and newer do not have this item: the protocol is built in.
 OPKG Packages / Open Package System Support
 OPKG Packages / Netfilter Subsystem Kernel Modules
 OPKG Packages / Xtables-addons Extension Package for Netfilter
-Utilities and services / DNS-over-TLS proxy (optional, but highly recommended)
-Utilities and services / DNS-over-HTTPS proxy (optional, but highly recommended)
+Utilities and services / DNS-over-TLS proxy (optional, but recommended)
+Utilities and services / DNS-over-HTTPS proxy (optional, but recommended)
 
-Configure DoH/DoT on the router
-    It is recommended to set up
-DoH
-/DoT DNS servers on your router to protect yourself from DNS spoofing attacks.
-Consult the official Keenetic documentation on how to do it: DoH and DoT proxy servers for DNS requests encryption.
-Install keen-pbr from the repository
+Turn on DNS encryption (recommended)
+    DoH
+(DNS-over-HTTPS) and DoT (DNS-over-TLS) send DNS requests in encrypted form. Your provider cannot tamper with the answers, so sites open at the correct addresses.
+How to set it up: DoH and DoT proxy servers for DNS requests encryption.
+Install keen-pbr
     
-Open keen-pbr repository page.
-Select &ldquo;Keenetic / NetCraze&rdquo; in the OS selector on the left, choose the &ldquo;current&rdquo; version, and select the architecture that matches your router.
+Open the keen-pbr repository page.
+On the left, select the OS Keenetic / NetCraze, the OS version current (Keenetic has only this one) and the architecture of your router.
 
-TIP: You can run opkg print-architecture in an SSH session to see your router&rsquo;s architecture.
+To find the architecture, run opkg print-architecture over SSH.
 
 
-Follow the instructions on the repository page carefully.
-Run the opkg install keen-pbr command.
-
-Example install command:
+Connect to the router over SSH and run the commands from the repository page, in order.
+Install the package:
 
 
 bashopkg install keen-pbr
 
-# or if you want headless version (without API and without WebUI)
+# version without the web UI and API:
 # opkg install keen-pbr-headless
   
     
@@ -87,11 +78,25 @@ bashopkg install keen-pbr
 
 
 
+At the end of the installation you will see Installation complete! and the web UI address.
+
+  
+  
+    keen-pbr-headless takes less space: about 1.2 MB instead of 2.8 MB. It has no web UI and no API, so you configure it through the config file. If in doubt, install the regular keen-pbr.
+  
+
+Check that the service is running
+    Run over SSH:
 
 
-Ensure that keen-pbr service is up and running
-    Before continuing to the next step, it is recommended to check whether keen-pbr started successfully and has not crashed. Run /opt/etc/init.d/S80keen-pbr status. If it is dead, see Troubleshooting.
-Example:
+bash/opt/etc/init.d/S80keen-pbr status
+  
+    
+
+  
+
+
+If everything is fine, you will see alive:
 
 
 ~ # /opt/etc/init.d/S80keen-pbr status
@@ -102,112 +107,12 @@ Example:
   
 
 
-If the service is alive, continue to the next step.
-Configure the service
-    Open http://my.keenetic.net:12121 to configure keen-pbr (if you installed the full version; the headless version does not provide a Web UI).
-You can also configure keen-pbr manually by modifying the configuration file: /opt/etc/keen-pbr/config.json.
-Choose RAW or mangle PREROUTING
-    This choice exists only on Keenetic / NetCraze. keen-pbr sets
-fwmark
-in one of two firewall tables:
-
-**
-mangle
-**: Keenetic rebuilds this table from time to time (for example after a DHCP lease renewal), and keen-pbr&rsquo;s rules are briefly missing until keen-pbr restores them;
-raw: Keenetic does not touch it, but rules from Connection Policies &gt; Policy Bindings run later and overwrite keen-pbr&rsquo;s fwmark.
-
-See also the Keenetic Community forum thread about Keenetic rebuilding iptables.
-
-	
-			
-					Mode
-					Benefit
-					Trade-off
-			
-	
-	
-			
-					RAW (default when available)
-					PBR remains active across a Keenetic mangle rebuild. Long-running, sensitive flows such as gaming sessions avoid rebuild-related breaks, and packets have fewer chances to bypass the VPN.
-					After keen-pbr sets its fwmark in RAW, Keenetic&rsquo;s Connection Policies &gt; Policy Bindings rules overwrite it. RAW mode therefore works only for devices assigned the Default policy.
-			
-			
-					mangle
-					keen-pbr runs after Keenetic sets its own fwmarks for Connection Policy, so it can override routing for devices with a non-default policy.
-					When Keenetic rebuilds its mangle table (usually about every five minutes), keen-pbr rules disappear briefly. A few packets can use the ordinary route before keen-pbr restores them, disrupting a gaming session or another sensitive flow.
-			
-	
-
-
-  
-  
-    For the most predictable Keenetic setup, do not assign Connection Policies to devices in Keenetic. Instead, create the equivalent per-device keen-pbr route rules using the src_addr (Source address) field. This keeps routing policy in keen-pbr and avoids conflicts with Keenetic policy bindings.
-  
-
-By default keen-pbr checks separately for IPv4 and IPv6 whether RAW is available, and uses it if so; otherwise mangle. The system log shows the selected mode after the service starts:
-
-
-IPv4 raw PREROUTING available
-WARNING: IPv6 raw PREROUTING unavailable: ...
-  
-    
-
-  
-
-
-To always use mangle, add this line to /opt/etc/keen-pbr/defaults:
-
-
-KEEN_PBR_RAW_PREROUTING=&#34;disable&#34;
-  
-    
-
-  
-
-
-and restart the service:
-
-
-/opt/etc/init.d/S80keen-pbr restart
-  
-    
-
-  
-
-
-The other values of this variable are described in CLI.
-Basic commands:
-
-	
-			
-					Action
-					Command
-			
-	
-	
-			
-					Start service
-					/opt/etc/init.d/S80keen-pbr start
-			
-			
-					Restart service
-					/opt/etc/init.d/S80keen-pbr restart
-			
-			
-					Check if keen-pbr alive
-					/opt/etc/init.d/S80keen-pbr status
-			
-	
-
-
-  
-  
-    If you do not plan to use the keen-pbr Web UI or API, consider installing the keen-pbr-headless package.
-It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. You can also disable the API server at any time via a config flag, even when using the full package version.
-  
-
-Next steps
-    Go to the Quick Start page and use the Web UI tab for the easiest initial setup. If you installed the headless version, see the JSON / CLI tab instead.
+If it says dead instead, open Service does not start.
+Open the web UI
+    Open http://my.keenetic.net:12121 in your browser. If the address does not open, enter http://&lt;router-ip&gt;:12121, for example http://192.168.1.1:12121.
+The headless version has no web UI. Its configuration is the file /opt/etc/keen-pbr/config.json.
+Set up your first rules
+    Go to the Quick Start page and open the Web UI tab. If you installed keen-pbr-headless, open the JSON tab.
 
     
   ">
@@ -222,45 +127,35 @@ Next steps
 
 
 	<meta itemprop="name" content="Keenetic / NetCraze">
-	<meta itemprop="description" content="keen-pbr can be installed on Keenetic / NetCraze routers via Entware ’s opkg package manager.
-Install Entware on the router First, ensure that Entware is installed on your router. Please consult the official router manual for Keenetic or NetCraze:
-Find your router’s manual. In the search field, search for “Installing the Entware repository on a USB drive”. Read and follow the instructions carefully. Install required components Open your router’s configuration page, navigate to Management -&gt; System settings, and install the following additional components:
-Network Functions / IPv6 Protocol (On NDMS 5.0&#43; is absent because it is a part of core now) OPKG Packages / Open Package System Support OPKG Packages / Netfilter Subsystem Kernel Modules OPKG Packages / Xtables-addons Extension Package for Netfilter Utilities and services / DNS-over-TLS proxy (optional, but highly recommended) Utilities and services / DNS-over-HTTPS proxy (optional, but highly recommended) Configure DoH/DoT on the router It is recommended to set up DoH /DoT DNS servers on your router to protect yourself from DNS spoofing attacks.
-Consult the official Keenetic documentation on how to do it: DoH and DoT proxy servers for DNS requests encryption.
-Install keen-pbr from the repository Open keen-pbr repository page. Select “Keenetic / NetCraze” in the OS selector on the left, choose the “current” version, and select the architecture that matches your router. TIP: You can run opkg print-architecture in an SSH session to see your router’s architecture. Follow the instructions on the repository page carefully. Run the opkg install keen-pbr command. Example install command: bashopkg install keen-pbr # or if you want headless version (without API and without WebUI) # opkg install keen-pbr-headless Ensure that keen-pbr service is up and running Before continuing to the next step, it is recommended to check whether keen-pbr started successfully and has not crashed. Run /opt/etc/init.d/S80keen-pbr status. If it is dead, see Troubleshooting.
-Example:
-~ # /opt/etc/init.d/S80keen-pbr status Checking keen-pbr... alive. If the service is alive, continue to the next step.
-Configure the service Open http://my.keenetic.net:12121 to configure keen-pbr (if you installed the full version; the headless version does not provide a Web UI).
-You can also configure keen-pbr manually by modifying the configuration file: /opt/etc/keen-pbr/config.json.
-Choose RAW or mangle PREROUTING This choice exists only on Keenetic / NetCraze. keen-pbr sets fwmark in one of two firewall tables:
-** mangle **: Keenetic rebuilds this table from time to time (for example after a DHCP lease renewal), and keen-pbr’s rules are briefly missing until keen-pbr restores them; raw: Keenetic does not touch it, but rules from Connection Policies &gt; Policy Bindings run later and overwrite keen-pbr’s fwmark. See also the Keenetic Community forum thread about Keenetic rebuilding iptables.
-Mode Benefit Trade-off RAW (default when available) PBR remains active across a Keenetic mangle rebuild. Long-running, sensitive flows such as gaming sessions avoid rebuild-related breaks, and packets have fewer chances to bypass the VPN. After keen-pbr sets its fwmark in RAW, Keenetic’s Connection Policies &gt; Policy Bindings rules overwrite it. RAW mode therefore works only for devices assigned the Default policy. mangle keen-pbr runs after Keenetic sets its own fwmarks for Connection Policy, so it can override routing for devices with a non-default policy. When Keenetic rebuilds its mangle table (usually about every five minutes), keen-pbr rules disappear briefly. A few packets can use the ordinary route before keen-pbr restores them, disrupting a gaming session or another sensitive flow. For the most predictable Keenetic setup, do not assign Connection Policies to devices in Keenetic. Instead, create the equivalent per-device keen-pbr route rules using the src_addr (Source address) field. This keeps routing policy in keen-pbr and avoids conflicts with Keenetic policy bindings. By default keen-pbr checks separately for IPv4 and IPv6 whether RAW is available, and uses it if so; otherwise mangle. The system log shows the selected mode after the service starts:
-IPv4 raw PREROUTING available WARNING: IPv6 raw PREROUTING unavailable: ... To always use mangle, add this line to /opt/etc/keen-pbr/defaults:
-KEEN_PBR_RAW_PREROUTING=&#34;disable&#34; and restart the service:
-/opt/etc/init.d/S80keen-pbr restart The other values of this variable are described in CLI.
-Basic commands:
-Action Command Start service /opt/etc/init.d/S80keen-pbr start Restart service /opt/etc/init.d/S80keen-pbr restart Check if keen-pbr alive /opt/etc/init.d/S80keen-pbr status If you do not plan to use the keen-pbr Web UI or API, consider installing the keen-pbr-headless package. It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. You can also disable the API server at any time via a config flag, even when using the full package version. Next steps Go to the Quick Start page and use the Web UI tab for the easiest initial setup. If you installed the headless version, see the JSON / CLI tab instead.">
-	<meta itemprop="wordCount" content="1064">
+	<meta itemprop="description" content="On Keenetic and NetCraze, keen-pbr is installed from Entware . Entware is a set of extra programs for the router, installed on a USB drive. Do use a USB drive: that way installing packages and running programs does not wear out the router’s built-in memory. You install programs from Entware with the opkg command over SSH.
+Install Entware If Entware is already on your router, go to the next step.
+Installation instructions are in the Keenetic or NetCraze knowledge base:
+Find the page for your router model. Search for “Installing the Entware repository on a USB drive”. Follow the instructions step by step. They also explain how to connect to the router over SSH, which you need later. Install KeeneticOS components Open the router’s components page in a browser: http://my.keenetic.net/system/osAndUpdates (or http://&lt;router-IP&gt;/system/osAndUpdates). Install these components:
+Network Functions / IPv6 Protocol. NDMS 5.0 and newer do not have this item: the protocol is built in. OPKG Packages / Open Package System Support OPKG Packages / Netfilter Subsystem Kernel Modules OPKG Packages / Xtables-addons Extension Package for Netfilter Utilities and services / DNS-over-TLS proxy (optional, but recommended) Utilities and services / DNS-over-HTTPS proxy (optional, but recommended) Turn on DNS encryption (recommended) DoH (DNS-over-HTTPS) and DoT (DNS-over-TLS) send DNS requests in encrypted form. Your provider cannot tamper with the answers, so sites open at the correct addresses.
+How to set it up: DoH and DoT proxy servers for DNS requests encryption.
+Install keen-pbr Open the keen-pbr repository page. On the left, select the OS Keenetic / NetCraze, the OS version current (Keenetic has only this one) and the architecture of your router. To find the architecture, run opkg print-architecture over SSH. Connect to the router over SSH and run the commands from the repository page, in order. Install the package: bashopkg install keen-pbr # version without the web UI and API: # opkg install keen-pbr-headless At the end of the installation you will see Installation complete! and the web UI address.
+keen-pbr-headless takes less space: about 1.2 MB instead of 2.8 MB. It has no web UI and no API, so you configure it through the config file. If in doubt, install the regular keen-pbr. Check that the service is running Run over SSH:
+bash/opt/etc/init.d/S80keen-pbr status If everything is fine, you will see alive:
+~ # /opt/etc/init.d/S80keen-pbr status Checking keen-pbr... alive. If it says dead instead, open Service does not start.
+Open the web UI Open http://my.keenetic.net:12121 in your browser. If the address does not open, enter http://&lt;router-ip&gt;:12121, for example http://192.168.1.1:12121.
+The headless version has no web UI. Its configuration is the file /opt/etc/keen-pbr/config.json.
+Set up your first rules Go to the Quick Start page and open the Web UI tab. If you installed keen-pbr-headless, open the JSON tab.">
+	<meta itemprop="wordCount" content="1073">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Keenetic / NetCraze">
-	<meta name="twitter:description" content="keen-pbr can be installed on Keenetic / NetCraze routers via Entware ’s opkg package manager.
-Install Entware on the router First, ensure that Entware is installed on your router. Please consult the official router manual for Keenetic or NetCraze:
-Find your router’s manual. In the search field, search for “Installing the Entware repository on a USB drive”. Read and follow the instructions carefully. Install required components Open your router’s configuration page, navigate to Management -&gt; System settings, and install the following additional components:
-Network Functions / IPv6 Protocol (On NDMS 5.0&#43; is absent because it is a part of core now) OPKG Packages / Open Package System Support OPKG Packages / Netfilter Subsystem Kernel Modules OPKG Packages / Xtables-addons Extension Package for Netfilter Utilities and services / DNS-over-TLS proxy (optional, but highly recommended) Utilities and services / DNS-over-HTTPS proxy (optional, but highly recommended) Configure DoH/DoT on the router It is recommended to set up DoH /DoT DNS servers on your router to protect yourself from DNS spoofing attacks.
-Consult the official Keenetic documentation on how to do it: DoH and DoT proxy servers for DNS requests encryption.
-Install keen-pbr from the repository Open keen-pbr repository page. Select “Keenetic / NetCraze” in the OS selector on the left, choose the “current” version, and select the architecture that matches your router. TIP: You can run opkg print-architecture in an SSH session to see your router’s architecture. Follow the instructions on the repository page carefully. Run the opkg install keen-pbr command. Example install command: bashopkg install keen-pbr # or if you want headless version (without API and without WebUI) # opkg install keen-pbr-headless Ensure that keen-pbr service is up and running Before continuing to the next step, it is recommended to check whether keen-pbr started successfully and has not crashed. Run /opt/etc/init.d/S80keen-pbr status. If it is dead, see Troubleshooting.
-Example:
-~ # /opt/etc/init.d/S80keen-pbr status Checking keen-pbr... alive. If the service is alive, continue to the next step.
-Configure the service Open http://my.keenetic.net:12121 to configure keen-pbr (if you installed the full version; the headless version does not provide a Web UI).
-You can also configure keen-pbr manually by modifying the configuration file: /opt/etc/keen-pbr/config.json.
-Choose RAW or mangle PREROUTING This choice exists only on Keenetic / NetCraze. keen-pbr sets fwmark in one of two firewall tables:
-** mangle **: Keenetic rebuilds this table from time to time (for example after a DHCP lease renewal), and keen-pbr’s rules are briefly missing until keen-pbr restores them; raw: Keenetic does not touch it, but rules from Connection Policies &gt; Policy Bindings run later and overwrite keen-pbr’s fwmark. See also the Keenetic Community forum thread about Keenetic rebuilding iptables.
-Mode Benefit Trade-off RAW (default when available) PBR remains active across a Keenetic mangle rebuild. Long-running, sensitive flows such as gaming sessions avoid rebuild-related breaks, and packets have fewer chances to bypass the VPN. After keen-pbr sets its fwmark in RAW, Keenetic’s Connection Policies &gt; Policy Bindings rules overwrite it. RAW mode therefore works only for devices assigned the Default policy. mangle keen-pbr runs after Keenetic sets its own fwmarks for Connection Policy, so it can override routing for devices with a non-default policy. When Keenetic rebuilds its mangle table (usually about every five minutes), keen-pbr rules disappear briefly. A few packets can use the ordinary route before keen-pbr restores them, disrupting a gaming session or another sensitive flow. For the most predictable Keenetic setup, do not assign Connection Policies to devices in Keenetic. Instead, create the equivalent per-device keen-pbr route rules using the src_addr (Source address) field. This keeps routing policy in keen-pbr and avoids conflicts with Keenetic policy bindings. By default keen-pbr checks separately for IPv4 and IPv6 whether RAW is available, and uses it if so; otherwise mangle. The system log shows the selected mode after the service starts:
-IPv4 raw PREROUTING available WARNING: IPv6 raw PREROUTING unavailable: ... To always use mangle, add this line to /opt/etc/keen-pbr/defaults:
-KEEN_PBR_RAW_PREROUTING=&#34;disable&#34; and restart the service:
-/opt/etc/init.d/S80keen-pbr restart The other values of this variable are described in CLI.
-Basic commands:
-Action Command Start service /opt/etc/init.d/S80keen-pbr start Restart service /opt/etc/init.d/S80keen-pbr restart Check if keen-pbr alive /opt/etc/init.d/S80keen-pbr status If you do not plan to use the keen-pbr Web UI or API, consider installing the keen-pbr-headless package. It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. You can also disable the API server at any time via a config flag, even when using the full package version. Next steps Go to the Quick Start page and use the Web UI tab for the easiest initial setup. If you installed the headless version, see the JSON / CLI tab instead.">
+	<meta name="twitter:description" content="On Keenetic and NetCraze, keen-pbr is installed from Entware . Entware is a set of extra programs for the router, installed on a USB drive. Do use a USB drive: that way installing packages and running programs does not wear out the router’s built-in memory. You install programs from Entware with the opkg command over SSH.
+Install Entware If Entware is already on your router, go to the next step.
+Installation instructions are in the Keenetic or NetCraze knowledge base:
+Find the page for your router model. Search for “Installing the Entware repository on a USB drive”. Follow the instructions step by step. They also explain how to connect to the router over SSH, which you need later. Install KeeneticOS components Open the router’s components page in a browser: http://my.keenetic.net/system/osAndUpdates (or http://&lt;router-IP&gt;/system/osAndUpdates). Install these components:
+Network Functions / IPv6 Protocol. NDMS 5.0 and newer do not have this item: the protocol is built in. OPKG Packages / Open Package System Support OPKG Packages / Netfilter Subsystem Kernel Modules OPKG Packages / Xtables-addons Extension Package for Netfilter Utilities and services / DNS-over-TLS proxy (optional, but recommended) Utilities and services / DNS-over-HTTPS proxy (optional, but recommended) Turn on DNS encryption (recommended) DoH (DNS-over-HTTPS) and DoT (DNS-over-TLS) send DNS requests in encrypted form. Your provider cannot tamper with the answers, so sites open at the correct addresses.
+How to set it up: DoH and DoT proxy servers for DNS requests encryption.
+Install keen-pbr Open the keen-pbr repository page. On the left, select the OS Keenetic / NetCraze, the OS version current (Keenetic has only this one) and the architecture of your router. To find the architecture, run opkg print-architecture over SSH. Connect to the router over SSH and run the commands from the repository page, in order. Install the package: bashopkg install keen-pbr # version without the web UI and API: # opkg install keen-pbr-headless At the end of the installation you will see Installation complete! and the web UI address.
+keen-pbr-headless takes less space: about 1.2 MB instead of 2.8 MB. It has no web UI and no API, so you configure it through the config file. If in doubt, install the regular keen-pbr. Check that the service is running Run over SSH:
+bash/opt/etc/init.d/S80keen-pbr status If everything is fine, you will see alive:
+~ # /opt/etc/init.d/S80keen-pbr status Checking keen-pbr... alive. If it says dead instead, open Service does not start.
+Open the web UI Open http://my.keenetic.net:12121 in your browser. If the address does not open, enter http://&lt;router-ip&gt;:12121, for example http://192.168.1.1:12121.
+The headless version has no web UI. Its configuration is the file /opt/etc/keen-pbr/config.json.
+Set up your first rules Go to the Quick Start page and open the Web UI tab. If you installed keen-pbr-headless, open the JSON tab.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -429,6 +324,18 @@ Action Command Start service /opt/etc/init.d/S80keen-pbr start Restart service /
                 href="#"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               ></a>
+            </li>
+          <li>
+              <a
+                href="#service-commands"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >Service commands</a>
+            </li>
+          <li>
+              <a
+                href="#raw-or-mangle"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >RAW or mangle</a>
             </li>
           <li>
               <a
@@ -1118,35 +1025,39 @@ Action Command Start service /opt/etc/init.d/S80keen-pbr start Restart service /
 <nav class="hextra-toc hx:order-last hx:hidden hx:w-64 hx:shrink-0 hx:xl:block hx:print:hidden hx:px-4" aria-label="Table of contents">
     <div class="hextra-scrollbar hx:sticky hx:top-16 hx:overflow-y-auto hx:pr-4 hx:pt-6 hx:text-sm [hyphens:auto] hx:max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] hx:ltr:-mr-4 hx:rtl:-ml-4"><p class="hx:mb-4 hx:font-semibold hx:tracking-tight">On this page</p><ul>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#install-entware-on-the-router">Install Entware on the router
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#install-entware">Install Entware
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#install-required-components">Install required components
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#install-keeneticos-components">Install KeeneticOS components
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#configure-dohdot-on-the-router">Configure DoH/DoT on the router
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#turn-on-dns-encryption-recommended">Turn on DNS encryption (recommended)
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#install-keen-pbr-from-the-repository">Install keen-pbr from the repository
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#install-keen-pbr">Install keen-pbr
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#ensure-that-keen-pbr-service-is-up-and-running">Ensure that keen-pbr service is up and running
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#check-that-the-service-is-running">Check that the service is running
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#configure-the-service">Configure the service
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#open-the-web-ui">Open the web UI
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#choose-raw-or-mangle-prerouting">Choose RAW or mangle PREROUTING
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#set-up-your-first-rules">Set up your first rules
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#next-steps">Next steps
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#service-commands">Service commands
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#raw-or-mangle">RAW or mangle
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1247,51 +1158,47 @@ Action Command Start service /opt/etc/init.d/S80keen-pbr start Restart service /
     </div>
           </div>
           
-          <p>keen-pbr can be installed on Keenetic / NetCraze routers via 
+          <p>On Keenetic and NetCraze, keen-pbr is installed from 
   <abbr title="A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.">Entware</abbr>
-&rsquo;s <code>opkg</code> package manager.</p>
+. Entware is a set of extra programs for the router, installed on a USB drive. Do use a USB drive: that way installing packages and running programs does not wear out the router&rsquo;s built-in memory. You install programs from Entware with the <code>opkg</code> command over SSH.</p>
 <div class="hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]">
-<h3>Install Entware on the router<span class="hx:absolute hx:-mt-20" id="install-entware-on-the-router"></span>
-    <a href="#install-entware-on-the-router" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>First, ensure that
-<abbr title="A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.">Entware</abbr>
-is installed on your router. Please consult the official router manual for <a href="https://support.keenetic.com/?lang=en"target="_blank" rel="noopener">Keenetic</a> or <a href="https://support.netcraze.ru/?lang=en"target="_blank" rel="noopener">NetCraze</a>:</p>
+<h3>Install Entware<span class="hx:absolute hx:-mt-20" id="install-entware"></span>
+    <a href="#install-entware" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>If Entware is already on your router, go to the next step.</p>
+<p>Installation instructions are in the <a href="https://support.keenetic.com/?lang=en"target="_blank" rel="noopener">Keenetic</a> or <a href="https://support.netcraze.ru/?lang=en"target="_blank" rel="noopener">NetCraze</a> knowledge base:</p>
 <ol>
-<li>Find your router&rsquo;s manual.</li>
-<li>In the search field, search for &ldquo;Installing the Entware repository on a USB drive&rdquo;.</li>
-<li>Read and follow the instructions carefully.</li>
+<li>Find the page for your router model.</li>
+<li>Search for &ldquo;Installing the Entware repository on a USB drive&rdquo;.</li>
+<li>Follow the instructions step by step. They also explain how to connect to the router over SSH, which you need later.</li>
 </ol>
-<h3>Install required components<span class="hx:absolute hx:-mt-20" id="install-required-components"></span>
-    <a href="#install-required-components" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Open your router&rsquo;s configuration page, navigate to <strong>Management</strong> -&gt; <strong>System settings</strong>, and install the following additional components:</p>
+<h3>Install KeeneticOS components<span class="hx:absolute hx:-mt-20" id="install-keeneticos-components"></span>
+    <a href="#install-keeneticos-components" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Open the router&rsquo;s components page in a browser: <code>http://my.keenetic.net/system/osAndUpdates</code> (or <code>http://&lt;router-IP&gt;/system/osAndUpdates</code>). Install these components:</p>
 <ul>
-<li>Network Functions / <strong>IPv6 Protocol</strong> (On NDMS 5.0+ is absent because it is a part of core now)</li>
+<li>Network Functions / <strong>IPv6 Protocol</strong>. NDMS 5.0 and newer do not have this item: the protocol is built in.</li>
 <li>OPKG Packages / <strong>Open Package System Support</strong></li>
 <li>OPKG Packages / <strong>Netfilter Subsystem Kernel Modules</strong></li>
 <li>OPKG Packages / <strong>Xtables-addons Extension Package for Netfilter</strong></li>
-<li>Utilities and services / <strong>DNS-over-TLS proxy</strong> (optional, but highly recommended)</li>
-<li>Utilities and services / <strong>DNS-over-HTTPS proxy</strong> (optional, but highly recommended)</li>
+<li>Utilities and services / <strong>DNS-over-TLS proxy</strong> (optional, but recommended)</li>
+<li>Utilities and services / <strong>DNS-over-HTTPS proxy</strong> (optional, but recommended)</li>
 </ul>
-<h3>Configure DoH/DoT on the router<span class="hx:absolute hx:-mt-20" id="configure-dohdot-on-the-router"></span>
-    <a href="#configure-dohdot-on-the-router" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>It is recommended to set up
-<abbr title="DNS over HTTPS: encrypted DNS. The router cannot read these queries.">DoH</abbr>
-/DoT DNS servers on your router to protect yourself from DNS spoofing attacks.</p>
-<p>Consult the official Keenetic documentation on how to do it: <a href="https://support.keenetic.com/titan/kn-1811/en/25049.html"target="_blank" rel="noopener">DoH and DoT proxy servers for DNS requests encryption</a>.</p>
-<h3>Install <code>keen-pbr</code> from the repository<span class="hx:absolute hx:-mt-20" id="install-keen-pbr-from-the-repository"></span>
-    <a href="#install-keen-pbr-from-the-repository" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ol>
-<li>Open <a href="https://repo.keen-pbr.fyi/repository/stable/?lang=en"target="_blank" rel="noopener">keen-pbr repository page</a>.</li>
-<li>Select &ldquo;<strong>Keenetic / NetCraze</strong>&rdquo; in the OS selector on the left, choose the &ldquo;<strong>current</strong>&rdquo; version, and select the architecture that matches your router.
+<h3>Turn on DNS encryption (recommended)<span class="hx:absolute hx:-mt-20" id="turn-on-dns-encryption-recommended"></span>
+    <a href="#turn-on-dns-encryption-recommended" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><abbr title="DNS over HTTPS: encrypted DNS. The router cannot read these queries.">DoH</abbr>
+(DNS-over-HTTPS) and DoT (DNS-over-TLS) send DNS requests in encrypted form. Your provider cannot tamper with the answers, so sites open at the correct addresses.</p>
+<p>How to set it up: <a href="https://support.keenetic.com/titan/kn-1811/en/25049.html"target="_blank" rel="noopener">DoH and DoT proxy servers for DNS requests encryption</a>.</p>
+<h3>Install keen-pbr<span class="hx:absolute hx:-mt-20" id="install-keen-pbr"></span>
+    <a href="#install-keen-pbr" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ol>
+<li>Open the <a href="https://repo.keen-pbr.fyi/repository/stable/?lang=en"target="_blank" rel="noopener">keen-pbr repository page</a>.</li>
+<li>On the left, select the OS <strong>Keenetic / NetCraze</strong>, the OS version <strong>current</strong> (Keenetic has only this one) and the architecture of your router.
 <ul>
-<li>TIP: You can run <code>opkg print-architecture</code> in an SSH session to see your router&rsquo;s architecture.</li>
+<li>To find the architecture, run <code>opkg print-architecture</code> over SSH.</li>
 </ul>
 </li>
-<li>Follow the instructions on the repository page carefully.</li>
-<li>Run the <code>opkg install keen-pbr</code> command.
-<ul>
-<li>Example install command:
+<li>Connect to the router over SSH and run the commands from the repository page, in order.</li>
+<li>Install the package:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opkg install keen-pbr
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># or if you want headless version (without API and without WebUI)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># version without the web UI and API:</span>
 </span></span><span class="line"><span class="cl"><span class="c1"># opkg install keen-pbr-headless</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1305,16 +1212,19 @@ is installed on your router. Please consult the official router manual for <a hr
 </div>
 </div>
 </li>
-</ul>
-</li>
 </ol>
-<h3>Ensure that <code>keen-pbr</code> service is up and running<span class="hx:absolute hx:-mt-20" id="ensure-that-keen-pbr-service-is-up-and-running"></span>
-    <a href="#ensure-that-keen-pbr-service-is-up-and-running" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Before continuing to the next step, it is recommended to check whether <code>keen-pbr</code> started successfully and has not crashed. Run <code>/opt/etc/init.d/S80keen-pbr status</code>. If it is dead, see <a href="/docs/troubleshooting/#service-does-not-start">Troubleshooting</a>.</p>
-<p>Example:</p>
+<p>At the end of the installation you will see <code>Installation complete!</code> and the web UI address.</p>
+<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
+  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+  <div class="hx:w-full hx:min-w-0 hx:leading-7">
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0"><code>keen-pbr-headless</code> takes less space: about 1.2 MB instead of 2.8 MB. It has no web UI and no API, so you configure it through the config file. If in doubt, install the regular <code>keen-pbr</code>.</div>
+  </div>
+</div>
+<h3>Check that the service is running<span class="hx:absolute hx:-mt-20" id="check-that-the-service-is-running"></span>
+    <a href="#check-that-the-service-is-running" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Run over SSH:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div><pre><code>~ # /opt/etc/init.d/S80keen-pbr status
- Checking keen-pbr...              alive.</code></pre></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">/opt/etc/init.d/S80keen-pbr status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1326,21 +1236,59 @@ is installed on your router. Please consult the official router manual for <a hr
   </button>
 </div>
 </div>
-<p>If the service is <strong>alive</strong>, continue to the next step.</p>
-<h3>Configure the service<span class="hx:absolute hx:-mt-20" id="configure-the-service"></span>
-    <a href="#configure-the-service" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Open <a href="http://my.keenetic.net:12121"target="_blank" rel="noopener">http://my.keenetic.net:12121</a> to configure keen-pbr (if you installed the full version; the headless version does not provide a Web UI).</p>
-<p>You can also configure keen-pbr manually by modifying the configuration file: <code>/opt/etc/keen-pbr/config.json</code>.</p>
-<h3>Choose RAW or mangle PREROUTING<span class="hx:absolute hx:-mt-20" id="choose-raw-or-mangle-prerouting"></span>
-    <a href="#choose-raw-or-mangle-prerouting" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>This choice exists only on Keenetic / NetCraze. keen-pbr sets
-<abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
-in one of two firewall tables:</p>
-<ul>
-<li>**
-<abbr title="The iptables table for changing packet metadata, such as setting a fwmark, before routing.">mangle</abbr>
-**: Keenetic rebuilds this table from time to time (for example after a DHCP lease renewal), and keen-pbr&rsquo;s rules are briefly missing until keen-pbr restores them;</li>
-<li><strong>raw</strong>: Keenetic does not touch it, but rules from <strong>Connection Policies</strong> &gt; <strong>Policy Bindings</strong> run later and overwrite keen-pbr&rsquo;s fwmark.</li>
-</ul>
-<p>See also the <a href="https://forum.keenetic.ru/topic/20631-keenetic-ndms-%D0%BE%D1%87%D0%B8%D1%89%D0%B0%D0%B5%D1%82-iptables-%D0%B2%D0%BE-%D0%B2%D1%80%D0%B5%D0%BC%D1%8F-%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA%D0%B0-%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B/"target="_blank" rel="noopener">Keenetic Community forum thread</a> about Keenetic rebuilding iptables.</p>
+<p>If everything is fine, you will see <code>alive</code>:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">~ # /opt/etc/init.d/S80keen-pbr status
+</span></span><span class="line"><span class="cl"> Checking keen-pbr...              alive.</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>If it says <code>dead</code> instead, open <a href="/docs/troubleshooting/#service-does-not-start">Service does not start</a>.</p>
+<h3>Open the web UI<span class="hx:absolute hx:-mt-20" id="open-the-web-ui"></span>
+    <a href="#open-the-web-ui" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Open <a href="http://my.keenetic.net:12121"target="_blank" rel="noopener">http://my.keenetic.net:12121</a> in your browser. If the address does not open, enter <code>http://&lt;router-ip&gt;:12121</code>, for example <code>http://192.168.1.1:12121</code>.</p>
+<p>The headless version has no web UI. Its configuration is the file <code>/opt/etc/keen-pbr/config.json</code>.</p>
+<h3>Set up your first rules<span class="hx:absolute hx:-mt-20" id="set-up-your-first-rules"></span>
+    <a href="#set-up-your-first-rules" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Go to the <a href="/docs/getting-started/quick-start/">Quick Start</a> page and open the <strong>Web UI</strong> tab. If you installed <code>keen-pbr-headless</code>, open the <strong>JSON</strong> tab.</p>
+</div>
+<h2>Service commands<span class="hx:absolute hx:-mt-20" id="service-commands"></span>
+    <a href="#service-commands" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><table>
+	<thead>
+			<tr>
+					<th>Action</th>
+					<th>Command</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Start</td>
+					<td><code>/opt/etc/init.d/S80keen-pbr start</code></td>
+			</tr>
+			<tr>
+					<td>Restart</td>
+					<td><code>/opt/etc/init.d/S80keen-pbr restart</code></td>
+			</tr>
+			<tr>
+					<td>Check that it works</td>
+					<td><code>/opt/etc/init.d/S80keen-pbr status</code></td>
+			</tr>
+	</tbody>
+</table>
+<h2>RAW or mangle<span class="hx:absolute hx:-mt-20" id="raw-or-mangle"></span>
+    <a href="#raw-or-mangle" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>You do not need to change anything at first: keen-pbr picks a suitable mode itself. This section helps if you assign policies to devices in Keenetic <strong>Connection Policies</strong>, or if connections through the VPN sometimes drop.</p>
+<p>keen-pbr marks the packets that must go to a VPN or another channel. This mark is called 
+  <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
+. It can be set in one of two firewall tables of the router: RAW or 
+  <abbr title="The iptables table for changing packet metadata, such as setting a fwmark, before routing.">mangle</abbr>
+.</p>
 <table>
 	<thead>
 			<tr>
@@ -1351,24 +1299,27 @@ in one of two firewall tables:</p>
 	</thead>
 	<tbody>
 			<tr>
-					<td><strong>RAW</strong> (default when available)</td>
-					<td>PBR remains active across a Keenetic mangle rebuild. Long-running, sensitive flows such as gaming sessions avoid rebuild-related breaks, and packets have fewer chances to bypass the VPN.</td>
-					<td>After keen-pbr sets its <code>fwmark</code> in RAW, Keenetic&rsquo;s <strong>Connection Policies</strong> &gt; <strong>Policy Bindings</strong> rules overwrite it. RAW mode therefore works only for devices assigned the <strong>Default policy</strong>.</td>
+					<td><strong>RAW</strong> (default when the router supports it)</td>
+					<td>Keenetic does not rebuild this table, so keen-pbr rules work without gaps. Gaming sessions and other long connections do not break, and traffic does not bypass the VPN.</td>
+					<td>Policies from <strong>Connection Policies</strong> &gt; <strong>Policy Bindings</strong> run later and overwrite the keen-pbr mark. RAW therefore works only for devices with the <strong>Default policy</strong>.</td>
 			</tr>
 			<tr>
 					<td><strong>mangle</strong></td>
-					<td>keen-pbr runs after Keenetic sets its own fwmarks for Connection Policy, so it can override routing for devices with a non-default policy.</td>
-					<td>When Keenetic rebuilds its <code>mangle</code> table (usually about every five minutes), keen-pbr rules disappear briefly. A few packets can use the ordinary route before keen-pbr restores them, disrupting a gaming session or another sensitive flow.</td>
+					<td>keen-pbr runs after Keenetic policies and can change the route for devices with any policy.</td>
+					<td>Keenetic rebuilds the <code>mangle</code> table (about every five minutes, and also, for example, after a DHCP lease renewal). During that time keen-pbr rules are missing. A few packets can take the ordinary route, and a sensitive connection such as a gaming session can break.</td>
 			</tr>
 	</tbody>
 </table>
+<p>More about how Keenetic rebuilds iptables: <a href="https://forum.keenetic.ru/topic/20631-keenetic-ndms-%D0%BE%D1%87%D0%B8%D1%89%D0%B0%D0%B5%D1%82-iptables-%D0%B2%D0%BE-%D0%B2%D1%80%D0%B5%D0%BC%D1%8F-%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA%D0%B0-%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B/"target="_blank" rel="noopener">Keenetic Community forum thread</a>.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">For the most predictable Keenetic setup, do not assign <strong>Connection Policies</strong> to devices in Keenetic. Instead, create the equivalent per-device <a href="/docs/configuration/route-rules/">keen-pbr route rules</a> using the <code>src_addr</code> (<strong>Source address</strong>) field. This keeps routing policy in keen-pbr and avoids conflicts with Keenetic policy bindings.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">The simplest way is not to assign policies to devices in <strong>Connection Policies</strong>. Instead, create a keen-pbr <a href="/docs/configuration/route-rules/">route rule</a> and enter the device address in the <strong>Source IP</strong> field. Then all rules are in one place and do not conflict with Keenetic policies.</div>
   </div>
 </div>
-<p>By default keen-pbr checks separately for IPv4 and IPv6 whether RAW is available, and uses it if so; otherwise mangle. The system log shows the selected mode after the service starts:</p>
+
+<p>The mode is chosen separately for IPv4 and IPv6. The system log of the router shows which one was chosen after the service starts:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">IPv4 raw PREROUTING available
@@ -1414,40 +1365,7 @@ in one of two firewall tables:</p>
   </button>
 </div>
 </div>
-<p>The other values of this variable are described in <a href="/docs/cli/#--use-raw-prerouting">CLI</a>.</p>
-<p>Basic commands:</p>
-<table>
-	<thead>
-			<tr>
-					<th>Action</th>
-					<th>Command</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td>Start service</td>
-					<td><code>/opt/etc/init.d/S80keen-pbr start</code></td>
-			</tr>
-			<tr>
-					<td>Restart service</td>
-					<td><code>/opt/etc/init.d/S80keen-pbr restart</code></td>
-			</tr>
-			<tr>
-					<td>Check if <strong>keen-pbr</strong> alive</td>
-					<td><code>/opt/etc/init.d/S80keen-pbr status</code></td>
-			</tr>
-	</tbody>
-</table>
-<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
-  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-  <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">If you do not plan to use the keen-pbr Web UI or API, consider installing the <code>keen-pbr-headless</code> package.
-It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. You can also disable the API server at any time via a config flag, even when using the full package version.</div>
-  </div>
-</div>
-<h3>Next steps<span class="hx:absolute hx:-mt-20" id="next-steps"></span>
-    <a href="#next-steps" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Go to the <a href="/docs/getting-started/quick-start/">Quick Start</a> page and use the <strong>Web UI</strong> tab for the easiest initial setup. If you installed the <code>headless</code> version, see the <strong>JSON / CLI</strong> tab instead.</p>
-</div>
+<p>The other values of this setting are described in <a href="/docs/cli/#--use-raw-prerouting">CLI</a>.</p>
 <h2>Separate DNS servers for lists (dnsmasq)<span class="hx:absolute hx:-mt-20" id="dnsmasq"></span>
     <a href="#dnsmasq" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>keen-pbr does not need dnsmasq for routing. Install it only if you want to send the domains of some lists to separate DNS servers, or set your own default DNS servers. See <a href="/docs/configuration/dns/#do-i-need-dnsmasq">Do I need dnsmasq?</a>.</p>
 <h3>Install dnsmasq<span class="hx:absolute hx:-mt-20" id="dnsmasq-install"></span>
@@ -1502,12 +1420,12 @@ system configuration save</code></pre></div><div class="hextra-code-copy-btn-con
 </div>
 Run these commands only after dnsmasq is installed. Without dnsmasq, <code>dns-override</code> leaves the LAN without DNS.</li>
 <li>Reboot the router. <strong>This is required:</strong> without a reboot LAN clients keep using the built-in DNS proxy, and dnsmasq does not get their queries.</li>
-<li>In the Web UI, open <strong>General</strong> &gt; <strong>Local DNS server management</strong> and turn on <strong>Manage dnsmasq configuration</strong>. The DNS servers and DNS rules pages become available.</li>
+<li>In the Web UI, open <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Local DNS server management</strong> and turn on <strong>Manage dnsmasq configuration</strong>. The DNS servers and DNS rules pages become available.</li>
 </ol>
 <h3>Return to how it was<span class="hx:absolute hx:-mt-20" id="dnsmasq-rollback"></span>
     <a href="#dnsmasq-rollback" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Do the steps in this order, so the LAN keeps DNS all the time:</p>
 <ol>
-<li>In the Web UI, turn off <strong>Manage dnsmasq configuration</strong> (<strong>General</strong> &gt; <strong>Local DNS server management</strong>) and apply the config. dnsmasq keeps running and uses the servers from <code>/opt/etc/keen-pbr/dnsmasq-fallback.conf</code>, so DNS keeps working. If dnsmasq has servers of its own, these are added to them; clear the file to avoid that.</li>
+<li>In the Web UI, turn off <strong>Manage dnsmasq configuration</strong> (<strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Local DNS server management</strong>) and apply the config. dnsmasq keeps running and uses the servers from <code>/opt/etc/keen-pbr/dnsmasq-fallback.conf</code>, so DNS keeps working. If dnsmasq has servers of its own, these are added to them; clear the file to avoid that.</li>
 <li>In the web CLI (<a href="http://my.keenetic.net/a"target="_blank" rel="noopener">http://my.keenetic.net/a</a>) run:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 

@@ -9,16 +9,23 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>REST API – keen-pbr</title>
-  <meta name="description" content="Эта страница описывает встроенный HTTP REST API.
+  <meta name="description" content="REST API нужен, чтобы управлять keen-pbr и следить за ним из скриптов и внешних систем. Например:
+Prometheus и Grafana показывают состояние VPN-каналов и задержку (см. GET /metrics). Задание cron обновляет списки по расписанию через POST /api/lists/refresh. Скрипт перезапускает маршрутизацию через POST /api/service/restart. Если вы пользуетесь только веб-интерфейсом, эту страницу можно не читать.
 REST API доступен, если:
-Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;device_name&#34;: &#34;Домашний роутер&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=2048,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Интерактивно сгенерировать хеш пароля:" /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/rest-api/" itemprop="url" />
+Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация В веб-интерфейсе откройте Безопасность &gt; Аутентификация и CORS. Включите Включить аутентификацию, введите Новый пароль и подтвердите его. Если API должен принимать запросы из браузера с другого сайта, добавьте его адрес в Разрешённые источники CORS (по одному в строке). Изменения вступают в силу сразу." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/rest-api/" itemprop="url" />
 
 <meta property="og:title" content="REST API">
 <meta
   property="og:description"
   content="
     
-      Эта страница описывает встроенный HTTP REST API.
+      REST API нужен, чтобы управлять keen-pbr и следить за ним из скриптов и внешних систем. Например:
+
+Prometheus и Grafana показывают состояние VPN-каналов и задержку (см. GET /metrics).
+Задание cron обновляет списки по расписанию через POST /api/lists/refresh.
+Скрипт перезапускает маршрутизацию через POST /api/service/restart.
+
+Если вы пользуетесь только веб-интерфейсом, эту страницу можно не читать.
 REST API доступен, если:
 
 Установлена полная версия пакета (keen-pbr, не keen-pbr-headless)
@@ -26,29 +33,7 @@ REST API доступен, если:
 При запуске не был передан флаг --no-api
 
 Конфигурация
-    
-
-config.json{
-  &#34;device_name&#34;: &#34;Домашний роутер&#34;,
-  &#34;api&#34;: {
-    &#34;enabled&#34;: true,
-    &#34;listen&#34;: &#34;0.0.0.0:12121&#34;,
-    &#34;authentication&#34;: {
-      &#34;enabled&#34;: true,
-      &#34;password_hash&#34;: &#34;argon2id$v=19$m=2048,t=2,p=1$...&#34;
-    },
-    &#34;cors&#34;: {
-      &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;]
-    }
-  }
-}
-  
-    
-
-  
-
-
-Интерактивно сгенерировать хеш пароля:
+    В веб-интерфейсе откройте Безопасность &gt; Аутентификация и CORS. Включите Включить аутентификацию, введите Новый пароль и подтвердите его. Если API должен принимать запросы из браузера с другого сайта, добавьте его адрес в Разрешённые источники CORS (по одному в строке). Изменения вступают в силу сразу.
     
   ">
 <meta
@@ -62,15 +47,17 @@ config.json{
 
 
 	<meta itemprop="name" content="REST API">
-	<meta itemprop="description" content="Эта страница описывает встроенный HTTP REST API.
+	<meta itemprop="description" content="REST API нужен, чтобы управлять keen-pbr и следить за ним из скриптов и внешних систем. Например:
+Prometheus и Grafana показывают состояние VPN-каналов и задержку (см. GET /metrics). Задание cron обновляет списки по расписанию через POST /api/lists/refresh. Скрипт перезапускает маршрутизацию через POST /api/service/restart. Если вы пользуетесь только веб-интерфейсом, эту страницу можно не читать.
 REST API доступен, если:
-Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;device_name&#34;: &#34;Домашний роутер&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=2048,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Интерактивно сгенерировать хеш пароля:">
-	<meta itemprop="wordCount" content="2358">
+Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация В веб-интерфейсе откройте Безопасность &gt; Аутентификация и CORS. Включите Включить аутентификацию, введите Новый пароль и подтвердите его. Если API должен принимать запросы из браузера с другого сайта, добавьте его адрес в Разрешённые источники CORS (по одному в строке). Изменения вступают в силу сразу.">
+	<meta itemprop="wordCount" content="2756">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
-	<meta name="twitter:description" content="Эта страница описывает встроенный HTTP REST API.
+	<meta name="twitter:description" content="REST API нужен, чтобы управлять keen-pbr и следить за ним из скриптов и внешних систем. Например:
+Prometheus и Grafana показывают состояние VPN-каналов и задержку (см. GET /metrics). Задание cron обновляет списки по расписанию через POST /api/lists/refresh. Скрипт перезапускает маршрутизацию через POST /api/service/restart. Если вы пользуетесь только веб-интерфейсом, эту страницу можно не читать.
 REST API доступен, если:
-Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;device_name&#34;: &#34;Домашний роутер&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=2048,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Интерактивно сгенерировать хеш пароля:">
+Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация В веб-интерфейсе откройте Безопасность &gt; Аутентификация и CORS. Включите Включить аутентификацию, введите Новый пароль и подтвердите его. Если API должен принимать запросы из браузера с другого сайта, добавьте его адрес в Разрешённые источники CORS (по одному в строке). Изменения вступают в силу сразу.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -1018,6 +1005,10 @@ REST API доступен, если:
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b1%d0%b0%d0%bb%d0%b0%d0%bd%d1%81%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-%d0%b8-%d0%bc%d0%b0%d1%80%d0%ba%d0%b8%d1%80%d0%be%d0%b2%d0%b0%d0%bd%d0%bd%d1%8b%d0%b5-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d1%8b">Балансировка и маркированные пакеты
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b4%d0%b0%d1%88%d0%b1%d0%be%d1%80%d0%b4-grafana-%d0%b8-%d0%b0%d0%bb%d0%b5%d1%80%d1%82%d1%8b">Дашборд Grafana и алерты
         </a>
       </li>
@@ -1070,7 +1061,7 @@ REST API доступен, если:
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-%d0%be%d0%b1-%d0%be%d1%88%d0%b8%d0%b1%d0%ba%d0%b5-400--%d0%bd%d0%b5%d1%82-%d0%be%d1%82%d0%bb%d0%be%d0%b6%d0%b5%d0%bd%d0%bd%d0%be%d0%b9-%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d0%b8">Ответ об ошибке (400 — нет отложенной конфигурации)
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-%d0%be%d0%b1-%d0%be%d1%88%d0%b8%d0%b1%d0%ba%d0%b5-400--%d0%bd%d0%b5%d1%82-%d1%87%d0%b5%d1%80%d0%bd%d0%be%d0%b2%d0%b8%d0%ba%d0%b0">Ответ об ошибке (400 — нет черновика)
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1189,7 +1180,13 @@ REST API доступен, если:
     </div>
           </div>
           
-          <p>Эта страница описывает встроенный HTTP REST API.</p>
+          <p>REST API нужен, чтобы управлять keen-pbr и следить за ним из скриптов и внешних систем. Например:</p>
+<ul>
+<li>Prometheus и Grafana показывают состояние VPN-каналов и задержку (см. <a href="#get-metrics">GET /metrics</a>).</li>
+<li>Задание cron обновляет списки по расписанию через <code>POST /api/lists/refresh</code>.</li>
+<li>Скрипт перезапускает маршрутизацию через <code>POST /api/service/restart</code>.</li>
+</ul>
+<p>Если вы пользуетесь только веб-интерфейсом, эту страницу можно не читать.</p>
 <p>REST API доступен, если:</p>
 <ul>
 <li>Установлена полная версия пакета (<code>keen-pbr</code>, не <code>keen-pbr-headless</code>)</li>
@@ -1197,7 +1194,10 @@ REST API доступен, если:
 <li>При запуске не был передан флаг <code>--no-api</code></li>
 </ul>
 <h2>Конфигурация<span class="hx:absolute hx:-mt-20" id="конфигурация"></span>
-    <a href="#%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+    <a href="#%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>В веб-интерфейсе откройте <strong>Безопасность</strong> &gt; <strong>Аутентификация и CORS</strong>. Включите <strong>Включить аутентификацию</strong>, введите <strong>Новый пароль</strong> и подтвердите его. Если API должен принимать запросы из браузера с другого сайта, добавьте его адрес в <strong>Разрешённые источники CORS</strong> (по одному в строке). Изменения вступают в силу сразу.</p>
+<p>Имя устройства задаётся в <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Общие</strong> &gt; <strong>Имя устройства</strong>. Оно показывается в заголовке вкладки браузера и под логотипом keen-pbr и помогает различать несколько роутеров.</p>
+<p>Те же настройки в <code>config.json</code>:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;device_name&#34;</span><span class="p">:</span> <span class="s2">&#34;Домашний роутер&#34;</span><span class="p">,</span>
@@ -1224,7 +1224,8 @@ REST API доступен, если:
   </button>
 </div>
 </div>
-<p>Интерактивно сгенерировать хеш пароля:</p>
+<p>Параметр <code>device_name</code> необязателен и может быть пустым.</p>
+<p>Если вы правите <code>config.json</code> вручную, хеш пароля получите командой (она спросит пароль):</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr hash-password</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
@@ -1239,30 +1240,17 @@ REST API доступен, если:
   </button>
 </div>
 </div>
-<p>Чтобы включить аутентификацию и сразу записать новый хеш в выбранный
-<code>config.json</code>, выполните <code>keen-pbr --config /path/to/config.json hash-password --update</code>.
-Команда атомарно обновит файл и напомнит о необходимости перезапуска сервиса,
-поскольку она изменяет файл вне работающего демона. Изменения аутентификации и
-CORS, сделанные через веб-интерфейс, сохраняются и вступают в силу сразу, без
-применения отложенного черновика конфигурации маршрутизации.</p>
-<p>Параметр <code>device_name</code> необязателен и может быть пустым. Если он задан,
-веб-интерфейс использует его в заголовке страницы браузера и под логотипом
-keen-pbr, чтобы различать устройства.</p>
-<p>Пароль хранится в виде хеша Argon2id. Хеши из старых версий keen-pbr не подходят: если пароль задавался в старой версии, задайте его заново.
-API конфигурации никогда не возвращает и не принимает сохранённый хеш. Веб-интерфейс
-получает только состояние через <code>GET /api/auth/password</code>, а новый пароль в открытом
-виде отправляет только в <code>POST /api/auth/settings</code>; хеширование выполняет демон.</p>
-<p>Клиенты API могут использовать Basic-аутентификацию с именем пользователя
-<code>admin</code> или Bearer-токен, полученный через <code>POST /api/auth/login</code>. Одновременно
-действует только одна Bearer-сессия: новый успешный вход немедленно завершает
-предыдущую сессию веб-интерфейса. Сессия истекает через 24 часа и теряется при
-перезапуске демона.</p>
-<p>Когда аутентификация отключена, межсайтовые запросы браузера запрещены. Когда
-она включена, разрешены точно указанные источники, а также источники расширений
-Chrome и Firefox. При входе и Basic-аутентификации пароль передаётся API,
-поэтому используйте доверенную сеть или HTTPS reverse proxy.</p>
-<p>По умолчанию API прослушивает <code>0.0.0.0:12121</code>. Все эндпоинты обслуживаются на настроенном адресе <code>api.listen</code>.</p>
-<p>Полная схема запросов и ответов находится в <a href="https://github.com/maksimkurb/keen-pbr/blob/main/docs/openapi.yaml"target="_blank" rel="noopener">OpenAPI-документе</a>. Основные маршруты:</p>
+<p>Чтобы сразу записать хеш в файл, выполните <code>keen-pbr --config /path/to/config.json hash-password --update</code>. После этого перезапустите сервис keen-pbr: демон не видит изменений, сделанных в файле снаружи.</p>
+<p>Пароль хранится в виде хеша Argon2id. Хеши из старых версий keen-pbr не подходят: задайте пароль заново.</p>
+<p>Когда аутентификация включена, запросы к API выполняются одним из двух способов:</p>
+<ul>
+<li>Basic-аутентификация: имя пользователя <code>admin</code> и ваш пароль (<code>curl -u admin:password ...</code>).</li>
+<li>Bearer-токен: временный ключ, который выдаёт <code>POST /api/auth/login</code> и который передаётся в заголовке <code>Authorization: Bearer &lt;токен&gt;</code>. Токен действует 24 часа. Одновременно действует только один токен: новый вход, в том числе в веб-интерфейсе, отменяет предыдущий. После перезапуска демона токен нужно получить заново.</li>
+</ul>
+<p>Без входа доступны только <code>GET /api/auth/status</code> и <code>POST /api/auth/login</code>. <code>/metrics</code> защищён так же, как остальной API.</p>
+<p>Если аутентификация выключена, запросы из браузера с других сайтов блокируются. Если включена, разрешены адреса из <strong>Разрешённые источники CORS</strong>, а также расширения Chrome и Firefox. Пароль передаётся по сети открытым текстом, поэтому используйте доверенную сеть или HTTPS через reverse proxy (веб-сервер перед keen-pbr).</p>
+<p>По умолчанию API слушает <code>0.0.0.0:12121</code> (значение <code>api.listen</code>). Все маршруты доступны по этому адресу.</p>
+<p>Полная схема запросов и ответов находится в <a href="https://github.com/maksimkurb/keen-pbr/blob/main/docs/openapi.yaml"target="_blank" rel="noopener">OpenAPI-документе</a>. Основные маршруты (outbound — канал, через который идёт трафик: VPN-интерфейс, провайдер или блокировка):</p>
 <table>
 	<thead>
 			<tr>
@@ -1273,7 +1261,7 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 	<tbody>
 			<tr>
 					<td><code>GET /api/health/service</code></td>
-					<td>Состояние сервиса, черновика конфигурации, операции жизненного цикла и отката.</td>
+					<td>Состояние сервиса, черновика конфигурации, текущей операции запуска/остановки и отката.</td>
 			</tr>
 			<tr>
 					<td><code>POST /api/service/start</code>, <code>/stop</code>, <code>/restart</code></td>
@@ -1284,12 +1272,20 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 					<td>Чтение или подготовка проверенного черновика конфигурации.</td>
 			</tr>
 			<tr>
+					<td><code>GET /api/config/defaults</code></td>
+					<td>Значения по умолчанию для настроек, которые не заданы в конфиге.</td>
+			</tr>
+			<tr>
 					<td><code>POST /api/config/discard</code>, <code>/save</code>, <code>/rollback</code></td>
-					<td>Отмена черновика, сохранение и применение либо явный откат неудачного применения.</td>
+					<td>Отмена черновика, сохранение и применение либо откат к прежней конфигурации после неудачного применения.</td>
 			</tr>
 			<tr>
 					<td><code>GET /api/status/events</code></td>
-					<td>Поток Server-Sent Events о состоянии сервиса, outbounds, интерфейсов, проблем и диагностики маршрутизации состояния аутентификации и изменений конфигурации (<code>snapshot</code>, <code>service</code>, <code>outbounds</code>, <code>interfaces</code>, <code>issues</code>, <code>routing</code>, <code>auth</code>, <code>config</code>). Событие <code>config</code> несёт только ревизию, которая меняется вместе с активной конфигурацией, черновиком или состоянием обновления списков; данные читаются через <code>GET /api/config</code>. REST-эндпоинты, включая <code>GET /api/health/issues</code>, <code>GET /api/health/routing</code> и <code>GET /api/auth/status</code>, остаются доступны.</td>
+					<td>Поток событий Server-Sent Events (SSE): сервер сам присылает изменения, опрашивать его не нужно. События: <code>snapshot</code> (полное состояние при подключении), <code>service</code>, <code>outbounds</code>, <code>interfaces</code>, <code>issues</code>, <code>routing</code>, <code>auth</code>, <code>config</code>. Раз в 15 секунд приходит служебный сигнал, чтобы соединение не закрывалось. Событие <code>config</code> содержит только номер ревизии; сами данные читайте через <code>GET /api/config</code>. После обрыва соединения новое подключение снова начинается с <code>snapshot</code>.</td>
+			</tr>
+			<tr>
+					<td><code>GET /api/health/issues</code></td>
+					<td>Найденные проблемы и результаты проверок ядра: тот же список, что на странице обзора и в <code>keen-pbr status</code>.</td>
 			</tr>
 			<tr>
 					<td><code>GET /api/runtime/outbounds</code>, <code>/api/runtime/interfaces</code></td>
@@ -1297,7 +1293,7 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 			</tr>
 			<tr>
 					<td><code>GET /api/health/routing</code>, <code>POST /api/routing/test</code></td>
-					<td>Кэшированная диагностика маршрутизации/firewall и проверка маршрута для цели.</td>
+					<td>Диагностика маршрутизации и firewall и проверка маршрута для конкретного домена или IP-адреса.</td>
 			</tr>
 			<tr>
 					<td><code>POST /api/lists/refresh</code></td>
@@ -1305,11 +1301,11 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 			</tr>
 			<tr>
 					<td><code>GET /api/dns/test</code></td>
-					<td>Поток событий перехвата DNS/L7 или проверка DNS-маркера веб-интерфейса.</td>
+					<td>Поток событий перехвата DNS и TLS/QUIC-трафика либо проверка DNS в веб-интерфейсе.</td>
 			</tr>
 			<tr>
 					<td><code>GET /api/diagnostics/command-failure</code></td>
-					<td>Чтение недавнего журнала ошибок команд.</td>
+					<td>Журнал недавних сбоев системных команд.</td>
 			</tr>
 			<tr>
 					<td><code>GET /metrics</code></td>
@@ -1317,7 +1313,7 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 			</tr>
 			<tr>
 					<td><code>/api/auth/status</code>, <code>/api/auth/login</code>, <code>/api/auth/logout</code>, <code>/api/auth/password</code>, <code>/api/auth/settings</code></td>
-					<td>Состояние аутентификации и управление сессией/паролем.</td>
+					<td>Состояние аутентификации, вход и выход, пароль (<code>GET</code> показывает, задан ли он; <code>POST</code> задаёт новый), настройки аутентификации и CORS.</td>
 			</tr>
 	</tbody>
 </table>
@@ -1342,7 +1338,7 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
     <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;version&#34;</span><span class="p">:</span> <span class="s2">&#34;3.0.0&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;version&#34;</span><span class="p">:</span> <span class="s2">&#34;3.4.0&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;build&#34;</span><span class="p">:</span> <span class="s2">&#34;20261010120000&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;running&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;runtime_state&#34;</span><span class="p">:</span> <span class="s2">&#34;running&#34;</span><span class="p">,</span>
@@ -1364,20 +1360,13 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
   </button>
 </div>
 </div>
-<p>При включённом перехвате этот ответ также содержит объект <code>intercept</code>. В нём
-раздельно указаны <code>dns_hold_active</code> и <code>l7_active</code>, возможности
-(<code>nfqueue</code>, <code>nflog</code>, <code>connbytes</code>) и счётчики DNS-разбора/hold, частичных TCP,
-L7-пакетов, обновлений наборов, очистки 
-  <abbr title="Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).">conntrack</abbr>
- и переполнений 
+<p>Поле <code>status</code> принимает значения <code>running</code> (работает), <code>degraded</code> (перехват DNS включён, но недоступен) и <code>stopped</code> (остановлен).</p>
+<p>При включённом перехвате ответ содержит объект <code>intercept</code>: активность перехвата DNS (<code>dns_hold_active</code>) и анализа трафика (<code>l7_active</code>), доступные возможности ядра (<code>nfqueue</code>, <code>nflog</code>, <code>connbytes</code>, <code>addrtype</code>) и счётчики обработанных пакетов, ошибок и переполнений очередей (
   <abbr title="Механизм netfilter, который передаёт пакеты программе и ждёт её решения. keen-pbr так ненадолго задерживает DNS-ответы.">NFQUEUE</abbr>
-/NFLOG.
-Недоступность NFQUEUE не означает недоступность L7 и наоборот.</p>
-<p>Для текущего состояния outbounds во время выполнения (здоровье, задержка, circuit breaker) используйте <code>GET /api/runtime/outbounds</code>.</p>
+/NFLOG). Эти значения нужны в основном для диагностики.</p>
+<p>Состояние каналов (здоровье, задержка) смотрите в <code>GET /api/runtime/outbounds</code>.</p>
 <h2>GET /metrics<span class="hx:absolute hx:-mt-20" id="get-metrics"></span>
-    <a href="#get-metrics" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает текстовый формат Prometheus 0.0.4. Эндпоинт использует ту же
-аутентификацию, что и API. При недоступности поставщика метрик возможен ответ
-<code>503</code>:</p>
+    <a href="#get-metrics" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает метрики в текстовом формате Prometheus 0.0.4. Prometheus периодически обращается к этому адресу (scrape) и сохраняет значения. Аутентификация та же, что у API: используйте Basic-аутентификацию или текущий Bearer-токен. Если метрики недоступны, ответ <code>503</code>:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -u admin:password http://127.0.0.1:12121/metrics</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
@@ -1392,9 +1381,7 @@ L7-пакетов, обновлений наборов, очистки
   </button>
 </div>
 </div>
-<p>Все длительности — числа с плавающей точкой в <strong>секундах</strong>. Серия, не имеющая
-смысла, <strong>не публикуется</strong> (а не выводится как <code>0</code>). <code># HELP</code> и <code># TYPE</code>
-выводятся один раз на семейство, пустые семейства не печатаются.</p>
+<p>Все длительности указаны в <strong>секундах</strong> (дробные числа). Если значение неизвестно, метрика <strong>не публикуется</strong>, а не выводится как <code>0</code> (см. «Когда серии не публикуются» ниже).</p>
 <h3>Процесс и конфигурация<span class="hx:absolute hx:-mt-20" id="процесс-и-конфигурация"></span>
     <a href="#%d0%bf%d1%80%d0%be%d1%86%d0%b5%d1%81%d1%81-%d0%b8-%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><table>
 	<thead>
@@ -1422,13 +1409,13 @@ L7-пакетов, обновлений наборов, очистки
 					<td><code>keen_pbr_active_rules</code></td>
 					<td>gauge</td>
 					<td>-</td>
-					<td>Применённые правила firewall.</td>
+					<td>Число применённых правил firewall.</td>
 			</tr>
 			<tr>
 					<td><code>keen_pbr_config_reload_last_success_timestamp_seconds</code></td>
 					<td>gauge</td>
 					<td>-</td>
-					<td>Unix-время, когда рантайм последний раз завершил применение конфигурации (старт тоже считается). До первого применения не публикуется.</td>
+					<td>Unix-время последнего завершённого применения конфигурации (запуск тоже считается). До первого применения не публикуется.</td>
 			</tr>
 			<tr>
 					<td><code>keen_pbr_config_reload_errors_total</code></td>
@@ -1440,7 +1427,7 @@ L7-пакетов, обновлений наборов, очистки
 					<td><code>keen_pbr_list_last_update_timestamp_seconds</code></td>
 					<td>gauge</td>
 					<td><code>list</code></td>
-					<td>Unix-время последней успешной проверки удалённого списка (независимо от изменения содержимого). Хранится в памяти: до первого успешного обновления в этом процессе не публикуется.</td>
+					<td>Unix-время последней успешной проверки удалённого списка (независимо от изменения содержимого). До первого успешного обновления после запуска не публикуется.</td>
 			</tr>
 			<tr>
 					<td><code>keen_pbr_list_update_errors_total</code></td>
@@ -1451,14 +1438,9 @@ L7-пакетов, обновлений наборов, очистки
 	</tbody>
 </table>
 <h3>Ошибки<span class="hx:absolute hx:-mt-20" id="ошибки"></span>
-    <a href="#%d0%be%d1%88%d0%b8%d0%b1%d0%ba%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p><code>keen_pbr_errors_total{subsystem}</code> — одно семейство счётчиков, все значения
-выводятся всегда (включая нули): <code>firewall_apply</code>, <code>netlink</code>, <code>set_write</code>
-(запись в динамические наборы), <code>conntrack</code>, <code>dns_parse</code>, <code>dns_tcp_partial</code>
-(не полностью собранные DNS-сообщения по TCP) и <code>dns_late_write</code> (неудачные
-отложенные DNS-записи).</p>
+    <a href="#%d0%be%d1%88%d0%b8%d0%b1%d0%ba%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p><code>keen_pbr_errors_total{subsystem}</code> — счётчик ошибок по подсистемам. Выводятся все значения, включая нулевые: <code>firewall_apply</code> (применение правил firewall), <code>netlink</code> (настройка маршрутов), <code>set_write</code> (запись адресов в наборы), <code>conntrack</code>, <code>dns_parse</code> (разбор DNS-пакетов), <code>dns_tcp_partial</code> (неполные DNS-сообщения по TCP) и <code>dns_late_write</code> (неудачные отложенные записи после DNS-ответа).</p>
 <h3>Пробы (urltest / icmptest)<span class="hx:absolute hx:-mt-20" id="пробы-urltest--icmptest"></span>
-    <a href="#%d0%bf%d1%80%d0%be%d0%b1%d1%8b-urltest--icmptest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Метки: <code>outbound</code> (дочерний), <code>test_outbound</code> (группа), <code>interface</code>, <code>type</code>
-(<code>urltest</code> или <code>icmptest</code>).</p>
+    <a href="#%d0%bf%d1%80%d0%be%d0%b1%d1%8b-urltest--icmptest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Проба — периодическая проверка канала: запрос по URL (<code>urltest</code>) или ping (<code>icmptest</code>). Метки: <code>outbound</code> (проверяемый канал), <code>test_outbound</code> (группа проб), <code>interface</code>, <code>type</code> (<code>urltest</code> или <code>icmptest</code>).</p>
 <table>
 	<thead>
 			<tr>
@@ -1518,7 +1500,7 @@ L7-пакетов, обновлений наборов, очистки
 			<tr>
 					<td><code>keen_pbr_urltest_selection_changes_total</code></td>
 					<td>counter</td>
-					<td>Метка <code>group</code>: число смен выбора с момента регистрации группы (применение конфигурации регистрирует её заново и сбрасывает счётчик).</td>
+					<td>Метка <code>group</code>: число смен выбора с момента применения конфигурации (после применения счётчик обнуляется).</td>
 			</tr>
 	</tbody>
 </table>
@@ -1533,9 +1515,7 @@ L7-пакетов, обновлений наборов, очистки
 <code>config_reload_last_success_timestamp_seconds</code> — до первого успеха.</li>
 </ul>
 <h3>Interception<span class="hx:absolute hx:-mt-20" id="interception"></span>
-    <a href="#interception" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Счётчики обновляются на путях DNS/L7 одним relaxed-атомарным инкрементом
-заранее выделенного счётчика; значения меток — фиксированные слоты массива и
-превращаются в текст только при запросе <code>/metrics</code>.</p>
+    <a href="#interception" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Метрики перехвата DNS и анализа трафика (L7). <code>path</code>: <code>dns</code> или <code>l7</code>.</p>
 <table>
 	<thead>
 			<tr>
@@ -1634,12 +1614,34 @@ L7-пакетов, обновлений наборов, очистки
 			</tr>
 	</tbody>
 </table>
+<h3>Балансировка и маркированные пакеты<span class="hx:absolute hx:-mt-20" id="балансировка-и-маркированные-пакеты"></span>
+    <a href="#%d0%b1%d0%b0%d0%bb%d0%b0%d0%bd%d1%81%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-%d0%b8-%d0%bc%d0%b0%d1%80%d0%ba%d0%b8%d1%80%d0%be%d0%b2%d0%b0%d0%bd%d0%bd%d1%8b%d0%b5-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Эти метрики есть только при firewall-бэкенде iptables. Если данных нет, серия не публикуется. После перестроения правил firewall счётчики начинаются с нуля.</p>
+<table>
+	<thead>
+			<tr>
+					<th>Метрика</th>
+					<th>Тип</th>
+					<th>Метки</th>
+					<th>Смысл</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>keen_pbr_balance_classifications_total</code></td>
+					<td>counter</td>
+					<td><code>outbound</code>, <code>candidate</code>, <code>family</code> = <code>ipv4</code>, <code>ipv6</code></td>
+					<td>Новые соединения, которые группа балансировки направила через канал <code>candidate</code>.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_skip_marked_packets_total</code></td>
+					<td>counter</td>
+					<td><code>family</code> = <code>ipv4</code>, <code>ipv6</code></td>
+					<td>Пакеты, которые keen-pbr пропустил, потому что они уже были помечены (<strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Общие</strong> &gt; <strong>Не обрабатывать маркированные пакеты</strong>).</td>
+			</tr>
+	</tbody>
+</table>
 <p>Доля «медленных» записей вычисляется по bucket <code>le=&quot;0.025&quot;</code> метрики
 <code>keen_pbr_set_write_duration_seconds</code> (записи дольше 25 мс).</p>
-<p>Не экспортируются: байты/пакеты по outbound и число элементов в наборах.
-Для обоих пришлось бы читать счётчики firewall или netlink-дамп наборов при
-каждом scrape (через подпроцесс или дамп ядра, по-разному для каждого бэкенда
-firewall); демон намеренно этого не делает.</p>
 <p>Конфигурация Prometheus:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1700,12 +1702,7 @@ firewall); демон намеренно этого не делает.</p>
 </div>
 </div>
 <h3>Дашборд Grafana и алерты<span class="hx:absolute hx:-mt-20" id="дашборд-grafana-и-алерты"></span>
-    <a href="#%d0%b4%d0%b0%d1%88%d0%b1%d0%be%d1%80%d0%b4-grafana-%d0%b8-%d0%b0%d0%bb%d0%b5%d1%80%d1%82%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Импортируйте <a href="https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json"target="_blank" rel="noopener">keen-pbr-dashboard.json</a>
-в Grafana (Dashboards - New - Import). Нужен источник данных Prometheus с UID
-<code>prometheus</code>; в дашборде переменные <code>job</code> и <code>outbound</code>, обновление каждые 30 с
-и разделы Status, Outbounds, DNS interception, Sets &amp; lists и Errors. Интервал
-scrape должен быть не больше 30 с: столбчатые панели считают <code>increase()</code> по
-окнам в одну минуту.</p>
+    <a href="#%d0%b4%d0%b0%d1%88%d0%b1%d0%be%d1%80%d0%b4-grafana-%d0%b8-%d0%b0%d0%bb%d0%b5%d1%80%d1%82%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Импортируйте <a href="https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json"target="_blank" rel="noopener">keen-pbr-dashboard.json</a> в Grafana (Dashboards &gt; New &gt; Import). Нужен источник данных Prometheus с UID <code>prometheus</code>. В дашборде есть переменные <code>job</code> и <code>outbound</code>, обновление каждые 30 с и разделы Status, Outbounds, DNS interception, Sets &amp; lists и Errors. Интервал scrape должен быть не больше 30 с: столбчатые панели считают <code>increase()</code> по окнам в одну минуту.</p>
 <p>Пример правил алертов:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1755,7 +1752,7 @@ scrape должен быть не больше 30 с: столбчатые па�
 <ul>
 <li>Если <code>name</code> указан, обновляется только этот список.</li>
 <li>Если <code>name</code> не указан, обновляются все списки с URL.</li>
-<li>Если обновлённые данные изменились и затрагивают активную маршрутизацию/DNS, keen-pbr перестраивает состояние выполнения, чтобы изменения вступили в силу немедленно.</li>
+<li>Если содержимое списков изменилось и это влияет на маршрутизацию или DNS, keen-pbr сразу применяет изменения.</li>
 </ul>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1835,14 +1832,14 @@ scrape должен быть не больше 30 с: столбчатые па�
 <li><code>refreshed_lists</code> <em>(array[string])</em>: Списки с URL, которые были обновлены.</li>
 <li><code>changed_lists</code> <em>(array[string])</em>: Обновлённые списки, содержимое которых изменилось.</li>
 <li><code>failed_lists</code> <em>(array[string])</em>: Списки с URL, которые не удалось обновить.</li>
-<li><code>reloaded</code> <em>(boolean)</em>: Была ли перестроена среда выполнения маршрутизации, потому что изменённые списки использовались.</li>
+<li><code>reloaded</code> <em>(boolean)</em>: Были ли применены изменения, потому что изменённые списки используются.</li>
 </ul>
 <h3>Коды статуса / ошибки<span class="hx:absolute hx:-mt-20" id="коды-статуса--ошибки"></span>
     <a href="#%d0%ba%d0%be%d0%b4%d1%8b-%d1%81%d1%82%d0%b0%d1%82%d1%83%d1%81%d0%b0--%d0%be%d1%88%d0%b8%d0%b1%d0%ba%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><ul>
 <li><code>200</code>: Операция обновления завершена.</li>
 <li><code>400</code>: Указанный список существует, но не имеет URL.</li>
 <li><code>404</code>: Указанный список не найден.</li>
-<li><code>409</code>: Обновление отклонено, потому что есть незафиксированный черновик или уже находится в процессе другая операция конфигурации/выполнения.</li>
+<li><code>409</code>: Обновление отклонено: есть несохранённый черновик конфигурации или уже выполняется другая операция.</li>
 </ul>
 <p>Тело ответа об ошибке:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1863,7 +1860,7 @@ scrape должен быть не больше 30 с: столбчатые па�
 </div>
 <hr>
 <h2>GET /api/config<span class="hx:absolute hx:-mt-20" id="get-apiconfig"></span>
-    <a href="#get-apiconfig" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает видимую конфигурацию и флаг наличия подготовленного черновика в памяти. Секретные настройки <code>api</code> намеренно опущены. Ответ также содержит состояние обновления списков.</p>
+    <a href="#get-apiconfig" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает текущую конфигурацию и флаг наличия несохранённого черновика. Настройки <code>api</code> (пароль, CORS) в ответ не входят. Ответ также содержит состояние обновления списков.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/config</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1902,7 +1899,7 @@ scrape должен быть не больше 30 с: столбчатые па�
   </button>
 </div>
 </div>
-<p><code>is_draft</code> — <code>true</code>, если конфигурация была подготовлена через <code>POST /api/config</code>, но ещё не сохранена на диск.</p>
+<p><code>is_draft</code> — <code>true</code>, если конфигурация передана через <code>POST /api/config</code>, но ещё не сохранена на диск.</p>
 <h3>Ответ об ошибке (500)<span class="hx:absolute hx:-mt-20" id="ответ-об-ошибке-500"></span>
     <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-%d0%be%d0%b1-%d0%be%d1%88%d0%b8%d0%b1%d0%ba%d0%b5-500" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1922,8 +1919,8 @@ scrape должен быть не больше 30 с: столбчатые па�
 </div>
 <hr>
 <h2>POST /api/config<span class="hx:absolute hx:-mt-20" id="post-apiconfig"></span>
-    <a href="#post-apiconfig" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Проверяет предоставленное JSON-тело как файл конфигурации и откладывает его в память. Конфигурация <strong>НЕ</strong> записывается на диск и среда выполнения маршрутизации <strong>НЕ</strong> изменяется. Используйте <code>POST /api/config/save</code> для сохранения и применения отложенного черновика.</p>
-<p>Поле <code>api</code> в запросе игнорируется: демон сохраняет действующие настройки безопасности.</p>
+    <a href="#post-apiconfig" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Проверяет переданный JSON как файл конфигурации и сохраняет его как черновик в памяти. На диск конфигурация не записывается, маршрутизация не меняется. Чтобы сохранить и применить черновик, вызовите <code>POST /api/config/save</code>.</p>
+<p>Поле <code>api</code> в запросе игнорируется.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://127.0.0.1:12121/api/config <span class="se">\
@@ -1980,7 +1977,7 @@ scrape должен быть не больше 30 с: столбчатые па�
 </div>
 <hr>
 <h2>POST /api/config/save<span class="hx:absolute hx:-mt-20" id="post-apiconfigsave"></span>
-    <a href="#post-apiconfigsave" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Принимает асинхронную операцию, которая сохраняет отложенную конфигурацию на диск, а затем согласует среду выполнения маршрутизации. HTTP <code>202</code> подтверждает только принятие операции, но не её завершение.</p>
+    <a href="#post-apiconfigsave" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Запускает в фоне сохранение черновика на диск и применение конфигурации. Ответ <code>202</code> означает только, что операция принята, а не что она завершена.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://127.0.0.1:12121/api/config/save</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2013,8 +2010,8 @@ scrape должен быть не больше 30 с: столбчатые па�
   </button>
 </div>
 </div>
-<h3>Ответ об ошибке (400 — нет отложенной конфигурации)<span class="hx:absolute hx:-mt-20" id="ответ-об-ошибке-400--нет-отложенной-конфигурации"></span>
-    <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-%d0%be%d0%b1-%d0%be%d1%88%d0%b8%d0%b1%d0%ba%d0%b5-400--%d0%bd%d0%b5%d1%82-%d0%be%d1%82%d0%bb%d0%be%d0%b6%d0%b5%d0%bd%d0%bd%d0%be%d0%b9-%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Ответ об ошибке (400 — нет черновика)<span class="hx:absolute hx:-mt-20" id="ответ-об-ошибке-400--нет-черновика"></span>
+    <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-%d0%be%d0%b1-%d0%be%d1%88%d0%b8%d0%b1%d0%ba%d0%b5-400--%d0%bd%d0%b5%d1%82-%d1%87%d0%b5%d1%80%d0%bd%d0%be%d0%b2%d0%b8%d0%ba%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;error&#34;</span><span class="p">:</span> <span class="s2">&#34;No staged config to save&#34;</span>
@@ -2030,10 +2027,12 @@ scrape должен быть не больше 30 с: столбчатые па�
   </button>
 </div>
 </div>
-<p>После принятия операции проверяйте <code>lifecycle_operation</code> в <code>GET /api/health/service</code> или подпишитесь на <code>/api/status/events</code>, пока операция не завершится. Конфигурация сохраняется до согласования runtime. Если согласование завершается ошибкой после сохранения файла, демон сообщает о неисправном runtime и устанавливает <code>rollback_available</code>; прежний файл и runtime автоматически не восстанавливаются. <code>POST /api/config/rollback</code> явно восстанавливает сохранённую копию прежней конфигурации и согласует её с runtime. При успехе runtime становится активным, а соответствующий черновик удаляется. <code>POST /api/config/discard</code> только отменяет несохранённый черновик в памяти и не меняет файл или runtime.</p>
+<p>Другие ошибки: <code>400</code> (черновик не прошёл проверку), <code>409</code> (уже выполняется другая операция), <code>500</code>.</p>
+<p>После ответа <code>202</code> следите за полем <code>lifecycle_operation</code> в <code>GET /api/health/service</code> или подпишитесь на <code>/api/status/events</code>, пока операция не завершится.</p>
+<p>Если применение завершилось ошибкой, а файл уже сохранён, в <code>GET /api/health/service</code> появится <code>rollback_available: true</code>. Файл при этом остаётся новым. Чтобы вернуть прежнюю конфигурацию, вызовите <code>POST /api/config/rollback</code> (ответ <code>409</code>, если откатывать нечего или идёт другая операция). <code>POST /api/config/discard</code> только отбрасывает несохранённый черновик и ничего не меняет в файле и работе маршрутизации.</p>
 <hr>
 <h2>GET /api/runtime/outbounds<span class="hx:absolute hx:-mt-20" id="get-apiruntimeoutbounds"></span>
-    <a href="#get-apiruntimeoutbounds" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает текущее состояние outbounds демона во время выполнения: живой выбор urltest, достижимость интерфейса и статус circuit breaker.</p>
+    <a href="#get-apiruntimeoutbounds" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает текущее состояние outbounds: какой канал сейчас выбран в группе urltest (группа сама выбирает канал с самой низкой задержкой), доступен ли интерфейс и не отключён ли он после серии сбоев.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/runtime/outbounds</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2058,14 +2057,17 @@ scrape должен быть не больше 30 с: столбчатые па�
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;interface&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;healthy&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;interfaces&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;name&#34;</span><span class="p">:</span> <span class="s2">&#34;tun0&#34;</span><span class="p">,</span> <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;up&#34;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbound_tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">,</span> <span class="nt">&#34;interface_name&#34;</span><span class="p">:</span> <span class="s2">&#34;tun0&#34;</span><span class="p">,</span> <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;active&#34;</span> <span class="p">}</span>
 </span></span><span class="line"><span class="cl">      <span class="p">]</span>
 </span></span><span class="line"><span class="cl">    <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;auto_select&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;urltest&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;healthy&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;selected_outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;interfaces&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbound_tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">,</span> <span class="nt">&#34;interface_name&#34;</span><span class="p">:</span> <span class="s2">&#34;tun0&#34;</span><span class="p">,</span> <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;active&#34;</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbound_tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn2&#34;</span><span class="p">,</span> <span class="nt">&#34;interface_name&#34;</span><span class="p">:</span> <span class="s2">&#34;tun1&#34;</span><span class="p">,</span> <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;backup&#34;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">      <span class="p">]</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">]</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
@@ -2080,9 +2082,15 @@ scrape должен быть не больше 30 с: столбчатые па�
   </button>
 </div>
 </div>
+<ul>
+<li><code>type</code>: <code>interface</code>, <code>table</code>, <code>blackhole</code>, <code>ignore</code>, <code>urltest</code> или <code>icmptest</code>.</li>
+<li><code>status</code> outbound: <code>healthy</code> (работает), <code>degraded</code> (работает частично), <code>unavailable</code> (нет доступного пути), <code>unknown</code>.</li>
+<li><code>status</code> в <code>interfaces</code>: <code>active</code> (через него идёт трафик), <code>backup</code> (резерв), <code>degraded</code>, <code>unavailable</code> (отключён после серии сбоев), <code>unknown</code>. В группе urltest выбранный канал имеет статус <code>active</code>.</li>
+<li>Могут быть дополнительные поля: <code>latency_ms</code>, <code>probe_target</code>, <code>detail</code> и счётчики пакетов.</li>
+</ul>
 <hr>
 <h2>POST /api/routing/test<span class="hx:absolute hx:-mt-20" id="post-apiroutingtest"></span>
-    <a href="#post-apiroutingtest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Разрешает цель (если это домен), сканирует настроенные правила маршрутизации по данным списков в кэше, чтобы определить ожидаемый outbound, и запрашивает живые наборы firewall ядра, чтобы определить фактический outbound. Полезно для диагностики несоответствий маршрутизации без перезапуска демона.</p>
+    <a href="#post-apiroutingtest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Показывает, через какой outbound пойдёт трафик к домену или IP-адресу. Для домена сначала определяет его IP-адреса. Затем сверяет правила маршрутизации со списками (ожидаемый outbound) и наборами firewall (фактический outbound). Так можно найти расхождение, не перезапуская демон.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://127.0.0.1:12121/api/routing/test <span class="se">\
@@ -2119,7 +2127,10 @@ scrape должен быть не больше 30 с: столбчатые па�
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;ok&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;list_match&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="s2">&#34;my_domains&#34;</span><span class="p">,</span> <span class="nt">&#34;via&#34;</span><span class="p">:</span> <span class="s2">&#34;domain&#34;</span> <span class="p">}</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">  <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">],</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;warnings&#34;</span><span class="p">:</span> <span class="p">[],</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;rule_diagnostics&#34;</span><span class="p">:</span> <span class="p">[],</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;no_matching_rule&#34;</span><span class="p">:</span> <span class="kc">false</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -2132,9 +2143,13 @@ scrape должен быть не больше 30 с: столбчатые па�
   </button>
 </div>
 </div>
+<ul>
+<li><code>ok</code> — ожидаемый и фактический outbound совпали. Вместо имени outbound может быть <code>(default)</code> (ни одно правило не подошло, трафик идёт по умолчанию) или <code>(unknown)</code> (определить не удалось).</li>
+<li><code>warnings</code> — некритичные предупреждения, например об ошибке DNS. <code>rule_diagnostics</code> — разбор по каждому правилу (его показывает веб-интерфейс). <code>no_matching_rule</code> — <code>true</code>, если ни одно правило не подошло.</li>
+</ul>
 <hr>
 <h2>GET /api/health/routing<span class="hx:absolute hx:-mt-20" id="get-apihealthrouting"></span>
-    <a href="#get-apihealthrouting" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает кэшированный канонический отчёт о состоянии маршрутизации и firewall ядра. При холодном или устаревшем снимке обновление запускается вне event loop, поэтому временно может отображаться ожидающий или деградированный результат; каждый запрос не выполняет синхронную проверку ядра.</p>
+    <a href="#get-apihealthrouting" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает отчёт о том, правильно ли настроены маршруты и firewall: правила с метками пакетов (fwmark — число, по которому ядро выбирает маршрут), таблицы маршрутов и правила выбора таблицы. Отчёт обновляется в фоне, поэтому сразу после запуска он может ненадолго показать неполный результат.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/health/routing</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2159,7 +2174,7 @@ scrape должен быть не больше 30 с: столбчатые па�
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;chain_present&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;prerouting_hook_present&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;verification_state&#34;</span><span class="p">:</span> <span class="s2">&#34;verified&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;detail&#34;</span><span class="p">:</span> <span class="s2">&#34;chain KeenPbrTable found in table mangle&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;detail&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span>
 </span></span><span class="line"><span class="cl">  <span class="p">},</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;firewall_rules&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
@@ -2206,6 +2221,7 @@ scrape должен быть не больше 30 с: столбчатые па�
   </button>
 </div>
 </div>
+<p><code>firewall.verification_state</code>: <code>verified</code> (проверено), <code>unavailable</code> (данные firewall недоступны), <code>failed</code> (проверка не пройдена). В <code>firewall.detail</code> при успехе значение <code>ok</code>, при проблеме — описание причины. Необязательный массив <code>warnings</code> содержит предупреждения (например, не настроен NAT или включён строгий <code>rp_filter</code>); на <code>overall</code> они не влияют.</p>
 <p><strong>Общие значения статуса:</strong></p>
 <ul>
 <li><code>ok</code> — все проверки пройдены</li>
@@ -2238,20 +2254,16 @@ scrape должен быть не больше 30 с: столбчатые па�
 </div>
 <hr>
 <h2>GET /api/dns/test<span class="hx:absolute hx:-mt-20" id="get-apidnstest"></span>
-    <a href="#get-apidnstest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Транслирует события перехвата как Server-Sent Events. Соединение получает
-<code>HELLO</code>. По умолчанию <code>show=keen-pbr</code> выдаёт только marker-события и закрывается
-после подходящего marker; <code>show=all</code> (или совместимый псевдоним <code>show=full</code>)
-остаётся открытым и выдаёт наблюдения DNS, TLS 
+    <a href="#get-apidnstest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Передаёт события перехвата как поток Server-Sent Events (сервер присылает события по мере появления). Первым приходит <code>HELLO</code>. Именно этот поток использует проверка DNS в веб-интерфейсе: она запрашивает специальный домен-маркер (<code>check.keen-pbr.fyi</code>) и ждёт его появления в потоке.</p>
+<ul>
+<li><code>show=keen-pbr</code> (по умолчанию): только события с маркером. Поток закрывается, когда приходит нужный маркер. Параметр <code>domain=&lt;маркер&gt;</code> отделяет вашу проверку от чужих.</li>
+<li><code>show=all</code> (или <code>show=full</code>): поток остаётся открытым и показывает DNS-запросы, TLS 
   <abbr title="Имя сайта, которое клиент передаёт в открытом виде в начале TLS-соединения.">SNI</abbr>
 , HTTP Host, 
   <abbr title="Транспортный протокол поверх UDP, на нём работает HTTP/3.">QUIC</abbr>
- Initial и
-marker, включая домены без совпадения со списками. Параметр
-<code>domain=&lt;сгенерированный marker&gt;</code> в представлении по умолчанию изолирует
-проверки друг от друга.</p>
-<p><code>show=all</code> показывает трафик всех клиентов, поэтому работает только при
-включённой авторизации API. Без неё эндпоинт отвечает <code>403</code>; представление
-по умолчанию с marker-событиями остаётся доступным.</p>
+ Initial и маркеры, в том числе для доменов, которых нет в списках.</li>
+</ul>
+<p><code>show=all</code> показывает трафик всех клиентов, поэтому работает только при включённой аутентификации API. Без неё ответ <code>403</code>. Режим по умолчанию доступен всегда. Неверные <code>show</code> или <code>domain</code> дают <code>400</code>.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -N -u admin:password <span class="s1">&#39;http://127.0.0.1:12121/api/dns/test?show=all&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">

@@ -9,30 +9,28 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Устранение неполадок – keen-pbr</title>
-  <meta name="description" content="Начните с логов и статуса сервисов, затем переходите к DNS, firewall, таблицам маршрутизации и интерфейсам. В keen-pbr 3.x демон пишет причины ошибок в системный журнал, поэтому логи почти всегда быстрее угадывания по симптомам.
-Быстрый порядок диагностики Проверьте системный журнал на ошибки keen-pbr. Проверьте, что сервисы keen-pbr запущены. Если keen-pbr падает при запуске, запустите его вручную в терминале, чтобы увидеть больше логов: keen-pbr --log-level verbose service. Проверьте DNS: устройство должно использовать DNS роутера, а настроенный резолвер должен отвечать локально. Проверьте firewall: правила keen-pbr должны быть в KeenPbrTable. Проверьте маршрутизацию по fwmark : fwmark должен вести в нужную таблицу маршрутизации. Проверьте интерфейсы и VPN-туннели. Если проблема остаётся, проверьте удалённые списки, urltest, фильтры правил и конфликты низкоуровневой маршрутизации. Системный журнал Это первое место для диагностики. Ищите сообщения keen-pbr, а также уровни [E] и [W]: так keen-pbr помечает ошибки и предупреждения. Если не хватает библиотек iptables / nftables, не найден интерфейс, занят порт API или сломан JSON, причина обычно будет написана именно здесь." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/troubleshooting/" itemprop="url" />
+  <meta name="description" content="Сначала посмотрите на страницу Общее &gt; Обзор системы в веб-интерфейсе: там видно, работает ли служба и что именно сломано. Если этого мало, читайте системный журнал: keen-pbr пишет в него причину каждой ошибки.
+В каждом разделе ниже порядок один: симптом, проверка в веб-интерфейсе, проверка командой, исправление.
+Быстрая проверка через веб-интерфейс Откройте http://&lt;ip-роутера&gt;:12121/ и перейдите в Общее &gt; Обзор системы.
+Строка состояния вверху. «Всё работает» означает, что проблем нет. «Служба остановлена» означает, что маршрутизация выключена: нажмите Запустить. «Система работает, но есть N проблем(ы)» или «Маршрутизация работает с ограничениями» означает, что надо смотреть панель Диагностика. Панель Outbounds. Outbound — это канал, через который пойдёт трафик: VPN-интерфейс, провайдер или блокировка. Каждый канал должен быть в состоянии «Исправен». «Деградирован» значит, что канал работает частично, «Недоступен» значит, что он не работает. Панель Диагностика. Если всё в порядке, там написано «Проблем нет». Чтобы увидеть и исправные пункты, включите переключатель Показать исправные. Что означают сообщения об ошибках, смотрите в разделе Сообщения в «Диагностике». Кнопка Куда пойдёт трафик? (Ctrl&#43;Alt&#43;K) в заголовке страницы. Введите домен или IP-адрес и нажмите Проверить маршрут: keen-pbr покажет, по какому правилу и через какой outbound пойдёт трафик. Панель Маршрутизация на основе доменов с виджетом проверки DNS. Нажмите Проверить снова: «Перехват DNS-запросов из этого браузера работает» означает, что с DNS всё в порядке. То же самое выводит команда на роутере:" /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/troubleshooting/" itemprop="url" />
 
 <meta property="og:title" content="Устранение неполадок">
 <meta
   property="og:description"
   content="
     
-      Начните с логов и статуса сервисов, затем переходите к DNS, firewall, таблицам маршрутизации и интерфейсам. В keen-pbr 3.x демон пишет причины ошибок в системный журнал, поэтому логи почти всегда быстрее угадывания по симптомам.
-Быстрый порядок диагностики
-    
-Проверьте системный журнал на ошибки keen-pbr.
-Проверьте, что сервисы keen-pbr запущены.
-Если keen-pbr падает при запуске, запустите его вручную в терминале, чтобы увидеть больше логов: keen-pbr --log-level verbose service.
-Проверьте DNS: устройство должно использовать DNS роутера, а настроенный резолвер должен отвечать локально.
-Проверьте firewall: правила keen-pbr должны быть в KeenPbrTable.
-Проверьте маршрутизацию по 
-  fwmark
-: fwmark должен вести в нужную таблицу маршрутизации.
-Проверьте интерфейсы и VPN-туннели.
-Если проблема остаётся, проверьте удалённые списки, urltest, фильтры правил и конфликты низкоуровневой маршрутизации.
+      Сначала посмотрите на страницу Общее &gt; Обзор системы в веб-интерфейсе: там видно, работает ли служба и что именно сломано. Если этого мало, читайте системный журнал: keen-pbr пишет в него причину каждой ошибки.
+В каждом разделе ниже порядок один: симптом, проверка в веб-интерфейсе, проверка командой, исправление.
+Быстрая проверка через веб-интерфейс
+    Откройте http://&lt;ip-роутера&gt;:12121/ и перейдите в Общее &gt; Обзор системы.
 
-Системный журнал
-    Это первое место для диагностики. Ищите сообщения keen-pbr, а также уровни [E] и [W]: так keen-pbr помечает ошибки и предупреждения. Если не хватает библиотек iptables / nftables, не найден интерфейс, занят порт API или сломан JSON, причина обычно будет написана именно здесь.
+Строка состояния вверху. «Всё работает» означает, что проблем нет. «Служба остановлена» означает, что маршрутизация выключена: нажмите Запустить. «Система работает, но есть N проблем(ы)» или «Маршрутизация работает с ограничениями» означает, что надо смотреть панель Диагностика.
+Панель Outbounds. Outbound — это канал, через который пойдёт трафик: VPN-интерфейс, провайдер или блокировка. Каждый канал должен быть в состоянии «Исправен». «Деградирован» значит, что канал работает частично, «Недоступен» значит, что он не работает.
+Панель Диагностика. Если всё в порядке, там написано «Проблем нет». Чтобы увидеть и исправные пункты, включите переключатель Показать исправные. Что означают сообщения об ошибках, смотрите в разделе Сообщения в «Диагностике».
+Кнопка Куда пойдёт трафик? (Ctrl&#43;Alt&#43;K) в заголовке страницы. Введите домен или IP-адрес и нажмите Проверить маршрут: keen-pbr покажет, по какому правилу и через какой outbound пойдёт трафик.
+Панель Маршрутизация на основе доменов с виджетом проверки DNS. Нажмите Проверить снова: «Перехват DNS-запросов из этого браузера работает» означает, что с DNS всё в порядке.
+
+То же самое выводит команда на роутере:
     
   ">
 <meta
@@ -46,13 +44,17 @@
 
 
 	<meta itemprop="name" content="Устранение неполадок">
-	<meta itemprop="description" content="Начните с логов и статуса сервисов, затем переходите к DNS, firewall, таблицам маршрутизации и интерфейсам. В keen-pbr 3.x демон пишет причины ошибок в системный журнал, поэтому логи почти всегда быстрее угадывания по симптомам.
-Быстрый порядок диагностики Проверьте системный журнал на ошибки keen-pbr. Проверьте, что сервисы keen-pbr запущены. Если keen-pbr падает при запуске, запустите его вручную в терминале, чтобы увидеть больше логов: keen-pbr --log-level verbose service. Проверьте DNS: устройство должно использовать DNS роутера, а настроенный резолвер должен отвечать локально. Проверьте firewall: правила keen-pbr должны быть в KeenPbrTable. Проверьте маршрутизацию по fwmark : fwmark должен вести в нужную таблицу маршрутизации. Проверьте интерфейсы и VPN-туннели. Если проблема остаётся, проверьте удалённые списки, urltest, фильтры правил и конфликты низкоуровневой маршрутизации. Системный журнал Это первое место для диагностики. Ищите сообщения keen-pbr, а также уровни [E] и [W]: так keen-pbr помечает ошибки и предупреждения. Если не хватает библиотек iptables / nftables, не найден интерфейс, занят порт API или сломан JSON, причина обычно будет написана именно здесь.">
-	<meta itemprop="wordCount" content="2354">
+	<meta itemprop="description" content="Сначала посмотрите на страницу Общее &gt; Обзор системы в веб-интерфейсе: там видно, работает ли служба и что именно сломано. Если этого мало, читайте системный журнал: keen-pbr пишет в него причину каждой ошибки.
+В каждом разделе ниже порядок один: симптом, проверка в веб-интерфейсе, проверка командой, исправление.
+Быстрая проверка через веб-интерфейс Откройте http://&lt;ip-роутера&gt;:12121/ и перейдите в Общее &gt; Обзор системы.
+Строка состояния вверху. «Всё работает» означает, что проблем нет. «Служба остановлена» означает, что маршрутизация выключена: нажмите Запустить. «Система работает, но есть N проблем(ы)» или «Маршрутизация работает с ограничениями» означает, что надо смотреть панель Диагностика. Панель Outbounds. Outbound — это канал, через который пойдёт трафик: VPN-интерфейс, провайдер или блокировка. Каждый канал должен быть в состоянии «Исправен». «Деградирован» значит, что канал работает частично, «Недоступен» значит, что он не работает. Панель Диагностика. Если всё в порядке, там написано «Проблем нет». Чтобы увидеть и исправные пункты, включите переключатель Показать исправные. Что означают сообщения об ошибках, смотрите в разделе Сообщения в «Диагностике». Кнопка Куда пойдёт трафик? (Ctrl&#43;Alt&#43;K) в заголовке страницы. Введите домен или IP-адрес и нажмите Проверить маршрут: keen-pbr покажет, по какому правилу и через какой outbound пойдёт трафик. Панель Маршрутизация на основе доменов с виджетом проверки DNS. Нажмите Проверить снова: «Перехват DNS-запросов из этого браузера работает» означает, что с DNS всё в порядке. То же самое выводит команда на роутере:">
+	<meta itemprop="wordCount" content="3346">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Устранение неполадок">
-	<meta name="twitter:description" content="Начните с логов и статуса сервисов, затем переходите к DNS, firewall, таблицам маршрутизации и интерфейсам. В keen-pbr 3.x демон пишет причины ошибок в системный журнал, поэтому логи почти всегда быстрее угадывания по симптомам.
-Быстрый порядок диагностики Проверьте системный журнал на ошибки keen-pbr. Проверьте, что сервисы keen-pbr запущены. Если keen-pbr падает при запуске, запустите его вручную в терминале, чтобы увидеть больше логов: keen-pbr --log-level verbose service. Проверьте DNS: устройство должно использовать DNS роутера, а настроенный резолвер должен отвечать локально. Проверьте firewall: правила keen-pbr должны быть в KeenPbrTable. Проверьте маршрутизацию по fwmark : fwmark должен вести в нужную таблицу маршрутизации. Проверьте интерфейсы и VPN-туннели. Если проблема остаётся, проверьте удалённые списки, urltest, фильтры правил и конфликты низкоуровневой маршрутизации. Системный журнал Это первое место для диагностики. Ищите сообщения keen-pbr, а также уровни [E] и [W]: так keen-pbr помечает ошибки и предупреждения. Если не хватает библиотек iptables / nftables, не найден интерфейс, занят порт API или сломан JSON, причина обычно будет написана именно здесь.">
+	<meta name="twitter:description" content="Сначала посмотрите на страницу Общее &gt; Обзор системы в веб-интерфейсе: там видно, работает ли служба и что именно сломано. Если этого мало, читайте системный журнал: keen-pbr пишет в него причину каждой ошибки.
+В каждом разделе ниже порядок один: симптом, проверка в веб-интерфейсе, проверка командой, исправление.
+Быстрая проверка через веб-интерфейс Откройте http://&lt;ip-роутера&gt;:12121/ и перейдите в Общее &gt; Обзор системы.
+Строка состояния вверху. «Всё работает» означает, что проблем нет. «Служба остановлена» означает, что маршрутизация выключена: нажмите Запустить. «Система работает, но есть N проблем(ы)» или «Маршрутизация работает с ограничениями» означает, что надо смотреть панель Диагностика. Панель Outbounds. Outbound — это канал, через который пойдёт трафик: VPN-интерфейс, провайдер или блокировка. Каждый канал должен быть в состоянии «Исправен». «Деградирован» значит, что канал работает частично, «Недоступен» значит, что он не работает. Панель Диагностика. Если всё в порядке, там написано «Проблем нет». Чтобы увидеть и исправные пункты, включите переключатель Показать исправные. Что означают сообщения об ошибках, смотрите в разделе Сообщения в «Диагностике». Кнопка Куда пойдёт трафик? (Ctrl&#43;Alt&#43;K) в заголовке страницы. Введите домен или IP-адрес и нажмите Проверить маршрут: keen-pbr покажет, по какому правилу и через какой outbound пойдёт трафик. Панель Маршрутизация на основе доменов с виджетом проверки DNS. Нажмите Проверить снова: «Перехват DNS-запросов из этого браузера работает» означает, что с DNS всё в порядке. То же самое выводит команда на роутере:">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -429,9 +431,9 @@
   
     <ul class='hx:flex hx:flex-col hx:gap-1 hx:relative hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:dark:before:bg-neutral-800 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:pr-3 hx:rtl:before:right-0 hx:ltr:ml-3 hx:rtl:mr-3'><li>
               <a
-                href="#%d0%b1%d1%8b%d1%81%d1%82%d1%80%d1%8b%d0%b9-%d0%bf%d0%be%d1%80%d1%8f%d0%b4%d0%be%d0%ba-%d0%b4%d0%b8%d0%b0%d0%b3%d0%bd%d0%be%d1%81%d1%82%d0%b8%d0%ba%d0%b8"
+                href="#%d0%b1%d1%8b%d1%81%d1%82%d1%80%d0%b0%d1%8f-%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b0-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-%d0%b2%d0%b5%d0%b1-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Быстрый порядок диагностики</a>
+              >Быстрая проверка через веб-интерфейс</a>
             </li>
           <li>
               <a
@@ -450,6 +452,12 @@
                 href="#%d1%81%d0%b0%d0%b9%d1%82%d1%8b-%d0%bd%d0%b5-%d0%b8%d0%b4%d1%83%d1%82-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >Сайты не идут через VPN</a>
+            </li>
+          <li>
+              <a
+                href="#diagnostics-messages"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >Сообщения в «Диагностике»</a>
             </li>
           <li>
               <a
@@ -477,9 +485,9 @@
             </li>
           <li>
               <a
-                href="#firewall-%d0%b8-keenpbrtable"
+                href="#%d0%bc%d0%b5%d0%b6%d1%81%d0%b5%d1%82%d0%b5%d0%b2%d0%be%d0%b9-%d1%8d%d0%ba%d1%80%d0%b0%d0%bd-%d0%b8-keenpbrtable"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Firewall и KeenPbrTable</a>
+              >Межсетевой экран и KeenPbrTable</a>
             </li>
           <li>
               <a
@@ -522,6 +530,12 @@
                 href="#%d0%ba%d0%be%d0%bd%d1%84%d0%bb%d0%b8%d0%ba%d1%82%d1%8b-%d0%bd%d0%b8%d0%b7%d0%ba%d0%be%d1%83%d1%80%d0%be%d0%b2%d0%bd%d0%b5%d0%b2%d0%be%d0%b9-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >Конфликты низкоуровневой маршрутизации</a>
+            </li>
+          <li>
+              <a
+                href="#%d0%b8%d0%b7%d0%bc%d0%b5%d1%80%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bf%d0%be%d1%82%d0%b5%d1%80%d1%8c-%d0%bf%d1%80%d0%b8-dns-%d0%bf%d0%b5%d1%80%d0%b5%d1%85%d0%b2%d0%b0%d1%82%d0%b5"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >Измерение потерь при DNS-перехвате</a>
             </li>
           </ul>
   
@@ -994,7 +1008,7 @@
 <nav class="hextra-toc hx:order-last hx:hidden hx:w-64 hx:shrink-0 hx:xl:block hx:print:hidden hx:px-4" aria-label="Содержание">
     <div class="hextra-scrollbar hx:sticky hx:top-16 hx:overflow-y-auto hx:pr-4 hx:pt-6 hx:text-sm [hyphens:auto] hx:max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] hx:ltr:-mr-4 hx:rtl:-ml-4"><p class="hx:mb-4 hx:font-semibold hx:tracking-tight">На этой странице</p><ul>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b1%d1%8b%d1%81%d1%82%d1%80%d1%8b%d0%b9-%d0%bf%d0%be%d1%80%d1%8f%d0%b4%d0%be%d0%ba-%d0%b4%d0%b8%d0%b0%d0%b3%d0%bd%d0%be%d1%81%d1%82%d0%b8%d0%ba%d0%b8">Быстрый порядок диагностики
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b1%d1%8b%d1%81%d1%82%d1%80%d0%b0%d1%8f-%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b0-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-%d0%b2%d0%b5%d0%b1-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81">Быстрая проверка через веб-интерфейс
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1010,19 +1024,15 @@
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#diagnostics-messages">Сообщения в «Диагностике»
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-%d0%bf%d0%b5%d1%80%d0%b5%d1%85%d0%b2%d0%b0%d1%82">DNS-перехват
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b0-dns-%d1%81-%d1%83%d1%81%d1%82%d1%80%d0%be%d0%b9%d1%81%d1%82%d0%b2%d0%b0-%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d0%be%d0%b2%d0%b0%d1%82%d0%b5%d0%bb%d1%8f">Проверка DNS с устройства пользователя
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b0-%d1%80%d0%b5%d0%b7%d0%be%d0%bb%d0%b2%d0%b5%d1%80%d0%b0-%d0%bd%d0%b0-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%b5">Проверка резолвера на роутере
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b8%d0%b7%d0%bc%d0%b5%d1%80%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bf%d0%be%d1%82%d0%b5%d1%80%d1%8c-%d0%bf%d1%80%d0%b8-dns-%d0%bf%d0%b5%d1%80%d0%b5%d1%85%d0%b2%d0%b0%d1%82%d0%b5">Измерение потерь при DNS-перехвате
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1038,11 +1048,7 @@
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#firewall-%d0%b8-keenpbrtable">Firewall и KeenPbrTable
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b0-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb-firewall">Проверка правил firewall
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bc%d0%b5%d0%b6%d1%81%d0%b5%d1%82%d0%b5%d0%b2%d0%be%d0%b9-%d1%8d%d0%ba%d1%80%d0%b0%d0%bd-%d0%b8-keenpbrtable">Межсетевой экран и KeenPbrTable
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1071,6 +1077,10 @@
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%ba%d0%be%d0%bd%d1%84%d0%bb%d0%b8%d0%ba%d1%82%d1%8b-%d0%bd%d0%b8%d0%b7%d0%ba%d0%be%d1%83%d1%80%d0%be%d0%b2%d0%bd%d0%b5%d0%b2%d0%be%d0%b9-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8">Конфликты низкоуровневой маршрутизации
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b8%d0%b7%d0%bc%d0%b5%d1%80%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bf%d0%be%d1%82%d0%b5%d1%80%d1%8c-%d0%bf%d1%80%d0%b8-dns-%d0%bf%d0%b5%d1%80%d0%b5%d1%85%d0%b2%d0%b0%d1%82%d0%b5">Измерение потерь при DNS-перехвате
         </a>
       </li></ul>
       <div class="hx:mt-8 hx:border-t hx:bg-white hx:pt-8 hx:shadow-[0_-12px_16px_white] hx:dark:bg-dark hx:dark:shadow-[0_-12px_16px_#111] hx:sticky hx:bottom-0 hx:flex hx:flex-col hx:items-start hx:gap-2 hx:pb-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-t hx:contrast-more:border-neutral-400 hx:contrast-more:shadow-none hx:contrast-more:dark:border-neutral-400">
@@ -1153,30 +1163,44 @@
     </div>
           </div>
           
-          <p>Начните с логов и статуса сервисов, затем переходите к DNS, firewall, таблицам маршрутизации и интерфейсам. В <code>keen-pbr</code> 3.x демон пишет причины ошибок в системный журнал, поэтому логи почти всегда быстрее угадывания по симптомам.</p>
-<h2>Быстрый порядок диагностики<span class="hx:absolute hx:-mt-20" id="быстрый-порядок-диагностики"></span>
-    <a href="#%d0%b1%d1%8b%d1%81%d1%82%d1%80%d1%8b%d0%b9-%d0%bf%d0%be%d1%80%d1%8f%d0%b4%d0%be%d0%ba-%d0%b4%d0%b8%d0%b0%d0%b3%d0%bd%d0%be%d1%81%d1%82%d0%b8%d0%ba%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><ol>
-<li>Проверьте системный журнал на ошибки <code>keen-pbr</code>.</li>
-<li>Проверьте, что сервисы <code>keen-pbr</code> запущены.</li>
-<li>Если <code>keen-pbr</code> падает при запуске, запустите его вручную в терминале, чтобы увидеть больше логов: <code>keen-pbr --log-level verbose service</code>.</li>
-<li>Проверьте DNS: устройство должно использовать DNS роутера, а настроенный резолвер должен отвечать локально.</li>
-<li>Проверьте firewall: правила <code>keen-pbr</code> должны быть в <code>KeenPbrTable</code>.</li>
-<li>Проверьте маршрутизацию по 
-  <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
-: <code>fwmark</code> должен вести в нужную таблицу маршрутизации.</li>
-<li>Проверьте интерфейсы и VPN-туннели.</li>
-<li>Если проблема остаётся, проверьте удалённые списки, <code>urltest</code>, фильтры правил и конфликты низкоуровневой маршрутизации.</li>
+          <p>Сначала посмотрите на страницу <strong>Общее</strong> &gt; <strong>Обзор системы</strong> в веб-интерфейсе: там видно, работает ли служба и что именно сломано. Если этого мало, читайте системный журнал: <code>keen-pbr</code> пишет в него причину каждой ошибки.</p>
+<p>В каждом разделе ниже порядок один: симптом, проверка в веб-интерфейсе, проверка командой, исправление.</p>
+<h2>Быстрая проверка через веб-интерфейс<span class="hx:absolute hx:-mt-20" id="быстрая-проверка-через-веб-интерфейс"></span>
+    <a href="#%d0%b1%d1%8b%d1%81%d1%82%d1%80%d0%b0%d1%8f-%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b0-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-%d0%b2%d0%b5%d0%b1-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Откройте <code>http://&lt;ip-роутера&gt;:12121/</code> и перейдите в <strong>Общее</strong> &gt; <strong>Обзор системы</strong>.</p>
+<ol>
+<li><strong>Строка состояния</strong> вверху. «Всё работает» означает, что проблем нет. «Служба остановлена» означает, что маршрутизация выключена: нажмите <strong>Запустить</strong>. «Система работает, но есть N проблем(ы)» или «Маршрутизация работает с ограничениями» означает, что надо смотреть панель <strong>Диагностика</strong>.</li>
+<li>Панель <strong>Outbounds</strong>. Outbound — это канал, через который пойдёт трафик: VPN-интерфейс, провайдер или блокировка. Каждый канал должен быть в состоянии «Исправен». «Деградирован» значит, что канал работает частично, «Недоступен» значит, что он не работает.</li>
+<li>Панель <strong>Диагностика</strong>. Если всё в порядке, там написано «Проблем нет». Чтобы увидеть и исправные пункты, включите переключатель <strong>Показать исправные</strong>. Что означают сообщения об ошибках, смотрите в разделе <a href="#diagnostics-messages">Сообщения в «Диагностике»</a>.</li>
+<li>Кнопка <strong>Куда пойдёт трафик?</strong> (Ctrl+Alt+K) в заголовке страницы. Введите домен или IP-адрес и нажмите <strong>Проверить маршрут</strong>: keen-pbr покажет, по какому правилу и через какой outbound пойдёт трафик.</li>
+<li>Панель <strong>Маршрутизация на основе доменов</strong> с виджетом проверки DNS. Нажмите <strong>Проверить снова</strong>: «Перехват DNS-запросов из этого браузера работает» означает, что с DNS всё в порядке.</li>
 </ol>
+<p>То же самое выводит команда на роутере:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Она печатает состояние outbounds, правил межсетевого экрана, ядра, перехвата DNS и dnsmasq, затем список проблем. Строка <code>Overall:</code> в конце — общий итог. Если проверка не прошла, код выхода равен 1. Статусы <code>MISSING</code>, <code>MISMATCH</code> и <code>ERROR</code> показывают, что именно не так.</p>
+<p>Когда не получается разобраться самостоятельно, нажмите <strong>Скачать отчёт</strong> в панели <strong>Диагностика</strong> и приложите файл к обращению. В отчёте есть ваша конфигурация, поэтому перед отправкой прочитайте предупреждение «Внимание, чувствительные данные!». Опция «Скрыть содержимое списков и URL-адреса на списки» уберёт из отчёта содержимое списков.</p>
 <h2>Системный журнал<span class="hx:absolute hx:-mt-20" id="системный-журнал"></span>
-    <a href="#%d1%81%d0%b8%d1%81%d1%82%d0%b5%d0%bc%d0%bd%d1%8b%d0%b9-%d0%b6%d1%83%d1%80%d0%bd%d0%b0%d0%bb" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Это первое место для диагностики. Ищите сообщения <code>keen-pbr</code>, а также уровни <code>[E]</code> и <code>[W]</code>: так <code>keen-pbr</code> помечает ошибки и предупреждения. Если не хватает библиотек <code>iptables</code> / <code>nftables</code>, не найден интерфейс, занят порт API или сломан JSON, причина обычно будет написана именно здесь.</p>
+    <a href="#%d1%81%d0%b8%d1%81%d1%82%d0%b5%d0%bc%d0%bd%d1%8b%d0%b9-%d0%b6%d1%83%d1%80%d0%bd%d0%b0%d0%bb" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Это первое место для диагностики. Ищите сообщения <code>keen-pbr</code>, а также метки <code>[E]</code> (ошибка) и <code>[W]</code> (предупреждение). Если не хватает системных пакетов, не найден интерфейс, занят порт веб-интерфейса или сломан JSON, причина будет написана именно здесь.</p>
 
 
 
 
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-0" role="tab" type="button" aria-controls="tabs-panel-tabs-01-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-1" role="tab" type="button" aria-controls="tabs-panel-tabs-01-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-2" role="tab" type="button" aria-controls="tabs-panel-tabs-01-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-00-0" role="tab" type="button" aria-controls="tabs-panel-tabs-00-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-00-1" role="tab" type="button" aria-controls="tabs-panel-tabs-00-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-00-2" role="tab" type="button" aria-controls="tabs-panel-tabs-00-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
 </div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-0" aria-hidden="false" tabindex="0" data-state="selected"><p>В веб-интерфейсе Keenetic откройте <strong>Диагностика</strong> → <strong>Системный журнал</strong>.</p>
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-00-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-00-0" aria-hidden="false" tabindex="0" data-state="selected"><p>В веб-интерфейсе Keenetic откройте <strong>Диагностика</strong> → <strong>Системный журнал</strong>.</p>
 <p>Из консоли можно прочитать журнал так:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1192,7 +1216,7 @@
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-00-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-00-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">logread <span class="p">|</span> grep -E <span class="s1">&#39;keen-pbr|\[E\]|\[W\]|error|warn|warning&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -1206,7 +1230,7 @@
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-00-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-00-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">journalctl -u keen-pbr</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -1237,15 +1261,17 @@
 </div></div></div>
 
 <h2>Сервис не запускается<span class="hx:absolute hx:-mt-20" id="service-does-not-start"></span>
-    <a href="#service-does-not-start" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>В этом сценарии не начинайте с редактирования конфигурации вслепую. Сначала проверьте статус и сразу откройте логи.</p>
+    <a href="#service-does-not-start" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><strong>Симптом:</strong> веб-интерфейс не открывается или строка состояния показывает «Служба остановлена».</p>
+<p><strong>В веб-интерфейсе:</strong> если он открывается, нажмите <strong>Запустить</strong> или <strong>Перезапустить</strong> в строке состояния на странице <strong>Обзор системы</strong>. Если не открывается, переходите к командам.</p>
+<p><strong>Команды.</strong> Не редактируйте конфигурацию вслепую: сначала проверьте статус и прочитайте журнал.</p>
 
 
 
 
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-0" role="tab" type="button" aria-controls="tabs-panel-tabs-02-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-1" role="tab" type="button" aria-controls="tabs-panel-tabs-02-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-2" role="tab" type="button" aria-controls="tabs-panel-tabs-02-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-0" role="tab" type="button" aria-controls="tabs-panel-tabs-01-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-1" role="tab" type="button" aria-controls="tabs-panel-tabs-01-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-2" role="tab" type="button" aria-controls="tabs-panel-tabs-01-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
 </div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-0" aria-hidden="false" tabindex="0" data-state="selected"><ol>
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-0" aria-hidden="false" tabindex="0" data-state="selected"><ol>
 <li>Убедитесь, что конфигурация существует:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1311,7 +1337,7 @@
 </div>
 </li>
 </ol>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-1" aria-hidden="true"><ol>
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-1" aria-hidden="true"><ol>
 <li>Убедитесь, что конфигурация существует:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1377,7 +1403,7 @@
 </div>
 </li>
 </ol>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-2" aria-hidden="true"><ol>
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-2" aria-hidden="true"><ol>
 <li>Убедитесь, что конфигурация существует:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1445,15 +1471,15 @@
 </ol>
 </div></div>
 
-<p>Если <code>keen-pbr</code> не остаётся запущенным, остановите сервис и запустите keen-pbr вручную в терминале с подробными логами. Так ошибка появится прямо в консоли.</p>
+<p><strong>Исправление.</strong> Если <code>keen-pbr</code> не остаётся запущенным, остановите сервис и запустите <code>keen-pbr</code> вручную с подробными логами. Ошибка появится прямо в консоли.</p>
 
 
 
 
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-03-0" role="tab" type="button" aria-controls="tabs-panel-tabs-03-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-03-1" role="tab" type="button" aria-controls="tabs-panel-tabs-03-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-03-2" role="tab" type="button" aria-controls="tabs-panel-tabs-03-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-0" role="tab" type="button" aria-controls="tabs-panel-tabs-02-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-1" role="tab" type="button" aria-controls="tabs-panel-tabs-02-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-2" role="tab" type="button" aria-controls="tabs-panel-tabs-02-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
 </div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-03-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-03-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">/opt/etc/init.d/S80keen-pbr stop
 </span></span><span class="line"><span class="cl">keen-pbr --log-level verbose service</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1468,7 +1494,7 @@
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-03-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-03-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">service keen-pbr stop
 </span></span><span class="line"><span class="cl">keen-pbr --log-level verbose service</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1483,7 +1509,7 @@
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-03-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-03-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">systemctl stop keen-pbr
 </span></span><span class="line"><span class="cl">keen-pbr --log-level verbose service</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1500,7 +1526,7 @@
 </div>
 </div></div>
 
-<p>Пока keen-pbr работает, команда не вернёт вас в командную строку, так и должно быть. Если она сразу завершилась, последняя ошибка в выводе обычно и есть причина.</p>
+<p>Пока <code>keen-pbr</code> работает, команда не вернёт вас в командную строку. Так и должно быть. Если она сразу завершилась, последняя ошибка в выводе и есть причина.</p>
 <details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
   <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
     <strong class="hx:text-lg">Расширенные проверки</strong>
@@ -1555,24 +1581,33 @@
 <ol start="2">
 <li>Убедитесь, что каталог для <code>daemon.pid_file</code> существует и доступен для записи.</li>
 <li>Убедитесь, что <code>daemon.cache_dir</code> существует и доступен для записи.</li>
-<li>Если API включён, проверьте, что адрес и порт из <code>api.listen</code> не заняты другим процессом.</li>
-<li>Если в логах есть ошибка бэкенда firewall, проверьте установку <code>iptables</code> / <code>ipset</code> или <code>nftables</code> для вашей платформы.</li>
-<li>Если <code>keen-pbr</code> жив, но Web UI не открывается, убедитесь, что конфигурация не заменена headless-примером и в <code>config.json</code> есть секция <code>api</code>.</li>
+<li>Если веб-интерфейс включён, проверьте, что адрес и порт из <code>api.listen</code> не заняты другим процессом.</li>
+<li>Если в логах есть ошибка межсетевого экрана, проверьте, что для вашей платформы установлены <code>iptables</code> и <code>ipset</code> или <code>nftables</code>.</li>
+<li>Если <code>keen-pbr</code> работает, но веб-интерфейс не открывается, убедитесь, что в <code>config.json</code> есть секция <code>api</code>.</li>
 </ol>
   </div>
 </details>
 <h2>Сайты не идут через VPN<span class="hx:absolute hx:-mt-20" id="сайты-не-идут-через-vpn"></span>
-    <a href="#%d1%81%d0%b0%d0%b9%d1%82%d1%8b-%d0%bd%d0%b5-%d0%b8%d0%b4%d1%83%d1%82-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><ol>
-<li>Убедитесь, что устройство пользователя использует DNS роутера.
+    <a href="#%d1%81%d0%b0%d0%b9%d1%82%d1%8b-%d0%bd%d0%b5-%d0%b8%d0%b4%d1%83%d1%82-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><strong>Симптом:</strong> сайт из списка открывается напрямую, а не через VPN.</p>
+<p><strong>В веб-интерфейсе.</strong></p>
+<ol>
+<li>Нажмите <strong>Куда пойдёт трафик?</strong> на странице <strong>Обзор системы</strong>, введите домен и нажмите <strong>Проверить маршрут</strong>. Чтобы проверить конкретное устройство, укажите его IP в поле для IP устройства. Результат подскажет, что не так:
 <ul>
-<li>Откройте <code>http://&lt;ip-роутера&gt;:12121/</code> и посмотрите на виджет проверки DNS. Проверочный запрос должен дойти до резолвера роутера и вернуть <code>127.0.0.88</code>.</li>
-<li>Альтернативно, выполните с вашего ПК: <code>nslookup check.keen-pbr.fyi</code>. Должен вернуться <code>127.0.0.88</code>.</li>
+<li>«IP нет в нужном ipset» (ipset — набор адресов, по которому правило находит нужный трафик): keen-pbr ещё не узнал адрес сайта. Откройте сайт на устройстве, очистите DNS-кэш устройства и проверьте, что в браузере не включён DoH/DoT (защищённый DNS в обход роутера).</li>
+<li>«Подходящего правила нет. Используется системный маршрут.»: домена нет ни в одном списке или список не указан в правиле маршрутизации. Проверьте <strong>Маршрутизация</strong> &gt; <strong>Списки</strong> и <strong>Маршрутизация</strong> &gt; <strong>Правила маршрутизации</strong>.</li>
+<li>«Маршрут отличается от ожидаемого»: правило есть, но трафик идёт не туда. Смотрите разделы про межсетевой экран и таблицы маршрутизации ниже.</li>
 </ul>
 </li>
-<li>Запустите тест маршрутизации:
+<li>Убедитесь, что в панели <strong>Outbounds</strong> нужный канал «Исправен».</li>
+<li>Откройте <strong>Общее</strong> &gt; <strong>Настройки</strong> и проверьте три параметра:
 <ul>
-<li>Откройте <code>http://&lt;ip-роутера&gt;:12121/</code> и введите домен или IP в виджет &ldquo;Куда пойдёт этот трафик?&rdquo;.</li>
-<li>Альтернативно, выполните с роутера или сервера:
+<li><strong>Включить маршрутизацию на основе доменов</strong> (карточка <strong>Маршрутизация на основе доменов</strong>) должен быть включён, иначе правила по доменам не работают. Правила по IP-адресам работают и без него.</li>
+<li><strong>Обрабатываемые (входящие) интерфейсы</strong> (карточка <strong>Общие</strong>): если список не пуст, обрабатывается трафик только с этих интерфейсов, а устройства за другими интерфейсами идут напрямую. Добавьте нужный LAN-интерфейс или очистите список.</li>
+<li><strong>Обрабатывать собственный трафик роутера</strong> (виден в режиме настроек <strong>Продвинутый</strong>) (карточка <strong>Общие</strong>) по умолчанию выключен. Тогда трафик самого роутера, например <code>curl</code> или <code>ping</code> с SSH-консоли, правила не затрагивают. Проверяйте маршрутизацию с устройства в локальной сети.</li>
+</ul>
+</li>
+</ol>
+<p><strong>Команды.</strong> С роутера или сервера:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr test-routing google.com</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1587,18 +1622,73 @@
   </button>
 </div>
 </div>
-</li>
-</ul>
-</li>
-<li>Убедитесь, что домен или IP находится в правильном списке.</li>
-<li>Убедитесь, что правило маршрутизации для этого списка указывает на нужный outbound.</li>
-<li>Убедитесь, что VPN-интерфейс действительно поднят и пропускает трафик.</li>
-</ol>
-<p>Если ожидаемый и фактический outbound различаются, переходите последовательно к разделам DNS, firewall и маршрутизации ниже.</p>
+<p>Команда выводит таблицу: IP-адрес, совпавший список, ожидаемый и фактический outbound и статус. Чтобы проверить конкретное устройство, добавьте <code>--src-addr &lt;ip-устройства&gt;</code>.</p>
+<p><strong>Исправление.</strong> Если ожидаемый и фактический outbound различаются, проверьте по порядку: DNS (следующий раздел), межсетевой экран и таблицы маршрутизации. Если совпадают, но сайт всё равно не открывается через VPN, проверьте сам туннель в разделе «Интерфейсы и VPN-туннели».</p>
+<h2>Сообщения в «Диагностике»<span class="hx:absolute hx:-mt-20" id="diagnostics-messages"></span>
+    <a href="#diagnostics-messages" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Панель <strong>Диагностика</strong> на странице <strong>Обзор системы</strong> перечисляет найденные проблемы. Кнопка <strong>Перезапустить</strong> в строке состояния заново применяет настройки.</p>
+<table>
+	<thead>
+			<tr>
+					<th>Сообщение</th>
+					<th>Что делать</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>«Цепочка межсетевого экрана отсутствует», «Цепочка межсетевого экрана не подключена к PREROUTING»</td>
+					<td>Нажмите <strong>Перезапустить</strong> в строке состояния. Если сообщение осталось, читайте журнал: причина обычно в нехватке прав или пакетов <code>iptables</code> / <code>nftables</code>.</td>
+			</tr>
+			<tr>
+					<td>«Правила межсетевого экрана не совпадают: N», «Таблицы маршрутизации не совпадают: N», «Политики маршрутизации не совпадают: N»</td>
+					<td>Нажмите <strong>Перезапустить</strong>. Если после этого сообщение возвращается, правила меняет другая программа: см. раздел «Конфликты низкоуровневой маршрутизации».</td>
+			</tr>
+			<tr>
+					<td>«{tag} недоступен», «{tag} работает с перебоями», «{tag}: неисправных участников: N»</td>
+					<td>Канал <code>{tag}</code> не отвечает на проверки. См. раздел «Интерфейсы и VPN-туннели».</td>
+			</tr>
+			<tr>
+					<td>«dnsmasq не запущен», «dnsmasq не применил DNS-правила», «DNS-правила восстанавливаются»</td>
+					<td>См. раздел «Не работают отдельные DNS-серверы для списков».</td>
+			</tr>
+			<tr>
+					<td>«Модуль ядра отсутствует, а текущие правила его используют: правила межсетевого экрана не применятся»</td>
+					<td>Правила, которым нужен модуль, не применятся, пока модуля нет в системе.</td>
+			</tr>
+			<tr>
+					<td>«Перехват трафика ограничен»</td>
+					<td>Посмотрите состояние в панели <strong>Маршрутизация на основе доменов</strong> и прочитайте журнал.</td>
+			</tr>
+			<tr>
+					<td>«Не удалось выполнить проверки маршрутизации»</td>
+					<td>Нажмите <strong>Перезапустить</strong> и прочитайте журнал.</td>
+			</tr>
+			<tr>
+					<td>«{интерфейс}: для этого WAN нет NAT (MASQUERADE/SNAT)»</td>
+					<td>Через этот интерфейс исходящий трафик уйдёт без подмены адреса, и ответы не вернутся. Включите NAT на интерфейсе. Например, для iptables: <code>iptables -t nat -A POSTROUTING -o &lt;интерфейс&gt; -j MASQUERADE</code>. Если NAT настроен в нативных правилах nftables, предупреждение можно игнорировать.</td>
+			</tr>
+			<tr>
+					<td>«{интерфейс}: строгий rp_filter может отбрасывать ответы»</td>
+					<td>Задайте значение 2 или 0 параметрам ядра <code>net.ipv4.conf.all.rp_filter</code> и <code>net.ipv4.conf.&lt;интерфейс&gt;.rp_filter</code>, например <code>sysctl -w net.ipv4.conf.all.rp_filter=2</code>.</td>
+			</tr>
+			<tr>
+					<td>«Стороннее правило использует биты метки пакета, зарезервированные keen-pbr»</td>
+					<td>Другая программа занимает метки, которые нужны keen-pbr. Откройте <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Расширенные настройки маршрутизации</strong> (карточка видна в режиме <strong>Режим настроек</strong> = <strong>Продвинутый</strong>) и поменяйте <strong>Начальное значение fwmark</strong> и <strong>Маску fwmark</strong> на свободный диапазон.</td>
+			</tr>
+	</tbody>
+</table>
 <h2>DNS-перехват<span class="hx:absolute hx:-mt-20" id="dns-перехват"></span>
-    <a href="#dns-%d0%bf%d0%b5%d1%80%d0%b5%d1%85%d0%b2%d0%b0%d1%82" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Для маршрутизации по доменам keen-pbr не нужен особый резолвер: он сам читает DNS-ответы, проходящие через роутер, и записывает адреса в наборы списков. Состояние перехвата и причины, по которым он может быть отключён, смотрите в <code>/api/health/service</code> (<code>intercept</code>).</p>
-<h3>Проверка DNS с устройства пользователя<span class="hx:absolute hx:-mt-20" id="проверка-dns-с-устройства-пользователя"></span>
-    <a href="#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b0-dns-%d1%81-%d1%83%d1%81%d1%82%d1%80%d0%be%d0%b9%d1%81%d1%82%d0%b2%d0%b0-%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d0%be%d0%b2%d0%b0%d1%82%d0%b5%d0%bb%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Откройте <code>http://&lt;ip-роутера&gt;:12121/</code> и посмотрите на виджет проверки DNS. Если Web UI недоступен, выполните с клиентского устройства:</p>
+    <a href="#dns-%d0%bf%d0%b5%d1%80%d0%b5%d1%85%d0%b2%d0%b0%d1%82" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Для маршрутизации по доменам keen-pbr читает DNS-ответы, которые проходят через роутер, и запоминает адреса сайтов из ваших списков. Отдельный DNS-сервер для этого не нужен.</p>
+<p><strong>Симптом:</strong> сайты по доменам не идут через VPN, а по IP-адресам идут.</p>
+<p><strong>В веб-интерфейсе.</strong> На странице <strong>Обзор системы</strong> в панели <strong>Маршрутизация на основе доменов</strong> найдите строки <strong>Перехват DNS</strong>, <strong>Удержание DNS</strong> и <strong>Перехват L7</strong>. Статус «Не работает» или «Отключён» объясняет, почему не работает перехват. Ниже нажмите <strong>Проверить снова</strong> в виджете проверки DNS и сравните результат:</p>
+<ul>
+<li>«Перехват DNS-запросов из этого браузера работает»: всё в порядке.</li>
+<li>«Запрос браузера завершился, но перехватчик не увидел lookup маркера.»: браузер обращается к DNS в обход роутера. Отключите в браузере защищённый DNS (DoH) и повторите.</li>
+<li>«Перехват DNS отключён в конфигурации.»: включите <strong>Перехватывать ответы DNS-серверов</strong> в <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Маршрутизация на основе доменов</strong>.</li>
+<li>«Перехват не работает: удержание DNS не активно»: нажмите <strong>Перезапустить</strong> в строке состояния, затем прочитайте журнал.</li>
+<li>«Браузер не смог открыть поток событий DNS…»: закройте лишние вкладки keen-pbr и повторите.</li>
+</ul>
+<p>Чтобы проверить другое устройство, нажмите <strong>Проверить с другого устройства</strong>. Программа покажет команду <code>nslookup &lt;случайное-имя&gt;.check.keen-pbr.fyi</code>: выполните её на телефоне или компьютере. Если появится «Перехватчик увидел DNS-запрос от устройства.», устройство использует DNS роутера. Если пишет «Тестовый DNS-запрос ещё не поступил…», убедитесь, что устройство использует DNS роутера, и выполните команду снова.</p>
+<p><strong>Команда.</strong> На устройстве пользователя:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nslookup check.keen-pbr.fyi</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1613,14 +1703,14 @@
   </button>
 </div>
 </div>
-<p>Ожидаемый ответ: <code>127.0.0.88</code>. У домена есть и настоящий публичный адрес, поэтому по ответу видно, что произошло:</p>
+<p>У домена есть публичный адрес, поэтому по ответу видно, что произошло:</p>
 <ul>
 <li><code>127.0.0.88</code>: запрос прошёл через роутер, и keen-pbr его увидел.</li>
-<li>Любой другой адрес: DNS работает, но идёт мимо роутера (например, браузер или ОС используют свой защищённый DNS), либо DNS-перехват недоступен.</li>
+<li>Любой другой адрес: DNS работает, но идёт мимо роутера. Например, браузер или ОС используют свой защищённый DNS.</li>
 <li>Нет ответа или ошибка: на устройстве не работает DNS или резолвер роутера не отвечает.</li>
 </ul>
 <h3>Проверка резолвера на роутере<span class="hx:absolute hx:-mt-20" id="проверка-резолвера-на-роутере"></span>
-    <a href="#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b0-%d1%80%d0%b5%d0%b7%d0%be%d0%bb%d0%b2%d0%b5%d1%80%d0%b0-%d0%bd%d0%b0-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%b5" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>keen-pbr работает с любым резолвером, который использует роутер. Проверьте, что он отвечает локально:</p>
+    <a href="#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b0-%d1%80%d0%b5%d0%b7%d0%be%d0%bb%d0%b2%d0%b5%d1%80%d0%b0-%d0%bd%d0%b0-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%b5" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Проверьте, что резолвер роутера отвечает локально:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nslookup google.com 127.0.0.1</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1635,137 +1725,42 @@
   </button>
 </div>
 </div>
-<p>Если вы видите <code>Connection refused</code>, ваш резолвер не запущен или не слушает <code>127.0.0.1:53</code>. Проверьте его собственный сервис и журнал (например 
+<p>Если вы видите <code>Connection refused</code>, резолвер не запущен или не слушает <code>127.0.0.1:53</code>. Проверьте его сервис и журнал: 
   <abbr title="Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.">Entware</abbr>
- <code>dnsmasq</code> на Keenetic, <code>dnsmasq</code> на OpenWrt и Debian или встроенный DNS-прокси Keenetic).</p>
-<p>На Keenetic, если DNS-запросы клиентов не доходят до Entware <code>dnsmasq</code>, проверьте настройку, специфичную для Keenetic:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opkg dns-override</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>После изменения сохраните конфигурацию Keenetic:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">system configuration save</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
+ <code>dnsmasq</code> на Keenetic, <code>dnsmasq</code> на OpenWrt и Debian или встроенный DNS-прокси Keenetic.</p>
+<p>На Keenetic, если DNS-запросы клиентов не доходят до Entware <code>dnsmasq</code>, проверьте настройку <code>opkg dns-override</code>. Команды <code>opkg dns-override</code> и <code>system configuration save</code> выполняются в веб-консоли роутера <code>http://my.keenetic.net/a</code>, а не в SSH. Подробности есть в <a href="/ru/docs/getting-started/installation/keenetic/">установке на Keenetic</a>.</p>
 <details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
   <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
     <strong class="hx:text-lg">После обновления со старой версии keen-pbr</strong>
   </summary>
   <div class="hx:p-2 hx:overflow-hidden">
-    Старые версии keen-pbr всегда настраивали dnsmasq, и после обновления управление остаётся включённым, подробности в разделе <a href="/ru/docs/changelog/#upgrading-from-33x">Обновление с 3.3.x</a>. Если dnsmasq не запускается после того, как вы удалили keen-pbr вручную, убедитесь, что в его конфигурации не осталось строки <code>conf-script=...keen-pbr...</code>.
+    После обновления управление dnsmasq остаётся включённым, подробности в разделе <a href="/ru/docs/changelog/#upgrading-from-33x">Обновление с 3.3.x</a>. Если dnsmasq не запускается после того, как вы удалили keen-pbr вручную, убедитесь, что в его конфигурации не осталось строки <code>conf-script=...keen-pbr...</code>.
   </div>
 </details>
-<h3>Измерение потерь при DNS-перехвате<span class="hx:absolute hx:-mt-20" id="измерение-потерь-при-dns-перехвате"></span>
-    <a href="#%d0%b8%d0%b7%d0%bc%d0%b5%d1%80%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bf%d0%be%d1%82%d0%b5%d1%80%d1%8c-%d0%bf%d1%80%d0%b8-dns-%d0%bf%d0%b5%d1%80%d0%b5%d1%85%d0%b2%d0%b0%d1%82%d0%b5" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Если первое соединение с только что открытым сайтом иногда уходит мимо VPN, проверьте, как часто keen-pbr не успевает записать адрес до того, как DNS-ответ дойдёт до устройства. Для этого есть скрипт <code>scripts/dns-bench.py</code> (нужен только Python 3). Запустите его с компьютера в локальной сети или с самого роутера:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">python3 scripts/dns-bench.py --api http://192.168.1.1:12121 --password <span class="s1">&#39;пароль-администратора&#39;</span> <span class="se">\
-</span></span></span><span class="line"><span class="cl">  --rates 50,200,1000 --count <span class="m">1000</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Скрипт запрашивает случайные имена вида <code>a1b2c3d4-198-18-7-9.nip.io</code>. Они указывают на тестовые адреса <code>198.18.0.0/15</code>, поэтому реальный трафик не затрагивается. Чтобы keen-pbr их обрабатывал, добавьте в конфигурацию список и правило (если их нет, скрипт подскажет, что добавить):</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="s2">&#34;lists&#34;</span><span class="err">:</span> <span class="p">{</span> <span class="nt">&#34;dns_bench&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;domains&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;nip.io&#34;</span><span class="p">]</span> <span class="p">}</span> <span class="p">}</span><span class="err">,</span>
-</span></span><span class="line"><span class="cl"><span class="s2">&#34;route&#34;</span><span class="err">:</span> <span class="p">{</span> <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span> <span class="p">{</span> <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;dns_bench&#34;</span><span class="p">],</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;&lt;любой тег outbound&gt;&#34;</span> <span class="p">}</span> <span class="p">]</span> <span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Публичный сервис <code>nip.io</code> может ограничивать число запросов, тогда в отчёте появятся <code>client-timeout</code>.</p>
-<p>Основные результаты в отчёте:</p>
-<table>
-	<thead>
-			<tr>
-					<th>Результат</th>
-					<th>Что значит</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>held-ok</code></td>
-					<td>Всё в порядке: адрес записан до того, как ответ ушёл устройству</td>
-			</tr>
-			<tr>
-					<td><code>hold-timeout</code></td>
-					<td>keen-pbr не успел за <code>intercept.dns.hold_timeout_ms</code>: ответ ушёл раньше, адрес дописан чуть позже. Первые пакеты могли пройти мимо VPN</td>
-			</tr>
-			<tr>
-					<td><code>set-error</code></td>
-					<td>Адрес не удалось записать в набор, смотрите логи keen-pbr</td>
-			</tr>
-			<tr>
-					<td><code>bypass</code></td>
-					<td>Ответ прошёл мимо keen-pbr: имя не входит в списки или очередь переполнена</td>
-			</tr>
-			<tr>
-					<td><code>not-in-set</code>, <code>wrong-set</code></td>
-					<td>После прогона адреса нет в наборе или он в наборе другого outbound</td>
-			</tr>
-			<tr>
-					<td><code>client-timeout</code></td>
-					<td>Устройство не получило ответа</td>
-			</tr>
-	</tbody>
-</table>
-<p>Если <code>hold-timeout</code> много, роутеру не хватает процессора на запись адресов: попробуйте увеличить <code>intercept.dns.hold_timeout_ms</code>. Описание всех опций выводит <code>python3 scripts/dns-bench.py --help</code>.</p>
 <h2>Веб-сайты не открываются: <code>DNS_PROBE_FINISHED_NXDOMAIN</code> / <code>ERR_NAME_NOT_RESOLVED</code><span class="hx:absolute hx:-mt-20" id="веб-сайты-не-открываются-dns_probe_finished_nxdomain--err_name_not_resolved"></span>
-    <a href="#%d0%b2%d0%b5%d0%b1-%d1%81%d0%b0%d0%b9%d1%82%d1%8b-%d0%bd%d0%b5-%d0%be%d1%82%d0%ba%d1%80%d1%8b%d0%b2%d0%b0%d1%8e%d1%82%d1%81%d1%8f-dns_probe_finished_nxdomain--err_name_not_resolved" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>keen-pbr не разрешает имена для клиентов, поэтому проверьте резолвер, которым пользуются клиенты.</p>
+    <a href="#%d0%b2%d0%b5%d0%b1-%d1%81%d0%b0%d0%b9%d1%82%d1%8b-%d0%bd%d0%b5-%d0%be%d1%82%d0%ba%d1%80%d1%8b%d0%b2%d0%b0%d1%8e%d1%82%d1%81%d1%8f-dns_probe_finished_nxdomain--err_name_not_resolved" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>keen-pbr не отвечает на DNS-запросы клиентов, поэтому проверьте резолвер, которым пользуются клиенты.</p>
 <ol>
-<li>Убедитесь, что устройство пользователя использует DNS роутера.</li>
-<li>Убедитесь, что у резолвера роутера есть рабочие upstream-серверы и он может до них достучаться.</li>
+<li>Убедитесь, что устройство использует DNS роутера.</li>
+<li>Убедитесь, что у резолвера роутера есть рабочие upstream-серверы (внешние DNS, к которым он обращается) и он может до них достучаться.</li>
 <li>Проверьте с роутера: <code>nslookup google.com 127.0.0.1</code>.</li>
-<li>Если запись в <code>dns.servers</code> использует <code>detour</code>, проверьте выбранный outbound.</li>
+<li>Если у DNS-сервера в <strong>DNS</strong> &gt; <strong>DNS серверы</strong> задан канал (<code>detour</code> в JSON), проверьте, что этот outbound «Исправен» в панели <strong>Outbounds</strong>.</li>
 </ol>
 <h2>Веб-сайты не открываются: <code>DNS_PROBE_FINISHED_BAD_CONFIG</code><span class="hx:absolute hx:-mt-20" id="веб-сайты-не-открываются-dns_probe_finished_bad_config"></span>
-    <a href="#%d0%b2%d0%b5%d0%b1-%d1%81%d0%b0%d0%b9%d1%82%d1%8b-%d0%bd%d0%b5-%d0%be%d1%82%d0%ba%d1%80%d1%8b%d0%b2%d0%b0%d1%8e%d1%82%d1%81%d1%8f-dns_probe_finished_bad_config" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Обычно это означает, что резолвер не запущен или не смог применить конфигурацию. Проверьте сервис и журнал резолвера на вашей платформе (например 
+    <a href="#%d0%b2%d0%b5%d0%b1-%d1%81%d0%b0%d0%b9%d1%82%d1%8b-%d0%bd%d0%b5-%d0%be%d1%82%d0%ba%d1%80%d1%8b%d0%b2%d0%b0%d1%8e%d1%82%d1%81%d1%8f-dns_probe_finished_bad_config" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Обычно это означает, что резолвер не запущен или не смог применить конфигурацию. Проверьте сервис и журнал резолвера: 
   <abbr title="Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.">Entware</abbr>
- <code>dnsmasq</code> на Keenetic, <code>dnsmasq</code> на OpenWrt и Debian) и состояние перехвата (<code>intercept</code>) в <code>/api/health/service</code>.</p>
+ <code>dnsmasq</code> на Keenetic, <code>dnsmasq</code> на OpenWrt и Debian. Затем проверьте панель <strong>Маршрутизация на основе доменов</strong> на странице <strong>Обзор системы</strong>.</p>
 <h2>Не работают отдельные DNS-серверы для списков<span class="hx:absolute hx:-mt-20" id="per-list-dns-servers-do-not-work"></span>
-    <a href="#per-list-dns-servers-do-not-work" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Когда включена <code>dns.resolver_integration: &quot;dnsmasq&quot;</code>, домены из определённых списков должны разрешаться через выбранный DNS-сервер. Если это не происходит:</p>
+    <a href="#per-list-dns-servers-do-not-work" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><strong>Симптом:</strong> домены из списка должны разрешаться через выбранный DNS-сервер, но разрешаются через обычный.</p>
+<p><strong>В веб-интерфейсе.</strong></p>
 <ol>
-<li>
-<p><strong>Проверьте состояние dnsmasq в <code>/api/health/service</code>:</strong></p>
+<li>Откройте <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Управление локальным DNS-сервером</strong> и убедитесь, что <strong>Управлять конфигурацией dnsmasq</strong> включено.</li>
+<li>На странице <strong>Обзор системы</strong> посмотрите панель <strong>Правила DNS</strong>. Состояние «Синхронизирован» означает, что всё применено. Состояния «Применяется» и «Восстановление» временные. Для состояния «Ошибка» посмотрите «Последняя ошибка» и сообщение под ним: оно называет причину и подсказывает, что сделать. Например, если пишет «Кнопка «Применить» или «Перезапустить» включит его снова», нажмите одну из них.</li>
+<li>Если у вас несколько экземпляров dnsmasq, выберите нужный в поле <strong>Экземпляр dnsmasq</strong> в той же карточке.</li>
+</ol>
+<p><strong>Команда.</strong></p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/health/service <span class="p">|</span> jq .dnsmasq</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr dnsmasq detect</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1777,126 +1772,11 @@
   </button>
 </div>
 </div>
-<p>Ожидается: <code>&quot;state&quot;: &quot;ok&quot;</code>, <code>&quot;rules&quot;</code> показывает количество, <code>&quot;domains&quot;</code> показывает записи доменов. Если <code>state</code> равен <code>error</code>, смотрите <code>last_error</code>.</p>
-</li>
-<li>
-<p><strong>Проверьте сгенерированный конфиг dnsmasq:</strong></p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr generate-resolver-config dnsmasq</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Ожидается: соответствия «домен → сервер», резервные (<code>fallback</code>) серверы и исключения защиты от 
-  <abbr title="Атака, при которой публичный домен указывает на адрес в локальной сети. dnsmasq умеет блокировать такие ответы.">DNS rebinding</abbr>
-. Если в выводе только комментарий о выключенном управлении и строки <code>server=</code>, проверьте, что установлен <code>resolver_integration: &quot;dnsmasq&quot;</code> и настроено хотя бы одно правило.</p>
-</li>
-<li>
-<p><strong>Проверьте файл drop-in dnsmasq:</strong></p>
-
-   
-   
-   
-   <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="OpenWrt,Keenetic / Entware,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-09-0" role="tab" type="button" aria-controls="tabs-panel-tabs-09-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-09-1" role="tab" type="button" aria-controls="tabs-panel-tabs-09-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / Entware</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-09-2" role="tab" type="button" aria-controls="tabs-panel-tabs-09-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
-</div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-09-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-09-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">cat /tmp/dnsmasq.d/keen-pbr.conf
-</span></span><span class="line"><span class="cl"><span class="c1"># или в dnsmasq-confdir по платформе:</span>
-</span></span><span class="line"><span class="cl">cat /tmp/dnsmasq.*/keen-pbr.conf</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-09-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-09-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">grep -A <span class="m">5</span> <span class="s2">&#34;BEGIN keen-pbr&#34;</span> /opt/etc/dnsmasq.conf</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-09-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-09-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">grep -A <span class="m">3</span> <span class="s2">&#34;BEGIN keen-pbr&#34;</span> /etc/dnsmasq.conf
-</span></span><span class="line"><span class="cl">cat /etc/keen-pbr/dnsmasq.d/keen-pbr.conf</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-</div></div>
-
-<p>Ожидается: строка <code>conf-script=keen-pbr generate-resolver-config dnsmasq</code>.</p>
-</li>
-<li>
-<p><strong>Проверьте, что dnsmasq действительно загрузил конфигурацию keen-pbr:</strong></p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nslookup -type<span class="o">=</span>txt config-hash.keen.pbr 127.0.0.1</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Ожидается: TXT-ответ вида <code>&lt;hash&gt;|&lt;boottime_ms&gt;|&lt;unix_ts&gt;</code>; хеш должен совпадать с <code>config_hash</code> из шага 1. Нет ответа - значит, dnsmasq не загрузил конфигурацию keen-pbr (например, 
-  <abbr title="Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.">drop-in</abbr>
- лежит в каталоге, который dnsmasq не читает, или dnsmasq не был перезапущен).</p>
-</li>
-<li>
-<p><strong>Убедитесь, что dnsmasq действительно используется как резолвер для клиентов:</strong></p>
-<ul>
-<li>На Keenetic проверьте, является ли ndnproxy или dnsmasq LAN-резолвером:
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opkg dns-override</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-</li>
-<li>Тест с клиента:
+<p>Команда показывает найденные экземпляры dnsmasq, их DNS-адреса и экземпляр, который использует keen-pbr. В нормальном состоянии у keen-pbr написано <code>installed</code>, а в строке <code>problem</code> — <code>none</code>. Если dnsmasq не установлен, а отдельные DNS-серверы не нужны, выключите <strong>Управлять конфигурацией dnsmasq</strong>. Иначе установите dnsmasq.</p>
+<p><strong>Исправление.</strong></p>
+<ol>
+<li>Если в списке dnsmasq несколько экземпляров, выберите нужный в <strong>Экземпляр dnsmasq</strong> и примените конфигурацию.</li>
+<li>Убедитесь, что клиенты действительно используют dnsmasq как резолвер. На Keenetic проверьте <code>opkg dns-override</code> (см. <a href="/ru/docs/getting-started/installation/keenetic/">установку на Keenetic</a>). С клиента:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nslookup example.com</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1912,38 +1792,13 @@
 </div>
 </div>
 </li>
-</ul>
-</li>
-<li>
-<p><strong>Проверьте <code>detour</code> DNS-сервера:</strong>
-Если сервер имеет <code>&quot;detour&quot;: &quot;vpn&quot;</code>, убедитесь, что VPN-интерфейс работает и доступен:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/runtime/outbounds <span class="p">|</span> jq <span class="s1">&#39;.[] | select(.tag == &#34;vpn&#34;)&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Ожидается: <code>&quot;state&quot;: &quot;alive&quot;</code>.</p>
-</li>
-<li>
-<p><strong>Проверьте, что домены в правильном списке:</strong></p>
-<ul>
-<li>Откройте Web UI на <code>http://&lt;router-ip&gt;:12121/</code> и проверьте DNS-правила.</li>
-<li>Убедитесь, что нужные домены действительно в списке.</li>
-</ul>
-</li>
+<li>Если у DNS-сервера задан канал (<code>detour</code>, например <code>vpn</code>), убедитесь, что этот outbound «Исправен» в панели <strong>Outbounds</strong>.</li>
+<li>Убедитесь, что нужные домены действительно есть в списке. Проверьте их в <strong>Маршрутизация</strong> &gt; <strong>Списки</strong> и в <strong>DNS</strong> &gt; <strong>Правила DNS</strong>.</li>
 </ol>
-<h2>Firewall и <code>KeenPbrTable</code><span class="hx:absolute hx:-mt-20" id="firewall-и-keenpbrtable"></span>
-    <a href="#firewall-%d0%b8-keenpbrtable" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Если DNS работает и домен резолвится, но трафик всё равно идёт мимо VPN, проверьте firewall. <code>keen-pbr</code> создаёт изолированную цепочку или таблицу <code>KeenPbrTable</code>; трафик должен попадать туда, сопоставляться со списками и получать нужный <code>fwmark</code>.</p>
-<p>Сначала запустите встроенную проверку:</p>
+<h2>Межсетевой экран и <code>KeenPbrTable</code><span class="hx:absolute hx:-mt-20" id="межсетевой-экран-и-keenpbrtable"></span>
+    <a href="#%d0%bc%d0%b5%d0%b6%d1%81%d0%b5%d1%82%d0%b5%d0%b2%d0%be%d0%b9-%d1%8d%d0%ba%d1%80%d0%b0%d0%bd-%d0%b8-keenpbrtable" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><strong>Симптом:</strong> DNS работает, домен резолвится, но трафик идёт мимо VPN.</p>
+<p><strong>В веб-интерфейсе.</strong> В панели <strong>Диагностика</strong> ищите сообщения про цепочку, правила межсетевого экрана и политики (список сообщений выше).</p>
+<p><strong>Команда.</strong> Основная проверка:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1958,17 +1813,19 @@
   </button>
 </div>
 </div>
-<p>Ищите проверки firewall со статусом <code>MISSING</code>, <code>MISMATCH</code> или <code>ERROR</code>.</p>
-<h3>Проверка правил firewall<span class="hx:absolute hx:-mt-20" id="проверка-правил-firewall"></span>
-    <a href="#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b0-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb-firewall" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3>
-
-
-
+<p>Строки со статусами <code>MISSING</code>, <code>MISMATCH</code> или <code>ERROR</code> в блоке Firewall показывают, чего не хватает.</p>
+<details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
+  <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
+    <strong class="hx:text-lg">Посмотреть правила межсетевого экрана напрямую</strong>
+  </summary>
+  <div class="hx:p-2 hx:overflow-hidden">
+    <p><code>keen-pbr</code> создаёт свою цепочку или таблицу <code>KeenPbrTable</code>. Трафик попадает в неё, сопоставляется со списками и получает метку пакета (
+<abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
+): по ней система выбирает таблицу маршрутизации.</p>
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="iptables / ipset,nftables / nftset,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-11-0" role="tab" type="button" aria-controls="tabs-panel-tabs-11-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>iptables / ipset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-11-1" role="tab" type="button" aria-controls="tabs-panel-tabs-11-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>nftables / nftset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-11-2" role="tab" type="button" aria-controls="tabs-panel-tabs-11-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="iptables / ipset,nftables / nftset,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-0" role="tab" type="button" aria-controls="tabs-panel-tabs-01-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>iptables / ipset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-1" role="tab" type="button" aria-controls="tabs-panel-tabs-01-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>nftables / nftset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-2" role="tab" type="button" aria-controls="tabs-panel-tabs-01-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
 </div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-11-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-11-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">iptables-save <span class="p">|</span> grep KeenPbrTable
 </span></span><span class="line"><span class="cl">ip6tables-save <span class="p">|</span> grep KeenPbrTable</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -1982,11 +1839,8 @@
   </button>
 </div>
 </div>
-<p>Ожидаемо, есть переход из <code>PREROUTING</code> в <code>KeenPbrTable</code> и правила, которые ставят
-<abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
-(<code>MARK</code>). Пример признака корректного правила:</p>
+<p>Должен быть переход из <code>PREROUTING</code> в <code>KeenPbrTable</code> и правила с <code>MARK</code>. Пример нормального правила:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">-A KeenPbrTable -m set --match-set &lt;set&gt; dst -j MARK --set-xmark &lt;mark&gt;/&lt;mask&gt;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -2001,7 +1855,6 @@
 </div>
 <p>Чтобы проверить содержимое набора:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ipset list
 </span></span><span class="line"><span class="cl">ipset <span class="nb">test</span> &lt;название_сета&gt; &lt;IP-адрес&gt;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -2016,8 +1869,7 @@
 </div>
 </div>
 <p>Ожидаемый ответ: IP есть в указанном наборе.</p>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-11-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-11-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nft -t list ruleset</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -2032,7 +1884,6 @@
 </div>
 <p>Если нужен полный вывод вместе с содержимым наборов:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nft list ruleset</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -2045,10 +1896,9 @@
   </button>
 </div>
 </div>
-<p>Ожидаемо, есть таблица <code>inet KeenPbrTable</code>, hook <code>prerouting</code>, правила, проверяющие наборы, и действие <code>meta mark set ...</code>.</p>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-11-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-11-2" aria-hidden="true"><p>Бэкенд зависит от того, как установлен firewall на вашей системе. Проверьте оба варианта или тот, который указан в логах <code>keen-pbr</code>.</p>
+<p>Должна быть таблица <code>inet KeenPbrTable</code>, hook <code>prerouting</code>, правила, проверяющие наборы, и действие <code>meta mark set ...</code>.</p>
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-2" aria-hidden="true"><p>Бэкенд зависит от того, как установлен межсетевой экран в вашей системе. Проверьте оба варианта или тот, который указан в журнале <code>keen-pbr</code>.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">iptables-save <span class="p">|</span> grep KeenPbrTable
 </span></span><span class="line"><span class="cl">ip6tables-save <span class="p">|</span> grep KeenPbrTable
 </span></span><span class="line"><span class="cl">nft -t list ruleset</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2063,15 +1913,17 @@
   </button>
 </div>
 </div></div></div>
-
-<p>Если <code>KeenPbrTable</code> отсутствует, вернитесь к логам <code>keen-pbr</code>: обычно причина в недоступном бэкенде, правах, отсутствующих пакетах или ошибке конфигурации.</p>
+  </div>
+</details>
+<p><strong>Исправление.</strong> Если <code>KeenPbrTable</code> отсутствует, нажмите <strong>Перезапустить</strong> в строке состояния и прочитайте журнал. Обычно причина в недоступном бэкенде, нехватке прав, отсутствующих пакетах или ошибке конфигурации.</p>
 <h2>Таблицы маршрутизации и <code>fwmark</code><span class="hx:absolute hx:-mt-20" id="таблицы-маршрутизации-и-fwmark"></span>
-    <a href="#%d1%82%d0%b0%d0%b1%d0%bb%d0%b8%d1%86%d1%8b-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8-%d0%b8-fwmark" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Если firewall ставит пакетам 
+    <a href="#%d1%82%d0%b0%d0%b1%d0%bb%d0%b8%d1%86%d1%8b-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8-%d0%b8-fwmark" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><strong>Симптом:</strong> межсетевой экран ставит метку пакета (
   <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
-, но сайт бесконечно грузится или открывается через провайдера, проверьте маршрутизацию по fwmark. ОС должна увидеть <code>fwmark</code>, применить <code>ip rule</code> и отправить пакет в таблицу маршрутизации нужного outbound.</p>
+), но сайт бесконечно грузится или открывается через провайдера. Система должна увидеть метку, применить правило <code>ip rule</code> и отправить пакет в таблицу маршрутизации нужного outbound.</p>
+<p><strong>В веб-интерфейсе.</strong> В панели <strong>Диагностика</strong> ищите «Таблицы маршрутизации не совпадают» и «Политики маршрутизации не совпадают».</p>
+<p><strong>Команды.</strong></p>
 <ol>
-<li>
-<p>Проверьте состояние, которое ожидает <code>keen-pbr</code>:</p>
+<li>Проверьте состояние, которое ожидает <code>keen-pbr</code>:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2086,10 +1938,8 @@
   </button>
 </div>
 </div>
-<p>Ищите строки со статусами <code>MISSING</code>, <code>MISMATCH</code> или <code>ERROR</code>.</p>
 </li>
-<li>
-<p>Проверьте конкретный домен или IP:</p>
+<li>Проверьте конкретный домен или IP. Ожидаемый и фактический outbound должны совпасть:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr test-routing google.com</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2104,10 +1954,8 @@
   </button>
 </div>
 </div>
-<p>Ожидаемо, ожидаемый и фактический outbound совпадают.</p>
 </li>
-<li>
-<p>Проверьте записи <code>ip rule</code>:</p>
+<li>Проверьте записи <code>ip rule</code>. Должно быть правило вида <code>fwmark &lt;mark&gt; lookup &lt;table&gt;</code>:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ip rule show</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2122,10 +1970,8 @@
   </button>
 </div>
 </div>
-<p>Ожидаемо, есть правило вида <code>fwmark &lt;mark&gt; lookup &lt;table&gt;</code>.</p>
 </li>
-<li>
-<p>Проверьте таблицу маршрутизации:</p>
+<li>Проверьте таблицу маршрутизации. В ней должен быть маршрут через нужный VPN-интерфейс или шлюз. Для outbound-блокировки (<code>blackhole</code>) ожидается маршрут <code>blackhole</code>:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ip route show table &lt;номер_таблицы&gt;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2140,10 +1986,9 @@
   </button>
 </div>
 </div>
-<p>Ожидаемо, в таблице есть маршрут через нужный VPN-интерфейс или шлюз. Для outbound типа <code>blackhole</code> ожидается маршрут <code>blackhole</code>.</p>
 </li>
 </ol>
-<p>Если таблица пустая, интерфейс не найден или правило ведёт не туда, проверьте имя outbound, имя интерфейса и конфликты <code>fwmark</code> / <code>iproute.table_start</code>.</p>
+<p><strong>Исправление.</strong> Если таблица пустая, интерфейс не найден или правило ведёт не туда, нажмите <strong>Перезапустить</strong> в строке состояния. Если не помогло, проверьте имя outbound и имя интерфейса, а также конфликты меток (раздел «Конфликты низкоуровневой маршрутизации»).</p>
 <h2>Маршрутизация ломается при включённом Tailscale<span class="hx:absolute hx:-mt-20" id="tailscale"></span>
     <a href="#tailscale" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Tailscale резервирует <code>0x00FF0000</code>, что пересекается с маской keen-pbr по
 умолчанию, и восстанавливает 
@@ -2169,33 +2014,16 @@
   </button>
 </div>
 </div>
-<p>После этого правила firewall и 
+<p>После этого правила межсетевого экрана и 
   <abbr title="Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.">NAT</abbr>
  нужно настраивать отдельно, особенно если
 Tailscale работает как subnet router или exit node.</p>
 <h2>Интерфейсы и VPN-туннели<span class="hx:absolute hx:-mt-20" id="интерфейсы-и-vpn-туннели"></span>
-    <a href="#%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81%d1%8b-%d0%b8-vpn-%d1%82%d1%83%d0%bd%d0%bd%d0%b5%d0%bb%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Если DNS, firewall и маршрутизация по 
-  <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
- выглядят правильно, проверьте, что сам интерфейс существует, поднят и может отправлять трафик.</p>
+    <a href="#%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81%d1%8b-%d0%b8-vpn-%d1%82%d1%83%d0%bd%d0%bd%d0%b5%d0%bb%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><strong>Симптом:</strong> DNS, межсетевой экран и маршрутизация выглядят правильно, но трафик через VPN не идёт.</p>
+<p><strong>В веб-интерфейсе.</strong> Откройте <strong>Общее</strong> &gt; <strong>Обзор системы</strong> и посмотрите панель <strong>Outbounds</strong>: у канала должен быть статус «Исправен», а у его интерфейса «Активен» или «Резервный».</p>
+<p><strong>Команды.</strong></p>
 <ol>
-<li>Откройте <code>http://&lt;ip-роутера&gt;:12121/</code> и проверьте состояние outbounds и интерфейсов.</li>
-<li>Получите список интерфейсов через REST API:
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/runtime/interfaces</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-</li>
-<li>Сверьте системное состояние:
+<li>Проверьте, что интерфейс существует и поднят:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ip link show
@@ -2230,23 +2058,25 @@ Tailscale работает как subnet router или exit node.</p>
 </div>
 </li>
 </ol>
-<p>Ожидаемо, <code>curl</code> возвращает внешний IP VPN. Если команда зависает или завершается ошибкой, проблема ниже <code>keen-pbr</code>: туннель не поднят, нет маршрута, недоступен шлюз или блокируется исходящий трафик.</p>
+<p>Обычно <code>curl</code> возвращает внешний IP VPN. Если команда зависает или завершается ошибкой, проблема не в <code>keen-pbr</code>: туннель не поднят, нет маршрута, недоступен шлюз или блокируется исходящий трафик. Чините сам VPN.</p>
 <details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
   <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
     <strong class="hx:text-lg">Если используется urltest или icmptest</strong>
   </summary>
   <div class="hx:p-2 hx:overflow-hidden">
-    <ol>
+    <p><code>urltest</code> и <code>icmptest</code> — outbounds, которые сами выбирают лучший из нескольких каналов, проверяя их по расписанию.</p>
+<ol>
 <li>Проверьте, что у каналов (outbounds из <code>outbound_groups</code>) правильные интерфейсы или таблицы.</li>
-<li>Посмотрите состояние каналов на странице <strong>Outbounds</strong> веб-интерфейса или в <code>GET /api/runtime/outbounds</code>.</li>
-<li>Если канал показан как <code>unavailable</code>, keen-pbr исключил его после неудачных проверок. Дождитесь <code>circuit_breaker.timeout_ms</code> или почините канал.</li>
+<li>Посмотрите состояние каждого канала в панели <strong>Outbounds</strong> на странице <strong>Обзор системы</strong> или на странице <strong>Маршрутизация</strong> &gt; <strong>Outbounds</strong>.</li>
+<li>Если канал «Недоступен», keen-pbr исключил его после неудачных проверок. Дождитесь <code>circuit_breaker.timeout_ms</code> или почините канал.</li>
 <li>Если резервный канал не включается, сначала проверьте каждый канал отдельно через <code>curl --interface</code>.</li>
 </ol>
   </div>
 </details>
 <h2>Удалённые списки не обновляются<span class="hx:absolute hx:-mt-20" id="удалённые-списки-не-обновляются"></span>
-    <a href="#%d1%83%d0%b4%d0%b0%d0%bb%d1%91%d0%bd%d0%bd%d1%8b%d0%b5-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b8-%d0%bd%d0%b5-%d0%be%d0%b1%d0%bd%d0%be%d0%b2%d0%bb%d1%8f%d1%8e%d1%82%d1%81%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><ol>
-<li>Выполните на роутере или сервере:
+    <a href="#%d1%83%d0%b4%d0%b0%d0%bb%d1%91%d0%bd%d0%bd%d1%8b%d0%b5-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b8-%d0%bd%d0%b5-%d0%be%d0%b1%d0%bd%d0%be%d0%b2%d0%bb%d1%8f%d1%8e%d1%82%d1%81%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><strong>Симптом:</strong> список с <code>url</code> пустой или устарел.</p>
+<p><strong>В веб-интерфейсе.</strong> Откройте <strong>Маршрутизация</strong> &gt; <strong>Списки</strong> и нажмите <strong>Обновить</strong> у списка или <strong>Обновить все</strong>. Если кнопка неактивна, сначала примените черновик конфигурации.</p>
+<p><strong>Команда.</strong> На роутере или сервере:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr download</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2261,21 +2091,25 @@ Tailscale работает как subnet router или exit node.</p>
   </button>
 </div>
 </div>
-</li>
-<li>Если список всё ещё не обновляется, проверьте, достижим ли URL с этой же системы.</li>
+<p><strong>Исправление.</strong></p>
+<ol>
+<li>Проверьте, достижим ли URL с этой же системы.</li>
 <li>Если список должен скачиваться через VPN, проверьте <code>lists[].detour</code> и соответствующий outbound.</li>
-<li>Если используется автоматическое обновление, проверьте <code>lists_autoupdate.cron</code>.</li>
-<li>Если список не скачался при первом запуске, демон повторяет попытки в фоне (через 10 секунд, 30 секунд, 2 минуты, затем каждые 5 минут), пока загрузка не удастся. Если включены отдельные DNS-серверы для списков, dnsmasq настраивается при старте до первой загрузки. Если домен сервера со списком должен разрешаться через отдельный DNS-сервер, добавьте этот домен во встроенный список, файловый список или уже закэшированный список, иначе первая попытка пойдёт через обычный DNS.</li>
-<li>После ошибки снова прочитайте логи <code>keen-pbr</code>.</li>
+<li>Если используется автообновление, проверьте <strong>Расписание обновления</strong> в <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Автообновление списков</strong>.</li>
+<li>Если список не скачался при первом запуске, keen-pbr повторяет попытки в фоне: через 10 секунд, 30 секунд, 2 минуты, затем каждые 5 минут, пока загрузка не удастся. Если домен сервера со списком должен разрешаться через отдельный DNS-сервер, добавьте этот домен во встроенный список, файловый список или уже закэшированный список, иначе первая попытка пойдёт через обычный DNS.</li>
+<li>После ошибки прочитайте журнал <code>keen-pbr</code>.</li>
 </ol>
 <details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
   <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
-    <strong class="hx:text-lg">Расширенные проверки</strong>
+    <strong class="hx:text-lg">Принудительная полная перезагрузка</strong>
   </summary>
   <div class="hx:p-2 hx:overflow-hidden">
-    <p>Если нужно принудительно выполнить полную перезагрузку:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">kill</span> -HUP <span class="k">$(</span>cat /var/run/keen-pbr.pid<span class="k">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+    <p>Эта команда заново скачивает все удалённые списки и повторно применяет правила:</p>
+<div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-00-0" role="tab" type="button" aria-controls="tabs-panel-tabs-00-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-00-1" role="tab" type="button" aria-controls="tabs-panel-tabs-00-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-00-2" role="tab" type="button" aria-controls="tabs-panel-tabs-00-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
+</div>
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-00-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-00-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">/opt/etc/init.d/S80keen-pbr reload</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -2287,7 +2121,34 @@ Tailscale работает как subnet router или exit node.</p>
   </button>
 </div>
 </div>
-<p>Если в конфигурации задан другой <code>daemon.pid_file</code>, используйте его путь. Также подтвердите, что <code>daemon.cache_dir</code> доступен для записи.</p>
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-00-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-00-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">service keen-pbr reload</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-00-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-00-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">systemctl reload keen-pbr</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+</div></div>
+<p>Также убедитесь, что <code>daemon.cache_dir</code> доступен для записи.</p>
   </div>
 </details>
 <h2><code>urltest</code> всегда показывает «Деградирован»<span class="hx:absolute hx:-mt-20" id="urltest-всегда-показывает-деградирован"></span>
@@ -2295,32 +2156,32 @@ Tailscale работает как subnet router или exit node.</p>
 <li>Убедитесь, что тестовый <code>url</code> доступен и возвращает код <code>2xx</code>, например <code>200 OK</code> или <code>204 No Content</code>. Адрес по умолчанию: <code>https://www.gstatic.com/generate_204</code>.</li>
 <li>Если HTTPS-проверки на роутере не проходят (неверное системное время, устаревшие корневые сертификаты, ограничения TLS), попробуйте HTTP-адрес, например <code>http://www.gstatic.com/generate_204</code>.</li>
 <li>Убедитесь, что каждый канал работает сам по себе.</li>
-<li>Проверьте интерфейсы через <code>curl --interface &lt;имя_интерфейса&gt; https://ifconfig.co/json</code>.</li>
+<li>Проверьте интерфейсы командой <code>curl --interface &lt;имя_интерфейса&gt; https://ifconfig.co/json</code>.</li>
 <li>Дождитесь следующей проверки или временно уменьшите <code>interval_ms</code> на время диагностики.</li>
-<li>Проверьте <code>GET /api/runtime/outbounds</code>. Если канал в состоянии <code>unavailable</code>, keen-pbr его исключил; дождитесь <code>circuit_breaker.timeout_ms</code>.</li>
+<li>Посмотрите панель <strong>Outbounds</strong> на странице <strong>Обзор системы</strong>. Если канал «Недоступен», keen-pbr его исключил. Дождитесь <code>circuit_breaker.timeout_ms</code>.</li>
 </ol>
 <h2>Не срабатывают правила с фильтром портов или адресов<span class="hx:absolute hx:-mt-20" id="не-срабатывают-правила-с-фильтром-портов-или-адресов"></span>
     <a href="#%d0%bd%d0%b5-%d1%81%d1%80%d0%b0%d0%b1%d0%b0%d1%82%d1%8b%d0%b2%d0%b0%d1%8e%d1%82-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d1%81-%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80%d0%be%d0%bc-%d0%bf%d0%be%d1%80%d1%82%d0%be%d0%b2-%d0%b8%d0%bb%d0%b8-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%be%d0%b2" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0"><p>Если вы используете отрицание в полях <code>src_addr</code> / <code>dest_addr</code>, отрицание применяется сразу ко всем указанным в этом поле IP/подсетям. Смешивание записей с отрицанием и без отрицания в одном списке невозможно. Как альтернатива, вы можете создать два отдельных правила.</p>
-<p>Это же применимо к <code>src_port</code> / <code>dest_port</code>.</p>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0"><p>Если вы используете отрицание в полях <code>src_addr</code> / <code>dest_addr</code>, отрицание применяется сразу ко всем указанным в этом поле IP/подсетям. Нельзя смешивать записи с отрицанием и без него в одном списке. Вместо этого создайте два отдельных правила.</p>
+<p>То же верно для <code>src_port</code> / <code>dest_port</code>.</p>
 </div>
   </div>
 </div>
 
 <p>Если правила срабатывают не так, как ожидалось:</p>
 <ul>
-<li>Убедитесь, что <code>proto</code> установлен корректно: <code>null</code> для любых протоколов, <code>&quot;tcp&quot;</code>, <code>&quot;udp&quot;</code> или <code>&quot;tcp/udp&quot;</code>.</li>
+<li>Убедитесь, что протокол задан правильно: любой (<code>null</code> в JSON), <code>&quot;tcp&quot;</code>, <code>&quot;udp&quot;</code> или <code>&quot;tcp/udp&quot;</code>.</li>
 <li>Проверьте, что имя списка в правиле точно совпадает с ключом в <code>lists</code>, включая регистр.</li>
-<li>Запустите <code>keen-pbr test-routing &lt;domain-or-ip&gt;</code> и сравните ожидаемый и фактический outbound.</li>
-<li>Проверьте <code>keen-pbr status</code>, чтобы увидеть, созданы ли правила firewall для этого правила маршрутизации.</li>
+<li>Нажмите <strong>Куда пойдёт трафик?</strong> на странице <strong>Обзор системы</strong>, укажите <strong>Протокол</strong>, <strong>Порт назначения</strong> и IP устройства, как в правиле, и посмотрите результат. То же делает <code>keen-pbr test-routing &lt;домен-или-ip&gt;</code> с параметрами <code>--proto</code>, <code>--src-addr</code>, <code>--src-port</code>, <code>--dest-port</code>, <code>--dscp</code>.</li>
+<li>Выполните <code>keen-pbr status</code> и проверьте, созданы ли правила межсетевого экрана для этого правила маршрутизации.</li>
 </ul>
 <h2>Конфликты низкоуровневой маршрутизации<span class="hx:absolute hx:-mt-20" id="конфликты-низкоуровневой-маршрутизации"></span>
-    <a href="#%d0%ba%d0%be%d0%bd%d1%84%d0%bb%d0%b8%d0%ba%d1%82%d1%8b-%d0%bd%d0%b8%d0%b7%d0%ba%d0%be%d1%83%d1%80%d0%be%d0%b2%d0%bd%d0%b5%d0%b2%d0%be%d0%b9-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Если вы изменили настройки <code>fwmark</code> или <code>iproute</code>, или другой инструмент управляет маршрутизацией по 
+    <a href="#%d0%ba%d0%be%d0%bd%d1%84%d0%bb%d0%b8%d0%ba%d1%82%d1%8b-%d0%bd%d0%b8%d0%b7%d0%ba%d0%be%d1%83%d1%80%d0%be%d0%b2%d0%bd%d0%b5%d0%b2%d0%be%d0%b9-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Если другая программа на роутере тоже ставит метки пакетов (
   <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
- (<code>ip rule</code>) на той же системе, пакеты могут быть неправильно направлены или отброшены.</p>
+) или управляет <code>ip rule</code>, пакеты могут уйти не туда или быть отброшены. Об этом предупреждает сообщение «Стороннее правило использует биты метки пакета, зарезервированные keen-pbr» в панели <strong>Диагностика</strong>.</p>
 <p>Проверьте на конфликты:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -2338,15 +2199,15 @@ Tailscale работает как subnet router или exit node.</p>
   </button>
 </div>
 </div>
-<p>Для правил firewall с fwmark:</p>
+<p>Для правил межсетевого экрана с метками:</p>
 
 
 
 
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="iptables / ipset,nftables / nftset,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-22-0" role="tab" type="button" aria-controls="tabs-panel-tabs-22-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>iptables / ipset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-22-1" role="tab" type="button" aria-controls="tabs-panel-tabs-22-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>nftables / nftset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-22-2" role="tab" type="button" aria-controls="tabs-panel-tabs-22-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="iptables / ipset,nftables / nftset,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-19-0" role="tab" type="button" aria-controls="tabs-panel-tabs-19-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>iptables / ipset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-19-1" role="tab" type="button" aria-controls="tabs-panel-tabs-19-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>nftables / nftset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-19-2" role="tab" type="button" aria-controls="tabs-panel-tabs-19-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
 </div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-22-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-22-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-19-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-19-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">iptables-save <span class="p">|</span> grep -E <span class="s1">&#39;MARK|CONNMARK|KeenPbrTable&#39;</span>
 </span></span><span class="line"><span class="cl">ip6tables-save <span class="p">|</span> grep -E <span class="s1">&#39;MARK|CONNMARK|KeenPbrTable&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2361,7 +2222,7 @@ Tailscale работает как subnet router или exit node.</p>
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-22-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-22-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-19-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-19-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nft -t list ruleset <span class="p">|</span> grep -E <span class="s1">&#39;mark|KeenPbrTable&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -2375,7 +2236,7 @@ Tailscale работает как subnet router или exit node.</p>
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-22-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-22-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-19-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-19-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">iptables-save <span class="p">|</span> grep -E <span class="s1">&#39;MARK|CONNMARK|KeenPbrTable&#39;</span>
 </span></span><span class="line"><span class="cl">ip6tables-save <span class="p">|</span> grep -E <span class="s1">&#39;MARK|CONNMARK|KeenPbrTable&#39;</span>
@@ -2393,7 +2254,7 @@ Tailscale работает как subnet router или exit node.</p>
 </div>
 </div></div>
 
-<p>Настройте <code>fwmark</code> на неконфликтующий диапазон:</p>
+<p>Выберите свободный диапазон меток. В веб-интерфейсе откройте <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Расширенные настройки маршрутизации</strong> (карточка видна, если <strong>Режим настроек</strong> = <strong>Продвинутый</strong>) и измените <strong>Начальное значение fwmark</strong> и <strong>Маску fwmark</strong>. В JSON это выглядит так:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -2413,7 +2274,82 @@ Tailscale работает как subnet router или exit node.</p>
   </button>
 </div>
 </div>
-<p><code>mask</code> должна состоять из идущих подряд шестнадцатеричных цифр <code>F</code>. Используйте hex-строки, например <code>&quot;0x00FF0000&quot;</code> и <code>&quot;0x00020000&quot;</code>.</p>
+<p>Маска должна состоять из идущих подряд шестнадцатеричных цифр <code>F</code>. Значения задаются hex-строками, например <code>&quot;0x00FF0000&quot;</code> и <code>&quot;0x00020000&quot;</code>.</p>
+<h2>Измерение потерь при DNS-перехвате<span class="hx:absolute hx:-mt-20" id="измерение-потерь-при-dns-перехвате"></span>
+    <a href="#%d0%b8%d0%b7%d0%bc%d0%b5%d1%80%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bf%d0%be%d1%82%d0%b5%d1%80%d1%8c-%d0%bf%d1%80%d0%b8-dns-%d0%bf%d0%b5%d1%80%d0%b5%d1%85%d0%b2%d0%b0%d1%82%d0%b5" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
+  <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
+    <strong class="hx:text-lg">Для опытных пользователей</strong>
+  </summary>
+  <div class="hx:p-2 hx:overflow-hidden">
+    <p>Если первое соединение с только что открытым сайтом иногда уходит мимо VPN, можно измерить, как часто keen-pbr не успевает запомнить адрес до того, как DNS-ответ дойдёт до устройства. Для этого есть скрипт <code>dns-bench.py</code>. В пакеты keen-pbr он не входит: скачайте его из <a href="https://github.com/maksimkurb/keen-pbr/blob/main/scripts/dns-bench.py"target="_blank" rel="noopener">репозитория</a>. Нужен Python 3. Запустите скрипт с компьютера в локальной сети:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">python3 dns-bench.py --api http://192.168.1.1:12121 --password <span class="s1">&#39;пароль-администратора&#39;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">  --rates 50,200,1000 --count <span class="m">1000</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Скрипт запрашивает случайные имена вида <code>a1b2c3d4-198-18-7-9.nip.io</code>. Они указывают на тестовые адреса <code>198.18.0.0/15</code>, поэтому обычный трафик не затрагивается. Чтобы keen-pbr их обрабатывал, добавьте в конфигурацию список и правило (если их нет, скрипт подскажет, что добавить):</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="s2">&#34;lists&#34;</span><span class="err">:</span> <span class="p">{</span> <span class="nt">&#34;dns_bench&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;domains&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;nip.io&#34;</span><span class="p">]</span> <span class="p">}</span> <span class="p">}</span><span class="err">,</span>
+</span></span><span class="line"><span class="cl"><span class="s2">&#34;route&#34;</span><span class="err">:</span> <span class="p">{</span> <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span> <span class="p">{</span> <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;dns_bench&#34;</span><span class="p">],</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;&lt;любой тег outbound&gt;&#34;</span> <span class="p">}</span> <span class="p">]</span> <span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Публичный сервис <code>nip.io</code> может ограничивать число запросов, тогда в отчёте появятся <code>client-timeout</code>.</p>
+<p>Основные результаты в отчёте:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Результат</th>
+					<th>Что значит</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>held-ok</code></td>
+					<td>Всё в порядке: адрес записан до того, как ответ ушёл устройству</td>
+			</tr>
+			<tr>
+					<td><code>hold-timeout</code></td>
+					<td>keen-pbr не успел за <code>intercept.dns.hold_timeout_ms</code>: ответ ушёл раньше, адрес дописан чуть позже. Первые пакеты могли пройти мимо VPN</td>
+			</tr>
+			<tr>
+					<td><code>set-error</code></td>
+					<td>Адрес не удалось записать в набор, смотрите журнал keen-pbr</td>
+			</tr>
+			<tr>
+					<td><code>bypass</code></td>
+					<td>Ответ прошёл мимо keen-pbr: имя не входит в списки или очередь переполнена</td>
+			</tr>
+			<tr>
+					<td><code>not-in-set</code>, <code>wrong-set</code></td>
+					<td>После прогона адреса нет в наборе или он в наборе другого outbound</td>
+			</tr>
+			<tr>
+					<td><code>client-timeout</code></td>
+					<td>Устройство не получило ответа</td>
+			</tr>
+	</tbody>
+</table>
+<p>Если <code>hold-timeout</code> много, роутеру не хватает процессора на запись адресов. Увеличьте <strong>Тайм-аут удержания DNS (миллисекунды)</strong> в <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Маршрутизация на основе доменов</strong>. Все опции скрипта выводит <code>python3 dns-bench.py --help</code>.</p>
+  </div>
+</details>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

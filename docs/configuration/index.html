@@ -11,8 +11,8 @@
 <title>Configuration – keen-pbr</title>
   <meta name="description" content="keen-pbr reads its settings from one JSON config file.
 Common config file locations:
-Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json If you installed the full package, you can usually do your first setup in the Web UI and come back to this section later. Most users only need these four parts of the config:
-Outbounds — where matching traffic should go Lists — the sites or IP ranges you want to match Route Rules — which lists go through which outbound DNS — DNS server definitions and DNS interception Practical Example This example routes google.com through vpn and leaves everything else on wan:" /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/" itemprop="url" />
+Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json If you installed the full package, configure keen-pbr in the Web UI: it writes the config for you, so you do not need to edit the file. If you installed keen-pbr-headless (no Web UI), edit the config file. Configuration has four parts:
+Outbounds — the channels traffic can take: a VPN, your ISP connection, or a block Lists — the sites and IP ranges you want to route Route Rules — which list goes through which outbound DNS — DNS servers and DNS interception In the Web UI they correspond to the Routing &gt; Outbounds, Routing &gt; Lists, Routing &gt; Routing rules and General &gt; Settings menu items." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/" itemprop="url" />
 
 <meta property="og:title" content="Configuration">
 <meta
@@ -33,15 +33,15 @@ Outbounds — where matching traffic should go Lists — the sites or IP ranges 
 	<meta itemprop="name" content="Configuration">
 	<meta itemprop="description" content="keen-pbr reads its settings from one JSON config file.
 Common config file locations:
-Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json If you installed the full package, you can usually do your first setup in the Web UI and come back to this section later. Most users only need these four parts of the config:
-Outbounds — where matching traffic should go Lists — the sites or IP ranges you want to match Route Rules — which lists go through which outbound DNS — DNS server definitions and DNS interception Practical Example This example routes google.com through vpn and leaves everything else on wan:">
-	<meta itemprop="wordCount" content="245">
+Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json If you installed the full package, configure keen-pbr in the Web UI: it writes the config for you, so you do not need to edit the file. If you installed keen-pbr-headless (no Web UI), edit the config file. Configuration has four parts:
+Outbounds — the channels traffic can take: a VPN, your ISP connection, or a block Lists — the sites and IP ranges you want to route Route Rules — which list goes through which outbound DNS — DNS servers and DNS interception In the Web UI they correspond to the Routing &gt; Outbounds, Routing &gt; Lists, Routing &gt; Routing rules and General &gt; Settings menu items.">
+	<meta itemprop="wordCount" content="239">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Configuration">
 	<meta name="twitter:description" content="keen-pbr reads its settings from one JSON config file.
 Common config file locations:
-Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json If you installed the full package, you can usually do your first setup in the Web UI and come back to this section later. Most users only need these four parts of the config:
-Outbounds — where matching traffic should go Lists — the sites or IP ranges you want to match Route Rules — which lists go through which outbound DNS — DNS server definitions and DNS interception Practical Example This example routes google.com through vpn and leaves everything else on wan:">
+Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json If you installed the full package, configure keen-pbr in the Web UI: it writes the config for you, so you do not need to edit the file. If you installed keen-pbr-headless (no Web UI), edit the config file. Configuration has four parts:
+Outbounds — the channels traffic can take: a VPN, your ISP connection, or a block Lists — the sites and IP ranges you want to route Route Rules — which list goes through which outbound DNS — DNS servers and DNS interception In the Web UI they correspond to the Routing &gt; Outbounds, Routing &gt; Lists, Routing &gt; Routing rules and General &gt; Settings menu items.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -287,12 +287,6 @@ Outbounds — where matching traffic should go Lists — the sites or IP ranges 
                 href="#practical-example"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >Practical Example</a>
-            </li>
-          <li>
-              <a
-                href="#basic-configuration"
-                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Basic Configuration</a>
             </li>
           <li>
               <a
@@ -909,10 +903,6 @@ Outbounds — where matching traffic should go Lists — the sites or IP ranges 
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#basic-configuration">Basic Configuration
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#advanced-configuration">Advanced Configuration
         </a>
       </li></ul>
@@ -1003,15 +993,16 @@ Outbounds — where matching traffic should go Lists — the sites or IP ranges 
 <li>OpenWrt: <code>/etc/keen-pbr/config.json</code></li>
 <li>Debian: <code>/etc/keen-pbr/config.json</code></li>
 </ul>
-<p>If you installed the full package, you can usually do your first setup in the Web UI and come back to this section later. Most users only need these four parts of the config:</p>
+<p>If you installed the full package, configure keen-pbr in the Web UI: it writes the config for you, so you do not need to edit the file. If you installed <code>keen-pbr-headless</code> (no Web UI), edit the config file. Configuration has four parts:</p>
 <ul>
-<li><a href="/docs/configuration/outbounds/">Outbounds</a> — where matching traffic should go</li>
-<li><a href="/docs/configuration/lists/">Lists</a> — the sites or IP ranges you want to match</li>
-<li><a href="/docs/configuration/route-rules/">Route Rules</a> — which lists go through which outbound</li>
-<li><a href="/docs/configuration/dns/">DNS</a> — DNS server definitions and DNS interception</li>
+<li><a href="/docs/configuration/outbounds/">Outbounds</a> — the channels traffic can take: a VPN, your ISP connection, or a block</li>
+<li><a href="/docs/configuration/lists/">Lists</a> — the sites and IP ranges you want to route</li>
+<li><a href="/docs/configuration/route-rules/">Route Rules</a> — which list goes through which outbound</li>
+<li><a href="/docs/configuration/dns/">DNS</a> — DNS servers and DNS interception</li>
 </ul>
+<p>In the Web UI they correspond to the <strong>Routing</strong> &gt; <strong>Outbounds</strong>, <strong>Routing</strong> &gt; <strong>Lists</strong>, <strong>Routing</strong> &gt; <strong>Routing rules</strong> and <strong>General</strong> &gt; <strong>Settings</strong> menu items.</p>
 <h2>Practical Example<span class="hx:absolute hx:-mt-20" id="practical-example"></span>
-    <a href="#practical-example" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>This example routes <code>google.com</code> through <code>vpn</code> and leaves everything else on <code>wan</code>:</p>
+    <a href="#practical-example" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>This example sends <code>google.com</code> through the VPN (<code>tun0</code>); all other traffic goes the usual way, through the router&rsquo;s main connection:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1019,15 +1010,7 @@ Outbounds — where matching traffic should go Lists — the sites or IP ranges 
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;interface&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;interface&#34;</span><span class="p">:</span> <span class="s2">&#34;tun0&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;gateway&#34;</span><span class="p">:</span> <span class="s2">&#34;10.8.0.1&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;gateway6&#34;</span><span class="p">:</span> <span class="s2">&#34;2001:db8::1&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="p">},</span>
-</span></span><span class="line"><span class="cl">    <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;interface&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;wan&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;interface&#34;</span><span class="p">:</span> <span class="s2">&#34;eth0&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;gateway&#34;</span><span class="p">:</span> <span class="s2">&#34;192.168.1.1&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;interface&#34;</span><span class="p">:</span> <span class="s2">&#34;tun0&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">],</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;lists&#34;</span><span class="p">:</span> <span class="p">{</span>
@@ -1055,13 +1038,6 @@ Outbounds — where matching traffic should go Lists — the sites or IP ranges 
   </button>
 </div>
 </div>
-<h2>Basic Configuration<span class="hx:absolute hx:-mt-20" id="basic-configuration"></span>
-    <a href="#basic-configuration" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><ul>
-<li><a href="/docs/configuration/outbounds/">Outbounds</a> — choose the VPN and normal internet connections</li>
-<li><a href="/docs/configuration/lists/">Lists</a> — define the sites, domains, or IP ranges to match</li>
-<li><a href="/docs/configuration/route-rules/">Route Rules</a> — connect each list to an outbound</li>
-<li><a href="/docs/configuration/dns/">DNS</a> — DNS server definitions and DNS interception</li>
-</ul>
 <h2>Advanced Configuration<span class="hx:absolute hx:-mt-20" id="advanced-configuration"></span>
     <a href="#advanced-configuration" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>These settings are optional for most users:</p>
 <ul>

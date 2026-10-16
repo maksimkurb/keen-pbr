@@ -9,9 +9,9 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>FAQ – keen-pbr</title>
-  <meta name="description" content="Какой бэкенд firewall будет использоваться? При daemon.firewall_backend: &#34;auto&#34; (по умолчанию) keen-pbr использует nftables, если установлена команда nft, а иначе iptables/ipset.
-Как перезагрузить списки без перезапуска сервиса? Используйте SIGHUP:
-bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полную перезагрузку: заново скачиваются все удалённые списки и повторно применяются правила firewall и маршрутизации." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/faq/" itemprop="url" />
+  <meta name="description" content="Какой бэкенд firewall будет использоваться? Выбор зависит от параметра daemon.firewall_backend. По умолчанию стоит &#34;auto&#34;: keen-pbr использует nftables, если в системе есть команда nft, а иначе iptables/ipset. На Keenetic всегда используется iptables/ipset.
+Как перезагрузить списки без перезапуска сервиса? Выполните команду для вашей платформы:
+Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr reload bashservice keen-pbr reload bashsystemctl reload keen-pbr Это полная перезагрузка: заново скачиваются все удалённые списки и повторно применяются правила межсетевого экрана и маршрутизации." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/faq/" itemprop="url" />
 
 <meta property="og:title" content="FAQ">
 <meta
@@ -19,19 +19,46 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
   content="
     
       Какой бэкенд firewall будет использоваться?
-    При daemon.firewall_backend: &quot;auto&quot; (по умолчанию) keen-pbr использует nftables, если установлена команда nft, а иначе iptables/ipset.
+    Выбор зависит от параметра daemon.firewall_backend. По умолчанию стоит &quot;auto&quot;: keen-pbr использует nftables, если в системе есть команда nft, а иначе iptables/ipset. На Keenetic всегда используется iptables/ipset.
 Как перезагрузить списки без перезапуска сервиса?
-    Используйте SIGHUP:
+    Выполните команду для вашей платформы:
 
 
-bashkill -HUP $(cat /var/run/keen-pbr.pid)
+
+
+
+  Keenetic / NetCrazeOpenWrtDebian
+
+
+
+bash/opt/etc/init.d/S80keen-pbr reload
   
     
 
   
 
 
-Это запускает полную перезагрузку: заново скачиваются все удалённые списки и повторно применяются правила firewall и маршрутизации.
+
+
+bashservice keen-pbr reload
+  
+    
+
+  
+
+
+
+
+bashsystemctl reload keen-pbr
+  
+    
+
+  
+
+
+
+
+Это полная перезагрузка: заново скачиваются все удалённые списки и повторно применяются правила межсетевого экрана и маршрутизации.
     
   ">
 <meta
@@ -45,15 +72,15 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid)
 
 
 	<meta itemprop="name" content="FAQ">
-	<meta itemprop="description" content="Какой бэкенд firewall будет использоваться? При daemon.firewall_backend: &#34;auto&#34; (по умолчанию) keen-pbr использует nftables, если установлена команда nft, а иначе iptables/ipset.
-Как перезагрузить списки без перезапуска сервиса? Используйте SIGHUP:
-bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полную перезагрузку: заново скачиваются все удалённые списки и повторно применяются правила firewall и маршрутизации.">
-	<meta itemprop="wordCount" content="404">
+	<meta itemprop="description" content="Какой бэкенд firewall будет использоваться? Выбор зависит от параметра daemon.firewall_backend. По умолчанию стоит &#34;auto&#34;: keen-pbr использует nftables, если в системе есть команда nft, а иначе iptables/ipset. На Keenetic всегда используется iptables/ipset.
+Как перезагрузить списки без перезапуска сервиса? Выполните команду для вашей платформы:
+Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr reload bashservice keen-pbr reload bashsystemctl reload keen-pbr Это полная перезагрузка: заново скачиваются все удалённые списки и повторно применяются правила межсетевого экрана и маршрутизации.">
+	<meta itemprop="wordCount" content="519">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="FAQ">
-	<meta name="twitter:description" content="Какой бэкенд firewall будет использоваться? При daemon.firewall_backend: &#34;auto&#34; (по умолчанию) keen-pbr использует nftables, если установлена команда nft, а иначе iptables/ipset.
-Как перезагрузить списки без перезапуска сервиса? Используйте SIGHUP:
-bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полную перезагрузку: заново скачиваются все удалённые списки и повторно применяются правила firewall и маршрутизации.">
+	<meta name="twitter:description" content="Какой бэкенд firewall будет использоваться? Выбор зависит от параметра daemon.firewall_backend. По умолчанию стоит &#34;auto&#34;: keen-pbr использует nftables, если в системе есть команда nft, а иначе iptables/ipset. На Keenetic всегда используется iptables/ipset.
+Как перезагрузить списки без перезапуска сервиса? Выполните команду для вашей платформы:
+Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr reload bashservice keen-pbr reload bashsystemctl reload keen-pbr Это полная перезагрузка: заново скачиваются все удалённые списки и повторно применяются правила межсетевого экрана и маршрутизации.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -457,6 +484,12 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
                 href="#%d0%ba%d0%b0%d0%ba-%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%b8%d1%82%d1%8c-%d1%87%d1%82%d0%be-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d1%8f-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d1%8c%d0%bd%d0%be-%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d0%bd%d0%b5%d0%bd%d0%b0"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >Как проверить, что маршрутизация правильно применена?</a>
+            </li>
+          <li>
+              <a
+                href="#router-own-traffic"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >Почему проверка с самого роутера не идёт через VPN?</a>
             </li>
           <li>
               <a
@@ -975,6 +1008,10 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#router-own-traffic">Почему проверка с самого роутера не идёт через VPN?
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bc%d0%be%d0%b6%d0%bd%d0%be-%d0%bb%d0%b8-%d0%be%d0%b1%d1%8a%d0%b5%d0%b4%d0%b8%d0%bd%d0%b8%d1%82%d1%8c-%d0%bd%d0%b5%d1%81%d0%ba%d0%be%d0%bb%d1%8c%d0%ba%d0%be-%d0%b8%d1%81%d1%82%d0%be%d1%87%d0%bd%d0%b8%d0%ba%d0%be%d0%b2-%d0%b2-%d0%be%d0%b4%d0%bd%d0%be%d0%bc-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b5">Можно ли объединить несколько источников в одном списке?
         </a>
       </li></ul>
@@ -1059,12 +1096,19 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
           </div>
           
           <h2>Какой бэкенд firewall будет использоваться?<span class="hx:absolute hx:-mt-20" id="какой-бэкенд-firewall-будет-использоваться"></span>
-    <a href="#%d0%ba%d0%b0%d0%ba%d0%be%d0%b9-%d0%b1%d1%8d%d0%ba%d0%b5%d0%bd%d0%b4-firewall-%d0%b1%d1%83%d0%b4%d0%b5%d1%82-%d0%b8%d1%81%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d0%be%d0%b2%d0%b0%d1%82%d1%8c%d1%81%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>При <code>daemon.firewall_backend: &quot;auto&quot;</code> (по умолчанию) keen-pbr использует nftables, если установлена команда <code>nft</code>, а иначе iptables/ipset.</p>
+    <a href="#%d0%ba%d0%b0%d0%ba%d0%be%d0%b9-%d0%b1%d1%8d%d0%ba%d0%b5%d0%bd%d0%b4-firewall-%d0%b1%d1%83%d0%b4%d0%b5%d1%82-%d0%b8%d1%81%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d0%be%d0%b2%d0%b0%d1%82%d1%8c%d1%81%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Выбор зависит от параметра <code>daemon.firewall_backend</code>. По умолчанию стоит <code>&quot;auto&quot;</code>: keen-pbr использует nftables, если в системе есть команда <code>nft</code>, а иначе iptables/ipset. На Keenetic всегда используется iptables/ipset.</p>
 <h2>Как перезагрузить списки без перезапуска сервиса?<span class="hx:absolute hx:-mt-20" id="как-перезагрузить-списки-без-перезапуска-сервиса"></span>
-    <a href="#%d0%ba%d0%b0%d0%ba-%d0%bf%d0%b5%d1%80%d0%b5%d0%b7%d0%b0%d0%b3%d1%80%d1%83%d0%b7%d0%b8%d1%82%d1%8c-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b8-%d0%b1%d0%b5%d0%b7-%d0%bf%d0%b5%d1%80%d0%b5%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b0-%d1%81%d0%b5%d1%80%d0%b2%d0%b8%d1%81%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Используйте <code>SIGHUP</code>:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+    <a href="#%d0%ba%d0%b0%d0%ba-%d0%bf%d0%b5%d1%80%d0%b5%d0%b7%d0%b0%d0%b3%d1%80%d1%83%d0%b7%d0%b8%d1%82%d1%8c-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b8-%d0%b1%d0%b5%d0%b7-%d0%bf%d0%b5%d1%80%d0%b5%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b0-%d1%81%d0%b5%d1%80%d0%b2%d0%b8%d1%81%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Выполните команду для вашей платформы:</p>
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">kill</span> -HUP <span class="k">$(</span>cat /var/run/keen-pbr.pid<span class="k">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+
+
+
+<div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-00-0" role="tab" type="button" aria-controls="tabs-panel-tabs-00-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-00-1" role="tab" type="button" aria-controls="tabs-panel-tabs-00-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-00-2" role="tab" type="button" aria-controls="tabs-panel-tabs-00-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
+</div>
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-00-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-00-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">/opt/etc/init.d/S80keen-pbr reload</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1076,13 +1120,44 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
   </button>
 </div>
 </div>
-<p>Это запускает полную перезагрузку: заново скачиваются все удалённые списки и повторно применяются правила firewall и маршрутизации.</p>
-<details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" open>
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-00-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-00-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">service keen-pbr reload</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-00-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-00-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">systemctl reload keen-pbr</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+</div></div>
+
+<p>Это полная перезагрузка: заново скачиваются все удалённые списки и повторно применяются правила межсетевого экрана и маршрутизации.</p>
+<p>В сборке <code>keen-pbr-headless</code> эта команда не работает. Чтобы заново скачать списки и применить их, выполните <code>keen-pbr download --reload</code>.</p>
+<details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
   <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
-    <strong class="hx:text-lg">Чем отличается SIGUSR1</strong>
+    <strong class="hx:text-lg">Чем отличается «reapply-firewall»</strong>
   </summary>
   <div class="hx:p-2 hx:overflow-hidden">
-    <code>SIGUSR1</code> работает иначе: он заново проверяет таблицы маршрутизации и запускает URL-тесты немедленно, но списки заново не скачивает.
+    На Keenetic есть ещё команда <code>/opt/etc/init.d/S80keen-pbr reapply-firewall</code>. Она заново проверяет таблицы маршрутизации и сразу запускает проверки каналов <code>urltest</code>, но списки не скачивает.
   </div>
 </details>
 <h2>Что произойдёт, если URL удалённого списка недоступен при запуске?<span class="hx:absolute hx:-mt-20" id="что-произойдёт-если-url-удалённого-списка-недоступен-при-запуске"></span>
@@ -1126,11 +1201,11 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
 : <code>10.0.0.0/8</code></li>
 <li>Домен: <code>example.com</code> (автоматически включает все поддомены)
 <ul>
-<li>записи вида <code>*.example.com</code> также поддерживаются и обрабатываются так же, как <code>example.com</code></li>
+<li>записи вида <code>*.example.com</code> работают так же, как <code>example.com</code></li>
 </ul>
 </li>
-<li>Строки, начинающиеся с <code>#</code>, являются комментариями и игнорируются</li>
-<li>Пустые строки игнорируются</li>
+<li>Строки, начинающиеся с <code>#</code>, — комментарии, их пропускают</li>
+<li>Пустые строки пропускаются</li>
 </ul>
 <h2>Как проверить, что маршрутизация правильно применена?<span class="hx:absolute hx:-mt-20" id="как-проверить-что-маршрутизация-правильно-применена"></span>
     <a href="#%d0%ba%d0%b0%d0%ba-%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%b8%d1%82%d1%8c-%d1%87%d1%82%d0%be-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d1%8f-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d1%8c%d0%bd%d0%be-%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d0%bd%d0%b5%d0%bd%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Выполните:</p>
@@ -1148,9 +1223,11 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
   </button>
 </div>
 </div>
-<p>keen-pbr сравнит правила firewall, таблицы маршрутизации и записи <code>ip rule</code> в ядре с тем, что он ожидает, и отметит каждый пункт как <code>OK</code>, <code>MISSING</code> или <code>MISMATCH</code>. Та же проверка есть на странице состояния в веб-интерфейсе и в <code>GET /api/health/routing</code>. Чтобы проверить конкретный сайт, используйте <code>keen-pbr test-routing &lt;домен-или-ip&gt;</code>.</p>
+<p>keen-pbr сравнит правила firewall, таблицы маршрутизации и записи <code>ip rule</code> в ядре с тем, что он ожидает, и отметит каждый пункт как <code>OK</code>, <code>MISSING</code>, <code>MISMATCH</code> или <code>ERROR</code>. Та же проверка есть в веб-интерфейсе: панель <strong>Диагностика</strong> на странице <strong>Общее</strong> &gt; <strong>Обзор системы</strong>. Чтобы проверить конкретный сайт, нажмите <strong>Куда пойдёт трафик?</strong> на той же странице или выполните <code>keen-pbr test-routing &lt;домен-или-ip&gt;</code>.</p>
+<h2>Почему проверка с самого роутера не идёт через VPN?<span class="hx:absolute hx:-mt-20" id="router-own-traffic"></span>
+    <a href="#router-own-traffic" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Параметр <strong>Обрабатывать собственный трафик роутера</strong> (виден в режиме настроек <strong>Продвинутый</strong>) (<strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Общие</strong>) по умолчанию выключен: правила действуют на трафик устройств из локальной сети, а не на команды вроде <code>curl</code> в SSH-консоли роутера. Проверяйте маршрутизацию с устройства в сети. Также убедитесь, что устройство подключено через интерфейс из списка <strong>Обрабатываемые (входящие) интерфейсы</strong>, если этот список не пуст.</p>
 <h2>Можно ли объединить несколько источников в одном списке?<span class="hx:absolute hx:-mt-20" id="можно-ли-объединить-несколько-источников-в-одном-списке"></span>
-    <a href="#%d0%bc%d0%be%d0%b6%d0%bd%d0%be-%d0%bb%d0%b8-%d0%be%d0%b1%d1%8a%d0%b5%d0%b4%d0%b8%d0%bd%d0%b8%d1%82%d1%8c-%d0%bd%d0%b5%d1%81%d0%ba%d0%be%d0%bb%d1%8c%d0%ba%d0%be-%d0%b8%d1%81%d1%82%d0%be%d1%87%d0%bd%d0%b8%d0%ba%d0%be%d0%b2-%d0%b2-%d0%be%d0%b4%d0%bd%d0%be%d0%bc-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b5" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Да. Можно объединять <code>url</code>, <code>domains</code>, <code>ip_cidrs</code> и <code>file</code> в одной записи списка — все данные сольются воедино:</p>
+    <a href="#%d0%bc%d0%be%d0%b6%d0%bd%d0%be-%d0%bb%d0%b8-%d0%be%d0%b1%d1%8a%d0%b5%d0%b4%d0%b8%d0%bd%d0%b8%d1%82%d1%8c-%d0%bd%d0%b5%d1%81%d0%ba%d0%be%d0%bb%d1%8c%d0%ba%d0%be-%d0%b8%d1%81%d1%82%d0%be%d1%87%d0%bd%d0%b8%d0%ba%d0%be%d0%b2-%d0%b2-%d0%be%d0%b4%d0%bd%d0%be%d0%bc-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b5" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Да. Можно объединять <code>url</code>, <code>domains</code>, <code>ip_cidrs</code> и <code>file</code> в одной записи списка — данные объединятся:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1178,7 +1255,7 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Веб-интерфейс умеет объединять только <code>ip_cidrs</code> и <code>domains</code>. Объединять их с <code>url</code> или <code>file</code> веб-интерфейс не умеет, и делать так не рекомендуется: в будущих версиях это может быть запрещено.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Веб-интерфейс умеет объединять только <code>ip_cidrs</code> и <code>domains</code>. Не добавляйте к ним <code>url</code> или <code>file</code>: веб-интерфейс такое сочетание не поддерживает, а в будущих версиях его могут запретить.</div>
   </div>
 </div>
 

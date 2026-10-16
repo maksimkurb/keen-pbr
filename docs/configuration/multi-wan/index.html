@@ -9,37 +9,29 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Multi-WAN Load Balancing – keen-pbr</title>
-  <meta name="description" content="This page describes how to spread new connections over two or more internet uplinks (multi-WAN) on a Debian or Ubuntu host with the iptables firewall backend.
-Load balancing is not available on Keenetic: the Keenetic build does not support it and rejects a configuration with &#34;strategy&#34;: &#34;balance&#34;. Use the router’s own multipath there. The nftables backend (OpenWrt 24&#43; with fw4, or any host with nft) supports balancing as well, see Outbounds; the step-by-step guide below targets iptables on Debian/Ubuntu, and the NAT , rp_filter and fwmark notes apply to every backend. How it works A urltest or icmptest outbound with &#34;strategy&#34;: &#34;balance&#34; picks one of its working links for every new connection, in proportion to the link’s weight (1-100, default 1). The choice is saved in conntrack (as the connection’s connmark ), so the whole connection uses one WAN. keen-pbr only sets a fwmark on packets in the mangle table and adds ip rule entries for these fwmarks. It never changes source addresses, so NAT is up to you." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/multi-wan/" itemprop="url" />
+  <meta name="description" content="This page is for a Debian or Ubuntu host connected to two internet providers, where new connections should be spread between them (multi-WAN). It describes the iptables firewall backend.
+Load balancing is not available on Keenetic: the Keenetic build does not support it and rejects a configuration with &#34;strategy&#34;: &#34;balance&#34;. Use the router’s own multipath there. The nftables backend (OpenWrt 24&#43; with fw4, or any host with nft) supports balancing as well, see Outbounds. The step-by-step guide below targets iptables on Debian/Ubuntu, and the NAT , rp_filter and fwmark (a numeric mark on a packet) notes apply to every backend. How it works A urltest or icmptest outbound with &#34;strategy&#34;: &#34;balance&#34; picks one of its working links for every new connection, in proportion to the link’s weight (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/multi-wan/" itemprop="url" />
 
 <meta property="og:title" content="Multi-WAN Load Balancing">
 <meta
   property="og:description"
   content="
     
-      This page describes how to spread new connections over two or more internet uplinks (multi-WAN) on a Debian or Ubuntu host with the iptables firewall backend.
+      This page is for a Debian or Ubuntu host connected to two internet providers, where new connections should be spread between them (multi-WAN). It describes the iptables firewall backend.
 
   
 
   
-    Load balancing is not available on Keenetic: the Keenetic build does not support it and rejects a configuration with &quot;strategy&quot;: &quot;balance&quot;. Use the router&rsquo;s own multipath there. The nftables backend (OpenWrt 24&#43; with fw4, or any host with nft) supports balancing as well, see Outbounds; the step-by-step guide below targets iptables on Debian/Ubuntu, and the
+    Load balancing is not available on Keenetic: the Keenetic build does not support it and rejects a configuration with &quot;strategy&quot;: &quot;balance&quot;. Use the router&rsquo;s own multipath there. The nftables backend (OpenWrt 24&#43; with fw4, or any host with nft) supports balancing as well, see Outbounds. The step-by-step guide below targets iptables on Debian/Ubuntu, and the
 NAT
 , rp_filter and
 fwmark
-notes apply to every backend.
+(a numeric mark on a packet) notes apply to every backend.
   
 
 
 How it works
-    A urltest or icmptest outbound with &quot;strategy&quot;: &quot;balance&quot; picks one of its working links for every new connection, in proportion to the link&rsquo;s weight (1-100, default 1). The choice is saved in 
-  conntrack
- (as the connection&rsquo;s 
-  connmark
-), so the whole connection uses one WAN. keen-pbr only sets a fwmark on packets in the 
-  mangle
- table and adds ip rule entries for these fwmarks. It never changes source addresses, so 
-  NAT
- is up to you.
+    A urltest or icmptest outbound with &quot;strategy&quot;: &quot;balance&quot; picks one of its working links for every new connection, in proportion to the link&rsquo;s weight (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again.
     
   ">
 <meta
@@ -53,13 +45,13 @@ How it works
 
 
 	<meta itemprop="name" content="Multi-WAN Load Balancing">
-	<meta itemprop="description" content="This page describes how to spread new connections over two or more internet uplinks (multi-WAN) on a Debian or Ubuntu host with the iptables firewall backend.
-Load balancing is not available on Keenetic: the Keenetic build does not support it and rejects a configuration with &#34;strategy&#34;: &#34;balance&#34;. Use the router’s own multipath there. The nftables backend (OpenWrt 24&#43; with fw4, or any host with nft) supports balancing as well, see Outbounds; the step-by-step guide below targets iptables on Debian/Ubuntu, and the NAT , rp_filter and fwmark notes apply to every backend. How it works A urltest or icmptest outbound with &#34;strategy&#34;: &#34;balance&#34; picks one of its working links for every new connection, in proportion to the link’s weight (1-100, default 1). The choice is saved in conntrack (as the connection’s connmark ), so the whole connection uses one WAN. keen-pbr only sets a fwmark on packets in the mangle table and adds ip rule entries for these fwmarks. It never changes source addresses, so NAT is up to you.">
-	<meta itemprop="wordCount" content="1264">
+	<meta itemprop="description" content="This page is for a Debian or Ubuntu host connected to two internet providers, where new connections should be spread between them (multi-WAN). It describes the iptables firewall backend.
+Load balancing is not available on Keenetic: the Keenetic build does not support it and rejects a configuration with &#34;strategy&#34;: &#34;balance&#34;. Use the router’s own multipath there. The nftables backend (OpenWrt 24&#43; with fw4, or any host with nft) supports balancing as well, see Outbounds. The step-by-step guide below targets iptables on Debian/Ubuntu, and the NAT , rp_filter and fwmark (a numeric mark on a packet) notes apply to every backend. How it works A urltest or icmptest outbound with &#34;strategy&#34;: &#34;balance&#34; picks one of its working links for every new connection, in proportion to the link’s weight (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again.">
+	<meta itemprop="wordCount" content="1306">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Multi-WAN Load Balancing">
-	<meta name="twitter:description" content="This page describes how to spread new connections over two or more internet uplinks (multi-WAN) on a Debian or Ubuntu host with the iptables firewall backend.
-Load balancing is not available on Keenetic: the Keenetic build does not support it and rejects a configuration with &#34;strategy&#34;: &#34;balance&#34;. Use the router’s own multipath there. The nftables backend (OpenWrt 24&#43; with fw4, or any host with nft) supports balancing as well, see Outbounds; the step-by-step guide below targets iptables on Debian/Ubuntu, and the NAT , rp_filter and fwmark notes apply to every backend. How it works A urltest or icmptest outbound with &#34;strategy&#34;: &#34;balance&#34; picks one of its working links for every new connection, in proportion to the link’s weight (1-100, default 1). The choice is saved in conntrack (as the connection’s connmark ), so the whole connection uses one WAN. keen-pbr only sets a fwmark on packets in the mangle table and adds ip rule entries for these fwmarks. It never changes source addresses, so NAT is up to you.">
+	<meta name="twitter:description" content="This page is for a Debian or Ubuntu host connected to two internet providers, where new connections should be spread between them (multi-WAN). It describes the iptables firewall backend.
+Load balancing is not available on Keenetic: the Keenetic build does not support it and rejects a configuration with &#34;strategy&#34;: &#34;balance&#34;. Use the router’s own multipath there. The nftables backend (OpenWrt 24&#43; with fw4, or any host with nft) supports balancing as well, see Outbounds. The step-by-step guide below targets iptables on Debian/Ubuntu, and the NAT , rp_filter and fwmark (a numeric mark on a packet) notes apply to every backend. How it works A urltest or icmptest outbound with &#34;strategy&#34;: &#34;balance&#34; picks one of its working links for every new connection, in proportion to the link’s weight (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -410,9 +402,9 @@ Load balancing is not available on Keenetic: the Keenetic build does not support
             </li>
           <li>
               <a
-                href="#fwmarks-set-by-other-programs"
+                href="#marks-fwmark-set-by-other-programs"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >fwmarks set by other programs</a>
+              >Marks (fwmark) set by other programs</a>
             </li>
           <li>
               <a
@@ -967,11 +959,11 @@ Load balancing is not available on Keenetic: the Keenetic build does not support
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#2-reverse-path-filter">2. Reverse path filter
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#2-reverse-path-filter-rp_filter">2. Reverse path filter (rp_filter)
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#fwmarks-set-by-other-programs">fwmarks set by other programs
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#marks-fwmark-set-by-other-programs">Marks (fwmark) set by other programs
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1065,29 +1057,24 @@ Load balancing is not available on Keenetic: the Keenetic build does not support
     </div>
           </div>
           
-          <p>This page describes how to spread new connections over two or more internet uplinks (multi-WAN) on a Debian or Ubuntu host with the <code>iptables</code> firewall backend.</p>
+          <p>This page is for a Debian or Ubuntu host connected to two internet providers, where new connections should be spread between them (multi-WAN). It describes the <code>iptables</code> firewall backend.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Load balancing is <strong>not available on Keenetic</strong>: the Keenetic build does not support it and rejects a configuration with <code>&quot;strategy&quot;: &quot;balance&quot;</code>. Use the router&rsquo;s own multipath there. The <code>nftables</code> backend (OpenWrt 24+ with fw4, or any host with <code>nft</code>) supports balancing as well, see <a href="/docs/configuration/outbounds/#urltest">Outbounds</a>; the step-by-step guide below targets iptables on Debian/Ubuntu, and the
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Load balancing is <strong>not available on Keenetic</strong>: the Keenetic build does not support it and rejects a configuration with <code>&quot;strategy&quot;: &quot;balance&quot;</code>. Use the router&rsquo;s own multipath there. The <code>nftables</code> backend (OpenWrt 24+ with fw4, or any host with <code>nft</code>) supports balancing as well, see <a href="/docs/configuration/outbounds/#urltest">Outbounds</a>. The step-by-step guide below targets iptables on Debian/Ubuntu, and the
 <abbr title="Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&#39;s WAN address.">NAT</abbr>
 , <code>rp_filter</code> and
 <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
-notes apply to every backend.</div>
+(a numeric mark on a packet) notes apply to every backend.</div>
   </div>
 </div>
 
 <h2>How it works<span class="hx:absolute hx:-mt-20" id="how-it-works"></span>
-    <a href="#how-it-works" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>A <code>urltest</code> or <code>icmptest</code> outbound with <code>&quot;strategy&quot;: &quot;balance&quot;</code> picks one of its working links for every <strong>new</strong> connection, in proportion to the link&rsquo;s <code>weight</code> (1-100, default 1). The choice is saved in 
-  <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
- (as the connection&rsquo;s 
-  <abbr title="Connection mark: a mark stored on a conntrack entry. keen-pbr copies the fwmark into it so every packet of a connection follows the same route.">connmark</abbr>
-), so the whole connection uses one WAN. keen-pbr only sets a <strong>fwmark</strong> on packets in the 
-  <abbr title="The iptables table for changing packet metadata, such as setting a fwmark, before routing.">mangle</abbr>
- table and adds <code>ip rule</code> entries for these fwmarks. It never changes source addresses, so 
+    <a href="#how-it-works" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>A <code>urltest</code> or <code>icmptest</code> outbound with <code>&quot;strategy&quot;: &quot;balance&quot;</code> picks one of its working links for every <strong>new</strong> connection, in proportion to the link&rsquo;s <code>weight</code> (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again.</p>
+<p>You set up two things on the system yourself: 
   <abbr title="Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&#39;s WAN address.">NAT</abbr>
- is up to you.</p>
+ on every provider and <code>rp_filter</code> (see below).</p>
 <h2>Choose the iptables backend<span class="hx:absolute hx:-mt-20" id="choose-the-iptables-backend"></span>
     <a href="#choose-the-iptables-backend" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>With <code>&quot;firewall_backend&quot;: &quot;auto&quot;</code> (the default) keen-pbr uses nftables when the <code>nft</code> binary exists and falls back to iptables otherwise. Debian and Ubuntu install <code>nftables</code> by default, so to use iptables you must ask for it explicitly:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1107,17 +1094,17 @@ notes apply to every backend.</div>
 </div>
 </div>
 <p>Allowed values are <code>auto</code>, <code>iptables</code> and <code>nftables</code>. Choose iptables when the host already runs an iptables-based stack (Docker, ufw, fail2ban), so all firewall rules live in one place. Both <code>iptables-nft</code> (the Debian default) and <code>iptables-legacy</code> (<code>update-alternatives --config iptables</code>) work.</p>
-<p>Balancing on iptables uses the <code>statistic</code> match (kernel module <code>xt_statistic</code>, part of the stock Debian/Ubuntu kernel). keen-pbr checks it once at service start. If the module does not work, a config with <code>&quot;strategy&quot;: &quot;balance&quot;</code> is rejected with an error that names <code>xt_statistic</code>, and the firewall is left unchanged. iptables balancing is also not available with <code>--use-raw-prerouting</code>.</p>
+<p>Balancing on iptables uses the kernel module <code>xt_statistic</code>, which is part of the stock Debian/Ubuntu kernel. keen-pbr checks it once at service start. If the module does not work, a config with <code>&quot;strategy&quot;: &quot;balance&quot;</code> is rejected with an error that names <code>xt_statistic</code>, and the firewall is left unchanged. iptables balancing is also not available with <code>--use-raw-prerouting</code>.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">iptables picks a WAN randomly with the configured probability, so over a small number of connections the split is only statistical. The <code>default_gateway</code> route rule field works only with nftables, so on iptables use explicit rules such as <code>dest_addr</code> (see the example below).</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">iptables picks a link randomly with the configured probability, so over a small number of connections the split is only approximate. The <code>default_gateway</code> route rule field works only with nftables, so on iptables use explicit rules such as <code>dest_addr</code> (see the example below).</div>
   </div>
 </div>
 
 <h2>Example<span class="hx:absolute hx:-mt-20" id="example"></span>
-    <a href="#example" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Two uplinks, <code>eth1</code> (30% of new connections) and <code>eth2</code> (70%), LAN on <code>eth0</code>. Add <code>&quot;iproute&quot;: { &quot;process_router_traffic&quot;: true }</code> if connections that originate on the host itself should be balanced too (by default only forwarded LAN traffic is).</p>
+    <a href="#example" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Two uplinks, <code>eth1</code> (30% of new connections) and <code>eth2</code> (70%), LAN on <code>eth0</code>. If connections from the host itself should be balanced too, turn on <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>General</strong> &gt; <strong>Process router&rsquo;s own traffic</strong> (shown in <strong>Advanced</strong> settings mode) (<code>iproute.process_router_traffic</code>); by default only forwarded LAN traffic is balanced. The LAN interfaces go in <strong>Processed (inbound) interfaces</strong> (<code>route.inbound_interfaces</code>).</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">/etc/keen-pbr/config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1172,12 +1159,12 @@ notes apply to every backend.</div>
 </div>
 <p>Use <code>icmptest</code> instead of <code>urltest</code> if you prefer 
   <abbr title="Service protocol for network diagnostics. ping uses ICMP Echo.">ICMP</abbr>
- probes; every link then needs a <code>target</code> address (see <a href="/docs/configuration/outbounds/#icmptest">Outbounds</a>). Links that fail their checks are removed from the split and come back when they work again.</p>
+ probes; every link then needs a <code>target</code> address (see <a href="/docs/configuration/outbounds/#icmptest">Outbounds</a>).</p>
 <h2>Required system setup<span class="hx:absolute hx:-mt-20" id="required-system-setup"></span>
     <a href="#required-system-setup" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>1. NAT on every WAN<span class="hx:absolute hx:-mt-20" id="1-nat-on-every-wan"></span>
     <a href="#1-nat-on-every-wan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>
   <abbr title="Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&#39;s WAN address.">NAT</abbr>
- is <strong>mandatory on every WAN interface</strong>. Without it, connections sent to the second WAN leave with the LAN source address, never get a reply and hang, while the health probes still succeed (they use the interface address). The same applies to the host&rsquo;s own traffic: its source address is chosen before keen-pbr sends the packet to another WAN.</p>
+ is <strong>mandatory on every WAN interface</strong>. Without it, a packet leaves toward the second provider with an address from your local network, the reply never comes back, and the connection hangs. Health checks still pass, because they use the interface&rsquo;s own address. This applies to the host&rsquo;s own traffic too.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">sudo iptables -t nat -A POSTROUTING -o eth1 -j MASQUERADE
@@ -1196,11 +1183,9 @@ notes apply to every backend.</div>
   </button>
 </div>
 </div>
-<p>Make the rules persistent, for example with <code>iptables-persistent</code> (<code>sudo apt install iptables-persistent</code>, then <code>sudo netfilter-persistent save</code>), or add the equivalent <code>*nat</code> lines to <code>/etc/ufw/before.rules</code> when you use ufw. If NAT on your host is managed with nftables, add <code>masquerade</code> for both interfaces to a <code>postrouting</code> chain of type <code>nat</code> instead.</p>
-<h3>2. Reverse path filter<span class="hx:absolute hx:-mt-20" id="2-reverse-path-filter"></span>
-    <a href="#2-reverse-path-filter" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Replies to connections sent via the second WAN arrive on an interface the kernel would not itself use to reach that address, and a strict 
-  <abbr title="A kernel check (rp_filter) that drops a packet if the reply to it would not leave through the interface it arrived on.">reverse path filter</abbr>
- (<code>rp_filter=1</code>) drops them. systemd defaults to <code>2</code> (loose), which works. Check and fix:</p>
+<p>Make the rules persistent, for example with <code>iptables-persistent</code> (<code>sudo apt install iptables-persistent</code>, then <code>sudo netfilter-persistent save</code>), or add the equivalent <code>*nat</code> lines to <code>/etc/ufw/before.rules</code> if you use ufw. If NAT on the host is managed through nftables, add a <code>masquerade</code> rule for both interfaces to a <code>nat</code> type <code>postrouting</code> chain.</p>
+<h3>2. Reverse path filter (rp_filter)<span class="hx:absolute hx:-mt-20" id="2-reverse-path-filter-rp_filter"></span>
+    <a href="#2-reverse-path-filter-rp_filter" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>The kernel&rsquo;s strict filter (<code>rp_filter=1</code>) drops a reply that arrives on a different interface than the one the kernel would use to send a packet to that address. With two providers, replies from the second one look exactly like that. The systemd default is <code>2</code> (loose mode), which works. Check it and fix it if needed:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">sysctl net.ipv4.conf.all.rp_filter net.ipv4.conf.eth1.rp_filter net.ipv4.conf.eth2.rp_filter
@@ -1218,13 +1203,11 @@ notes apply to every backend.</div>
   </button>
 </div>
 </div>
-<p>The kernel uses the larger of the <code>all</code> and per-interface values. keen-pbr does not change <code>rp_filter</code>.</p>
-<h2>fwmarks set by other programs<span class="hx:absolute hx:-mt-20" id="fwmarks-set-by-other-programs"></span>
-    <a href="#fwmarks-set-by-other-programs" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>By default <code>daemon.skip_marked_packets</code> is <code>true</code>: any packet that already carries a non-zero 
-  <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
- (Docker, WireGuard <code>0xca6c</code>, Tailscale, 
+<p>The kernel uses the larger of the <code>all</code> value and the per-interface value.</p>
+<h2>Marks (fwmark) set by other programs<span class="hx:absolute hx:-mt-20" id="marks-fwmark-set-by-other-programs"></span>
+    <a href="#marks-fwmark-set-by-other-programs" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Packet marks are set not only by keen-pbr but also by Docker, WireGuard (<code>0xca6c</code>), Tailscale and 
   <abbr title="Traffic prioritization, for example giving calls priority over downloads.">QoS</abbr>
- scripts) is left alone by keen-pbr entirely, including balancing. Set it to <code>false</code> to let keen-pbr route such packets too, but then it can override marks that other software relies on:</p>
+ scripts. By default keen-pbr leaves a packet that already carries a foreign mark alone entirely, including balancing. In the web UI this is the <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>General</strong> &gt; <strong>Skip packets that are already marked</strong> switch (<code>daemon.skip_marked_packets</code>). Turn it off to let keen-pbr route such packets too, but then it can override marks that other software relies on:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span> <span class="nt">&#34;daemon&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;skip_marked_packets&#34;</span><span class="p">:</span> <span class="kc">false</span> <span class="p">}</span> <span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1239,11 +1222,7 @@ notes apply to every backend.</div>
   </button>
 </div>
 </div>
-<p>keen-pbr saves its WAN choice in the connection&rsquo;s 
-  <abbr title="Connection mark: a mark stored on a conntrack entry. keen-pbr copies the fwmark into it so every packet of a connection follows the same route.">connmark</abbr>
- in 
-  <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
-, within <code>fwmark.mask</code> (default <code>0x00FF0000</code>; <code>fwmark.start</code> defaults to <code>0x00010000</code>, and each routable outbound uses two fwmark values). Any service that writes the same bits overwrites the choice. Move keen-pbr to bits nobody else uses. The mask must consist of whole hex digits <code>F</code> in a row (for example <code>0xFF000000</code>):</p>
+<p>If another program writes marks into the same bits as keen-pbr, the link choice gets overwritten. Then move keen-pbr&rsquo;s marks to bits nobody uses. The default is <code>fwmark.mask</code> <code>0x00FF0000</code> and <code>fwmark.start</code> <code>0x00010000</code>; every routed outbound uses two values. The mask must be made of consecutive whole hex <code>F</code> digits (for example <code>0xFF000000</code>):</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1263,12 +1242,12 @@ notes apply to every backend.</div>
   </button>
 </div>
 </div>
-<p>Check what is already in use with <code>ip rule show</code> and <code>sudo iptables -t mangle -S | grep -i mark</code>. If the mask has too few fwmark values for your outbounds, keen-pbr rejects the configuration. The status page (web UI, <code>keen-pbr status</code>, <code>GET /api/health/routing</code>) warns about missing 
+<p>To see what is already in use, run <code>ip rule show</code> and <code>sudo iptables -t mangle -S | grep -i mark</code>. If the mask does not have enough values for all your outbounds, keen-pbr rejects the configuration. The status page (web UI, <code>keen-pbr status</code>, <code>GET /api/health/routing</code>) warns about missing 
   <abbr title="Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&#39;s WAN address.">NAT</abbr>
-, strict <code>rp_filter</code>, and other software&rsquo;s firewall rules or <code>ip rule</code> entries that use bits inside <code>fwmark.mask</code> (<code>fwmark_mask_conflict</code>). These are only warnings and do not block applying the configuration.</p>
-<p>Tailscale is a special case: moving the mask does not help, see <a href="/docs/troubleshooting/#tailscale">Routing Breaks When Tailscale Is Enabled</a>.</p>
+, strict <code>rp_filter</code>, and firewall or <code>ip rule</code> rules of other programs that use bits inside <code>fwmark.mask</code> (<code>fwmark_mask_conflict</code>). These are warnings only and do not block applying the configuration.</p>
+<p>Tailscale is a special case: moving the mask does not help, see <a href="/docs/troubleshooting/#tailscale">Routing breaks when Tailscale is enabled</a>.</p>
 <h2>Known limitation: inbound connections on the second WAN<span class="hx:absolute hx:-mt-20" id="known-limitation-inbound-connections-on-the-second-wan"></span>
-    <a href="#known-limitation-inbound-connections-on-the-second-wan" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Balancing only handles connections that LAN clients (and optionally the host) open. Incoming connections to the host on the second WAN (SSH, port forwards) are answered via the main default route, so the reply leaves through the wrong uplink. keen-pbr does not handle this yet. As a manual workaround, set a 
+    <a href="#known-limitation-inbound-connections-on-the-second-wan" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Balancing works only for connections opened by devices in your network (and by the host itself, if enabled). Incoming connections to the host on the second WAN (SSH, port forwards) get their reply via the main default route, so it leaves through the wrong uplink. keen-pbr does not handle this yet. As a manual workaround, set a 
   <abbr title="Connection mark: a mark stored on a conntrack entry. keen-pbr copies the fwmark into it so every packet of a connection follows the same route.">connmark</abbr>
  on incoming connections per interface with <code>CONNMARK</code>, restore it into the 
   <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
@@ -1294,7 +1273,7 @@ notes apply to every backend.</div>
 			</tr>
 			<tr>
 					<td>All traffic uses one WAN</td>
-					<td>fwmarks set by other programs (<code>skip_marked_packets</code>), a 
+					<td>Marks set by other programs (<strong>Skip packets that are already marked</strong>), a 
   <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
  mask collision (the health page shows a <code>fwmark_mask_conflict</code> warning naming the rule), or the other WAN is unhealthy. Inspect <code>sudo iptables -t mangle -S</code> and the outbound status in the web UI or API.</td>
 			</tr>

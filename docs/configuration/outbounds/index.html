@@ -9,25 +9,18 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Outbounds – keen-pbr</title>
-  <meta name="description" content="Outbounds tell keen-pbr where matching traffic should go.
-An outbound tag uses lowercase Latin letters, digits and _, starts with a letter, and is at most 24 characters long (^[a-z][a-z0-9_]*$).
-Most users only need:
-one interface outbound for the VPN connection one table outbound with table: 254 (the system’s main routing table) for the normal connection, often wan optionally one urltest outbound if they want automatic failover between several connections If you are not sure, start with interface outbounds and come back to the others later." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/outbounds/" itemprop="url" />
+  <meta name="description" content="An outbound is a channel that traffic can take: a VPN interface, your ISP connection, or a block. You choose which traffic goes to which outbound in route rules.
+In the Web UI: open Routing &gt; Outbounds, click Add outbound, enter a Name (called tag in the config) and pick a type. Then click Apply in the draft bar.
+The name (tag) uses lowercase Latin letters, digits and _, starts with a letter, and is at most 24 characters long (^[a-z][a-z0-9_]*$)." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/outbounds/" itemprop="url" />
 
 <meta property="og:title" content="Outbounds">
 <meta
   property="og:description"
   content="
     
-      Outbounds tell keen-pbr where matching traffic should go.
-An outbound tag uses lowercase Latin letters, digits and _, starts with a letter, and is at most 24 characters long (^[a-z][a-z0-9_]*$).
-Most users only need:
-
-one interface outbound for the VPN connection
-one table outbound with table: 254 (the system&rsquo;s main routing table) for the normal connection, often wan
-optionally one urltest outbound if they want automatic failover between several connections
-
-If you are not sure, start with interface outbounds and come back to the others later.
+      An outbound is a channel that traffic can take: a VPN interface, your ISP connection, or a block. You choose which traffic goes to which outbound in route rules.
+In the Web UI: open Routing &gt; Outbounds, click Add outbound, enter a Name (called tag in the config) and pick a type. Then click Apply in the draft bar.
+The name (tag) uses lowercase Latin letters, digits and _, starts with a letter, and is at most 24 characters long (^[a-z][a-z0-9_]*$).
     
   ">
 <meta
@@ -41,17 +34,15 @@ If you are not sure, start with interface outbounds and come back to the others 
 
 
 	<meta itemprop="name" content="Outbounds">
-	<meta itemprop="description" content="Outbounds tell keen-pbr where matching traffic should go.
-An outbound tag uses lowercase Latin letters, digits and _, starts with a letter, and is at most 24 characters long (^[a-z][a-z0-9_]*$).
-Most users only need:
-one interface outbound for the VPN connection one table outbound with table: 254 (the system’s main routing table) for the normal connection, often wan optionally one urltest outbound if they want automatic failover between several connections If you are not sure, start with interface outbounds and come back to the others later.">
-	<meta itemprop="wordCount" content="1499">
+	<meta itemprop="description" content="An outbound is a channel that traffic can take: a VPN interface, your ISP connection, or a block. You choose which traffic goes to which outbound in route rules.
+In the Web UI: open Routing &gt; Outbounds, click Add outbound, enter a Name (called tag in the config) and pick a type. Then click Apply in the draft bar.
+The name (tag) uses lowercase Latin letters, digits and _, starts with a letter, and is at most 24 characters long (^[a-z][a-z0-9_]*$).">
+	<meta itemprop="wordCount" content="1896">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Outbounds">
-	<meta name="twitter:description" content="Outbounds tell keen-pbr where matching traffic should go.
-An outbound tag uses lowercase Latin letters, digits and _, starts with a letter, and is at most 24 characters long (^[a-z][a-z0-9_]*$).
-Most users only need:
-one interface outbound for the VPN connection one table outbound with table: 254 (the system’s main routing table) for the normal connection, often wan optionally one urltest outbound if they want automatic failover between several connections If you are not sure, start with interface outbounds and come back to the others later.">
+	<meta name="twitter:description" content="An outbound is a channel that traffic can take: a VPN interface, your ISP connection, or a block. You choose which traffic goes to which outbound in route rules.
+In the Web UI: open Routing &gt; Outbounds, click Add outbound, enter a Name (called tag in the config) and pick a type. Then click Apply in the draft bar.
+The name (tag) uses lowercase Latin letters, digits and _, starts with a letter, and is at most 24 characters long (^[a-z][a-z0-9_]*$).">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -973,11 +964,11 @@ one interface outbound for the VPN connection one table outbound with table: 254
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#outbound-groups">Outbound Groups
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#outbound-groups-tiers">Outbound Groups (tiers)
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#load-balancing-strategy-balance">Load balancing (strategy: &#34;balance&#34;)
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#multipath-strategy-balance">Multipath (strategy: &#34;balance&#34;)
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1075,15 +1066,16 @@ one interface outbound for the VPN connection one table outbound with table: 254
     </div>
           </div>
           
-          <p>Outbounds tell keen-pbr where matching traffic should go.</p>
-<p>An outbound <code>tag</code> uses lowercase Latin letters, digits and <code>_</code>, starts with a letter, and is at most 24 characters long (<code>^[a-z][a-z0-9_]*$</code>).</p>
+          <p>An outbound is a channel that traffic can take: a VPN interface, your ISP connection, or a block. You choose which traffic goes to which outbound in <a href="/docs/configuration/route-rules/">route rules</a>.</p>
+<p><strong>In the Web UI:</strong> open <strong>Routing</strong> &gt; <strong>Outbounds</strong>, click <strong>Add outbound</strong>, enter a <strong>Name</strong> (called <code>tag</code> in the config) and pick a type. Then click <strong>Apply</strong> in the draft bar.</p>
+<p>The name (<code>tag</code>) uses lowercase Latin letters, digits and <code>_</code>, starts with a letter, and is at most 24 characters long (<code>^[a-z][a-z0-9_]*$</code>).</p>
 <p>Most users only need:</p>
 <ul>
-<li>one <code>interface</code> outbound for the VPN connection</li>
-<li>one <code>table</code> outbound with <code>table: 254</code> (the system&rsquo;s main routing table) for the normal connection, often <code>wan</code></li>
-<li>optionally one <code>urltest</code> outbound if they want automatic failover between several connections</li>
+<li>one <strong>Interface</strong> (<code>interface</code>) outbound for the VPN connection</li>
+<li>one <strong>Routing table</strong> (<code>table</code>) outbound with <code>table: 254</code> (the system&rsquo;s main routing table) for the normal connection, often <code>wan</code></li>
+<li>optionally one <strong>Auto-select (urltest)</strong> outbound, so keen-pbr picks a working one among several connections</li>
 </ul>
-<p>If you are not sure, start with <code>interface</code> outbounds and come back to the others later.</p>
+<p>If you are not sure, start with <strong>Interface</strong> and come back to the other types later.</p>
 <h2>Common Example<span class="hx:absolute hx:-mt-20" id="common-example"></span>
     <a href="#common-example" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1116,7 +1108,7 @@ one interface outbound for the VPN connection one table outbound with table: 254
 </div>
 <h2>Types<span class="hx:absolute hx:-mt-20" id="types"></span>
     <a href="#types" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h2><code>interface</code><span class="hx:absolute hx:-mt-20" id="interface"></span>
-    <a href="#interface" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use this when you want to send traffic through a specific connection such as a VPN tunnel or your normal internet uplink.</p>
+    <a href="#interface" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use it when traffic must go through a specific network interface: a VPN tunnel (<code>tun0</code>, <code>wg0</code>) or a separate internet connection.</p>
 <table>
 	<thead>
 			<tr>
@@ -1149,18 +1141,32 @@ one interface outbound for the VPN connection one table outbound with table: 254
 					<td><code>gateway</code></td>
 					<td>string</td>
 					<td>no</td>
-					<td>Optional IPv4 gateway address</td>
+					<td>IPv4 gateway address or <code>&quot;auto&quot;</code>. In the Web UI: <strong>Default gateway IPv4</strong></td>
 			</tr>
 			<tr>
 					<td><code>gateway6</code></td>
 					<td>string</td>
 					<td>no</td>
-					<td>Optional IPv6 gateway address</td>
+					<td>IPv6 gateway address or <code>&quot;auto&quot;</code>. In the Web UI: <strong>Default gateway IPv6</strong></td>
+			</tr>
+			<tr>
+					<td><code>strict_enforcement</code></td>
+					<td>boolean</td>
+					<td>no</td>
+					<td>Whether to block this outbound&rsquo;s traffic while its interface or gateway is down. If unset, the global <strong>Block traffic when an outbound is unavailable (kill-switch)</strong> setting in <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>General</strong> applies</td>
+			</tr>
+			<tr>
+					<td><code>strict_enforcement_action</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>How to block: <code>&quot;unreachable&quot;</code> (connections fail immediately) or <code>&quot;blackhole&quot;</code> (packets are silently dropped)</td>
 			</tr>
 	</tbody>
 </table>
-<p>For tunnels such as <code>tun0</code> or <code>wg0</code>, a gateway is usually not needed: without <code>gateway</code> and <code>gateway6</code>, both IPv4 and IPv6 traffic is sent straight into the interface. Set a gateway when the next hop has to be named, for example a second WAN behind the ISP&rsquo;s router.</p>
-<p>If you set only one of them, traffic of the other IP version for this outbound is blocked rather than leaking past the VPN.</p>
+<p>For tunnels such as <code>tun0</code> or <code>wg0</code>, a gateway is usually not needed: without <code>gateway</code> and <code>gateway6</code>, both IPv4 and IPv6 traffic is sent straight into the interface. You need a gateway when the interface is connected to your ISP&rsquo;s router and traffic must be handed to its address, for example a second WAN.</p>
+<p>You do not have to look the gateway up yourself: enter <code>&quot;auto&quot;</code> (type <code>auto</code> in the Web UI) and keen-pbr takes the gateway from this interface&rsquo;s default route in the main routing table (if there are several, from the one with the lowest metric). If the interface has no such route, or its best routes have different gateways, the outbound counts as unavailable for that IP version.</p>
+<p>If you set a gateway for only one IP version, traffic of the other version for this outbound is blocked rather than leaking past the VPN.</p>
+<p><strong>Kill-switch</strong> in the outbound form sets what happens to traffic while the interface or gateway is down. Options: <strong>Default behavior</strong> (the global setting applies), <strong>Do not block</strong> (traffic bypasses the outbound via the main route), <strong>Block with an error</strong> (<code>strict_enforcement_action: &quot;unreachable&quot;</code>), <strong>Block silently</strong> (<code>&quot;blackhole&quot;</code>).</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1186,7 +1192,7 @@ one interface outbound for the VPN connection one table outbound with table: 254
 </div>
 </div>
 <h2><code>table</code><span class="hx:absolute hx:-mt-20" id="table"></span>
-    <a href="#table" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Sends traffic through an existing routing table: usually <code>254</code>, the system&rsquo;s main table (the normal internet connection), or a table another service has created.</p>
+    <a href="#table" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use it when traffic must follow an existing routing table (a set of system routes): <code>254</code> is the main table, meaning the normal internet connection, or a table another service has created.</p>
 <p>To see which tables exist and their names, run:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1229,7 +1235,7 @@ one interface outbound for the VPN connection one table outbound with table: 254
 					<td><code>table</code></td>
 					<td>integer</td>
 					<td>yes</td>
-					<td>Existing routing table number</td>
+					<td>Existing routing table number. In the Web UI: <strong>Table ID</strong></td>
 			</tr>
 	</tbody>
 </table>
@@ -1256,7 +1262,7 @@ one interface outbound for the VPN connection one table outbound with table: 254
 </div>
 </div>
 <h2><code>blackhole</code><span class="hx:absolute hx:-mt-20" id="blackhole"></span>
-    <a href="#blackhole" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Drops all matching traffic. Useful for blocking access to specific resources.</p>
+    <a href="#blackhole" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use it to block access to sites or addresses: matching traffic is dropped.</p>
 <table>
 	<thead>
 			<tr>
@@ -1303,8 +1309,8 @@ one interface outbound for the VPN connection one table outbound with table: 254
 </div>
 </div>
 <h2><code>ignore</code><span class="hx:absolute hx:-mt-20" id="ignore"></span>
-    <a href="#ignore" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Leaves traffic alone: keen-pbr does not touch it, and it follows the router&rsquo;s normal routing as if keen-pbr were not there.</p>
-<p>Use it for exceptions. Rules are checked from top to bottom and the first match wins, so put the <code>ignore</code> rule above a broader one. For example, the whole <code>streaming</code> list goes through the VPN except addresses from the <code>streaming_direct</code> list (<code>direct</code> is the <code>ignore</code> outbound from the example below):</p>
+    <a href="#ignore" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use it for exceptions: traffic follows the router&rsquo;s normal routing, as if keen-pbr did not touch it.</p>
+<p>Rules are checked from top to bottom and the first match wins, so put the <code>ignore</code> rule above a broader one. For example, the whole <code>streaming</code> list goes through the VPN except addresses from the <code>streaming_direct</code> list (<code>direct</code> is the <code>ignore</code> outbound from the example below):</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="s2">&#34;rules&#34;</span><span class="err">:</span> <span class="p">[</span>
@@ -1368,7 +1374,7 @@ one interface outbound for the VPN connection one table outbound with table: 254
 </div>
 </div>
 <h2><code>urltest</code><span class="hx:absolute hx:-mt-20" id="urltest"></span>
-    <a href="#urltest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use this when you have several links (for example two VPNs and your normal internet) and want keen-pbr to pick a working one automatically. keen-pbr periodically opens <code>url</code> through each link and measures the response time.</p>
+    <a href="#urltest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use it when you have several links (for example two VPNs and your normal internet) and want keen-pbr to pick a working one automatically. keen-pbr periodically opens <code>url</code> through each link and measures the response time. In the Web UI the type is called <strong>Auto-select (urltest)</strong>.</p>
 <p>If no link works, traffic for this outbound is blocked rather than leaking through your normal internet connection around the VPN.</p>
 <table>
 	<thead>
@@ -1420,13 +1426,13 @@ one interface outbound for the VPN connection one table outbound with table: 254
 					<td><code>strategy</code></td>
 					<td>string</td>
 					<td>no (default: <code>&quot;priority&quot;</code>)</td>
-					<td><code>&quot;priority&quot;</code>: all traffic goes through the single fastest link. <code>&quot;balance&quot;</code>: new connections are spread across the working links of the first working group in proportion to <code>weight</code> (not available on Keenetic)</td>
+					<td>How to pick a link. In the Web UI: <strong>Selection strategy</strong>. <code>&quot;priority&quot;</code> (<strong>Fastest</strong>): all traffic goes through one link, the one with the lowest latency in the first working tier. <code>&quot;balance&quot;</code> (<strong>Multipath</strong>): new connections are spread across the working links by weight (not available on Keenetic)</td>
 			</tr>
 			<tr>
 					<td><code>conntrack_on_switch</code></td>
 					<td>string</td>
 					<td>no (default: <code>&quot;preserve&quot;</code>)</td>
-					<td>What to do with open connections when moving to a faster link: <code>&quot;preserve&quot;</code> keeps them on the old link, <code>&quot;delete&quot;</code> deletes their 
+					<td>What to do with open connections when switching to another link. In the Web UI: <strong>Existing connections on switch</strong>. <code>&quot;preserve&quot;</code> (<strong>Keep</strong>) keeps them on the old link, <code>&quot;delete&quot;</code> (<strong>Reset</strong>) deletes their 
   <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
  entries so they reconnect. See <a href="/docs/configuration/advanced/#failover">Failover</a></td>
 			</tr>
@@ -1434,7 +1440,7 @@ one interface outbound for the VPN connection one table outbound with table: 254
 					<td><code>outbound_groups</code></td>
 					<td>array</td>
 					<td>yes</td>
-					<td>Ordered list of link groups (see below)</td>
+					<td>Ordered list of link groups, called tiers in the Web UI (see below)</td>
 			</tr>
 			<tr>
 					<td><code>retry</code></td>
@@ -1489,8 +1495,9 @@ one interface outbound for the VPN connection one table outbound with table: 254
   </button>
 </div>
 </div>
-<h3>Outbound Groups<span class="hx:absolute hx:-mt-20" id="outbound-groups"></span>
-    <a href="#outbound-groups" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><code>outbound_groups</code> is a list of groups in priority order. keen-pbr uses the first group that has at least one working link. If no link in a group works, the next group is used.</p>
+<h3>Outbound Groups (tiers)<span class="hx:absolute hx:-mt-20" id="outbound-groups-tiers"></span>
+    <a href="#outbound-groups-tiers" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>A group is a set of links to pick a working one from. You can have several groups, checked in order: the first is the primary one, the rest are backups. keen-pbr uses the first group that has at least one working link. A backup group is used only when no link in the groups above it works.</p>
+<p>In the Web UI groups are called tiers: <strong>Primary tier</strong> and <strong>Backup tier N</strong>. Click <strong>Add backup tier</strong> to add a fallback.</p>
 <table>
 	<thead>
 			<tr>
@@ -1524,13 +1531,13 @@ one interface outbound for the VPN connection one table outbound with table: 254
 					<td><code>outbound</code></td>
 					<td>string</td>
 					<td>yes</td>
-					<td>Outbound tag (<code>interface</code>, <code>table</code> or <code>blackhole</code>)</td>
+					<td>Tag of an <code>interface</code> or <code>table</code> outbound. You do not need a tier that blocks traffic: when no link works, traffic is blocked anyway</td>
 			</tr>
 			<tr>
 					<td><code>weight</code></td>
 					<td>integer 1-100</td>
 					<td>no (default: <code>1</code>)</td>
-					<td>Share of new connections with <code>strategy: &quot;balance&quot;</code>; ignored by <code>priority</code>. Links with weights 7 and 3 get 70% and 30% of new connections while both work</td>
+					<td>Link weight; in the Web UI, <strong>Weight</strong>. Used only with <code>strategy: &quot;balance&quot;</code>: the higher the weight, the more new connections the link gets. Links with weights 7 and 3 get 70% and 30% of new connections while both work. If one link is down, its share is split among the others. Connections that are already open are not moved</td>
 			</tr>
 	</tbody>
 </table>
@@ -1551,21 +1558,13 @@ one interface outbound for the VPN connection one table outbound with table: 254
   </button>
 </div>
 </div>
-<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
-  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-
-  <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">The older group format (<code>outbounds: [&quot;a&quot;, &quot;b&quot;]</code> with a group-level <code>weight</code> as its priority) is still supported. On the first start keen-pbr rewrites <code>config.json</code> in the new format and keeps the old file next to it as <code>config.json.bak-pre-members</code>. Comments from the old file are not carried over. Old and new fields cannot be mixed in one group.</div>
-  </div>
-</div>
-
-<h3>Load balancing (<code>strategy: &quot;balance&quot;</code>)<span class="hx:absolute hx:-mt-20" id="load-balancing-strategy-balance"></span>
-    <a href="#load-balancing-strategy-balance" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>A link is chosen per new connection, not per request: the whole connection, including HTTP/2 and 
+<h3>Multipath (<code>strategy: &quot;balance&quot;</code>)<span class="hx:absolute hx:-mt-20" id="multipath-strategy-balance"></span>
+    <a href="#multipath-strategy-balance" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>This strategy spreads load across the working links of the first working tier. A link is chosen per new connection, not per request: the whole connection, including HTTP/2 and 
   <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr>
 , stays on one link. <code>tolerance_ms</code> and <code>conntrack_on_switch</code> are not used with balancing. When a link stops working, 
   <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
  entries of its connections are deleted, and new connections are spread across the remaining links.</p>
-<p>With nftables, connections are split exactly by weight. With iptables, a link is picked at random with the right probability, so with only a few connections the shares can differ noticeably from the weights; with many connections they even out. iptables needs the <code>xt_statistic</code> kernel module; if it is missing, keen-pbr reports it when applying the configuration. Balancing is not available with <code>--use-raw-prerouting</code>.</p>
+<p>With nftables, connections are split exactly by weight. With iptables, a link is picked at random with the right probability, so with only a few connections the shares can differ noticeably from the weights; with many connections they even out. iptables needs the <code>xt_statistic</code> kernel module; if it is missing, keen-pbr reports it when applying the configuration. This strategy is not available on Keenetic. Balancing is not available with <code>--use-raw-prerouting</code>.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
 
@@ -1592,8 +1591,8 @@ range that other software does not use. See <a href="/docs/configuration/multi-w
 			<tr>
 					<td><code>attempts</code></td>
 					<td>integer</td>
-					<td>no (default: <code>3</code>)</td>
-					<td>How many times to retry a check before treating the link as down</td>
+					<td>no (default: <code>1</code>)</td>
+					<td>How many times to run the check in total, including the first try, before treating it as failed</td>
 			</tr>
 			<tr>
 					<td><code>interval_ms</code></td>
@@ -1604,7 +1603,7 @@ range that other software does not use. See <a href="/docs/configuration/multi-w
 	</tbody>
 </table>
 <h3>Excluding an unstable link (<code>circuit_breaker</code>)<span class="hx:absolute hx:-mt-20" id="excluding-an-unstable-link-circuit_breaker"></span>
-    <a href="#excluding-an-unstable-link-circuit_breaker" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>If a link fails several checks in a row, keen-pbr stops using it for a while. This keeps traffic from bouncing back and forth while a link keeps going up and down.</p>
+    <a href="#excluding-an-unstable-link-circuit_breaker" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>If a link fails several checks in a row, keen-pbr stops using it for a while. This keeps traffic from bouncing back and forth while a link keeps going up and down. The defaults suit most setups; you do not need to change them.</p>
 <table>
 	<thead>
 			<tr>
@@ -1641,11 +1640,11 @@ range that other software does not use. See <a href="/docs/configuration/multi-w
 			</tr>
 	</tbody>
 </table>
-<p>An excluded link is shown as <strong>Unavailable</strong> on the <strong>Outbounds</strong> page of the web UI and as <code>unavailable</code> in <code>GET /api/runtime/outbounds</code>.</p>
+<p>An excluded link is shown as <strong>Unavailable</strong> on the <strong>Routing</strong> &gt; <strong>Outbounds</strong> page of the web UI and as <code>unavailable</code> in <code>GET /api/runtime/outbounds</code>.</p>
 <h2><code>icmptest</code><span class="hx:absolute hx:-mt-20" id="icmptest"></span>
-    <a href="#icmptest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Same as <code>urltest</code>, but links are checked with ping (
+    <a href="#icmptest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use it instead of <code>urltest</code> when HTTP checks do not work for you. In the Web UI the type is called <strong>Auto-select (ICMP)</strong>. A link is checked by pinging a specific address (
   <abbr title="Service protocol for network diagnostics. ping uses ICMP Echo.">ICMP</abbr>
- Echo) instead of an HTTP request. For every link in a group, set <code>target</code>: the IP address to ping through that link.</p>
+ Echo). For every link in a group, set <code>target</code> (in the Web UI, <strong>Ping target</strong>): the IP address to ping through that link.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1728,11 +1727,11 @@ range that other software does not use. See <a href="/docs/configuration/multi-w
 					<td><code>outbound_groups[].members[].target</code></td>
 					<td>string</td>
 					<td>yes</td>
-					<td>IPv4 or IPv6 address to ping through this link</td>
+					<td>IPv4 or IPv6 address to ping through this link (<strong>Ping target</strong>)</td>
 			</tr>
 	</tbody>
 </table>
-<p><code>tolerance_ms</code>, <code>strategy</code>, <code>conntrack_on_switch</code>, groups and weights work the same as in <code>urltest</code>.</p>
+<p><code>tolerance_ms</code>, <code>strategy</code>, <code>conntrack_on_switch</code>, groups (tiers) and weights work the same as in <code>urltest</code>.</p>
 <p>Pings are sent one after another, so checking all links takes time. <code>interval_ms</code> must exceed that time by at least 25%; otherwise keen-pbr rejects the configuration and tells you the minimum allowed value. Groups may contain at most 16 links in total.</p>
 
         </div>

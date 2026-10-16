@@ -23,7 +23,7 @@
       <description>
         
         
-        &lt;p&gt;Эта страница для разработчиков и мейнтейнеров пакетов, которые хотят собрать keen-pbr из исходного кода.&lt;/p&gt;
+        &lt;p&gt;Эта страница для разработчиков и мейнтейнеров пакетов, которые хотят собрать keen-pbr из исходного кода. Если вам нужен готовый пакет, смотрите &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/getting-started/&#34;&gt;установку&lt;/a&gt;.&lt;/p&gt;
 &lt;h2&gt;Предварительные требования&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;предварительные-требования&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%bf%d1%80%d0%b5%d0%b4%d0%b2%d0%b0%d1%80%d0%b8%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d1%8b%d0%b5-%d1%82%d1%80%d0%b5%d0%b1%d0%be%d0%b2%d0%b0%d0%bd%d0%b8%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;table&gt;
 	&lt;thead&gt;
@@ -50,52 +50,70 @@
 					&lt;td&gt;любой&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
-					&lt;td&gt;Docker (для кросс-компиляции)&lt;/td&gt;
+					&lt;td&gt;git&lt;/td&gt;
+					&lt;td&gt;любой&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Docker с Buildx (для сборки пакетов)&lt;/td&gt;
 					&lt;td&gt;любой&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;h2&gt;Зависимости&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;зависимости&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%b7%d0%b0%d0%b2%d0%b8%d1%81%d0%b8%d0%bc%d0%be%d1%81%d1%82%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Зависимости объединены как git-подмодули или разрешаются из системных пакетов во время сборки CMake.&lt;/p&gt;
+    &lt;a href=&#34;#%d0%b7%d0%b0%d0%b2%d0%b8%d1%81%d0%b8%d0%bc%d0%be%d1%81%d1%82%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Часть библиотек входит в репозиторий как git-подмодули (папка &lt;code&gt;third_party&lt;/code&gt;), остальные берутся из системных пакетов при сборке CMake. Для сборки на хосте установите заголовочные файлы системных библиотек (в Debian и Ubuntu это пакеты &lt;code&gt;libcurl4-openssl-dev&lt;/code&gt;, &lt;code&gt;libnl-3-dev&lt;/code&gt;, &lt;code&gt;libnl-route-3-dev&lt;/code&gt;, &lt;code&gt;zlib1g-dev&lt;/code&gt;).&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;
 					&lt;th&gt;Библиотека&lt;/th&gt;
+					&lt;th&gt;Откуда&lt;/th&gt;
 					&lt;th&gt;Назначение&lt;/th&gt;
 			&lt;/tr&gt;
 	&lt;/thead&gt;
 	&lt;tbody&gt;
 			&lt;tr&gt;
 					&lt;td&gt;libcurl&lt;/td&gt;
+					&lt;td&gt;система&lt;/td&gt;
 					&lt;td&gt;Загрузка удалённых списков&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
-					&lt;td&gt;nlohmann_json&lt;/td&gt;
-					&lt;td&gt;JSON-парсинг&lt;/td&gt;
+					&lt;td&gt;libnl-3, libnl-route-3&lt;/td&gt;
+					&lt;td&gt;система&lt;/td&gt;
+					&lt;td&gt;Работа с маршрутами и правилами через Netlink&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
-					&lt;td&gt;libnl&lt;/td&gt;
-					&lt;td&gt;Коммуникация через сокеты Netlink (маршрутизация/правила)&lt;/td&gt;
+					&lt;td&gt;zlib&lt;/td&gt;
+					&lt;td&gt;система&lt;/td&gt;
+					&lt;td&gt;Нужна встроенному HTTP-серверу (при &lt;code&gt;WITH_API=ON&lt;/code&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;libresolv&lt;/td&gt;
+					&lt;td&gt;входит в libc&lt;/td&gt;
 					&lt;td&gt;Разрешение DNS-имён&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;libunwind&lt;/td&gt;
-					&lt;td&gt;В сборках Debian по умолчанию используется для разворачивания стека при обработке сигналов. Сборки OpenWrt и Keenetic переходят на диагностику только по регистрам, если библиотека недоступна; параметр &lt;code&gt;KEEN_PBR_USE_LIBUNWIND&lt;/code&gt; управляет попыткой найти её через CMake.&lt;/td&gt;
+					&lt;td&gt;система&lt;/td&gt;
+					&lt;td&gt;Стек вызовов при сбоях. В сборках Debian нужна по умолчанию. Сборки OpenWrt и Keenetic обходятся без неё и показывают при сбое только регистры. Параметр &lt;code&gt;KEEN_PBR_USE_LIBUNWIND&lt;/code&gt; управляет поиском.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;nlohmann_json&lt;/td&gt;
+					&lt;td&gt;подмодуль&lt;/td&gt;
+					&lt;td&gt;Разбор JSON&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;fmt&lt;/td&gt;
-					&lt;td&gt;C++17 formatting polyfill&lt;/td&gt;
+					&lt;td&gt;подмодуль&lt;/td&gt;
+					&lt;td&gt;Форматирование строк&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
-					&lt;td&gt;cpptrace&lt;/td&gt;
-					&lt;td&gt;Библиотека в составе репозитория для диагностики падений&lt;/td&gt;
+					&lt;td&gt;Monocypher&lt;/td&gt;
+					&lt;td&gt;подмодуль&lt;/td&gt;
+					&lt;td&gt;Криптография (хеширование паролей)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;cpp-httplib&lt;/td&gt;
-					&lt;td&gt;Встроенный HTTP API сервер при &lt;code&gt;WITH_API=ON&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;подмодуль&lt;/td&gt;
+					&lt;td&gt;Встроенный HTTP-сервер при &lt;code&gt;WITH_API=ON&lt;/code&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
@@ -103,14 +121,14 @@
     &lt;a href=&#34;#%d1%81%d0%b1%d0%be%d1%80%d0%ba%d0%b0&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;code&gt;Makefile&lt;/code&gt; оборачивает все шаги сборки:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Клонировать репозиторий&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;git clone https://github.com/maksimkurb/keen-pbr.git
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Клонировать репозиторий вместе с подмодулями&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;git clone --recurse-submodules https://github.com/maksimkurb/keen-pbr.git
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;nb&#34;&gt;cd&lt;/span&gt; keen-pbr
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Собрать&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Запустить тесты&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Запустить тесты (нужны python3 и sh; dnsmasq необязателен)&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make &lt;span class=&#34;nb&#34;&gt;test&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Очистить артефакты сборки&lt;/span&gt;
@@ -142,11 +160,10 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Бинарный файл создаётся в &lt;code&gt;cmake-build-gcc/keen-pbr&lt;/code&gt; (&lt;code&gt;cmake-build-clang&lt;/code&gt;
-используется целями Clang).&lt;/p&gt;
-&lt;p&gt;Запустите &lt;code&gt;make help&lt;/code&gt;, чтобы увидеть все доступные цели сборки и упаковки.&lt;/p&gt;
+&lt;p&gt;Бинарный файл создаётся в &lt;code&gt;cmake-build-gcc/keen-pbr&lt;/code&gt;. Цели Clang (&lt;code&gt;make clang-build&lt;/code&gt;) собирают в &lt;code&gt;cmake-build-clang&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Запустите &lt;code&gt;make help&lt;/code&gt;, чтобы увидеть все цели сборки и упаковки.&lt;/p&gt;
 &lt;h2&gt;Опции сборки&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;опции-сборки&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%be%d0%bf%d1%86%d0%b8%d0%b8-%d1%81%d0%b1%d0%be%d1%80%d0%ba%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Передавайте опции во время конфигурации &lt;code&gt;cmake&lt;/code&gt;:&lt;/p&gt;
+    &lt;a href=&#34;#%d0%be%d0%bf%d1%86%d0%b8%d0%b8-%d1%81%d0%b1%d0%be%d1%80%d0%ba%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Передавайте опции при настройке &lt;code&gt;cmake&lt;/code&gt;:&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;
@@ -159,19 +176,35 @@
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;WITH_API&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;ON&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;Собирать со встроенным HTTP API сервером&lt;/td&gt;
+					&lt;td&gt;Собирать со встроенным HTTP-сервером (REST API и веб-интерфейс)&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;USE_KEENETIC_API&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;OFF&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Включить интеграцию с Keenetic (DNS-сервер типа &lt;code&gt;keenetic&lt;/code&gt;)&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;KEEN_PBR_PLATFORM_KEENETIC&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;OFF&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Сборка для KeeneticOS: только iptables, без балансировки&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;KEEN_PBR_USE_LIBUNWIND&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;ON&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;Пытаться найти и использовать &lt;code&gt;libunwind&lt;/code&gt; для диагностики сбоев. Сборки Debian требуют её при включённом параметре; OpenWrt и Keenetic могут использовать диагностику только по регистрам, если библиотека отсутствует или параметр выключен.&lt;/td&gt;
+					&lt;td&gt;Искать и использовать &lt;code&gt;libunwind&lt;/code&gt; для диагностики сбоев. Сборки Debian требуют её при включённом параметре; OpenWrt и Keenetic при её отсутствии или выключенном параметре используют диагностику только по регистрам.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;BUILD_TESTS&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;OFF&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Собирать модульные тесты (&lt;code&gt;make test&lt;/code&gt; включает его сам)&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
-&lt;p&gt;Пример:&lt;/p&gt;
+&lt;p&gt;Пример: сборка без HTTP-сервера (как пакет &lt;code&gt;keen-pbr-headless&lt;/code&gt;):&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;cmake -S . -B cmake-build-gcc -DWITH_API&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;OFF&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;cmake -S . -B cmake-build-gcc -DWITH_API&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;OFF
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;cmake --build cmake-build-gcc&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Скопировать код&#34;
@@ -184,8 +217,7 @@
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;h2&gt;Пакеты Debian / Ubuntu&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;пакеты-debian--ubuntu&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d1%8b-debian--ubuntu&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Для целей Debian/Ubuntu используйте поддерживаемые Docker-ом цели сборки пакетов из корневого &lt;code&gt;Makefile&lt;/code&gt;.&lt;/p&gt;
-&lt;p&gt;Собирайте пакеты Debian из корня репозитория:&lt;/p&gt;
+    &lt;a href=&#34;#%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d1%8b-debian--ubuntu&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Пакеты для Debian и Ubuntu собираются в Docker целями корневого &lt;code&gt;Makefile&lt;/code&gt;. Нужны Docker и плагин Buildx. Выполните из корня репозитория:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make deb-packages&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
@@ -200,7 +232,7 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Явно указывайте релиз Debian и архитектуру внутри &lt;code&gt;build/packages/&lt;/code&gt;:&lt;/p&gt;
+&lt;p&gt;Релиз Debian (&lt;code&gt;bookworm&lt;/code&gt; или &lt;code&gt;trixie&lt;/code&gt;) и архитектуру (&lt;code&gt;amd64&lt;/code&gt; или &lt;code&gt;arm64&lt;/code&gt;) можно указать явно. По умолчанию &lt;code&gt;bookworm&lt;/code&gt; и &lt;code&gt;amd64&lt;/code&gt;:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# AMD64&lt;/span&gt;
@@ -219,7 +251,7 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Пересобирайте образ Debian builder явным образом:&lt;/p&gt;
+&lt;p&gt;Образ сборщика Debian пересоздаётся командой:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make debian-builder-image&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
@@ -234,23 +266,15 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Артефакты записываются в &lt;code&gt;build/packages/&lt;/code&gt;:&lt;/p&gt;
+&lt;p&gt;Готовые пакеты (полный и &lt;code&gt;headless&lt;/code&gt;) появятся в &lt;code&gt;build/packages/&lt;/code&gt;:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;build/packages/debian/&amp;lt;debian-version&amp;gt;/&amp;lt;architecture&amp;gt;/keen-pbr_&amp;lt;version&amp;gt;_debian_&amp;lt;architecture&amp;gt;.deb&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;build/packages/debian/&amp;lt;debian-version&amp;gt;/&amp;lt;architecture&amp;gt;/keen-pbr-headless_&amp;lt;version&amp;gt;_debian_&amp;lt;architecture&amp;gt;.deb&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;Опубликованный репозиторий также предоставляет псевдонимы Ubuntu: Ubuntu
-noble (24.04) использует пакеты Debian bookworm, а Ubuntu resolute (26.04) —
-пакеты Debian trixie. Псевдонимы используют те же пути пакетов и индексов Debian.&lt;/p&gt;
-&lt;p&gt;Поток упаковки Debian:&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;собирает фронтенд с &lt;code&gt;bun&lt;/code&gt; для полного пакета&lt;/li&gt;
-&lt;li&gt;компилирует нативные бинарники с путями установки Debian под &lt;code&gt;/etc/keen-pbr&lt;/code&gt; и &lt;code&gt;/usr/share/keen-pbr/frontend&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;устанавливает &lt;code&gt;systemd&lt;/code&gt; юнит в &lt;code&gt;/lib/systemd/system/keen-pbr.service&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;при установке пакета включает и запускает сервис&lt;/li&gt;
-&lt;/ul&gt;
+&lt;p&gt;Опубликованный репозиторий также содержит пакеты для Ubuntu: Ubuntu noble (24.04) использует пакеты Debian bookworm, а Ubuntu resolute (26.04) использует пакеты Debian trixie.&lt;/p&gt;
+&lt;p&gt;Для полного пакета интерфейс собирается с помощью &lt;code&gt;bun&lt;/code&gt;. При установке пакета сервис &lt;code&gt;keen-pbr&lt;/code&gt; (юнит &lt;code&gt;systemd&lt;/code&gt;) включается и запускается, а конфигурация лежит в &lt;code&gt;/etc/keen-pbr&lt;/code&gt;.&lt;/p&gt;
 &lt;h2&gt;Сборка пакетов для роутеров&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;сборка-пакетов-для-роутеров&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d1%81%d0%b1%d0%be%d1%80%d0%ba%d0%b0-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d0%be%d0%b2-%d0%b4%d0%bb%d1%8f-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%be%d0%b2&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Для целей роутеров используйте поддерживаемые Docker-ом цели сборки пакетов из корневого &lt;code&gt;Makefile&lt;/code&gt;. Они отражают рабочие процессы GitHub Actions и записывают нормализованные артефакты в &lt;code&gt;build/packages/&lt;/code&gt;.&lt;/p&gt;
+    &lt;a href=&#34;#%d1%81%d0%b1%d0%be%d1%80%d0%ba%d0%b0-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d0%be%d0%b2-%d0%b4%d0%bb%d1%8f-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%be%d0%b2&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Пакеты для роутеров тоже собираются в Docker целями корневого &lt;code&gt;Makefile&lt;/code&gt;. Они повторяют сборку в GitHub Actions, готовые пакеты появляются в &lt;code&gt;build/packages/&lt;/code&gt;.&lt;/p&gt;
 &lt;h3&gt;Entware (для роутеров Keenetic и Netcraze)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;entware-для-роутеров-keenetic-и-netcraze&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#entware-%d0%b4%d0%bb%d1%8f-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%be%d0%b2-keenetic-%d0%b8-netcraze&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Соберите пакет 
   &lt;abbr title=&#34;Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.&#34;&gt;Entware&lt;/abbr&gt;
@@ -284,7 +308,7 @@ noble (24.04) использует пакеты Debian bookworm, а Ubuntu resol
 					&lt;td&gt;&lt;code&gt;KEENETIC_VERSION&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;да&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;current&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;Версия канала Keenetic, используемая в макете &lt;code&gt;build/packages&lt;/code&gt;.&lt;/td&gt;
+					&lt;td&gt;Канал прошивки Keenetic: имя подпапки в &lt;code&gt;build/packages/keenetic/&lt;/code&gt;.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;KEENETIC_CONFIG&lt;/code&gt;&lt;/td&gt;
@@ -296,9 +320,9 @@ noble (24.04) использует пакеты Debian bookworm, а Ubuntu resol
 &lt;/table&gt;
 &lt;p&gt;Поведение:&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;Использует предварительно собранный образ &lt;code&gt;ghcr.io/maksimkurb/entware-builder:&amp;lt;config&amp;gt;&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;Монтирует репозиторий в контейнер в &lt;code&gt;/workspace&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;Собирает и собирает артефакты в &lt;code&gt;build/packages/&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Используется готовый образ &lt;code&gt;ghcr.io/maksimkurb/entware-builder:&amp;lt;config&amp;gt;&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;Репозиторий монтируется в контейнер в &lt;code&gt;/workspace&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;Пакеты (&lt;code&gt;keen-pbr&lt;/code&gt; и &lt;code&gt;keen-pbr-headless&lt;/code&gt;) копируются в &lt;code&gt;build/packages/keenetic/&amp;lt;версия&amp;gt;/&amp;lt;архитектура&amp;gt;/&lt;/code&gt;, например &lt;code&gt;keen-pbr_&amp;lt;version&amp;gt;_keenetic_mipsel-3.4.ipk&lt;/code&gt;.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3&gt;OpenWrt&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;openwrt&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#openwrt&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Сначала перечислите доступные архитектуры:&lt;/p&gt;
@@ -331,13 +355,10 @@ noble (24.04) использует пакеты Debian bookworm, а Ubuntu resol
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Или с явным выпуском:&lt;/p&gt;
+&lt;p&gt;Другой пример:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-packages &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4 &lt;span class=&#34;nv&#34;&gt;OPENWRT_ARCHITECTURE&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;aarch64_cortex-a53
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# ещё один распространённый пример&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-packages &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;25.12.2 &lt;span class=&#34;nv&#34;&gt;OPENWRT_ARCHITECTURE&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;x86_64&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-packages &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;25.12.2 &lt;span class=&#34;nv&#34;&gt;OPENWRT_ARCHITECTURE&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;x86_64&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Скопировать код&#34;
@@ -366,30 +387,25 @@ noble (24.04) использует пакеты Debian bookworm, а Ubuntu resol
 					&lt;td&gt;да&lt;/td&gt;
 					&lt;td&gt;-&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;24.10.4&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;Выпуск OpenWrt, используемый для выбора образа SDK.&lt;/td&gt;
+					&lt;td&gt;Версия OpenWrt (по ней выбирается образ SDK).&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;OPENWRT_ARCHITECTURE&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;да&lt;/td&gt;
 					&lt;td&gt;-&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;aarch64_cortex-a53&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;Архитектура пакетов OpenWrt и префикс тега образа SDK.&lt;/td&gt;
+					&lt;td&gt;Архитектура пакетов OpenWrt.&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;p&gt;Поведение:&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;Монтирует репозиторий в контейнер в &lt;code&gt;/workspace&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;Использует официальный образ SDK &lt;code&gt;ghcr.io/openwrt/sdk:&amp;lt;architecture&amp;gt;-&amp;lt;version&amp;gt;&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;Копирует полученные артефакты &lt;code&gt;.ipk&lt;/code&gt; / &lt;code&gt;.apk&lt;/code&gt; в &lt;code&gt;build/packages/&lt;/code&gt;&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;Примечания&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;примечания&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%87%d0%b0%d0%bd%d0%b8%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
-&lt;li&gt;Репозиторий монтируется в &lt;code&gt;/workspace&lt;/code&gt;, поэтому изменения исходного кода и скриптов упаковки подхватываются при следующей сборке.&lt;/li&gt;
-&lt;li&gt;Пакеты OpenWrt собираются внутри образа SDK, соответствующего выбранным версии и архитектуре.&lt;/li&gt;
+&lt;li&gt;Используется официальный образ SDK &lt;code&gt;ghcr.io/openwrt/sdk:&amp;lt;architecture&amp;gt;-&amp;lt;version&amp;gt;&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;Репозиторий монтируется в контейнер в &lt;code&gt;/workspace&lt;/code&gt;, поэтому правки в исходниках подхватываются при следующей сборке.&lt;/li&gt;
+&lt;li&gt;Пакеты &lt;code&gt;.ipk&lt;/code&gt; / &lt;code&gt;.apk&lt;/code&gt; копируются в &lt;code&gt;build/packages/openwrt/&amp;lt;версия&amp;gt;/&amp;lt;архитектура&amp;gt;/&lt;/code&gt;.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2&gt;Развёртывание на роутер&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;развёртывание-на-роутер&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d1%80%d0%b0%d0%b7%d0%b2%d1%91%d1%80%d1%82%d1%8b%d0%b2%d0%b0%d0%bd%d0%b8%d0%b5-%d0%bd%d0%b0-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Скопируйте собранный пакет и файл конфигурации на ваш роутер:&lt;/p&gt;
+    &lt;a href=&#34;#%d1%80%d0%b0%d0%b7%d0%b2%d1%91%d1%80%d1%82%d1%8b%d0%b2%d0%b0%d0%bd%d0%b8%d0%b5-%d0%bd%d0%b0-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Скопируйте собранный пакет на роутер и установите его (замените &lt;code&gt;192.168.1.1&lt;/code&gt; на адрес роутера):&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Пример для Keenetic&lt;/span&gt;
@@ -401,8 +417,9 @@ noble (24.04) использует пакеты Debian bookworm, а Ubuntu resol
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ssh root@192.168.1.1 opkg install /tmp/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;architecture&amp;gt;.ipk
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Пример для OpenWrt .apk&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;scp build/packages/openwrt/&amp;lt;openwrt_version&amp;gt;/&amp;lt;pkg_arch&amp;gt;/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;architecture&amp;gt;.apk root@192.168.1.1:/tmp/
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;architecture&amp;gt;.apk&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# имя файла .apk сохраняется таким, каким его создал SDK OpenWrt&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;scp build/packages/openwrt/&amp;lt;openwrt_version&amp;gt;/&amp;lt;pkg_arch&amp;gt;/keen-pbr-&amp;lt;version&amp;gt;.apk root@192.168.1.1:/tmp/
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr-&amp;lt;version&amp;gt;.apk&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Скопировать код&#34;
@@ -414,7 +431,7 @@ noble (24.04) использует пакеты Debian bookworm, а Ubuntu resol
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Запустите на роутере:&lt;/p&gt;
+&lt;p&gt;После установки сервис обычно уже запущен. Если нет, запустите его на роутере:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Keenetic&lt;/span&gt;

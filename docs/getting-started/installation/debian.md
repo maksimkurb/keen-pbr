@@ -1,33 +1,53 @@
 # Debian
 
-keen-pbr can be installed on Debian systems from the keen-pbr APT repository.
+keen-pbr is installed on Debian from the keen-pbr APT repository. Run the commands over SSH or in the server terminal as `root` (or with `sudo`).
 
 {{% steps %}}
 
-### Add the repository from the repository page
+### Add the repository
 
-Open the repository instructions page, select **Debian** in the OS selector on the left, and use the generated commands for your release and architecture:
-
-[keen-pbr repository](https://repo.keen-pbr.fyi/repository/stable/?lang=en)
-
-The generated instructions include the signing key and the `apt` source entry.
+Open the [keen-pbr repository page](https://repo.keen-pbr.fyi/repository/stable/?lang=en), select the OS **Debian** on the left, then your release and architecture. Run the commands it shows, in order: they add the signing key and the `apt` package source.
 
 ### Install the package
-
-Example install command:
 
 ```bash {filename="bash"}
 apt update
 apt install keen-pbr
 
-# or if you want headless version (without API and without WebUI)
+# version without the web UI and API:
 # apt update
 # apt install keen-pbr-headless
 ```
 
-The package installs its config at `/etc/keen-pbr/config.json` and enables the systemd service automatically.
+The configuration is in `/etc/keen-pbr/config.json`. The service starts right away and starts at every system boot.
 
-Useful service commands:
+{{< callout type="info" >}}
+`keen-pbr-headless` takes less space: about 1.2 MB instead of 2.8 MB. It has no web UI and no API, so you configure it through the config file. If in doubt, install the regular `keen-pbr`.
+{{< /callout >}}
+
+### Check that the service is running
+
+```bash {filename="bash"}
+systemctl status keen-pbr
+```
+
+If everything is fine, the output contains `active (running)`.
+
+### Open the web UI
+
+Open `http://<server-ip>:12121` in your browser. The headless version has no web UI.
+
+### Set up your first rules
+
+Go to the [Quick Start]({{< relref "/docs/getting-started/quick-start" >}}) page and open the **Web UI** tab. If you installed `keen-pbr-headless`, open the **JSON** tab.
+
+{{< callout type="info" >}}
+If there are no ready-made packages for your platform, build keen-pbr yourself: [Build from Source]({{< relref "/docs/developer/build-from-source" >}}).
+{{< /callout >}}
+
+{{% /steps %}}
+
+## Service commands
 
 ```bash {filename="bash"}
 systemctl start keen-pbr
@@ -35,23 +55,9 @@ systemctl status keen-pbr
 systemctl restart keen-pbr
 ```
 
-{{< callout type="info" >}}
-If you do not plan to use the keen-pbr Web UI or API, the `keen-pbr-headless` package uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version.
-{{< /callout >}}
-
-### Next steps
-
-Open [Quick Start]({{< relref "/docs/getting-started/quick-start" >}}) and use the **Web UI** tab for the easiest first setup. If you installed `keen-pbr-headless`, use the **JSON / CLI** tab instead.
-
-{{< callout type="info" >}}
-If pre-built packages are not yet available for your platform, see [Build from Source]({{< relref "/docs/developer/build-from-source" >}}) to compile keen-pbr yourself.
-{{< /callout >}}
-
-{{% /steps %}}
-
 ## Separate DNS servers for lists (dnsmasq) {#dnsmasq}
 
-keen-pbr does not need dnsmasq for routing. Install it only if you want separate DNS servers for some lists or your own default DNS servers. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}).
+dnsmasq is not needed for routing. It is a DNS server installed on the system next to keen-pbr. Install it if you want to send the domains of some lists to separate DNS servers, or set your own default DNS servers. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}).
 
 ### Install dnsmasq {#dnsmasq-install}
 
@@ -67,7 +73,7 @@ To apply the recommended dnsmasq settings, run:
 
 It replaces `/etc/dnsmasq.conf` and saves the previous file as `/etc/dnsmasq.conf.backup-keenpbr`. dnsmasq then answers only your local networks and takes its servers from keen-pbr.
 
-Then, in the Web UI, open **General** > **Local DNS server management** and turn on **Manage dnsmasq configuration**. keen-pbr adds a marked block to `/etc/dnsmasq.conf`; the recommended config already has it. Point the system resolver (or your DHCP server) at dnsmasq if it is not already used.
+Then, in the Web UI, open **General** > **Settings** > **Local DNS server management** and turn on **Manage dnsmasq configuration**. Point the system resolver (or your DHCP server) at dnsmasq if it is not already used.
 
 ### Return to how it was {#dnsmasq-rollback}
 

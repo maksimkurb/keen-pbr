@@ -1,49 +1,68 @@
 # DNS
 
-Domain-based routing works without any DNS configuration: keen-pbr reads DNS replies and TLS/HTTP/QUIC traffic itself and fills the sets of your lists (see [DNS interception](#dns-interception)). You do not need to set up a resolver for this: dnsmasq, the Keenetic DNS proxy, unbound or anything else keeps working as you set it up.
+Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in [DNS interception](#dns-interception).
 
 ## Do I need dnsmasq? {#do-i-need-dnsmasq}
 
-**No, not for routing.** Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough.
+**No, not for routing.** Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough (DoH and DoT are encrypted DNS).
 
-**Yes, if you want:**
+**Yes, if you need one of these two things:**
 
-- separate DNS servers for the domains of some lists, for example a CDN that should answer for your VPN's region, or domains that resolve only inside the VPN;
-- your own default DNS servers (`fallback`) managed by keen-pbr.
+- to resolve the domains of some lists through a separate DNS server. For example, a CDN (content delivery network) should answer for your VPN's region, or the domains resolve only inside the VPN;
+- to set your own default DNS servers for the whole network right in keen-pbr.
 
-Both work only through dnsmasq. Setup and rollback by platform: [Keenetic]({{< relref "/docs/getting-started/installation/keenetic#dnsmasq" >}}), [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt#dnsmasq" >}}), [Debian]({{< relref "/docs/getting-started/installation/debian#dnsmasq" >}}). In the Web UI the switch is **General** > **Local DNS server management** > **Manage dnsmasq configuration**.
+Both work only through dnsmasq. If neither fits you, leave the **Manage dnsmasq configuration** switch off. If you upgraded from 3.3.x, the switch is already on: turn it off if you do not need dnsmasq (see [Upgrading from 3.3.x]({{< relref "/docs/changelog#upgrading-from-33x" >}})).
 
-The settings on this page are needed in two cases:
+How to install dnsmasq and how to roll back: [Keenetic]({{< relref "/docs/getting-started/installation/keenetic#dnsmasq" >}}), [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt#dnsmasq" >}}), [Debian]({{< relref "/docs/getting-started/installation/debian#dnsmasq" >}}).
 
-- to define DNS servers and the outbound used to reach them (`detour`);
-- to resolve domains from selected lists through a separate DNS server, usually one reached over the same VPN. This is the only case where keen-pbr manages dnsmasq, and only when you turn it on.
+## How to check that DNS goes through the router
 
-## Configuration
+Interception sees only the DNS queries that pass through the router. If a device uses DoH or its own DNS server, keen-pbr can recognise part of the domains only through L7.
 
-```json { filename="config.json" }
-{
-  "dns": {
-    "servers": [...]
-  }
-}
+1. Open **General** > **Dashboard** and find the **DNS interception** card.
+2. Click **Check again**. To test another device, click **Test from another device** and run the shown `nslookup` command on a computer or phone while the window is open.
+
+You can also check by hand on the device:
+
+```bash {filename="bash"}
+nslookup check.keen-pbr.fyi
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `servers` | array | no | DNS server definitions |
-| `resolver_integration` | string | no | `"none"` (default) or `"dnsmasq"`. In the Web UI: **Manage dnsmasq configuration**. Configs from 3.3.x (no `version` field) keep `"dnsmasq"`. |
-| `dnsmasq_instance` | string | no | Selector of the dnsmasq instance to manage: `uci:<section>` (OpenWrt), `entware:default` (Keenetic), `systemd:<unit>.service` (Debian). Empty or omitted means automatic selection; needed only when several instances are found. |
-| `rules` | array | no | Rules mapping lists to DNS servers (only active when `resolver_integration: "dnsmasq"`). |
-| `fallback` | array of string | no | Upstream DNS server tags for queries that match no rule (only active when `resolver_integration: "dnsmasq"`). |
-| `dns_test_server` | object | no | Deprecated and ignored (replaced by `intercept.dns.marker`) |
+- Answer `127.0.0.88`: the device's DNS queries go through the router, everything works.
+- Any other address: the device bypasses the router or uses encrypted DNS. Turn off secure DNS (DoH) in the browser and the system.
+- No answer: DNS does not work on the device.
 
 ## Per-list DNS servers (dnsmasq) {#per-list-dns-servers-dnsmasq}
 
-When `resolver_integration` is `"dnsmasq"`, keen-pbr configures dnsmasq so that domains from selected lists are resolved through the DNS servers you choose. Use it when a CDN should return addresses for your VPN's region, or when different services need different DNS servers.
+Use this when a CDN should return addresses for your VPN's region, or when different services need different DNS servers.
 
 **Example**: AI service domains are resolved through a DNS server behind the VPN. The CDN then returns addresses for the VPN exit country, and the service does not see that you connect from another country (otherwise the account may get banned).
 
-### Configuration example
+{{% steps %}}
+
+### Turn on dnsmasq management
+
+Open **General** > **Settings** > **Local DNS server management** and turn on **Manage dnsmasq configuration**. The **DNS servers** and **DNS Rules** pages open only after that.
+
+### Add a DNS server
+
+Open **DNS** > **DNS servers** > **Add DNS server**. Fill in **Name**, **DNS type** and **Address**. In **Make requests via Outbound** pick an outbound (the channel the traffic goes through: a VPN interface, your ISP or a block) if the server is reachable only through it, for example through the VPN.
+
+### Link the server to lists
+
+Open **DNS** > **DNS Rules** > **Add DNS rule**. In **Domain lists** pick the lists, and in **DNS server** the server from the previous step.
+
+### Set default DNS servers (optional)
+
+In the **Default upstream DNS servers** block click **Add default DNS server** and pick the servers for all other domains. If the block is empty, dnsmasq uses its usual DNS servers.
+
+### Apply the settings
+
+Click **Apply** (or **Apply & Restart**).
+
+{{% /steps %}}
+
+The same settings in `config.json`:
 
 ```json { filename="config.json" }
 {
@@ -65,27 +84,113 @@ When `resolver_integration` is `"dnsmasq"`, keen-pbr configures dnsmasq so that 
 }
 ```
 
-### Field reference
+**Several DNS servers for one list.** Add one rule per server for the same list. dnsmasq queries all of them, then keeps using the one that answered first, and switches to another when it stops answering.
+
+dnsmasq keeps a separate record (about 200 bytes) for every domain and server pair. Each extra server adds that much memory for every domain of the list, so two servers for a list of 10,000 domains take about 4 MB instead of 2 MB.
+
+## DNS servers
+
+A server name (`tag`) must be unique: lowercase Latin letters, digits and `_`, starts with a letter, at most 24 characters.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `resolver_integration` | string | yes | Set to `"dnsmasq"` to enable dnsmasq integration |
-| `servers` | array | yes | DNS server definitions (each has `tag`, optional `address`, optional `detour`) |
-| `rules` | array | no | Array of DNS rules; each rule maps lists to a DNS server |
-| `fallback` | array | no | Server tags used when no rule matches; if omitted, system/ISP upstreams from resolv.conf are used |
+| `tag` | string | yes | Server name (**Name**) |
+| `type` | string | no | Server type (**DNS type**): `static` (**Plaintext DNS**, default) or `keenetic` (**Keenetic DNS**) |
+| `address` | string | for `static` | IP address of the DNS server, with optional port, for example `"10.8.0.1"`, `"10.8.0.1:5353"`, `"2001:4860:4860::8888"`, or `"[2001:4860:4860::8888]:5353"` |
+| `detour` | string | no | Outbound the router itself uses to send queries to this server (**Make requests via Outbound**) |
 
-**DNS rule** (`rules[]` element):
+`detour` is useful when a DNS server must be reached through a specific connection, usually the same VPN. It does not affect queries that devices in your network send directly to the same address: route them with a normal route rule.
+
+```json { filename="config.json" }
+{
+  "dns": {
+    "servers": [
+      {
+        "tag": "vpn_dns",
+        "type": "static",
+        "address": "10.8.0.1:5353",
+        "detour": "vpn"
+      },
+      {
+        "tag": "google_dns",
+        "address": "8.8.8.8"
+      },
+      {
+        "tag": "google_dns_v6",
+        "address": "[2001:4860:4860::8888]:53"
+      },
+      {
+        "tag": "keenetic_dns",
+        "type": "keenetic"
+      }
+    ]
+  }
+}
+```
+
+### The "Keenetic DNS" type
+
+On Keenetic routers, `type: "keenetic"` takes the DNS servers from the router's current settings. You set them in the Keenetic web interface: **Network rules** > **Internet safety** > **DNS Configuration**. If DoT or DoH servers are set there, only they are used.
+
+- At most one server may use `type: "keenetic"`.
+- `address` is not set for it.
+- keen-pbr reads the servers that are not tied to a domain from the **System** proxy policy. If any of them are encrypted ({{< term "DoH" >}}/DoT), all encrypted servers are used in order. Otherwise, all plain servers are used in order.
+
+## Field reference
+
+The `dns` section in `config.json`:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `servers` | array | no | DNS server definitions (see above) |
+| `resolver_integration` | string | no | `"none"` (default) or `"dnsmasq"`. In the Web UI: **Manage dnsmasq configuration**. |
+| `dnsmasq_instance` | string | no | Selector of the dnsmasq instance to manage: `uci:<section>` (OpenWrt), `entware:default` (Keenetic), `systemd:<unit>.service` (Debian). In the Web UI: **dnsmasq instance**. Empty means automatic selection; needed only when several instances are found. |
+| `rules` | array | no | Rules that map lists to DNS servers (only active when `resolver_integration: "dnsmasq"`) |
+| `fallback` | array of string | no | Tags of upstream DNS servers for queries that match no rule (only active when `resolver_integration: "dnsmasq"`). In the Web UI: **Default upstream DNS servers**. If omitted, dnsmasq keeps its own servers and also gets the servers from `dnsmasq-fallback.conf`. |
+| `dns_test_server` | object | no | Ignored; use `intercept.dns.marker` |
+
+Rule (`rules[]` element):
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `enabled` | bool | true | Whether this rule is active |
-| `list` | array of string | required | List names whose domains should use this DNS server |
-| `server` | string | required | DNS server tag to use for domains in these lists |
-| `allow_domain_rebinding` | bool | false | Allow private-IP answers (RFC1918) for these domains → `rebind-domain-ok` in dnsmasq |
+| `enabled` | bool | true | Whether the rule is active |
+| `list` | array of string | required | Names of lists whose domains use this DNS server (**Domain lists**) |
+| `server` | string | required | DNS server tag (**DNS server**) |
+| `allow_domain_rebinding` | bool | false | Allow private IP answers (RFC1918, local network addresses) for these domains → `rebind-domain-ok` in dnsmasq (**Allow domain rebinding for these domains**). Turn it on only if the list points to internal services. |
 
-**Several DNS servers for one list.** Add one rule per server for the same list. The list's domains get the servers of every enabled rule, in rule order. dnsmasq queries all of them, then keeps using the one that answered first, and switches to another when it stops answering. Rebinding is allowed when any of these rules allows it.
+## DNS interception
 
-dnsmasq keeps a separate record (about 200 bytes) for every domain and server pair. Each extra server adds that much memory for every domain of the list, so two servers for a list of 10,000 domains take about 4 MB instead of 2 MB.
+Interception is on by default. Settings: **General** > **Settings** > **Domain-based routing**. It learns the IP addresses of domains from your lists:
+
+- **DNS**: keen-pbr briefly holds a DNS reply passing through the router, adds its addresses to the list's set, and only then lets the reply reach the client. This way even the first connection to a site takes the right route.
+- **L7**: keen-pbr reads the site name at the start of TLS, HTTP and {{< term "QUIC" >}} connections. This helps when a device uses encrypted DNS.
+
+Change these settings only when the defaults do not suit you. The `intercept` section in `config.json`:
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | boolean | `true` | Enable interception (**Enable domain-based routing**) |
+| `min_ttl_ms` / `max_ttl_ms` | integer | `300000` / `86400000` | How long to keep an address in a dynamic set: no less and no more than this, in milliseconds (rounded to seconds). Within these bounds the {{< term "TTL" >}} from the DNS reply is used (**Minimum TTL**, **Maximum TTL**) |
+| `dns.enabled` | boolean | `true` | Read DNS replies, UDP and TCP (**Intercept DNS server responses**) |
+| `dns.queue_num` | integer | `9053` | {{< term "NFQUEUE" >}} number. Change it only if another program uses it (**NFQUEUE number**) |
+| `dns.hold_timeout_ms` | integer | `30` | How long to wait for addresses to be written before passing the DNS reply to the client. If time runs out, the reply goes out without waiting (**DNS hold timeout**) |
+| `dns.marker` | object | `check.keen-pbr.fyi` / `127.0.0.88` | Test domain: if the client's DNS goes through the router, it resolves to `127.0.0.88` (**Marker domain**, **Marker IPv4 address**) |
+| `l7.enabled` | boolean | `true` | Read site names in connections (**Enable L7 interception**) |
+| `l7.nflog_group` | integer | `9054` | {{< term "NFLOG" >}} group number. Change it only if another program uses it (**NFLOG group**) |
+| `l7.tls` / `http` / `quic` | boolean | `true` | Which protocols to read (**TLS SNI**, **HTTP Host**, **QUIC**) |
+
+### Kernel requirements
+
+Interception works on most routers. Minimum Linux kernel versions:
+
+| Firewall backend | DNS interception | L7 interception |
+|---|---|---|
+| iptables | 3.8 | 2.6.39 |
+| nftables | 4.1 | 4.5 |
+
+Router vendors sometimes strip parts of the kernel, so keen-pbr does not rely on the version number: when the service starts, it checks that everything it needs actually works. If something is missing, only that part of interception is turned off and the rest of keen-pbr keeps working. The result is shown on the status page of the web UI and in `GET /api/health/service` (the `intercept` field). The check runs once at startup: if you install missing kernel modules, restart the service.
+
+## If you use dnsmasq: installation and problems
 
 ### Installation by platform
 
@@ -115,7 +220,7 @@ The instance is picked in this order:
 2. **Adopted**: the field is empty and keen-pbr's {{< term "drop-in" >}} is already installed in exactly one instance. That instance keeps being used. If the drop-in is found in several instances, selection stops with `DNSMASQ_INSTANCE_AMBIGUOUS`.
 3. **Automatic**: the field is empty, nothing is installed yet, and exactly one enabled instance has DNS (`port` is not `0`). With none, the result is `DNSMASQ_NO_DNS_INSTANCE`; with several, `DNSMASQ_INSTANCE_AMBIGUOUS`.
 
-When the choice is ambiguous, keen-pbr does not guess: it modifies nothing and leaves existing drop-ins alone. Run `keen-pbr dnsmasq detect` to see the candidates, then set `dns.dnsmasq_instance` in `config.json` or in the Web UI under DNS settings. If keen-pbr's drop-in is also installed in an instance that is not selected, `detect` and the logs show a warning with the command that removes it (`keen-pbr dnsmasq remove <selector>`).
+When the choice is ambiguous, keen-pbr does not guess: it modifies nothing and leaves existing drop-ins alone. Run `keen-pbr dnsmasq detect` to see the candidates, then set it under **General** > **Settings** > **Local DNS server management** > **dnsmasq instance** (or `dns.dnsmasq_instance` in `config.json`). If keen-pbr's drop-in is also installed in an instance that is not selected, `detect` and the logs show a warning with the command that removes it (`keen-pbr dnsmasq remove <selector>`).
 
 #### DNS endpoint detection
 
@@ -137,10 +242,10 @@ The code is shown in `GET /api/health/service` (`error_code`) and in the Web UI.
 |---|---|---|
 | `DNSMASQ_NO_HOOK` | This build has no dnsmasq hook. | Use a package built for your platform. |
 | `DNSMASQ_HOOK_FAILED` | The hook's `inspect` call failed or printed something unreadable. | Run `keen-pbr dnsmasq detect`; check that the hook and keen-pbr are from the same version. |
-| `DNSMASQ_NOT_INSTALLED` | dnsmasq is not installed. | Install dnsmasq (see above), or, if you do not need it, turn off **Manage dnsmasq configuration** in the Web UI (`dns.resolver_integration: "none"`). |
-| `DNSMASQ_NO_DNS_INSTANCE` | No enabled instance serves DNS. | Enable an instance with DNS, or turn off **Manage dnsmasq configuration** in the Web UI (`dns.resolver_integration: "none"`). |
+| `DNSMASQ_NOT_INSTALLED` | dnsmasq is not installed. | Install dnsmasq (see above), or, if you do not need it, turn off **Manage dnsmasq configuration** (`dns.resolver_integration: "none"`). |
+| `DNSMASQ_NO_DNS_INSTANCE` | No enabled instance serves DNS. | Enable an instance with DNS, or turn off **Manage dnsmasq configuration** (`dns.resolver_integration: "none"`). |
 | `DNSMASQ_INSTANCE_NOT_FOUND` | `dns.dnsmasq_instance` names an instance that does not exist. | Fix the selector; `keen-pbr dnsmasq detect` lists valid ones. |
-| `DNSMASQ_INSTANCE_AMBIGUOUS` | Several instances qualify. | Set `dns.dnsmasq_instance`. |
+| `DNSMASQ_INSTANCE_AMBIGUOUS` | Several instances qualify. | Set **dnsmasq instance** (`dns.dnsmasq_instance`). |
 | `DNSMASQ_NOT_RUNNING` | The selected instance is not running. | Start dnsmasq yourself. keen-pbr never starts it, and re-applies its configuration once dnsmasq runs again. |
 | `DNSMASQ_DNS_DISABLED` | The selected instance has `port=0`. | Pick another instance or enable DNS in this one. |
 | `DNSMASQ_OTHER_NETNS` | dnsmasq runs in another {{< term "network namespace" >}}. | Not supported; run dnsmasq in the router's main namespace. |
@@ -159,10 +264,10 @@ The code is shown in `GET /api/health/service` (`error_code`) and in the Web UI.
 
 ### How it works
 
-keen-pbr never writes the generated dnsmasq config to flash. dnsmasq's configuration holds one {{< term "drop-in" >}} line (`conf-script=keen-pbr generate-resolver-config dnsmasq`). Each time dnsmasq starts, it runs that command and reads the per-list rules and default DNS servers from its output.
+One {{< term "drop-in" >}} line in the dnsmasq configuration makes dnsmasq run keen-pbr at every start and get the per-list rules and default DNS servers from it.
 
-- With **Manage dnsmasq configuration** on, dnsmasq is restarted when this output changes (list update, settings change, or once after keen-pbr starts), and only after the checks described in [Checks before every restart](#checks-before-every-restart) have passed.
-- With it off, the output is the servers from `dnsmasq-fallback.conf` (Keenetic: `/opt/etc/keen-pbr/`, Debian and OpenWrt: `/etc/keen-pbr/`). They are added to dnsmasq's own servers; clear the file to avoid that. On OpenWrt the file is empty by default.
+- With **Manage dnsmasq configuration** on, dnsmasq is restarted when this data changes (list update, settings change, or once after keen-pbr starts), and only after the checks described in [Checks before every restart](#checks-before-every-restart) have passed.
+- With it off, dnsmasq gets the servers from the `dnsmasq-fallback.conf` file (Keenetic: `/opt/etc/keen-pbr/`, Debian and OpenWrt: `/etc/keen-pbr/`). They are added to dnsmasq's own servers; clear the file to avoid that. On OpenWrt the file is empty by default.
 - With it on but no default DNS servers set, dnsmasq also gets the servers from `dnsmasq-fallback.conf`.
 
 ### On stop, disable, or uninstall
@@ -177,119 +282,4 @@ keen-pbr never writes the generated dnsmasq config to flash. dnsmasq's configura
 
 See [Per-list DNS servers do not work]({{< relref "/docs/troubleshooting#per-list-dns-servers-do-not-work" >}}).
 
-## DNS interception
-
-The `intercept` section is enabled by default. It controls how keen-pbr learns the IP addresses of domains from your lists:
-
-- **DNS**: keen-pbr briefly holds a DNS reply passing through the router, adds its addresses to the list's set, and only then lets the reply reach the client. This way even the first connection to a site takes the right route.
-- **L7**: keen-pbr reads the site name at the start of TLS, HTTP and {{< term "QUIC" >}} connections. This helps when a device uses encrypted DNS.
-
-Change these settings only when the defaults do not suit you:
-
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `enabled` | boolean | `true` | Enable interception |
-| `min_ttl_ms` / `max_ttl_ms` | integer | `300000` / `86400000` | How long to keep an address in a dynamic set: no less and no more than this, in milliseconds (rounded to seconds). Within these bounds the {{< term "TTL" >}} from the DNS reply is used |
-| `dns.enabled` | boolean | `true` | Read DNS replies (UDP and TCP) |
-| `dns.queue_num` | integer | `9053` | {{< term "NFQUEUE" >}} number. Change it only if another program uses it |
-| `dns.hold_timeout_ms` | integer | `30` | How long to wait for addresses to be written before passing the DNS reply to the client. If time runs out, the reply goes out without waiting |
-| `dns.marker` | object | `check.keen-pbr.fyi` / `127.0.0.88` | Test domain: if the client's DNS goes through the router, it resolves to `127.0.0.88` |
-| `l7.enabled` | boolean | `true` | Read site names in connections |
-| `l7.nflog_group` | integer | `9054` | {{< term "NFLOG" >}} group number. Change it only if another program uses it |
-| `l7.tls` / `http` / `quic` | boolean | `true` | Which protocols to read |
-
-The `dns.dns_test_server` field from earlier versions has no effect. To check DNS, use `nslookup check.keen-pbr.fyi` or the DNS check widget in the web UI.
-
-### Kernel requirements
-
-Interception works on most routers. Minimum Linux kernel versions:
-
-| Firewall backend | DNS interception | L7 interception |
-|---|---|---|
-| iptables | 3.8 | 2.6.39 |
-| nftables | 4.1 | 4.5 |
-
-Router vendors sometimes strip parts of the kernel, so keen-pbr does not rely on the version number: when the service starts, it checks that everything it needs actually works. If something is missing, only that part of interception is turned off and the rest of keen-pbr keeps working. The result is shown on the status page of the web UI and in `GET /api/health/service` (the `intercept` field). The check runs once at startup: if you install missing kernel modules, restart the service.
-
-## DNS Servers
-
-A server `tag` must be unique and follow the same rules as outbound tags: lowercase Latin letters, digits and `_`, starts with a letter, at most 24 characters.
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `tag` | string | yes | Unique identifier for this DNS server |
-| `type` | string | no | DNS source type: `static` (default) or `keenetic` |
-| `address` | string | for `static` | IP address of the DNS server, with optional port, for example `"10.8.0.1"`, `"10.8.0.1:5353"`, `"2001:4860:4860::8888"`, or `"[2001:4860:4860::8888]:5353"` |
-| `detour` | string | no | Outbound to use when contacting this DNS server |
-
-The `detour` field is useful when a DNS server must be reached through a specific connection, usually the same VPN that will carry the matching traffic.
-
-```json { filename="config.json" }
-{
-  "dns": {
-    "servers": [
-      {
-        "tag": "vpn_dns",
-        "type": "static",
-        "address": "10.8.0.1:5353",
-        "detour": "vpn"
-      },
-      {
-        "tag": "google_dns",
-        "address": "8.8.8.8"
-      },
-      {
-        "tag": "google_dns_v6",
-        "address": "[2001:4860:4860::8888]:53"
-      },
-      {
-        "tag": "keenetic_dns",
-        "type": "keenetic"
-      }
-    ]
-  }
-}
-```
-
-### `type: keenetic` (built-in router DNS via RCI)
-
-On Keenetic routers, `type: "keenetic"` takes the DNS servers from the router's current settings.
-
-Rules and behavior:
-
-- At most one `dns.servers` entry may use `type: "keenetic"`.
-- `address` must not be set for `type: "keenetic"` (resolved from {{< term "RCI" >}}).
-- keen-pbr reads `dns_server = ...` entries that are not tied to a domain from the **System** proxy policy.
-- If any of them are encrypted ({{< term "DoH" >}}/DoT), all encrypted servers are used in order.
-- Otherwise, all plain (unencrypted) servers are used in order.
-
-### How `detour` works
-
-With `detour`, DNS queries that the router itself sends to this server (for example from dnsmasq) go through the given outbound. For example, if `vpn_dns` has `detour: "vpn"`, the router reaches `vpn_dns` through `vpn`.
-
-Queries that devices in your network send directly to the same address are not affected; route them with a normal route rule.
-
-## Complete Example
-
-```json { filename="config.json" }
-{
-  "dns": {
-    "servers": [
-      {
-        "tag": "vpn_dns",
-        "address": "10.8.0.1:5353",
-        "detour": "vpn"
-      },
-      {
-        "tag": "google_dns",
-        "address": "8.8.8.8"
-      },
-      {
-        "tag": "google_dns_v6",
-        "address": "[2001:4860:4860::8888]:53"
-      }
-    ]
-  }
-}
-```
 

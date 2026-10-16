@@ -1,59 +1,52 @@
 # Upgrade from 2.x
 
-Use this guide if you already run keen-pbr 2.x on Keenetic / NetCraze and want to migrate to the current package and config format.
+This guide is for those who already run keen-pbr 2.x on Keenetic / NetCraze. You will replace the repository and the package and move your configuration to the new format. Run all commands over SSH.
 
-## 1. Replace the repository
+## 1. Make a backup
 
-Open the repository instructions page, select **Keenetic / NetCraze** in the OS selector on the left, select your router architecture, and follow the generated commands to replace the old keen-pbr 2.x repository with the current one:
+Save your current 2.x configuration. If something goes wrong, you can compare it with the converted result:
+
+```bash {filename="bash"}
+cp /opt/etc/keen-pbr/keen-pbr.conf /opt/etc/keen-pbr/keen-pbr.conf.bak
+```
+
+## 2. Replace the repository
+
+Open the repository page, select the OS **Keenetic / NetCraze** on the left and your router architecture. Run the commands it shows, in order, to replace the old keen-pbr 2.x repository with the current one:
 
 {{< hextra/hero-button text="keen-pbr repository" link="https://repo.keen-pbr.fyi/repository/stable/?lang=en" >}}
 
-Use the commands exactly as shown for Keenetic / NetCraze on the repository page.
-
-{{< callout type="info" >}}
-Before changing packages, keep a backup copy of your current 2.x config so you can compare it with the converted result if needed.
-{{< /callout >}}
-
-## 2. Install keen-pbr
-
-After replacing the repository, install the current package.
-
-### Keenetic / NetCraze
+## 3. Install keen-pbr
 
 ```bash {filename="bash"}
 opkg install keen-pbr
 
-# or if you want headless version (without API and without WebUI)
+# version without the web UI and API:
 # opkg install keen-pbr-headless
 ```
 
-Config path:
+The new configuration is in `/opt/etc/keen-pbr/config.json`.
 
-```text
-/opt/etc/keen-pbr/config.json
-```
+## 4. Convert the config to the new format
 
-## 3. Upgrade the config to the new format
-
-Open the [Config Converter](https://keen-pbr.fyi/converter/)
-
-Then:
+Open the [Config Converter](https://keen-pbr.fyi/converter/). Then:
 
 1. Copy the content of `/opt/etc/keen-pbr/keen-pbr.conf` into the converter input field on the left.
 2. Review the generated config.
 3. Replace the content of `/opt/etc/keen-pbr/config.json` with the converted output.
 
 {{< callout type="info" >}}
-Replace the config file with the converted output only after you have reviewed it.
+Replace the config file only after you have reviewed the converted output.
 {{< /callout >}}
 
-## 4. Restart keen-pbr
-
-Restart the service after saving the config.
+## 5. Restart keen-pbr
 
 ```bash {filename="bash"}
 /opt/etc/init.d/S80keen-pbr restart
+/opt/etc/init.d/S80keen-pbr status
 ```
 
-After restart, open [Quick Start]({{< relref "/docs/getting-started/quick-start" >}}) if you want to verify the service in the Web UI or continue with JSON / CLI setup.
+If everything is fine, `status` prints `alive`. If it says `dead`, open [Service does not start]({{< relref "/docs/troubleshooting#service-does-not-start" >}}).
+
+Then open [Quick Start]({{< relref "/docs/getting-started/quick-start" >}}): the **Web UI** tab helps you check the setup, and the **JSON** tab is for working with the config file.
 

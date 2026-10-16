@@ -9,266 +9,24 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Quick Start – keen-pbr</title>
-  <meta name="description" content="This guide helps you finish a first working setup that sends selected sites through a VPN while everything else keeps using the normal connection.
-If you installed the full package, the Web UI is the easiest place to start. If you installed keen-pbr-headless or prefer editing files directly, use the JSON / CLI tab.
-A minimal setup takes four steps:
-graph LR; classDef default font-size:16pt; A[&#34;1. Add outbounds&#34;] B[&#34;`2. Add lists (optional)`&#34;] C[&#34;3. Add routing rules&#34;] A==&gt;B; B==&gt;C; Web UIJSON If you have installed keen-pbr-headless, see JSON configuration method. Your browser does not support the video tag. Open the Web UI Open http://&lt;router-ip&gt;:12121/ in your browser (replace &lt;router-ip&gt; with your router IP address).
-Tip: On Keenetic / NetCraze you can also open http://my.keenetic.net:12121/. Create the outbounds Go to Outbounds and create these two entries:
-Create a new outbound named vpn with the following options:
-type = interface interface = &lt;your_vpn_interface_name&gt; gateway = &lt;your_vpn_gateway_ip&gt; if your VPN requires an explicit IPv4 gateway gateway6 = &lt;your_vpn_gateway6_ip&gt; if your VPN requires an explicit IPv6 gateway Create another outbound named default with the following options:
-type = Routing table Table ID = 254 Why default? This example uses the main Linux routing table as the fallback path, so default should point to routing table 254.
-Create a test list Go to Lists and create a list such as my_sites with type Domains / IPs, then add a test domain like ifconfig.co.
-Add a routing rule Go to Routing rules and route my_sites through the vpn outbound.
-Verification Apply the configuration and wait until “draft config” notification disappear. Clear DNS cache on your device: For Windows PC, open Command Prompt and run ipconfig /flushdns. For Linux PC, open Terminal and run sudo resolvectl flush-caches. For mobile devices just reconnect to your WiFi. Open a website from your list (ifconfig.co) and check that it shows a different IP than an ordinary “my IP” website (e.g. wtfismyip.com) To verify the setup, open a site from your list and make sure it works through the VPN. If you want a command-line check, run:
-bashkeen-pbr test-routing ifconfig.co If the result shows your VPN outbound in both the expected and actual columns, the setup is working.
-Use this path if you installed keen-pbr-headless or prefer editing the config file directly.
-Config file locations:
-Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json Example minimal config:
-config.json{ &#34;version&#34;: &#34;3.4.0&#34;, // Outbounds is where your traffic can go &#34;outbounds&#34;: [ { &#34;tag&#34;: &#34;vpn&#34;, // outbound name, you can use alphanumeric symbols and underscore &#34;type&#34;: &#34;interface&#34;, // &#34;interface&#34; outbound can route your traffic through specific interface &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;tag&#34;: &#34;out&#34;, &#34;type&#34;: &#34;table&#34;, // &#34;table&#34; outbound can route your traffic to the iproute kernel table &#34;table&#34;: 254 // kernel routing table named &#34;main&#34; has the ID 254. See /etc/iproute2/rt_tables file for more info. }, { &#34;tag&#34;: &#34;direct_local&#34;, &#34;type&#34;: &#34;ignore&#34; // prevents local and special networks from being routed into tunnels } ], &#34;lists&#34;: { &#34;local_networks&#34;: { // default list that prevents local traffic from tunneling &#34;ip_cidrs&#34;: [ &#34;0.0.0.0/8&#34;, &#34;10.0.0.0/8&#34;, &#34;100.64.0.0/10&#34;, &#34;127.0.0.0/8&#34;, &#34;169.254.0.0/16&#34;, &#34;172.16.0.0/12&#34;, &#34;192.168.0.0/16&#34;, &#34;224.0.0.0/4&#34;, &#34;240.0.0.0/4&#34;, &#34;::1/128&#34;, &#34;fc00::/7&#34;, &#34;fe80::/10&#34;, &#34;ff00::/8&#34; ] }, &#34;my_sites&#34;: { // list with inline domains &#34;domains&#34;: [&#34;ifconfig.co&#34;], &#34;ttl_ms&#34;: 3600000 // for how long resolved IP should be added into routing ipsets after it was seen in a DNS response, in milliseconds }, &#34;always_out&#34;: { // list with inline IPs &#34;ip_cidrs&#34;: [&#34;120.131.22.11&#34;] }, &#34;my_remote_list&#34;: { // remote list &#34;url&#34;: &#34;https://example.com/my-list.lst&#34;, &#34;ttl_ms&#34;: 0 // if ttl is 0, then IP would be added to ipset forever (until you restart keen-pbr) }, &#34;my_local_file_list&#34;: { // local file list &#34;file&#34;: &#34;/etc/keen-pbr/local.lst&#34; } }, &#34;route&#34;: { &#34;rules&#34;: [ { // Default rule: keep local and special networks local, never tunnel them &#34;list&#34;: [&#34;local_networks&#34;], &#34;outbound&#34;: &#34;direct_local&#34; }, { // All IPs and domains from list &#34;my_sites&#34; will be routed to the &#34;vpn&#34; outbound &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; }, { // All IPs and domains from list &#34;always_out&#34; will be routed to the &#34;out&#34; outbound &#34;list&#34;: [&#34;always_out&#34;], &#34;outbound&#34;: &#34;out&#34; } ] } } In this example, out outbound reuses Linux routing table main (that has id 254). If you route traffic to this table, it would follow your system default routes. Set gateway only for IPv4. If you also need an explicit IPv6 next-hop, use gateway6. If neither field is set, keen-pbr creates both IPv4 and IPv6 default routes for the interface outbound. What this example does:
-Creates a VPN outbound and a out outbound that reuses routing table 254 (main routing table) Adds a list called my_sites with ifconfig.co Adds a list called always_out with 120.131.22.11 Adds lists called my_remote_list and my_local_file_list that are not used in any rules, but listed here just for example Sends traffic for all domains from my_sites through vpn Sends traffic for all IPs from always_out through out Restart the service after saving the config:
-Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr restart bashservice keen-pbr restart bashsystemctl restart keen-pbr Verify the result:
-bashkeen-pbr test-routing ifconfig.co You can also run keen-pbr status for a broader health check." /><link rel="canonical" href="https://keen-pbr.fyi/docs/getting-started/quick-start/" itemprop="url" />
+  <meta name="description" content="After this guide, one test site opens through your VPN and the rest of your traffic goes the usual way. You need a VPN interface that already exists on the router (for example tun0 or wg0).
+If you do not have a VPN on the router yet, set it up with the guide for your system: Keenetic / NetCraze, OpenWrt, Debian. In the keen-pbr web UI you pick the interface from a list. To see all interface names in the console, run ip addr: the VPN interface is the one with an address from your VPN network. If you installed the full package, start with the Web UI. If you have keen-pbr-headless or prefer editing files, use the JSON tab." /><link rel="canonical" href="https://keen-pbr.fyi/docs/getting-started/quick-start/" itemprop="url" />
 
 <meta property="og:title" content="Quick Start">
 <meta
   property="og:description"
   content="
     
-      This guide helps you finish a first working setup that sends selected sites through a VPN while everything else keeps using the normal connection.
-If you installed the full package, the Web UI is the easiest place to start. If you installed keen-pbr-headless or prefer editing files directly, use the JSON / CLI tab.
-A minimal setup takes four steps:
-
-  
-    
-graph LR;
-    classDef default font-size:16pt;
-
-    A[&#34;1. Add outbounds&#34;]
-    B[&#34;`2. Add lists
-(optional)`&#34;]
-    C[&#34;3. Add routing rules&#34;]
-
-    A==&gt;B;
-    B==&gt;C;
-  
-
-
-
-
-  Web UIJSON
-
-
-  
-  
-    If you have installed keen-pbr-headless, see JSON configuration method.
-  
-
-
-    
-        
-        
-        Your browser does not support the video tag.
-        
-    
-
-Open the Web UI
-    Open http://&lt;router-ip&gt;:12121/ in your browser (replace &lt;router-ip&gt; with your router IP address).
-
-  
-  
-    Tip: On Keenetic / NetCraze you can also open http://my.keenetic.net:12121/.
-  
-
-Create the outbounds
-    Go to Outbounds and create these two entries:
-
-
-Create a new outbound named vpn with the following options:
-
-type = interface
-interface = &lt;your_vpn_interface_name&gt;
-gateway = &lt;your_vpn_gateway_ip&gt; if your VPN requires an explicit IPv4 gateway
-gateway6 = &lt;your_vpn_gateway6_ip&gt; if your VPN requires an explicit IPv6 gateway
-
-
-
-Create another outbound named default with the following options:
-
-type = Routing table
-Table ID = 254
-
-
-
-Why default?
-    This example uses the main Linux routing table as the fallback path, so default should point to routing table 254.
-Create a test list
-    Go to Lists and create a list such as my_sites with type Domains / IPs, then add a test domain like ifconfig.co.
-Add a routing rule
-    Go to Routing rules and route my_sites through the vpn outbound.
-Verification
-    
-Apply the configuration and wait until &ldquo;draft config&rdquo; notification disappear.
-Clear DNS cache on your device:
-
-For Windows PC, open Command Prompt and run ipconfig /flushdns.
-For Linux PC, open Terminal and run sudo resolvectl flush-caches.
-For mobile devices just reconnect to your WiFi.
-
-
-Open a website from your list (ifconfig.co) and check that it shows a different IP than an ordinary &ldquo;my IP&rdquo; website (e.g. wtfismyip.com)
-
-
-To verify the setup, open a site from your list and make sure it works through the VPN. If you want a command-line check, run:
-
-
-bashkeen-pbr test-routing ifconfig.co
-  
-    
+      After this guide, one test site opens through your VPN and the rest of your traffic goes the usual way. You need a VPN interface that already exists on the router (for example tun0 or wg0).
 
   
 
-
-If the result shows your VPN outbound in both the expected and actual columns, the setup is working.
-Use this path if you installed keen-pbr-headless or prefer editing the config file directly.
-Config file locations:
-
-Keenetic / NetCraze: /opt/etc/keen-pbr/config.json
-OpenWrt: /etc/keen-pbr/config.json
-Debian: /etc/keen-pbr/config.json
-
-Example minimal config:
-
-
-config.json{
-  &#34;version&#34;: &#34;3.4.0&#34;,
-  // Outbounds is where your traffic can go
-  &#34;outbounds&#34;: [
-    {
-      &#34;tag&#34;: &#34;vpn&#34;,          // outbound name, you can use alphanumeric symbols and underscore
-      &#34;type&#34;: &#34;interface&#34;,   // &#34;interface&#34; outbound can route your traffic through specific interface
-      &#34;interface&#34;: &#34;tun0&#34;,
-      &#34;gateway&#34;: &#34;10.8.0.1&#34;
-    },
-    {
-      &#34;tag&#34;: &#34;out&#34;,
-      &#34;type&#34;: &#34;table&#34;,  // &#34;table&#34; outbound can route your traffic to the iproute kernel table
-      &#34;table&#34;: 254      // kernel routing table named &#34;main&#34; has the ID 254. See /etc/iproute2/rt_tables file for more info.
-    },
-    {
-      &#34;tag&#34;: &#34;direct_local&#34;,
-      &#34;type&#34;: &#34;ignore&#34;  // prevents local and special networks from being routed into tunnels
-    }
-  ],
-  &#34;lists&#34;: {
-    &#34;local_networks&#34;: { // default list that prevents local traffic from tunneling
-      &#34;ip_cidrs&#34;: [
-        &#34;0.0.0.0/8&#34;, &#34;10.0.0.0/8&#34;, &#34;100.64.0.0/10&#34;, &#34;127.0.0.0/8&#34;,
-        &#34;169.254.0.0/16&#34;, &#34;172.16.0.0/12&#34;, &#34;192.168.0.0/16&#34;,
-        &#34;224.0.0.0/4&#34;, &#34;240.0.0.0/4&#34;, &#34;::1/128&#34;, &#34;fc00::/7&#34;, &#34;fe80::/10&#34;, &#34;ff00::/8&#34;
-      ]
-    },
-    &#34;my_sites&#34;: {   // list with inline domains
-      &#34;domains&#34;: [&#34;ifconfig.co&#34;],
-      &#34;ttl_ms&#34;: 3600000 // for how long resolved IP should be added into routing ipsets after it was seen in a DNS response, in milliseconds
-    },
-    &#34;always_out&#34;: { // list with inline IPs
-      &#34;ip_cidrs&#34;: [&#34;120.131.22.11&#34;]
-    },
-    &#34;my_remote_list&#34;: { // remote list
-      &#34;url&#34;: &#34;https://example.com/my-list.lst&#34;,
-      &#34;ttl_ms&#34;: 0 // if ttl is 0, then IP would be added to ipset forever (until you restart keen-pbr)
-    },
-    &#34;my_local_file_list&#34;: { // local file list
-      &#34;file&#34;: &#34;/etc/keen-pbr/local.lst&#34;
-    }
-  },
-  &#34;route&#34;: {
-    &#34;rules&#34;: [
-      { // Default rule: keep local and special networks local, never tunnel them
-        &#34;list&#34;: [&#34;local_networks&#34;],
-        &#34;outbound&#34;: &#34;direct_local&#34;
-      },
-      { // All IPs and domains from list &#34;my_sites&#34; will be routed to the &#34;vpn&#34; outbound
-        &#34;list&#34;: [&#34;my_sites&#34;],
-        &#34;outbound&#34;: &#34;vpn&#34;
-      },
-      { // All IPs and domains from list &#34;always_out&#34; will be routed to the &#34;out&#34; outbound
-        &#34;list&#34;: [&#34;always_out&#34;],
-        &#34;outbound&#34;: &#34;out&#34;
-      }
-    ]
-  }
-}
   
-    
-
+    If you do not have a VPN on the router yet, set it up with the guide for your system: Keenetic / NetCraze, OpenWrt, Debian. In the keen-pbr web UI you pick the interface from a list. To see all interface names in the console, run ip addr: the VPN interface is the one with an address from your VPN network.
   
 
 
-
-  
-  
-    In this example, out outbound reuses Linux routing table main (that has id 254).
-If you route traffic to this table, it would follow your system default routes.
-  
-
-
-  
-  
-    Set gateway only for IPv4. If you also need an explicit IPv6 next-hop, use gateway6.
-If neither field is set, keen-pbr creates both IPv4 and IPv6 default routes for the interface outbound.
-  
-
-What this example does:
-
-Creates a VPN outbound and a out outbound that reuses routing table 254 (main routing table)
-Adds a list called my_sites with ifconfig.co
-Adds a list called always_out with 120.131.22.11
-Adds lists called my_remote_list and my_local_file_list that are not used in any rules, but listed here just for example
-Sends traffic for all domains from my_sites through vpn
-Sends traffic for all IPs from always_out through out
-
-Restart the service after saving the config:
-
-  Keenetic / NetCrazeOpenWrtDebian
-
-
-bash/opt/etc/init.d/S80keen-pbr restart
-  
-    
-
-  
-
-
-
-bashservice keen-pbr restart
-  
-    
-
-  
-
-
-
-bashsystemctl restart keen-pbr
-  
-    
-
-  
-
-
-
-Verify the result:
-
-
-bashkeen-pbr test-routing ifconfig.co
-  
-    
-
-  
-
-
-You can also run keen-pbr status for a broader health check.
-
+If you installed the full package, start with the Web UI. If you have keen-pbr-headless or prefer editing files, use the JSON tab.
     
   ">
 <meta
@@ -282,47 +40,13 @@ You can also run keen-pbr status for a broader health check.
 
 
 	<meta itemprop="name" content="Quick Start">
-	<meta itemprop="description" content="This guide helps you finish a first working setup that sends selected sites through a VPN while everything else keeps using the normal connection.
-If you installed the full package, the Web UI is the easiest place to start. If you installed keen-pbr-headless or prefer editing files directly, use the JSON / CLI tab.
-A minimal setup takes four steps:
-graph LR; classDef default font-size:16pt; A[&#34;1. Add outbounds&#34;] B[&#34;`2. Add lists (optional)`&#34;] C[&#34;3. Add routing rules&#34;] A==&gt;B; B==&gt;C; Web UIJSON If you have installed keen-pbr-headless, see JSON configuration method. Your browser does not support the video tag. Open the Web UI Open http://&lt;router-ip&gt;:12121/ in your browser (replace &lt;router-ip&gt; with your router IP address).
-Tip: On Keenetic / NetCraze you can also open http://my.keenetic.net:12121/. Create the outbounds Go to Outbounds and create these two entries:
-Create a new outbound named vpn with the following options:
-type = interface interface = &lt;your_vpn_interface_name&gt; gateway = &lt;your_vpn_gateway_ip&gt; if your VPN requires an explicit IPv4 gateway gateway6 = &lt;your_vpn_gateway6_ip&gt; if your VPN requires an explicit IPv6 gateway Create another outbound named default with the following options:
-type = Routing table Table ID = 254 Why default? This example uses the main Linux routing table as the fallback path, so default should point to routing table 254.
-Create a test list Go to Lists and create a list such as my_sites with type Domains / IPs, then add a test domain like ifconfig.co.
-Add a routing rule Go to Routing rules and route my_sites through the vpn outbound.
-Verification Apply the configuration and wait until “draft config” notification disappear. Clear DNS cache on your device: For Windows PC, open Command Prompt and run ipconfig /flushdns. For Linux PC, open Terminal and run sudo resolvectl flush-caches. For mobile devices just reconnect to your WiFi. Open a website from your list (ifconfig.co) and check that it shows a different IP than an ordinary “my IP” website (e.g. wtfismyip.com) To verify the setup, open a site from your list and make sure it works through the VPN. If you want a command-line check, run:
-bashkeen-pbr test-routing ifconfig.co If the result shows your VPN outbound in both the expected and actual columns, the setup is working.
-Use this path if you installed keen-pbr-headless or prefer editing the config file directly.
-Config file locations:
-Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json Example minimal config:
-config.json{ &#34;version&#34;: &#34;3.4.0&#34;, // Outbounds is where your traffic can go &#34;outbounds&#34;: [ { &#34;tag&#34;: &#34;vpn&#34;, // outbound name, you can use alphanumeric symbols and underscore &#34;type&#34;: &#34;interface&#34;, // &#34;interface&#34; outbound can route your traffic through specific interface &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;tag&#34;: &#34;out&#34;, &#34;type&#34;: &#34;table&#34;, // &#34;table&#34; outbound can route your traffic to the iproute kernel table &#34;table&#34;: 254 // kernel routing table named &#34;main&#34; has the ID 254. See /etc/iproute2/rt_tables file for more info. }, { &#34;tag&#34;: &#34;direct_local&#34;, &#34;type&#34;: &#34;ignore&#34; // prevents local and special networks from being routed into tunnels } ], &#34;lists&#34;: { &#34;local_networks&#34;: { // default list that prevents local traffic from tunneling &#34;ip_cidrs&#34;: [ &#34;0.0.0.0/8&#34;, &#34;10.0.0.0/8&#34;, &#34;100.64.0.0/10&#34;, &#34;127.0.0.0/8&#34;, &#34;169.254.0.0/16&#34;, &#34;172.16.0.0/12&#34;, &#34;192.168.0.0/16&#34;, &#34;224.0.0.0/4&#34;, &#34;240.0.0.0/4&#34;, &#34;::1/128&#34;, &#34;fc00::/7&#34;, &#34;fe80::/10&#34;, &#34;ff00::/8&#34; ] }, &#34;my_sites&#34;: { // list with inline domains &#34;domains&#34;: [&#34;ifconfig.co&#34;], &#34;ttl_ms&#34;: 3600000 // for how long resolved IP should be added into routing ipsets after it was seen in a DNS response, in milliseconds }, &#34;always_out&#34;: { // list with inline IPs &#34;ip_cidrs&#34;: [&#34;120.131.22.11&#34;] }, &#34;my_remote_list&#34;: { // remote list &#34;url&#34;: &#34;https://example.com/my-list.lst&#34;, &#34;ttl_ms&#34;: 0 // if ttl is 0, then IP would be added to ipset forever (until you restart keen-pbr) }, &#34;my_local_file_list&#34;: { // local file list &#34;file&#34;: &#34;/etc/keen-pbr/local.lst&#34; } }, &#34;route&#34;: { &#34;rules&#34;: [ { // Default rule: keep local and special networks local, never tunnel them &#34;list&#34;: [&#34;local_networks&#34;], &#34;outbound&#34;: &#34;direct_local&#34; }, { // All IPs and domains from list &#34;my_sites&#34; will be routed to the &#34;vpn&#34; outbound &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; }, { // All IPs and domains from list &#34;always_out&#34; will be routed to the &#34;out&#34; outbound &#34;list&#34;: [&#34;always_out&#34;], &#34;outbound&#34;: &#34;out&#34; } ] } } In this example, out outbound reuses Linux routing table main (that has id 254). If you route traffic to this table, it would follow your system default routes. Set gateway only for IPv4. If you also need an explicit IPv6 next-hop, use gateway6. If neither field is set, keen-pbr creates both IPv4 and IPv6 default routes for the interface outbound. What this example does:
-Creates a VPN outbound and a out outbound that reuses routing table 254 (main routing table) Adds a list called my_sites with ifconfig.co Adds a list called always_out with 120.131.22.11 Adds lists called my_remote_list and my_local_file_list that are not used in any rules, but listed here just for example Sends traffic for all domains from my_sites through vpn Sends traffic for all IPs from always_out through out Restart the service after saving the config:
-Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr restart bashservice keen-pbr restart bashsystemctl restart keen-pbr Verify the result:
-bashkeen-pbr test-routing ifconfig.co You can also run keen-pbr status for a broader health check.">
-	<meta itemprop="wordCount" content="857">
+	<meta itemprop="description" content="After this guide, one test site opens through your VPN and the rest of your traffic goes the usual way. You need a VPN interface that already exists on the router (for example tun0 or wg0).
+If you do not have a VPN on the router yet, set it up with the guide for your system: Keenetic / NetCraze, OpenWrt, Debian. In the keen-pbr web UI you pick the interface from a list. To see all interface names in the console, run ip addr: the VPN interface is the one with an address from your VPN network. If you installed the full package, start with the Web UI. If you have keen-pbr-headless or prefer editing files, use the JSON tab.">
+	<meta itemprop="wordCount" content="1214">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Quick Start">
-	<meta name="twitter:description" content="This guide helps you finish a first working setup that sends selected sites through a VPN while everything else keeps using the normal connection.
-If you installed the full package, the Web UI is the easiest place to start. If you installed keen-pbr-headless or prefer editing files directly, use the JSON / CLI tab.
-A minimal setup takes four steps:
-graph LR; classDef default font-size:16pt; A[&#34;1. Add outbounds&#34;] B[&#34;`2. Add lists (optional)`&#34;] C[&#34;3. Add routing rules&#34;] A==&gt;B; B==&gt;C; Web UIJSON If you have installed keen-pbr-headless, see JSON configuration method. Your browser does not support the video tag. Open the Web UI Open http://&lt;router-ip&gt;:12121/ in your browser (replace &lt;router-ip&gt; with your router IP address).
-Tip: On Keenetic / NetCraze you can also open http://my.keenetic.net:12121/. Create the outbounds Go to Outbounds and create these two entries:
-Create a new outbound named vpn with the following options:
-type = interface interface = &lt;your_vpn_interface_name&gt; gateway = &lt;your_vpn_gateway_ip&gt; if your VPN requires an explicit IPv4 gateway gateway6 = &lt;your_vpn_gateway6_ip&gt; if your VPN requires an explicit IPv6 gateway Create another outbound named default with the following options:
-type = Routing table Table ID = 254 Why default? This example uses the main Linux routing table as the fallback path, so default should point to routing table 254.
-Create a test list Go to Lists and create a list such as my_sites with type Domains / IPs, then add a test domain like ifconfig.co.
-Add a routing rule Go to Routing rules and route my_sites through the vpn outbound.
-Verification Apply the configuration and wait until “draft config” notification disappear. Clear DNS cache on your device: For Windows PC, open Command Prompt and run ipconfig /flushdns. For Linux PC, open Terminal and run sudo resolvectl flush-caches. For mobile devices just reconnect to your WiFi. Open a website from your list (ifconfig.co) and check that it shows a different IP than an ordinary “my IP” website (e.g. wtfismyip.com) To verify the setup, open a site from your list and make sure it works through the VPN. If you want a command-line check, run:
-bashkeen-pbr test-routing ifconfig.co If the result shows your VPN outbound in both the expected and actual columns, the setup is working.
-Use this path if you installed keen-pbr-headless or prefer editing the config file directly.
-Config file locations:
-Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json Example minimal config:
-config.json{ &#34;version&#34;: &#34;3.4.0&#34;, // Outbounds is where your traffic can go &#34;outbounds&#34;: [ { &#34;tag&#34;: &#34;vpn&#34;, // outbound name, you can use alphanumeric symbols and underscore &#34;type&#34;: &#34;interface&#34;, // &#34;interface&#34; outbound can route your traffic through specific interface &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;tag&#34;: &#34;out&#34;, &#34;type&#34;: &#34;table&#34;, // &#34;table&#34; outbound can route your traffic to the iproute kernel table &#34;table&#34;: 254 // kernel routing table named &#34;main&#34; has the ID 254. See /etc/iproute2/rt_tables file for more info. }, { &#34;tag&#34;: &#34;direct_local&#34;, &#34;type&#34;: &#34;ignore&#34; // prevents local and special networks from being routed into tunnels } ], &#34;lists&#34;: { &#34;local_networks&#34;: { // default list that prevents local traffic from tunneling &#34;ip_cidrs&#34;: [ &#34;0.0.0.0/8&#34;, &#34;10.0.0.0/8&#34;, &#34;100.64.0.0/10&#34;, &#34;127.0.0.0/8&#34;, &#34;169.254.0.0/16&#34;, &#34;172.16.0.0/12&#34;, &#34;192.168.0.0/16&#34;, &#34;224.0.0.0/4&#34;, &#34;240.0.0.0/4&#34;, &#34;::1/128&#34;, &#34;fc00::/7&#34;, &#34;fe80::/10&#34;, &#34;ff00::/8&#34; ] }, &#34;my_sites&#34;: { // list with inline domains &#34;domains&#34;: [&#34;ifconfig.co&#34;], &#34;ttl_ms&#34;: 3600000 // for how long resolved IP should be added into routing ipsets after it was seen in a DNS response, in milliseconds }, &#34;always_out&#34;: { // list with inline IPs &#34;ip_cidrs&#34;: [&#34;120.131.22.11&#34;] }, &#34;my_remote_list&#34;: { // remote list &#34;url&#34;: &#34;https://example.com/my-list.lst&#34;, &#34;ttl_ms&#34;: 0 // if ttl is 0, then IP would be added to ipset forever (until you restart keen-pbr) }, &#34;my_local_file_list&#34;: { // local file list &#34;file&#34;: &#34;/etc/keen-pbr/local.lst&#34; } }, &#34;route&#34;: { &#34;rules&#34;: [ { // Default rule: keep local and special networks local, never tunnel them &#34;list&#34;: [&#34;local_networks&#34;], &#34;outbound&#34;: &#34;direct_local&#34; }, { // All IPs and domains from list &#34;my_sites&#34; will be routed to the &#34;vpn&#34; outbound &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; }, { // All IPs and domains from list &#34;always_out&#34; will be routed to the &#34;out&#34; outbound &#34;list&#34;: [&#34;always_out&#34;], &#34;outbound&#34;: &#34;out&#34; } ] } } In this example, out outbound reuses Linux routing table main (that has id 254). If you route traffic to this table, it would follow your system default routes. Set gateway only for IPv4. If you also need an explicit IPv6 next-hop, use gateway6. If neither field is set, keen-pbr creates both IPv4 and IPv6 default routes for the interface outbound. What this example does:
-Creates a VPN outbound and a out outbound that reuses routing table 254 (main routing table) Adds a list called my_sites with ifconfig.co Adds a list called always_out with 120.131.22.11 Adds lists called my_remote_list and my_local_file_list that are not used in any rules, but listed here just for example Sends traffic for all domains from my_sites through vpn Sends traffic for all IPs from always_out through out Restart the service after saving the config:
-Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr restart bashservice keen-pbr restart bashsystemctl restart keen-pbr Verify the result:
-bashkeen-pbr test-routing ifconfig.co You can also run keen-pbr status for a broader health check.">
+	<meta name="twitter:description" content="After this guide, one test site opens through your VPN and the rest of your traffic goes the usual way. You need a VPN interface that already exists on the router (for example tun0 or wg0).
+If you do not have a VPN on the router yet, set it up with the guide for your system: Keenetic / NetCraze, OpenWrt, Debian. In the keen-pbr web UI you pick the interface from a list. To see all interface names in the console, run ip addr: the VPN interface is the one with an address from your VPN network. If you installed the full package, start with the Web UI. If you have keen-pbr-headless or prefer editing files, use the JSON tab.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -1248,9 +972,17 @@ bashkeen-pbr test-routing ifconfig.co You can also run keen-pbr status for a bro
     </div>
           </div>
           
-          <p>This guide helps you finish a first working setup that sends selected sites through a VPN while everything else keeps using the normal connection.</p>
-<p>If you installed the full package, the Web UI is the easiest place to start. If you installed <code>keen-pbr-headless</code> or prefer editing files directly, use the JSON / CLI tab.</p>
-<p>A minimal setup takes four steps:</p>
+          <p>After this guide, one test site opens through your VPN and the rest of your traffic goes the usual way. You need a VPN interface that already exists on the router (for example <code>tun0</code> or <code>wg0</code>).</p>
+<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
+  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+
+  <div class="hx:w-full hx:min-w-0 hx:leading-7">
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">If you do not have a VPN on the router yet, set it up with the guide for your system: <a href="https://help.keenetic.com/hc/en-us/articles/360010592379"target="_blank" rel="noopener">Keenetic / NetCraze</a>, <a href="https://openwrt.org/docs/guide-user/services/vpn/wireguard/start"target="_blank" rel="noopener">OpenWrt</a>, <a href="https://wiki.debian.org/WireGuard"target="_blank" rel="noopener">Debian</a>. In the keen-pbr web UI you pick the interface from a list. To see all interface names in the console, run <code>ip addr</code>: the VPN interface is the one with an address from your VPN network.</div>
+  </div>
+</div>
+
+<p>If you installed the full package, start with the Web UI. If you have <code>keen-pbr-headless</code> or prefer editing files, use the JSON tab.</p>
+<p>Setup takes three steps:</p>
 <div role="img" aria-label="Diagram">
   <pre class="mermaid hx:mt-6">
     
@@ -1265,13 +997,20 @@ graph LR;
     A==&gt;B;
     B==&gt;C;
   </pre>
-</div>
+</div><p>Three terms you will meet below:</p>
+<ul>
+<li><strong>outbound</strong> is a channel traffic goes through: a VPN interface, your normal provider connection, or a block;</li>
+<li><strong>list</strong> is a set of domains and IP addresses, for example &ldquo;sites that must go through the VPN&rdquo;;</li>
+<li><strong>routing rule</strong> links the two: &ldquo;traffic from this list goes to this outbound&rdquo;.</li>
+</ul>
+<p>The default config already has the outbounds <code>wan</code> (the normal internet connection through your provider), <code>block</code> and <code>direct_local</code>, plus the list <code>local_networks</code> with a rule that keeps your home network local. You only need to create the <code>vpn</code> outbound, one list and one rule.</p>
+
 
 
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Web UI,JSON"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-00-0" role="tab" type="button" aria-controls="tabs-panel-tabs-00-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Web UI</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-00-1" role="tab" type="button" aria-controls="tabs-panel-tabs-00-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>JSON</span></span></button></div>
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Web UI,JSON"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-0" role="tab" type="button" aria-controls="tabs-panel-tabs-01-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Web UI</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-1" role="tab" type="button" aria-controls="tabs-panel-tabs-01-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>JSON</span></span></button></div>
 </div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-00-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-00-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
     <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">If you have installed <code>keen-pbr-headless</code>, see <strong>JSON</strong> configuration method.</div>
@@ -1298,48 +1037,53 @@ graph LR;
     <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Tip: On Keenetic / NetCraze you can also open <a href="http://my.keenetic.net:12121/"target="_blank" rel="noopener">http://my.keenetic.net:12121/</a>.</div>
   </div>
 </div>
-<h3>Create the outbounds<span class="hx:absolute hx:-mt-20" id="create-the-outbounds"></span>
-    <a href="#create-the-outbounds" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Go to <strong>Outbounds</strong> and create these two entries:</p>
-<ol>
-<li>
-<p>Create a new outbound named <code>vpn</code> with the following options:</p>
-<ul>
-<li><code>type = interface</code></li>
-<li><code>interface = &lt;your_vpn_interface_name&gt;</code></li>
-<li><code>gateway = &lt;your_vpn_gateway_ip&gt;</code> if your VPN requires an explicit IPv4 gateway</li>
-<li><code>gateway6 = &lt;your_vpn_gateway6_ip&gt;</code> if your VPN requires an explicit IPv6 gateway</li>
-</ul>
-</li>
-<li>
-<p>Create another outbound named <code>default</code> with the following options:</p>
-<ul>
-<li><code>type = Routing table</code></li>
-<li><code>Table ID = 254</code></li>
-</ul>
-</li>
+<h3>Create the VPN outbound<span class="hx:absolute hx:-mt-20" id="create-the-vpn-outbound"></span>
+    <a href="#create-the-vpn-outbound" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ol>
+<li>Open <strong>Routing</strong> &gt; <strong>Outbounds</strong> and click <strong>Add outbound</strong>.</li>
+<li>In <strong>Name</strong>, enter <code>vpn</code>.</li>
+<li>In <strong>Type</strong>, choose <strong>Interface</strong>.</li>
+<li>In <strong>Interface</strong>, pick your VPN interface name from the list.</li>
+<li>Leave <strong>Default gateway IPv4</strong> and <strong>Default gateway IPv6</strong> empty. A gateway is the address of the next router on the path; VPN tunnels usually do not need one. If you fill in only one of the fields, traffic of the other kind (IPv4 or IPv6) will not go through this outbound.</li>
+<li>Click <strong>Create outbound</strong>.</li>
 </ol>
-<h4 class="no-step-marker">Why <code>default</code>?<span class="hx:absolute hx:-mt-20" id="why-default"></span>
-    <a href="#why-default" class="subheading-anchor" aria-label="Permalink for this section"></a></h4><p>This example uses the <code>main</code> Linux routing table as the fallback path, so <code>default</code> should point to routing table <code>254</code>.</p>
+<p>The <code>wan</code> outbound already exists: it is the normal internet connection through your provider (routing table 254). If it is missing, create it: <strong>Type</strong> &gt; <strong>Routing table</strong>, <strong>Table ID</strong> <code>254</code>.</p>
 <h3>Create a test list<span class="hx:absolute hx:-mt-20" id="create-a-test-list"></span>
-    <a href="#create-a-test-list" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Go to <strong>Lists</strong> and create a list such as <code>my_sites</code> with type <code>Domains / IPs</code>, then add a test domain like <code>ifconfig.co</code>.</p>
+    <a href="#create-a-test-list" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ol>
+<li>Open <strong>Routing</strong> &gt; <strong>Lists</strong> and click <strong>Add list</strong>.</li>
+<li>In <strong>Name</strong>, enter <code>my_sites</code>.</li>
+<li>In <strong>Source type</strong>, choose <strong>Domains / IPs</strong>.</li>
+<li>In <strong>Domains</strong>, enter <code>ifconfig.co</code>. For a real service like YouTube one domain is not enough: use a ready-made list, see <a href="/docs/configuration/lists/#remote-url-list">Remote URL list</a>.</li>
+<li>Click <strong>Create list</strong>.</li>
+</ol>
 <h3>Add a routing rule<span class="hx:absolute hx:-mt-20" id="add-a-routing-rule"></span>
-    <a href="#add-a-routing-rule" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Go to <strong>Routing rules</strong> and route <code>my_sites</code> through the <code>vpn</code> outbound.</p>
-<h3>Verification<span class="hx:absolute hx:-mt-20" id="verification"></span>
-    <a href="#verification" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ol>
-<li>Apply the configuration and wait until &ldquo;draft config&rdquo; notification disappear.</li>
-<li>Clear DNS cache on your device:
+    <a href="#add-a-routing-rule" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ol>
+<li>Open <strong>Routing</strong> &gt; <strong>Routing rules</strong> and click <strong>Add routing rule</strong>.</li>
+<li>Click <strong>Choose the first condition</strong>, choose <strong>Lists</strong> and select <code>my_sites</code>.</li>
+<li>In <strong>Route traffic through</strong>, choose <code>vpn</code>.</li>
+<li>Click <strong>Create rule</strong>.</li>
+</ol>
+<p>The new rule appears below the <code>local_networks</code> rule. Rules are checked from top to bottom, and the first matching rule wins.</p>
+<h3>Apply the changes<span class="hx:absolute hx:-mt-20" id="apply-the-changes"></span>
+    <a href="#apply-the-changes" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>A banner appears at the top of the page: &ldquo;Configuration was changed. Save it to disk to apply it.&rdquo; Click <strong>Apply</strong> and wait until the banner disappears.</p>
+<h3>Check the result<span class="hx:absolute hx:-mt-20" id="check-the-result"></span>
+    <a href="#check-the-result" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ol>
+<li>
+<p>Clear the DNS cache on your device:</p>
 <ul>
-<li>For Windows PC, open Command Prompt and run <code>ipconfig /flushdns</code>.</li>
-<li>For Linux PC, open Terminal and run <code>sudo resolvectl flush-caches</code>.</li>
-<li>For mobile devices just reconnect to your WiFi.</li>
+<li>On Windows, open Command Prompt and run <code>ipconfig /flushdns</code>.</li>
+<li>On Linux, open a terminal and run <code>sudo resolvectl flush-caches</code>.</li>
+<li>On mobile devices, reconnect to Wi-Fi.</li>
 </ul>
 </li>
-<li>Open a website from your list (<code>ifconfig.co</code>) and check that it shows a different IP than an ordinary &ldquo;my IP&rdquo; website (e.g. <code>wtfismyip.com</code>)</li>
+<li>
+<p>Open <code>ifconfig.co</code> and compare the IP address with the one an ordinary &ldquo;my IP&rdquo; website shows (for example <code>wtfismyip.com</code>). If the addresses differ, <code>ifconfig.co</code> goes through the VPN.</p>
+<p>Check from a computer or phone on your network, not with <code>curl</code> on the router itself: by default the router&rsquo;s own traffic bypasses the rules. More: <a href="/docs/faq/#router-own-traffic">FAQ</a>.</p>
+</li>
+<li>
+<p>To check from the command line, run this on the router:</p>
+</li>
 </ol>
-</div>
-<p>To verify the setup, open a site from your list and make sure it works through the VPN. If you want a command-line check, run:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr test-routing ifconfig.co</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1352,73 +1096,76 @@ graph LR;
   </button>
 </div>
 </div>
-<p>If the result shows your VPN outbound in both the expected and actual columns, the setup is working.</p>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-00-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-00-1" aria-hidden="true"><p>Use this path if you installed <code>keen-pbr-headless</code> or prefer editing the config file directly.</p>
+<p>In the result table, the <code>Expected Outbound</code> and <code>Actual Outbound</code> columns should show <code>vpn</code>, and the last column should show <code>OK</code>.</p>
+</div>
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-1" aria-hidden="true"><p>Use this path if you installed <code>keen-pbr-headless</code> or prefer editing the config file directly.</p>
 <p>Config file locations:</p>
 <ul>
 <li>Keenetic / NetCraze: <code>/opt/etc/keen-pbr/config.json</code></li>
 <li>OpenWrt: <code>/etc/keen-pbr/config.json</code></li>
 <li>Debian: <code>/etc/keen-pbr/config.json</code></li>
 </ul>
-<p>Example minimal config:</p>
+<p>The file already has the outbounds <code>wan</code>, <code>block</code> and <code>direct_local</code>, the list <code>local_networks</code> and its rule. Add the <code>vpn</code> outbound, lists and rules as in the example below. Leave the other sections (<code>daemon</code>, <code>dns</code>, <code>fwmark</code>, <code>iproute</code>, <code>lists_autoupdate</code>, <code>api</code>) as they are.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;version&#34;</span><span class="p">:</span> <span class="s2">&#34;3.4.0&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="c1">// Outbounds is where your traffic can go
+</span></span><span class="line"><span class="cl">  <span class="c1">// Outbounds are the channels your traffic can go through
 </span></span></span><span class="line"><span class="cl">  <span class="nt">&#34;outbounds&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">,</span>          <span class="c1">// outbound name, you can use alphanumeric symbols and underscore
-</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;interface&#34;</span><span class="p">,</span>   <span class="c1">// &#34;interface&#34; outbound can route your traffic through specific interface
-</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;interface&#34;</span><span class="p">:</span> <span class="s2">&#34;tun0&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;gateway&#34;</span><span class="p">:</span> <span class="s2">&#34;10.8.0.1&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">,</span>          <span class="c1">// outbound name: letters, digits and underscore
+</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;interface&#34;</span><span class="p">,</span>   <span class="c1">// traffic goes through a network interface
+</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;interface&#34;</span><span class="p">:</span> <span class="s2">&#34;tun0&#34;</span>    <span class="c1">// your VPN interface name; a tunnel usually needs no gateway
+</span></span></span><span class="line"><span class="cl">    <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;out&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;table&#34;</span><span class="p">,</span>  <span class="c1">// &#34;table&#34; outbound can route your traffic to the iproute kernel table
-</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;table&#34;</span><span class="p">:</span> <span class="mi">254</span>      <span class="c1">// kernel routing table named &#34;main&#34; has the ID 254. See /etc/iproute2/rt_tables file for more info.
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;wan&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;table&#34;</span><span class="p">,</span>  <span class="c1">// traffic follows one of the router&#39;s routing tables
+</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;table&#34;</span><span class="p">:</span> <span class="mi">254</span>      <span class="c1">// 254 is the router&#39;s main table: the normal internet path through your provider
+</span></span></span><span class="line"><span class="cl">    <span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;block&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;blackhole&#34;</span>  <span class="c1">// traffic is dropped
 </span></span></span><span class="line"><span class="cl">    <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;direct_local&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;ignore&#34;</span>  <span class="c1">// prevents local and special networks from being routed into tunnels
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;ignore&#34;</span>  <span class="c1">// traffic goes the usual way; keeps local networks out of the tunnel
 </span></span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">],</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;lists&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;local_networks&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// default list that prevents local traffic from tunneling
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;local_networks&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// default list: local and special networks
 </span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;ip_cidrs&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">        <span class="s2">&#34;0.0.0.0/8&#34;</span><span class="p">,</span> <span class="s2">&#34;10.0.0.0/8&#34;</span><span class="p">,</span> <span class="s2">&#34;100.64.0.0/10&#34;</span><span class="p">,</span> <span class="s2">&#34;127.0.0.0/8&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="s2">&#34;169.254.0.0/16&#34;</span><span class="p">,</span> <span class="s2">&#34;172.16.0.0/12&#34;</span><span class="p">,</span> <span class="s2">&#34;192.168.0.0/16&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="s2">&#34;224.0.0.0/4&#34;</span><span class="p">,</span> <span class="s2">&#34;240.0.0.0/4&#34;</span><span class="p">,</span> <span class="s2">&#34;::1/128&#34;</span><span class="p">,</span> <span class="s2">&#34;fc00::/7&#34;</span><span class="p">,</span> <span class="s2">&#34;fe80::/10&#34;</span><span class="p">,</span> <span class="s2">&#34;ff00::/8&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">]</span>
 </span></span><span class="line"><span class="cl">    <span class="p">},</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my_sites&#34;</span><span class="p">:</span> <span class="p">{</span>   <span class="c1">// list with inline domains
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my_sites&#34;</span><span class="p">:</span> <span class="p">{</span>   <span class="c1">// list with domains written in the config
 </span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;domains&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;ifconfig.co&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;ttl_ms&#34;</span><span class="p">:</span> <span class="mi">3600000</span> <span class="c1">// for how long resolved IP should be added into routing ipsets after it was seen in a DNS response, in milliseconds
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;ttl_ms&#34;</span><span class="p">:</span> <span class="mi">3600000</span> <span class="c1">// minimum time in ms an IP learned from a DNS reply stays in the list; the DNS TTL can extend it up to 24 hours
 </span></span></span><span class="line"><span class="cl">    <span class="p">},</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;always_out&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// list with inline IPs
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;always_wan&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// list with IPs written in the config
 </span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;ip_cidrs&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;120.131.22.11&#34;</span><span class="p">]</span>
 </span></span><span class="line"><span class="cl">    <span class="p">},</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my_remote_list&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// remote list
-</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;url&#34;</span><span class="p">:</span> <span class="s2">&#34;https://example.com/my-list.lst&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;ttl_ms&#34;</span><span class="p">:</span> <span class="mi">0</span> <span class="c1">// if ttl is 0, then IP would be added to ipset forever (until you restart keen-pbr)
-</span></span></span><span class="line"><span class="cl">    <span class="p">},</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my_local_file_list&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// local file list
-</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;file&#34;</span><span class="p">:</span> <span class="s2">&#34;/etc/keen-pbr/local.lst&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my_remote_list&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// list downloaded from a URL
+</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;url&#34;</span><span class="p">:</span> <span class="s2">&#34;https://example.com/my-list.lst&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my_local_file_list&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// list read from a file on the router
+</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;file&#34;</span><span class="p">:</span> <span class="s2">&#34;/etc/keen-pbr/local.lst&#34;</span> <span class="c1">// use the path to your own file
+</span></span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">},</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span> <span class="c1">// Default rule: keep local and special networks local, never tunnel them
+</span></span><span class="line"><span class="cl">      <span class="p">{</span> <span class="c1">// Default rule: local networks never go into the tunnel
 </span></span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;local_networks&#34;</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;direct_local&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">},</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span> <span class="c1">// All IPs and domains from list &#34;my_sites&#34; will be routed to the &#34;vpn&#34; outbound
+</span></span><span class="line"><span class="cl">      <span class="p">{</span> <span class="c1">// Domains and IPs from &#34;my_sites&#34; go through &#34;vpn&#34;
 </span></span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_sites&#34;</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">},</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span> <span class="c1">// All IPs and domains from list &#34;always_out&#34; will be routed to the &#34;out&#34; outbound
-</span></span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;always_out&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;out&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span> <span class="c1">// IPs from &#34;always_wan&#34; go through &#34;wan&#34;, that is, directly through your provider
+</span></span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;always_wan&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;wan&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">}</span>
 </span></span><span class="line"><span class="cl">    <span class="p">]</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
@@ -1437,31 +1184,21 @@ graph LR;
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">In this example, <code>out</code> outbound reuses Linux routing table <code>main</code> (that has id <code>254</code>).
-If you route traffic to this table, it would follow your system default routes.</div>
-  </div>
-</div>
-<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
-  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-  <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Set <code>gateway</code> only for IPv4. If you also need an explicit IPv6 next-hop, use <code>gateway6</code>.
-If neither field is set, keen-pbr creates both IPv4 and IPv6 default routes for the interface outbound.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">A gateway is the address of the next router on the path. For tunnels such as <code>tun0</code> or <code>wg0</code>, <code>gateway</code> and <code>gateway6</code> are usually not needed: if you set neither, both IPv4 and IPv6 traffic goes straight into the interface. If you set only one, the other kind of traffic will not go through this outbound.</div>
   </div>
 </div>
 <p>What this example does:</p>
 <ul>
-<li>Creates a VPN outbound and a <code>out</code> outbound that reuses routing table <code>254</code> (<code>main</code> routing table)</li>
-<li>Adds a list called <code>my_sites</code> with <code>ifconfig.co</code></li>
-<li>Adds a list called <code>always_out</code> with <code>120.131.22.11</code></li>
-<li>Adds lists called <code>my_remote_list</code> and <code>my_local_file_list</code> that are not used in any rules, but listed here just for example</li>
-<li>Sends traffic for all domains from <code>my_sites</code> through <code>vpn</code></li>
-<li>Sends traffic for all IPs from <code>always_out</code> through <code>out</code></li>
+<li>adds the <code>vpn</code> outbound for your VPN interface and uses the existing <code>wan</code>, <code>block</code> and <code>direct_local</code>;</li>
+<li>creates the list <code>my_sites</code> with <code>ifconfig.co</code> and the list <code>always_wan</code> with <code>120.131.22.11</code>;</li>
+<li>creates the lists <code>my_remote_list</code> and <code>my_local_file_list</code>; no rule uses them, they are only examples;</li>
+<li>sends domains from <code>my_sites</code> through <code>vpn</code> and IPs from <code>always_wan</code> through <code>wan</code>.</li>
 </ul>
 <p>Restart the service after saving the config:</p>
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-0" role="tab" type="button" aria-controls="tabs-panel-tabs-02-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-1" role="tab" type="button" aria-controls="tabs-panel-tabs-02-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-2" role="tab" type="button" aria-controls="tabs-panel-tabs-02-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-0" role="tab" type="button" aria-controls="tabs-panel-tabs-01-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-1" role="tab" type="button" aria-controls="tabs-panel-tabs-01-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-2" role="tab" type="button" aria-controls="tabs-panel-tabs-01-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
 </div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">/opt/etc/init.d/S80keen-pbr restart</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1474,7 +1211,7 @@ If neither field is set, keen-pbr creates both IPv4 and IPv6 default routes for 
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">service keen-pbr restart</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1487,7 +1224,7 @@ If neither field is set, keen-pbr creates both IPv4 and IPv6 default routes for 
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">systemctl restart keen-pbr</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1501,7 +1238,7 @@ If neither field is set, keen-pbr creates both IPv4 and IPv6 default routes for 
 </div>
 </div>
 </div></div>
-<p>Verify the result:</p>
+<p>Clear the DNS cache on your device (<code>ipconfig /flushdns</code> on Windows, <code>sudo resolvectl flush-caches</code> on Linux, reconnect to Wi-Fi on a phone), then check the result on the router:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr test-routing ifconfig.co</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1516,14 +1253,15 @@ If neither field is set, keen-pbr creates both IPv4 and IPv6 default routes for 
   </button>
 </div>
 </div>
-<p>You can also run <code>keen-pbr status</code> for a broader health check.</p>
+<p>The <code>Expected Outbound</code> and <code>Actual Outbound</code> columns should show <code>vpn</code>, and the last column should show <code>OK</code>.</p>
+<p>For a broader check, run <code>keen-pbr status</code>.</p>
 </div></div>
 
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">For the full reference, start with <a href="/docs/configuration/">Configuration</a> or jump straight to <a href="/docs/configuration/full-reference-config/">Full Reference Config</a>. If something does not work yet, see <a href="/docs/troubleshooting/">Troubleshooting</a>.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">All settings are described in <a href="/docs/configuration/">Configuration</a>; a ready-made example is in <a href="/docs/configuration/full-reference-config/">Full Reference Config</a>. If something does not work, see <a href="/docs/troubleshooting/">Troubleshooting</a>.</div>
   </div>
 </div>
 

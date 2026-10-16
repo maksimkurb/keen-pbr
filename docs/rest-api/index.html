@@ -9,16 +9,23 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>REST API – keen-pbr</title>
-  <meta name="description" content="This page documents the built-in HTTP REST API.
+  <meta name="description" content="The REST API lets scripts and external systems control and monitor keen-pbr. For example:
+Prometheus and Grafana show VPN channel health and latency (see GET /metrics). A cron job refreshes lists on a schedule through POST /api/lists/refresh. A script restarts routing through POST /api/service/restart. If you only use the web interface, you can skip this page.
 The REST API is available when:
-Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;device_name&#34;: &#34;Home router&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=2048,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:" /><link rel="canonical" href="https://keen-pbr.fyi/docs/rest-api/" itemprop="url" />
+Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration In the web interface, open Security &gt; Authentication and CORS. Turn on Enable authentication, enter a New password and confirm it. If a website on another address must call the API from a browser, add its address to Allowed CORS origins (one per line). Changes take effect immediately." /><link rel="canonical" href="https://keen-pbr.fyi/docs/rest-api/" itemprop="url" />
 
 <meta property="og:title" content="REST API">
 <meta
   property="og:description"
   content="
     
-      This page documents the built-in HTTP REST API.
+      The REST API lets scripts and external systems control and monitor keen-pbr. For example:
+
+Prometheus and Grafana show VPN channel health and latency (see GET /metrics).
+A cron job refreshes lists on a schedule through POST /api/lists/refresh.
+A script restarts routing through POST /api/service/restart.
+
+If you only use the web interface, you can skip this page.
 The REST API is available when:
 
 Full package version is installed (keen-pbr, not keen-pbr-headless)
@@ -26,29 +33,7 @@ The config has api.enabled: true
 The --no-api flag was not passed at startup
 
 Configuration
-    
-
-config.json{
-  &#34;device_name&#34;: &#34;Home router&#34;,
-  &#34;api&#34;: {
-    &#34;enabled&#34;: true,
-    &#34;listen&#34;: &#34;0.0.0.0:12121&#34;,
-    &#34;authentication&#34;: {
-      &#34;enabled&#34;: true,
-      &#34;password_hash&#34;: &#34;argon2id$v=19$m=2048,t=2,p=1$...&#34;
-    },
-    &#34;cors&#34;: {
-      &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;]
-    }
-  }
-}
-  
-    
-
-  
-
-
-Generate a verifier interactively:
+    In the web interface, open Security &gt; Authentication and CORS. Turn on Enable authentication, enter a New password and confirm it. If a website on another address must call the API from a browser, add its address to Allowed CORS origins (one per line). Changes take effect immediately.
     
   ">
 <meta
@@ -62,15 +47,17 @@ Generate a verifier interactively:
 
 
 	<meta itemprop="name" content="REST API">
-	<meta itemprop="description" content="This page documents the built-in HTTP REST API.
+	<meta itemprop="description" content="The REST API lets scripts and external systems control and monitor keen-pbr. For example:
+Prometheus and Grafana show VPN channel health and latency (see GET /metrics). A cron job refreshes lists on a schedule through POST /api/lists/refresh. A script restarts routing through POST /api/service/restart. If you only use the web interface, you can skip this page.
 The REST API is available when:
-Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;device_name&#34;: &#34;Home router&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=2048,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:">
-	<meta itemprop="wordCount" content="2631">
+Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration In the web interface, open Security &gt; Authentication and CORS. Turn on Enable authentication, enter a New password and confirm it. If a website on another address must call the API from a browser, add its address to Allowed CORS origins (one per line). Changes take effect immediately.">
+	<meta itemprop="wordCount" content="3071">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
-	<meta name="twitter:description" content="This page documents the built-in HTTP REST API.
+	<meta name="twitter:description" content="The REST API lets scripts and external systems control and monitor keen-pbr. For example:
+Prometheus and Grafana show VPN channel health and latency (see GET /metrics). A cron job refreshes lists on a schedule through POST /api/lists/refresh. A script restarts routing through POST /api/service/restart. If you only use the web interface, you can skip this page.
 The REST API is available when:
-Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;device_name&#34;: &#34;Home router&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=2048,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:">
+Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration In the web interface, open Security &gt; Authentication and CORS. Turn on Enable authentication, enter a New password and confirm it. If a website on another address must call the API from a browser, add its address to Allowed CORS origins (one per line). Changes take effect immediately.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -1018,6 +1005,10 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#balancing-and-marked-packets">Balancing and marked packets
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#grafana-dashboard-and-alerts">Grafana dashboard and alerts
         </a>
       </li>
@@ -1070,7 +1061,7 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#error-response-400--no-staged-config">Error Response (400 — no staged config)
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#error-response-400--no-draft">Error Response (400 — no draft)
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1189,7 +1180,13 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
     </div>
           </div>
           
-          <p>This page documents the built-in HTTP REST API.</p>
+          <p>The REST API lets scripts and external systems control and monitor keen-pbr. For example:</p>
+<ul>
+<li>Prometheus and Grafana show VPN channel health and latency (see <a href="#get-metrics">GET /metrics</a>).</li>
+<li>A cron job refreshes lists on a schedule through <code>POST /api/lists/refresh</code>.</li>
+<li>A script restarts routing through <code>POST /api/service/restart</code>.</li>
+</ul>
+<p>If you only use the web interface, you can skip this page.</p>
 <p>The REST API is available when:</p>
 <ul>
 <li>Full package version is installed (<code>keen-pbr</code>, not <code>keen-pbr-headless</code>)</li>
@@ -1197,7 +1194,10 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
 <li>The <code>--no-api</code> flag was not passed at startup</li>
 </ul>
 <h2>Configuration<span class="hx:absolute hx:-mt-20" id="configuration"></span>
-    <a href="#configuration" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+    <a href="#configuration" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>In the web interface, open <strong>Security</strong> &gt; <strong>Authentication and CORS</strong>. Turn on <strong>Enable authentication</strong>, enter a <strong>New password</strong> and confirm it. If a website on another address must call the API from a browser, add its address to <strong>Allowed CORS origins</strong> (one per line). Changes take effect immediately.</p>
+<p>Set the device name in <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>General</strong> &gt; <strong>Device name</strong>. It appears in the browser tab title and under the keen-pbr logo, which helps tell several routers apart.</p>
+<p>The same settings in <code>config.json</code>:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;device_name&#34;</span><span class="p">:</span> <span class="s2">&#34;Home router&#34;</span><span class="p">,</span>
@@ -1224,7 +1224,8 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
   </button>
 </div>
 </div>
-<p>Generate a verifier interactively:</p>
+<p><code>device_name</code> is optional and may be empty.</p>
+<p>If you edit <code>config.json</code> by hand, generate the password hash with this command (it asks for the password):</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr hash-password</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
@@ -1239,28 +1240,17 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
   </button>
 </div>
 </div>
-<p>To enable authentication and write the generated verifier directly to the
-configured <code>config.json</code>, use <code>keen-pbr --config /path/to/config.json hash-password --update</code>.
-The command updates the file atomically and reminds you to restart the keen-pbr
-service because it edits the file outside the running daemon. Authentication
-and CORS changes made through the WebUI are persisted and take effect
-immediately, without applying a pending routing configuration draft.</p>
-<p><code>device_name</code> is optional and may be empty. When set, the WebUI uses it in the
-browser page title and beneath the keen-pbr logo to distinguish devices.</p>
-<p>The password is stored as an Argon2id hash. Hashes from older keen-pbr versions do not work: if the password was set in an older version, set it again.
-The config API never returns or accepts the stored verifier. The WebUI reads
-only <code>GET /api/auth/password</code> state and sends a new clear-text password only to
-the write-only <code>POST /api/auth/settings</code> operation; hashing happens in the daemon.</p>
-<p>Authenticated API clients may use Basic authentication with username <code>admin</code>
-or a Bearer token returned by <code>POST /api/auth/login</code>. Only one Bearer session is
-valid at a time; a successful login immediately invalidates the previous UI
-session. Bearer sessions expire after 24 hours and are lost on daemon restart.</p>
-<p>When authentication is disabled, cross-origin browser requests are rejected.
-When enabled, exact configured origins and Chrome/Firefox extension origins are
-allowed. Since passwords are sent to the API during login or Basic auth, use a
-trusted network or an HTTPS reverse proxy.</p>
-<p>By default, the API listens on <code>0.0.0.0:12121</code>. All endpoints are served at the configured <code>api.listen</code> address.</p>
-<p>The <a href="https://github.com/maksimkurb/keen-pbr/blob/main/docs/openapi.yaml"target="_blank" rel="noopener">OpenAPI document</a> is the complete request and response schema. The main routes are:</p>
+<p>To write the hash straight into the file, run <code>keen-pbr --config /path/to/config.json hash-password --update</code>. Then restart the keen-pbr service: the daemon does not notice changes made to the file from outside.</p>
+<p>The password is stored as an Argon2id hash. Hashes from older keen-pbr versions do not work: set the password again.</p>
+<p>When authentication is on, requests to the API use one of two methods:</p>
+<ul>
+<li>Basic authentication: username <code>admin</code> and your password (<code>curl -u admin:password ...</code>).</li>
+<li>Bearer token: a temporary key issued by <code>POST /api/auth/login</code> and sent in the header <code>Authorization: Bearer &lt;token&gt;</code>. A token is valid for 24 hours. Only one token is valid at a time: a new login, including one in the web interface, cancels the previous one. After the daemon restarts, get a new token.</li>
+</ul>
+<p>Without logging in, only <code>GET /api/auth/status</code> and <code>POST /api/auth/login</code> are available. <code>/metrics</code> is protected like the rest of the API.</p>
+<p>When authentication is off, requests from other websites in a browser are blocked. When it is on, addresses from <strong>Allowed CORS origins</strong> are allowed, as well as Chrome and Firefox extensions. The password travels over the network in clear text, so use a trusted network or HTTPS through a reverse proxy (a web server in front of keen-pbr).</p>
+<p>By default, the API listens on <code>0.0.0.0:12121</code> (<code>api.listen</code>). All routes are served at that address.</p>
+<p>The <a href="https://github.com/maksimkurb/keen-pbr/blob/main/docs/openapi.yaml"target="_blank" rel="noopener">OpenAPI document</a> is the complete request and response schema. The main routes are listed below (an outbound is a channel that traffic goes through: a VPN interface, your ISP, or a block):</p>
 <table>
 	<thead>
 			<tr>
@@ -1271,7 +1261,7 @@ trusted network or an HTTPS reverse proxy.</p>
 	<tbody>
 			<tr>
 					<td><code>GET /api/health/service</code></td>
-					<td>Service, config draft, lifecycle operation, and rollback status.</td>
+					<td>Service, config draft, current start/stop operation, and rollback status.</td>
 			</tr>
 			<tr>
 					<td><code>POST /api/service/start</code>, <code>/stop</code>, <code>/restart</code></td>
@@ -1282,20 +1272,28 @@ trusted network or an HTTPS reverse proxy.</p>
 					<td>Read or stage a validated config draft.</td>
 			</tr>
 			<tr>
+					<td><code>GET /api/config/defaults</code></td>
+					<td>Default values for settings that are not set in the config.</td>
+			</tr>
+			<tr>
 					<td><code>POST /api/config/discard</code>, <code>/save</code>, <code>/rollback</code></td>
-					<td>Discard a draft, persist/apply it, or explicitly roll back a failed apply.</td>
+					<td>Discard a draft, save and apply it, or return to the previous config after a failed apply.</td>
 			</tr>
 			<tr>
 					<td><code>GET /api/status/events</code></td>
-					<td>Server-Sent Events for service, outbound, interface, and health issue, and routing health, authentication status, and config changes (<code>snapshot</code>, <code>service</code>, <code>outbounds</code>, <code>interfaces</code>, <code>issues</code>, <code>routing</code>, <code>auth</code>, <code>config</code>). The <code>config</code> event only carries a revision that changes with the active config, the draft, or the list refresh state; read the data with <code>GET /api/config</code>. The REST endpoints, including <code>GET /api/health/issues</code>, <code>GET /api/health/routing</code>, and <code>GET /api/auth/status</code>, stay available.</td>
+					<td>Server-Sent Events (SSE) stream: the server pushes changes, so you do not need to poll. Events: <code>snapshot</code> (full state on connect), <code>service</code>, <code>outbounds</code>, <code>interfaces</code>, <code>issues</code>, <code>routing</code>, <code>auth</code>, <code>config</code>. A keep-alive signal arrives every 15 seconds. The <code>config</code> event carries only a revision number; read the data with <code>GET /api/config</code>. After a dropped connection, the new connection starts with a fresh <code>snapshot</code>.</td>
+			</tr>
+			<tr>
+					<td><code>GET /api/health/issues</code></td>
+					<td>Detected problems and kernel check results: the same list as the overview page and <code>keen-pbr status</code>.</td>
 			</tr>
 			<tr>
 					<td><code>GET /api/runtime/outbounds</code>, <code>/api/runtime/interfaces</code></td>
-					<td>Current outbound health and system interface inventory.</td>
+					<td>Current outbound state and the list of system interfaces.</td>
 			</tr>
 			<tr>
 					<td><code>GET /api/health/routing</code>, <code>POST /api/routing/test</code></td>
-					<td>Cached routing/firewall health and a per-target routing diagnostic.</td>
+					<td>Routing and firewall diagnostics, and a route check for a specific domain or IP address.</td>
 			</tr>
 			<tr>
 					<td><code>POST /api/lists/refresh</code></td>
@@ -1303,11 +1301,11 @@ trusted network or an HTTPS reverse proxy.</p>
 			</tr>
 			<tr>
 					<td><code>GET /api/dns/test</code></td>
-					<td>Stream DNS and L7 interception events or run the Web UI DNS marker check.</td>
+					<td>Stream of DNS and TLS/QUIC interception events, or the DNS check in the web interface.</td>
 			</tr>
 			<tr>
 					<td><code>GET /api/diagnostics/command-failure</code></td>
-					<td>Read the recent command failure log.</td>
+					<td>Log of recent system command failures.</td>
 			</tr>
 			<tr>
 					<td><code>GET /metrics</code></td>
@@ -1315,7 +1313,7 @@ trusted network or an HTTPS reverse proxy.</p>
 			</tr>
 			<tr>
 					<td><code>/api/auth/status</code>, <code>/api/auth/login</code>, <code>/api/auth/logout</code>, <code>/api/auth/password</code>, <code>/api/auth/settings</code></td>
-					<td>Authentication status and session/password management.</td>
+					<td>Authentication status, login and logout, password (<code>GET</code> shows whether one is set; <code>POST</code> sets a new one), and authentication and CORS settings.</td>
 			</tr>
 	</tbody>
 </table>
@@ -1340,7 +1338,7 @@ trusted network or an HTTPS reverse proxy.</p>
     <a href="#response" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;version&#34;</span><span class="p">:</span> <span class="s2">&#34;3.0.0&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;version&#34;</span><span class="p">:</span> <span class="s2">&#34;3.4.0&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;build&#34;</span><span class="p">:</span> <span class="s2">&#34;20261010120000&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;running&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;runtime_state&#34;</span><span class="p">:</span> <span class="s2">&#34;running&#34;</span><span class="p">,</span>
@@ -1362,21 +1360,13 @@ trusted network or an HTTPS reverse proxy.</p>
   </button>
 </div>
 </div>
-<p>When interception is configured, the same response includes an <code>intercept</code>
-object. It reports <code>dns_hold_active</code> and <code>l7_active</code> independently, capability
-flags (<code>nfqueue</code>, <code>nflog</code>, <code>connbytes</code>), and counters for DNS parsing/holds,
-partial TCP, L7 packets, set updates, 
-  <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
- cleanup, and 
+<p><code>status</code> is <code>running</code>, <code>degraded</code> (DNS interception is enabled but unavailable) or <code>stopped</code>.</p>
+<p>When interception is enabled, the response includes an <code>intercept</code> object: whether DNS interception (<code>dns_hold_active</code>) and traffic analysis (<code>l7_active</code>) are active, the kernel features available (<code>nfqueue</code>, <code>nflog</code>, <code>connbytes</code>, <code>addrtype</code>), and counters of processed packets, errors and queue overruns (
   <abbr title="A netfilter mechanism that passes packets to a user-space program and waits for its verdict. keen-pbr uses it to hold DNS replies briefly.">NFQUEUE</abbr>
-/NFLOG
-overruns. A missing NFQUEUE capability does not imply that L7 is unavailable,
-and vice versa.</p>
-<p>For live outbound runtime state (health, latency, circuit breaker) use <code>GET /api/runtime/outbounds</code>.</p>
+/NFLOG). These values are mostly useful for diagnostics.</p>
+<p>For channel state (health, latency) see <code>GET /api/runtime/outbounds</code>.</p>
 <h2>GET /metrics<span class="hx:absolute hx:-mt-20" id="get-metrics"></span>
-    <a href="#get-metrics" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns Prometheus text format 0.0.4. It uses the same authentication as the API,
-including when authentication is enabled; scrape it with Basic auth or the
-current Bearer token. It may return <code>503</code> if the metrics provider is unavailable:</p>
+    <a href="#get-metrics" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns metrics in Prometheus text format 0.0.4. Prometheus requests this address periodically (a scrape) and stores the values. Authentication is the same as for the API: use Basic authentication or the current Bearer token. If metrics are unavailable, the response is <code>503</code>:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -u admin:password http://127.0.0.1:12121/metrics</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
@@ -1391,10 +1381,7 @@ current Bearer token. It may return <code>503</code> if the metrics provider is 
   </button>
 </div>
 </div>
-<p>All durations are floating-point <strong>seconds</strong>. A series that is not meaningful is
-<strong>omitted</strong> instead of being exported as <code>0</code> (see &ldquo;Omitted series&rdquo; below).
-Every family has <code># HELP</code> and <code># TYPE</code> exactly once; families without samples
-are not printed.</p>
+<p>All durations are in <strong>seconds</strong> (fractional numbers). If a value is unknown, the metric is <strong>omitted</strong> instead of being exported as <code>0</code> (see &ldquo;Omitted series&rdquo; below).</p>
 <h3>Process and configuration<span class="hx:absolute hx:-mt-20" id="process-and-configuration"></span>
     <a href="#process-and-configuration" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><table>
 	<thead>
@@ -1422,13 +1409,13 @@ are not printed.</p>
 					<td><code>keen_pbr_active_rules</code></td>
 					<td>gauge</td>
 					<td>-</td>
-					<td>Realized firewall rules.</td>
+					<td>Number of applied firewall rules.</td>
 			</tr>
 			<tr>
 					<td><code>keen_pbr_config_reload_last_success_timestamp_seconds</code></td>
 					<td>gauge</td>
 					<td>-</td>
-					<td>Unix time the runtime last finished applying a configuration (startup counts). Omitted until the first one.</td>
+					<td>Unix time of the last completed config apply (startup counts). Omitted until the first one.</td>
 			</tr>
 			<tr>
 					<td><code>keen_pbr_config_reload_errors_total</code></td>
@@ -1440,7 +1427,7 @@ are not printed.</p>
 					<td><code>keen_pbr_list_last_update_timestamp_seconds</code></td>
 					<td>gauge</td>
 					<td><code>list</code></td>
-					<td>Unix time of the last successful check of a remote (URL) list, whether or not its content changed. In-memory: omitted until a refresh succeeded in this process.</td>
+					<td>Unix time of the last successful check of a remote (URL) list, whether or not its content changed. Omitted until the first successful refresh after startup.</td>
 			</tr>
 			<tr>
 					<td><code>keen_pbr_list_update_errors_total</code></td>
@@ -1451,15 +1438,9 @@ are not printed.</p>
 	</tbody>
 </table>
 <h3>Errors<span class="hx:absolute hx:-mt-20" id="errors"></span>
-    <a href="#errors" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><code>keen_pbr_errors_total{subsystem}</code> is a single counter family; all values are
-always present (zeros included): <code>firewall_apply</code> (failed firewall applies),
-<code>netlink</code> (route / policy-rule operations), <code>set_write</code> (dynamic set writes),
-<code>conntrack</code> (cleanup errors), <code>dns_parse</code>, <code>dns_tcp_partial</code> (DNS-over-TCP
-messages not fully reassembled) and <code>dns_late_write</code> (failed deferred DNS
-writes).</p>
+    <a href="#errors" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><code>keen_pbr_errors_total{subsystem}</code> counts errors by subsystem. All values are always present, zeros included: <code>firewall_apply</code> (applying firewall rules), <code>netlink</code> (setting up routes), <code>set_write</code> (writing addresses to sets), <code>conntrack</code>, <code>dns_parse</code> (parsing DNS packets), <code>dns_tcp_partial</code> (incomplete DNS-over-TCP messages) and <code>dns_late_write</code> (failed deferred writes after a DNS answer).</p>
 <h3>Probes (urltest / icmptest)<span class="hx:absolute hx:-mt-20" id="probes-urltest--icmptest"></span>
-    <a href="#probes-urltest--icmptest" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Labelled with the child <code>outbound</code>, test group <code>test_outbound</code>, <code>interface</code> and
-<code>type</code> (<code>urltest</code> or <code>icmptest</code>).</p>
+    <a href="#probes-urltest--icmptest" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>A probe is a periodic check of a channel: a request to a URL (<code>urltest</code>) or a ping (<code>icmptest</code>). Labels: <code>outbound</code> (the channel being checked), <code>test_outbound</code> (the probe group), <code>interface</code>, <code>type</code> (<code>urltest</code> or <code>icmptest</code>).</p>
 <table>
 	<thead>
 			<tr>
@@ -1519,7 +1500,7 @@ writes).</p>
 			<tr>
 					<td><code>keen_pbr_urltest_selection_changes_total</code></td>
 					<td>counter</td>
-					<td>Label <code>group</code>: selection changes since the group was registered (a config apply registers it again, which resets the counter).</td>
+					<td>Label <code>group</code>: selection changes since the config was last applied (the counter resets on apply).</td>
 			</tr>
 	</tbody>
 </table>
@@ -1534,9 +1515,7 @@ probe completed yet. In Grafana this shows up as a gap, never as a <code>0</code
 <code>config_reload_last_success_timestamp_seconds</code> are omitted until the first success.</li>
 </ul>
 <h3>Interception<span class="hx:absolute hx:-mt-20" id="interception"></span>
-    <a href="#interception" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>All of these are updated on the DNS / L7 packet paths with a single relaxed
-atomic increment on a pre-allocated counter; labels are fixed array slots that
-are only rendered when <code>/metrics</code> is scraped.</p>
+    <a href="#interception" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Metrics for DNS interception and traffic (L7) analysis. <code>path</code> is <code>dns</code> or <code>l7</code>.</p>
 <table>
 	<thead>
 			<tr>
@@ -1633,14 +1612,34 @@ are only rendered when <code>/metrics</code> is scraped.</p>
 			</tr>
 	</tbody>
 </table>
+<h3>Balancing and marked packets<span class="hx:absolute hx:-mt-20" id="balancing-and-marked-packets"></span>
+    <a href="#balancing-and-marked-packets" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>These metrics exist only with the iptables firewall backend. A series with no data is omitted. Counters restart from zero when the firewall rules are rebuilt.</p>
+<table>
+	<thead>
+			<tr>
+					<th>Metric</th>
+					<th>Type</th>
+					<th>Labels</th>
+					<th>Meaning</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>keen_pbr_balance_classifications_total</code></td>
+					<td>counter</td>
+					<td><code>outbound</code>, <code>candidate</code>, <code>family</code> = <code>ipv4</code>, <code>ipv6</code></td>
+					<td>New connections that a balance group sent through the <code>candidate</code> channel.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_skip_marked_packets_total</code></td>
+					<td>counter</td>
+					<td><code>family</code> = <code>ipv4</code>, <code>ipv6</code></td>
+					<td>Packets keen-pbr skipped because they were already marked (<strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>General</strong> &gt; <strong>Skip packets that are already marked</strong>).</td>
+			</tr>
+	</tbody>
+</table>
 <p>The &ldquo;slow write&rdquo; share is derived from the <code>le=&quot;0.025&quot;</code> bucket of
 <code>keen_pbr_set_write_duration_seconds</code> (writes slower than 25 ms).</p>
-<p>Not exported: per-outbound routed bytes/packets and per-set element counts.
-Both would need the firewall counters or a 
-  <abbr title="The Linux kernel interface programs use to read and change routes, rules, sets and other network settings.">netlink</abbr>
- set dump to be read on every
-scrape (through a subprocess or a kernel dump, with a different mechanism per
-firewall backend), which is deliberately kept out of the daemon.</p>
 <p>Prometheus scrape configuration:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1701,12 +1700,7 @@ firewall backend), which is deliberately kept out of the daemon.</p>
 </div>
 </div>
 <h3>Grafana dashboard and alerts<span class="hx:absolute hx:-mt-20" id="grafana-dashboard-and-alerts"></span>
-    <a href="#grafana-dashboard-and-alerts" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Import <a href="https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json"target="_blank" rel="noopener">keen-pbr-dashboard.json</a>
-into Grafana (Dashboards - New - Import). It expects a Prometheus data source
-with UID <code>prometheus</code>, and has <code>job</code> and <code>outbound</code> variables, a 30 s refresh,
-and the rows Status, Outbounds, DNS interception, Sets &amp; lists and Errors. Use a
-scrape interval of 30 s or less: the bar panels compute <code>increase()</code> over
-one-minute windows.</p>
+    <a href="#grafana-dashboard-and-alerts" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Import <a href="https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json"target="_blank" rel="noopener">keen-pbr-dashboard.json</a> into Grafana (Dashboards &gt; New &gt; Import). It needs a Prometheus data source with UID <code>prometheus</code>. The dashboard has <code>job</code> and <code>outbound</code> variables, a 30 s refresh, and the sections Status, Outbounds, DNS interception, Sets &amp; lists and Errors. Use a scrape interval of 30 s or less: the bar panels compute <code>increase()</code> over one-minute windows.</p>
 <p>Example alerting rules:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1756,7 +1750,7 @@ one-minute windows.</p>
 <ul>
 <li>If <code>name</code> is provided, only that URL-backed list is refreshed.</li>
 <li>If <code>name</code> is omitted, all URL-backed lists are refreshed.</li>
-<li>If refreshed data changed and affects active routing/DNS while the runtime is running, keen-pbr rebuilds runtime state so updates take effect immediately.</li>
+<li>If list contents changed and that affects routing or DNS, keen-pbr applies the changes immediately.</li>
 </ul>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1836,14 +1830,14 @@ one-minute windows.</p>
 <li><code>refreshed_lists</code> <em>(array[string])</em>: URL-backed lists that were refreshed.</li>
 <li><code>changed_lists</code> <em>(array[string])</em>: Refreshed lists whose cached contents changed.</li>
 <li><code>failed_lists</code> <em>(array[string])</em>: URL-backed lists that could not be refreshed.</li>
-<li><code>reloaded</code> <em>(boolean)</em>: Whether the running routing runtime was rebuilt because relevant changed lists were in active use.</li>
+<li><code>reloaded</code> <em>(boolean)</em>: Whether the changes were applied because the changed lists are in use.</li>
 </ul>
 <h3>Status / Error Behavior<span class="hx:absolute hx:-mt-20" id="status--error-behavior"></span>
     <a href="#status--error-behavior" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
 <li><code>200</code>: Refresh operation completed.</li>
 <li><code>400</code>: Requested list exists but is not URL-backed.</li>
 <li><code>404</code>: Requested list not found.</li>
-<li><code>409</code>: Refresh rejected because a staged draft exists or another config/runtime operation is already in progress.</li>
+<li><code>409</code>: Refresh rejected: there is an unsaved config draft or another operation is already running.</li>
 </ul>
 <p>Error response body:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1864,7 +1858,7 @@ one-minute windows.</p>
 </div>
 <hr>
 <h2>GET /api/config<span class="hx:absolute hx:-mt-20" id="get-apiconfig"></span>
-    <a href="#get-apiconfig" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns the visible configuration and a flag indicating whether a staged in-memory draft exists. The <code>api</code> security settings are intentionally omitted. The response also includes per-list refresh state.</p>
+    <a href="#get-apiconfig" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns the current configuration and a flag showing whether an unsaved draft exists. The <code>api</code> settings (password, CORS) are not included. The response also contains list refresh state.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/config</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1903,7 +1897,7 @@ one-minute windows.</p>
   </button>
 </div>
 </div>
-<p><code>is_draft</code> is <code>true</code> when a config has been staged via <code>POST /api/config</code> but not yet saved to disk.</p>
+<p><code>is_draft</code> is <code>true</code> when a config was submitted via <code>POST /api/config</code> but not yet saved to disk.</p>
 <h3>Error Response (500)<span class="hx:absolute hx:-mt-20" id="error-response-500"></span>
     <a href="#error-response-500" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1923,8 +1917,8 @@ one-minute windows.</p>
 </div>
 <hr>
 <h2>POST /api/config<span class="hx:absolute hx:-mt-20" id="post-apiconfig"></span>
-    <a href="#post-apiconfig" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Validates the provided JSON body as a config file and stages it in memory. The config is <strong>not</strong> written to disk and the routing runtime is <strong>not</strong> changed. Use <code>POST /api/config/save</code> to persist and apply the staged draft.</p>
-<p>The <code>api</code> field in the submitted body is ignored; the daemon keeps the security settings already in effect.</p>
+    <a href="#post-apiconfig" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Validates the submitted JSON as a config file and keeps it in memory as a draft. Nothing is written to disk and routing does not change. To save and apply the draft, call <code>POST /api/config/save</code>.</p>
+<p>The <code>api</code> field in the request is ignored.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://127.0.0.1:12121/api/config <span class="se">\
@@ -1981,7 +1975,7 @@ one-minute windows.</p>
 </div>
 <hr>
 <h2>POST /api/config/save<span class="hx:absolute hx:-mt-20" id="post-apiconfigsave"></span>
-    <a href="#post-apiconfigsave" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Accepts an asynchronous operation that persists the staged config to disk and then reconciles the routing runtime. HTTP <code>202</code> confirms acceptance only; it does not mean the runtime apply has completed.</p>
+    <a href="#post-apiconfigsave" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Starts saving the draft to disk and applying the configuration in the background. <code>202</code> means only that the operation was accepted, not that it has finished.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://127.0.0.1:12121/api/config/save</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2014,8 +2008,8 @@ one-minute windows.</p>
   </button>
 </div>
 </div>
-<h3>Error Response (400 — no staged config)<span class="hx:absolute hx:-mt-20" id="error-response-400--no-staged-config"></span>
-    <a href="#error-response-400--no-staged-config" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Error Response (400 — no draft)<span class="hx:absolute hx:-mt-20" id="error-response-400--no-draft"></span>
+    <a href="#error-response-400--no-draft" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;error&#34;</span><span class="p">:</span> <span class="s2">&#34;No staged config to save&#34;</span>
@@ -2031,10 +2025,12 @@ one-minute windows.</p>
   </button>
 </div>
 </div>
-<p>After acceptance, inspect <code>GET /api/health/service</code> and its <code>lifecycle_operation</code> field, or subscribe to <code>/api/status/events</code>, until the operation reaches a terminal state. Persistence happens before runtime reconciliation. If reconciliation fails after the file was committed, the daemon reports a broken runtime and sets <code>rollback_available</code>; it does not automatically restore the prior file or runtime. <code>POST /api/config/rollback</code> explicitly restores the retained previous config and reconciles it. On success the runtime becomes active and the staged revision is cleared. <code>POST /api/config/discard</code> only discards an unsaved in-memory draft; it does not change the file or runtime.</p>
+<p>Other errors: <code>400</code> (the draft failed validation), <code>409</code> (another operation is already running), <code>500</code>.</p>
+<p>After <code>202</code>, watch the <code>lifecycle_operation</code> field in <code>GET /api/health/service</code>, or subscribe to <code>/api/status/events</code>, until the operation finishes.</p>
+<p>If applying failed after the file was saved, <code>GET /api/health/service</code> shows <code>rollback_available: true</code>. The file stays new. To return to the previous config, call <code>POST /api/config/rollback</code> (<code>409</code> if there is nothing to roll back or another operation is running). <code>POST /api/config/discard</code> only drops an unsaved draft; it changes neither the file nor routing.</p>
 <hr>
 <h2>GET /api/runtime/outbounds<span class="hx:absolute hx:-mt-20" id="get-apiruntimeoutbounds"></span>
-    <a href="#get-apiruntimeoutbounds" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns the daemon&rsquo;s current outbound runtime state: live urltest selection, interface reachability, and circuit breaker status.</p>
+    <a href="#get-apiruntimeoutbounds" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns the current state of outbounds: which channel a urltest group has selected right now (the group picks the channel with the lowest latency on its own), whether an interface is reachable, and whether it was switched off after a series of failures.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/runtime/outbounds</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2059,14 +2055,17 @@ one-minute windows.</p>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;interface&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;healthy&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;interfaces&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;name&#34;</span><span class="p">:</span> <span class="s2">&#34;tun0&#34;</span><span class="p">,</span> <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;up&#34;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbound_tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">,</span> <span class="nt">&#34;interface_name&#34;</span><span class="p">:</span> <span class="s2">&#34;tun0&#34;</span><span class="p">,</span> <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;active&#34;</span> <span class="p">}</span>
 </span></span><span class="line"><span class="cl">      <span class="p">]</span>
 </span></span><span class="line"><span class="cl">    <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;auto_select&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;urltest&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;healthy&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;selected_outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;interfaces&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbound_tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">,</span> <span class="nt">&#34;interface_name&#34;</span><span class="p">:</span> <span class="s2">&#34;tun0&#34;</span><span class="p">,</span> <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;active&#34;</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbound_tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn2&#34;</span><span class="p">,</span> <span class="nt">&#34;interface_name&#34;</span><span class="p">:</span> <span class="s2">&#34;tun1&#34;</span><span class="p">,</span> <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;backup&#34;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">      <span class="p">]</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">]</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
@@ -2081,9 +2080,15 @@ one-minute windows.</p>
   </button>
 </div>
 </div>
+<ul>
+<li><code>type</code>: <code>interface</code>, <code>table</code>, <code>blackhole</code>, <code>ignore</code>, <code>urltest</code> or <code>icmptest</code>.</li>
+<li>Outbound <code>status</code>: <code>healthy</code> (working), <code>degraded</code> (partly working), <code>unavailable</code> (no usable path), <code>unknown</code>.</li>
+<li><code>status</code> in <code>interfaces</code>: <code>active</code> (traffic goes through it), <code>backup</code> (standby), <code>degraded</code>, <code>unavailable</code> (switched off after a series of failures), <code>unknown</code>. In a urltest group the selected channel is <code>active</code>.</li>
+<li>Optional fields: <code>latency_ms</code>, <code>probe_target</code>, <code>detail</code> and packet counters.</li>
+</ul>
 <hr>
 <h2>POST /api/routing/test<span class="hx:absolute hx:-mt-20" id="post-apiroutingtest"></span>
-    <a href="#post-apiroutingtest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Resolves the target (if a domain), scans configured route rules against cached list data to determine the expected outbound, and queries the live kernel firewall sets to determine the actual outbound. Useful for diagnosing routing mismatches without restarting the daemon.</p>
+    <a href="#post-apiroutingtest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Shows which outbound traffic to a domain or IP address will use. For a domain it first resolves the IP addresses. It then checks the routing rules against the lists (the expected outbound) and the firewall sets (the actual outbound). This helps find a mismatch without restarting the daemon.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://127.0.0.1:12121/api/routing/test <span class="se">\
@@ -2120,7 +2125,10 @@ address, or
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;ok&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;list_match&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="s2">&#34;my_domains&#34;</span><span class="p">,</span> <span class="nt">&#34;via&#34;</span><span class="p">:</span> <span class="s2">&#34;domain&#34;</span> <span class="p">}</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">  <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">],</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;warnings&#34;</span><span class="p">:</span> <span class="p">[],</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;rule_diagnostics&#34;</span><span class="p">:</span> <span class="p">[],</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;no_matching_rule&#34;</span><span class="p">:</span> <span class="kc">false</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -2133,9 +2141,13 @@ address, or
   </button>
 </div>
 </div>
+<ul>
+<li><code>ok</code> means the expected and actual outbound match. Instead of an outbound name you may see <code>(default)</code> (no rule matched, traffic uses the default) or <code>(unknown)</code> (could not be determined).</li>
+<li><code>warnings</code> holds non-fatal warnings, for example a DNS error. <code>rule_diagnostics</code> is a per-rule breakdown (shown in the web interface). <code>no_matching_rule</code> is <code>true</code> when no rule matched.</li>
+</ul>
 <hr>
 <h2>GET /api/health/routing<span class="hx:absolute hx:-mt-20" id="get-apihealthrouting"></span>
-    <a href="#get-apihealthrouting" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns the daemon&rsquo;s cached canonical report of kernel routing and firewall state. A cold or stale snapshot triggers an off-loop refresh and may temporarily report a pending/degraded result; each request does not synchronously inspect the kernel.</p>
+    <a href="#get-apihealthrouting" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns a report on whether routes and the firewall are set up correctly: firewall rules with packet marks (an fwmark is a number the kernel uses to pick a route), route tables, and the rules that select a table. The report is refreshed in the background, so right after startup it may briefly show an incomplete result.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/health/routing</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2160,7 +2172,7 @@ address, or
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;chain_present&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;prerouting_hook_present&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;verification_state&#34;</span><span class="p">:</span> <span class="s2">&#34;verified&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;detail&#34;</span><span class="p">:</span> <span class="s2">&#34;chain KeenPbrTable found in table mangle&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;detail&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span>
 </span></span><span class="line"><span class="cl">  <span class="p">},</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;firewall_rules&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
@@ -2207,6 +2219,7 @@ address, or
   </button>
 </div>
 </div>
+<p><code>firewall.verification_state</code> is <code>verified</code>, <code>unavailable</code> (firewall data not available) or <code>failed</code>. <code>firewall.detail</code> is <code>ok</code> on success and describes the cause otherwise. The optional <code>warnings</code> array lists warnings (for example, NAT is not set up or strict <code>rp_filter</code> is on); they do not affect <code>overall</code>.</p>
 <p><strong>Overall status values:</strong></p>
 <ul>
 <li><code>ok</code> — all checks passed</li>
@@ -2239,19 +2252,16 @@ address, or
 </div>
 <hr>
 <h2>GET /api/dns/test<span class="hx:absolute hx:-mt-20" id="get-apidnstest"></span>
-    <a href="#get-apidnstest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Streams the daemon&rsquo;s traffic interception events as Server-Sent Events. Each
-connection receives <code>HELLO</code> first. The default <code>show=keen-pbr</code> view delivers
-only marker events and closes after the matching marker; <code>show=all</code> (or the
-compatibility alias <code>show=full</code>) stays open and delivers DNS, TLS 
+    <a href="#get-apidnstest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Streams interception events as Server-Sent Events (the server sends events as they happen). <code>HELLO</code> comes first. The DNS check in the web interface uses this stream: it requests a special marker domain (<code>check.keen-pbr.fyi</code>) and waits for it to appear in the stream.</p>
+<ul>
+<li><code>show=keen-pbr</code> (default): only marker events. The stream closes when the matching marker arrives. Pass <code>domain=&lt;marker&gt;</code> to keep your check separate from others.</li>
+<li><code>show=all</code> (or <code>show=full</code>): the stream stays open and shows DNS queries, TLS 
   <abbr title="The site name a client sends unencrypted at the start of a TLS connection.">SNI</abbr>
-, HTTP
-Host, 
+, HTTP Host, 
   <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr>
- Initial, and marker observations, including domains that did not
-match a configured list. Pass <code>domain=&lt;generated marker&gt;</code> with the default view to keep unrelated checks from closing it.</p>
-<p><code>show=all</code> exposes the traffic of every client, so it requires API
-authentication to be enabled. Without it the endpoint answers <code>403</code>; the
-default marker view stays available.</p>
+ Initial and markers, including domains that are not in any list.</li>
+</ul>
+<p><code>show=all</code> exposes the traffic of every client, so it works only when API authentication is on. Without it the response is <code>403</code>. The default view is always available. An invalid <code>show</code> or <code>domain</code> returns <code>400</code>.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -N -u admin:password <span class="s1">&#39;http://127.0.0.1:12121/api/dns/test?show=all&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">

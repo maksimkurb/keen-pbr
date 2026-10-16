@@ -9,17 +9,17 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>DNS – keen-pbr</title>
-  <meta name="description" content="Domain-based routing works without any DNS configuration: keen-pbr reads DNS replies and TLS/HTTP/QUIC traffic itself and fills the sets of your lists (see DNS interception). You do not need to set up a resolver for this: dnsmasq, the Keenetic DNS proxy, unbound or anything else keeps working as you set it up.
-Do I need dnsmasq? No, not for routing. Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/dns/" itemprop="url" />
+  <meta name="description" content="Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in DNS interception.
+Do I need dnsmasq? No, not for routing. Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough (DoH and DoT are encrypted DNS)." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/dns/" itemprop="url" />
 
 <meta property="og:title" content="DNS">
 <meta
   property="og:description"
   content="
     
-      Domain-based routing works without any DNS configuration: keen-pbr reads DNS replies and TLS/HTTP/QUIC traffic itself and fills the sets of your lists (see DNS interception). You do not need to set up a resolver for this: dnsmasq, the Keenetic DNS proxy, unbound or anything else keeps working as you set it up.
+      Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in DNS interception.
 Do I need dnsmasq?
-    No, not for routing. Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough.
+    No, not for routing. Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough (DoH and DoT are encrypted DNS).
     
   ">
 <meta
@@ -33,13 +33,13 @@ Do I need dnsmasq?
 
 
 	<meta itemprop="name" content="DNS">
-	<meta itemprop="description" content="Domain-based routing works without any DNS configuration: keen-pbr reads DNS replies and TLS/HTTP/QUIC traffic itself and fills the sets of your lists (see DNS interception). You do not need to set up a resolver for this: dnsmasq, the Keenetic DNS proxy, unbound or anything else keeps working as you set it up.
-Do I need dnsmasq? No, not for routing. Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough.">
-	<meta itemprop="wordCount" content="2770">
+	<meta itemprop="description" content="Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in DNS interception.
+Do I need dnsmasq? No, not for routing. Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough (DoH and DoT are encrypted DNS).">
+	<meta itemprop="wordCount" content="2935">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="DNS">
-	<meta name="twitter:description" content="Domain-based routing works without any DNS configuration: keen-pbr reads DNS replies and TLS/HTTP/QUIC traffic itself and fills the sets of your lists (see DNS interception). You do not need to set up a resolver for this: dnsmasq, the Keenetic DNS proxy, unbound or anything else keeps working as you set it up.
-Do I need dnsmasq? No, not for routing. Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough.">
+	<meta name="twitter:description" content="Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in DNS interception.
+Do I need dnsmasq? No, not for routing. Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough (DoH and DoT are encrypted DNS).">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -336,9 +336,9 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
             </li>
           <li>
               <a
-                href="#configuration"
+                href="#how-to-check-that-dns-goes-through-the-router"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Configuration</a>
+              >How to check that DNS goes through the router</a>
             </li>
           <li>
               <a
@@ -348,21 +348,27 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
             </li>
           <li>
               <a
+                href="#dns-servers"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >DNS servers</a>
+            </li>
+          <li>
+              <a
+                href="#field-reference"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >Field reference</a>
+            </li>
+          <li>
+              <a
                 href="#dns-interception"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >DNS interception</a>
             </li>
           <li>
               <a
-                href="#dns-servers"
+                href="#if-you-use-dnsmasq-installation-and-problems"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >DNS Servers</a>
-            </li>
-          <li>
-              <a
-                href="#complete-example"
-                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Complete Example</a>
+              >If you use dnsmasq: installation and problems</a>
             </li>
           </ul>
   
@@ -925,7 +931,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#configuration">Configuration
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#how-to-check-that-dns-goes-through-the-router">How to check that DNS goes through the router
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -933,11 +939,47 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#configuration-example">Configuration example
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#turn-on-dnsmasq-management">Turn on dnsmasq management
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#field-reference">Field reference
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#add-a-dns-server">Add a DNS server
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#link-the-server-to-lists">Link the server to lists
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#set-default-dns-servers-optional">Set default DNS servers (optional)
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#apply-the-settings">Apply the settings
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-servers">DNS servers
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#the-keenetic-dns-type">The “Keenetic DNS” type
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#field-reference">Field reference
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-interception">DNS interception
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#kernel-requirements">Kernel requirements
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#if-you-use-dnsmasq-installation-and-problems">If you use dnsmasq: installation and problems
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -970,30 +1012,6 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#troubleshooting">Troubleshooting
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-interception">DNS interception
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#kernel-requirements">Kernel requirements
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-servers">DNS Servers
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#type-keenetic-built-in-router-dns-via-rci">type: keenetic (built-in router DNS via RCI)
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#how-detour-works">How detour works
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#complete-example">Complete Example
         </a>
       </li></ul>
       <div class="hx:mt-8 hx:border-t hx:bg-white hx:pt-8 hx:shadow-[0_-12px_16px_white] hx:dark:bg-dark hx:dark:shadow-[0_-12px_16px_#111] hx:sticky hx:bottom-0 hx:flex hx:flex-col hx:items-start hx:gap-2 hx:pb-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-t hx:contrast-more:border-neutral-400 hx:contrast-more:shadow-none hx:contrast-more:dark:border-neutral-400">
@@ -1079,28 +1097,26 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
     </div>
           </div>
           
-          <p>Domain-based routing works without any DNS configuration: keen-pbr reads DNS replies and TLS/HTTP/QUIC traffic itself and fills the sets of your lists (see <a href="#dns-interception">DNS interception</a>). You do not need to set up a resolver for this: dnsmasq, the Keenetic DNS proxy, unbound or anything else keeps working as you set it up.</p>
+          <p>Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in <a href="#dns-interception">DNS interception</a>.</p>
 <h2>Do I need dnsmasq?<span class="hx:absolute hx:-mt-20" id="do-i-need-dnsmasq"></span>
-    <a href="#do-i-need-dnsmasq" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><strong>No, not for routing.</strong> Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough.</p>
-<p><strong>Yes, if you want:</strong></p>
+    <a href="#do-i-need-dnsmasq" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><strong>No, not for routing.</strong> Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough (DoH and DoT are encrypted DNS).</p>
+<p><strong>Yes, if you need one of these two things:</strong></p>
 <ul>
-<li>separate DNS servers for the domains of some lists, for example a CDN that should answer for your VPN&rsquo;s region, or domains that resolve only inside the VPN;</li>
-<li>your own default DNS servers (<code>fallback</code>) managed by keen-pbr.</li>
+<li>to resolve the domains of some lists through a separate DNS server. For example, a CDN (content delivery network) should answer for your VPN&rsquo;s region, or the domains resolve only inside the VPN;</li>
+<li>to set your own default DNS servers for the whole network right in keen-pbr.</li>
 </ul>
-<p>Both work only through dnsmasq. Setup and rollback by platform: <a href="/docs/getting-started/installation/keenetic/#dnsmasq">Keenetic</a>, <a href="/docs/getting-started/installation/openwrt/#dnsmasq">OpenWrt</a>, <a href="/docs/getting-started/installation/debian/#dnsmasq">Debian</a>. In the Web UI the switch is <strong>General</strong> &gt; <strong>Local DNS server management</strong> &gt; <strong>Manage dnsmasq configuration</strong>.</p>
-<p>The settings on this page are needed in two cases:</p>
-<ul>
-<li>to define DNS servers and the outbound used to reach them (<code>detour</code>);</li>
-<li>to resolve domains from selected lists through a separate DNS server, usually one reached over the same VPN. This is the only case where keen-pbr manages dnsmasq, and only when you turn it on.</li>
-</ul>
-<h2>Configuration<span class="hx:absolute hx:-mt-20" id="configuration"></span>
-    <a href="#configuration" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<p>Both work only through dnsmasq. If neither fits you, leave the <strong>Manage dnsmasq configuration</strong> switch off. If you upgraded from 3.3.x, the switch is already on: turn it off if you do not need dnsmasq (see <a href="/docs/changelog/#upgrading-from-33x">Upgrading from 3.3.x</a>).</p>
+<p>How to install dnsmasq and how to roll back: <a href="/docs/getting-started/installation/keenetic/#dnsmasq">Keenetic</a>, <a href="/docs/getting-started/installation/openwrt/#dnsmasq">OpenWrt</a>, <a href="/docs/getting-started/installation/debian/#dnsmasq">Debian</a>.</p>
+<h2>How to check that DNS goes through the router<span class="hx:absolute hx:-mt-20" id="how-to-check-that-dns-goes-through-the-router"></span>
+    <a href="#how-to-check-that-dns-goes-through-the-router" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Interception sees only the DNS queries that pass through the router. If a device uses DoH or its own DNS server, keen-pbr can recognise part of the domains only through L7.</p>
+<ol>
+<li>Open <strong>General</strong> &gt; <strong>Dashboard</strong> and find the <strong>DNS interception</strong> card.</li>
+<li>Click <strong>Check again</strong>. To test another device, click <strong>Test from another device</strong> and run the shown <code>nslookup</code> command on a computer or phone while the window is open.</li>
+</ol>
+<p>You can also check by hand on the device:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span><span class="err">...</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">  <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nslookup check.keen-pbr.fyi</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1112,59 +1128,28 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
   </button>
 </div>
 </div>
-<table>
-	<thead>
-			<tr>
-					<th>Field</th>
-					<th>Type</th>
-					<th>Required</th>
-					<th>Description</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>servers</code></td>
-					<td>array</td>
-					<td>no</td>
-					<td>DNS server definitions</td>
-			</tr>
-			<tr>
-					<td><code>resolver_integration</code></td>
-					<td>string</td>
-					<td>no</td>
-					<td><code>&quot;none&quot;</code> (default) or <code>&quot;dnsmasq&quot;</code>. In the Web UI: <strong>Manage dnsmasq configuration</strong>. Configs from 3.3.x (no <code>version</code> field) keep <code>&quot;dnsmasq&quot;</code>.</td>
-			</tr>
-			<tr>
-					<td><code>dnsmasq_instance</code></td>
-					<td>string</td>
-					<td>no</td>
-					<td>Selector of the dnsmasq instance to manage: <code>uci:&lt;section&gt;</code> (OpenWrt), <code>entware:default</code> (Keenetic), <code>systemd:&lt;unit&gt;.service</code> (Debian). Empty or omitted means automatic selection; needed only when several instances are found.</td>
-			</tr>
-			<tr>
-					<td><code>rules</code></td>
-					<td>array</td>
-					<td>no</td>
-					<td>Rules mapping lists to DNS servers (only active when <code>resolver_integration: &quot;dnsmasq&quot;</code>).</td>
-			</tr>
-			<tr>
-					<td><code>fallback</code></td>
-					<td>array of string</td>
-					<td>no</td>
-					<td>Upstream DNS server tags for queries that match no rule (only active when <code>resolver_integration: &quot;dnsmasq&quot;</code>).</td>
-			</tr>
-			<tr>
-					<td><code>dns_test_server</code></td>
-					<td>object</td>
-					<td>no</td>
-					<td>Deprecated and ignored (replaced by <code>intercept.dns.marker</code>)</td>
-			</tr>
-	</tbody>
-</table>
+<ul>
+<li>Answer <code>127.0.0.88</code>: the device&rsquo;s DNS queries go through the router, everything works.</li>
+<li>Any other address: the device bypasses the router or uses encrypted DNS. Turn off secure DNS (DoH) in the browser and the system.</li>
+<li>No answer: DNS does not work on the device.</li>
+</ul>
 <h2>Per-list DNS servers (dnsmasq)<span class="hx:absolute hx:-mt-20" id="per-list-dns-servers-dnsmasq"></span>
-    <a href="#per-list-dns-servers-dnsmasq" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>When <code>resolver_integration</code> is <code>&quot;dnsmasq&quot;</code>, keen-pbr configures dnsmasq so that domains from selected lists are resolved through the DNS servers you choose. Use it when a CDN should return addresses for your VPN&rsquo;s region, or when different services need different DNS servers.</p>
+    <a href="#per-list-dns-servers-dnsmasq" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use this when a CDN should return addresses for your VPN&rsquo;s region, or when different services need different DNS servers.</p>
 <p><strong>Example</strong>: AI service domains are resolved through a DNS server behind the VPN. The CDN then returns addresses for the VPN exit country, and the service does not see that you connect from another country (otherwise the account may get banned).</p>
-<h3>Configuration example<span class="hx:absolute hx:-mt-20" id="configuration-example"></span>
-    <a href="#configuration-example" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<div class="hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]">
+<h3>Turn on dnsmasq management<span class="hx:absolute hx:-mt-20" id="turn-on-dnsmasq-management"></span>
+    <a href="#turn-on-dnsmasq-management" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Open <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Local DNS server management</strong> and turn on <strong>Manage dnsmasq configuration</strong>. The <strong>DNS servers</strong> and <strong>DNS Rules</strong> pages open only after that.</p>
+<h3>Add a DNS server<span class="hx:absolute hx:-mt-20" id="add-a-dns-server"></span>
+    <a href="#add-a-dns-server" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Open <strong>DNS</strong> &gt; <strong>DNS servers</strong> &gt; <strong>Add DNS server</strong>. Fill in <strong>Name</strong>, <strong>DNS type</strong> and <strong>Address</strong>. In <strong>Make requests via Outbound</strong> pick an outbound (the channel the traffic goes through: a VPN interface, your ISP or a block) if the server is reachable only through it, for example through the VPN.</p>
+<h3>Link the server to lists<span class="hx:absolute hx:-mt-20" id="link-the-server-to-lists"></span>
+    <a href="#link-the-server-to-lists" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Open <strong>DNS</strong> &gt; <strong>DNS Rules</strong> &gt; <strong>Add DNS rule</strong>. In <strong>Domain lists</strong> pick the lists, and in <strong>DNS server</strong> the server from the previous step.</p>
+<h3>Set default DNS servers (optional)<span class="hx:absolute hx:-mt-20" id="set-default-dns-servers-optional"></span>
+    <a href="#set-default-dns-servers-optional" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>In the <strong>Default upstream DNS servers</strong> block click <strong>Add default DNS server</strong> and pick the servers for all other domains. If the block is empty, dnsmasq uses its usual DNS servers.</p>
+<h3>Apply the settings<span class="hx:absolute hx:-mt-20" id="apply-the-settings"></span>
+    <a href="#apply-the-settings" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Click <strong>Apply</strong> (or <strong>Apply &amp; Restart</strong>).</p>
+</div>
+<p>The same settings in <code>config.json</code>:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
@@ -1194,8 +1179,11 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
   </button>
 </div>
 </div>
-<h3>Field reference<span class="hx:absolute hx:-mt-20" id="field-reference"></span>
-    <a href="#field-reference" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><table>
+<p><strong>Several DNS servers for one list.</strong> Add one rule per server for the same list. dnsmasq queries all of them, then keeps using the one that answered first, and switches to another when it stops answering.</p>
+<p>dnsmasq keeps a separate record (about 200 bytes) for every domain and server pair. Each extra server adds that much memory for every domain of the list, so two servers for a list of 10,000 domains take about 4 MB instead of 2 MB.</p>
+<h2>DNS servers<span class="hx:absolute hx:-mt-20" id="dns-servers"></span>
+    <a href="#dns-servers" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>A server name (<code>tag</code>) must be unique: lowercase Latin letters, digits and <code>_</code>, starts with a letter, at most 24 characters.</p>
+<table>
 	<thead>
 			<tr>
 					<th>Field</th>
@@ -1206,32 +1194,129 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 	</thead>
 	<tbody>
 			<tr>
-					<td><code>resolver_integration</code></td>
+					<td><code>tag</code></td>
 					<td>string</td>
 					<td>yes</td>
-					<td>Set to <code>&quot;dnsmasq&quot;</code> to enable dnsmasq integration</td>
+					<td>Server name (<strong>Name</strong>)</td>
 			</tr>
+			<tr>
+					<td><code>type</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>Server type (<strong>DNS type</strong>): <code>static</code> (<strong>Plaintext DNS</strong>, default) or <code>keenetic</code> (<strong>Keenetic DNS</strong>)</td>
+			</tr>
+			<tr>
+					<td><code>address</code></td>
+					<td>string</td>
+					<td>for <code>static</code></td>
+					<td>IP address of the DNS server, with optional port, for example <code>&quot;10.8.0.1&quot;</code>, <code>&quot;10.8.0.1:5353&quot;</code>, <code>&quot;2001:4860:4860::8888&quot;</code>, or <code>&quot;[2001:4860:4860::8888]:5353&quot;</code></td>
+			</tr>
+			<tr>
+					<td><code>detour</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>Outbound the router itself uses to send queries to this server (<strong>Make requests via Outbound</strong>)</td>
+			</tr>
+	</tbody>
+</table>
+<p><code>detour</code> is useful when a DNS server must be reached through a specific connection, usually the same VPN. It does not affect queries that devices in your network send directly to the same address: route them with a normal route rule.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;static&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;10.8.0.1:5353&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;detour&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google_dns&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google_dns_v6&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;[2001:4860:4860::8888]:53&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;keenetic_dns&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;keenetic&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<h3>The &ldquo;Keenetic DNS&rdquo; type<span class="hx:absolute hx:-mt-20" id="the-keenetic-dns-type"></span>
+    <a href="#the-keenetic-dns-type" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>On Keenetic routers, <code>type: &quot;keenetic&quot;</code> takes the DNS servers from the router&rsquo;s current settings. You set them in the Keenetic web interface: <strong>Network rules</strong> &gt; <strong>Internet safety</strong> &gt; <strong>DNS Configuration</strong>. If DoT or DoH servers are set there, only they are used.</p>
+<ul>
+<li>At most one server may use <code>type: &quot;keenetic&quot;</code>.</li>
+<li><code>address</code> is not set for it.</li>
+<li>keen-pbr reads the servers that are not tied to a domain from the <strong>System</strong> proxy policy. If any of them are encrypted (
+  <abbr title="DNS over HTTPS: encrypted DNS. The router cannot read these queries.">DoH</abbr>
+/DoT), all encrypted servers are used in order. Otherwise, all plain servers are used in order.</li>
+</ul>
+<h2>Field reference<span class="hx:absolute hx:-mt-20" id="field-reference"></span>
+    <a href="#field-reference" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>The <code>dns</code> section in <code>config.json</code>:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
 			<tr>
 					<td><code>servers</code></td>
 					<td>array</td>
-					<td>yes</td>
-					<td>DNS server definitions (each has <code>tag</code>, optional <code>address</code>, optional <code>detour</code>)</td>
+					<td>no</td>
+					<td>DNS server definitions (see above)</td>
+			</tr>
+			<tr>
+					<td><code>resolver_integration</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td><code>&quot;none&quot;</code> (default) or <code>&quot;dnsmasq&quot;</code>. In the Web UI: <strong>Manage dnsmasq configuration</strong>.</td>
+			</tr>
+			<tr>
+					<td><code>dnsmasq_instance</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>Selector of the dnsmasq instance to manage: <code>uci:&lt;section&gt;</code> (OpenWrt), <code>entware:default</code> (Keenetic), <code>systemd:&lt;unit&gt;.service</code> (Debian). In the Web UI: <strong>dnsmasq instance</strong>. Empty means automatic selection; needed only when several instances are found.</td>
 			</tr>
 			<tr>
 					<td><code>rules</code></td>
 					<td>array</td>
 					<td>no</td>
-					<td>Array of DNS rules; each rule maps lists to a DNS server</td>
+					<td>Rules that map lists to DNS servers (only active when <code>resolver_integration: &quot;dnsmasq&quot;</code>)</td>
 			</tr>
 			<tr>
 					<td><code>fallback</code></td>
-					<td>array</td>
+					<td>array of string</td>
 					<td>no</td>
-					<td>Server tags used when no rule matches; if omitted, system/ISP upstreams from resolv.conf are used</td>
+					<td>Tags of upstream DNS servers for queries that match no rule (only active when <code>resolver_integration: &quot;dnsmasq&quot;</code>). In the Web UI: <strong>Default upstream DNS servers</strong>. If omitted, dnsmasq keeps its own servers and also gets the servers from <code>dnsmasq-fallback.conf</code>.</td>
+			</tr>
+			<tr>
+					<td><code>dns_test_server</code></td>
+					<td>object</td>
+					<td>no</td>
+					<td>Ignored; use <code>intercept.dns.marker</code></td>
 			</tr>
 	</tbody>
 </table>
-<p><strong>DNS rule</strong> (<code>rules[]</code> element):</p>
+<p>Rule (<code>rules[]</code> element):</p>
 <table>
 	<thead>
 			<tr>
@@ -1246,31 +1331,135 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 					<td><code>enabled</code></td>
 					<td>bool</td>
 					<td>true</td>
-					<td>Whether this rule is active</td>
+					<td>Whether the rule is active</td>
 			</tr>
 			<tr>
 					<td><code>list</code></td>
 					<td>array of string</td>
 					<td>required</td>
-					<td>List names whose domains should use this DNS server</td>
+					<td>Names of lists whose domains use this DNS server (<strong>Domain lists</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>server</code></td>
 					<td>string</td>
 					<td>required</td>
-					<td>DNS server tag to use for domains in these lists</td>
+					<td>DNS server tag (<strong>DNS server</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>allow_domain_rebinding</code></td>
 					<td>bool</td>
 					<td>false</td>
-					<td>Allow private-IP answers (RFC1918) for these domains → <code>rebind-domain-ok</code> in dnsmasq</td>
+					<td>Allow private IP answers (RFC1918, local network addresses) for these domains → <code>rebind-domain-ok</code> in dnsmasq (<strong>Allow domain rebinding for these domains</strong>). Turn it on only if the list points to internal services.</td>
 			</tr>
 	</tbody>
 </table>
-<p><strong>Several DNS servers for one list.</strong> Add one rule per server for the same list. The list&rsquo;s domains get the servers of every enabled rule, in rule order. dnsmasq queries all of them, then keeps using the one that answered first, and switches to another when it stops answering. Rebinding is allowed when any of these rules allows it.</p>
-<p>dnsmasq keeps a separate record (about 200 bytes) for every domain and server pair. Each extra server adds that much memory for every domain of the list, so two servers for a list of 10,000 domains take about 4 MB instead of 2 MB.</p>
-<h3>Installation by platform<span class="hx:absolute hx:-mt-20" id="installation-by-platform"></span>
+<h2>DNS interception<span class="hx:absolute hx:-mt-20" id="dns-interception"></span>
+    <a href="#dns-interception" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Interception is on by default. Settings: <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Domain-based routing</strong>. It learns the IP addresses of domains from your lists:</p>
+<ul>
+<li><strong>DNS</strong>: keen-pbr briefly holds a DNS reply passing through the router, adds its addresses to the list&rsquo;s set, and only then lets the reply reach the client. This way even the first connection to a site takes the right route.</li>
+<li><strong>L7</strong>: keen-pbr reads the site name at the start of TLS, HTTP and 
+  <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr>
+ connections. This helps when a device uses encrypted DNS.</li>
+</ul>
+<p>Change these settings only when the defaults do not suit you. The <code>intercept</code> section in <code>config.json</code>:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Default</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>enabled</code></td>
+					<td>boolean</td>
+					<td><code>true</code></td>
+					<td>Enable interception (<strong>Enable domain-based routing</strong>)</td>
+			</tr>
+			<tr>
+					<td><code>min_ttl_ms</code> / <code>max_ttl_ms</code></td>
+					<td>integer</td>
+					<td><code>300000</code> / <code>86400000</code></td>
+					<td>How long to keep an address in a dynamic set: no less and no more than this, in milliseconds (rounded to seconds). Within these bounds the 
+  <abbr title="How long a DNS answer may be cached, in seconds.">TTL</abbr>
+ from the DNS reply is used (<strong>Minimum TTL</strong>, <strong>Maximum TTL</strong>)</td>
+			</tr>
+			<tr>
+					<td><code>dns.enabled</code></td>
+					<td>boolean</td>
+					<td><code>true</code></td>
+					<td>Read DNS replies, UDP and TCP (<strong>Intercept DNS server responses</strong>)</td>
+			</tr>
+			<tr>
+					<td><code>dns.queue_num</code></td>
+					<td>integer</td>
+					<td><code>9053</code></td>
+					<td>
+  <abbr title="A netfilter mechanism that passes packets to a user-space program and waits for its verdict. keen-pbr uses it to hold DNS replies briefly.">NFQUEUE</abbr>
+ number. Change it only if another program uses it (<strong>NFQUEUE number</strong>)</td>
+			</tr>
+			<tr>
+					<td><code>dns.hold_timeout_ms</code></td>
+					<td>integer</td>
+					<td><code>30</code></td>
+					<td>How long to wait for addresses to be written before passing the DNS reply to the client. If time runs out, the reply goes out without waiting (<strong>DNS hold timeout</strong>)</td>
+			</tr>
+			<tr>
+					<td><code>dns.marker</code></td>
+					<td>object</td>
+					<td><code>check.keen-pbr.fyi</code> / <code>127.0.0.88</code></td>
+					<td>Test domain: if the client&rsquo;s DNS goes through the router, it resolves to <code>127.0.0.88</code> (<strong>Marker domain</strong>, <strong>Marker IPv4 address</strong>)</td>
+			</tr>
+			<tr>
+					<td><code>l7.enabled</code></td>
+					<td>boolean</td>
+					<td><code>true</code></td>
+					<td>Read site names in connections (<strong>Enable L7 interception</strong>)</td>
+			</tr>
+			<tr>
+					<td><code>l7.nflog_group</code></td>
+					<td>integer</td>
+					<td><code>9054</code></td>
+					<td>
+  <abbr title="A netfilter mechanism that sends copies of packets to a user-space program without delaying them.">NFLOG</abbr>
+ group number. Change it only if another program uses it (<strong>NFLOG group</strong>)</td>
+			</tr>
+			<tr>
+					<td><code>l7.tls</code> / <code>http</code> / <code>quic</code></td>
+					<td>boolean</td>
+					<td><code>true</code></td>
+					<td>Which protocols to read (<strong>TLS SNI</strong>, <strong>HTTP Host</strong>, <strong>QUIC</strong>)</td>
+			</tr>
+	</tbody>
+</table>
+<h3>Kernel requirements<span class="hx:absolute hx:-mt-20" id="kernel-requirements"></span>
+    <a href="#kernel-requirements" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Interception works on most routers. Minimum Linux kernel versions:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Firewall backend</th>
+					<th>DNS interception</th>
+					<th>L7 interception</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>iptables</td>
+					<td>3.8</td>
+					<td>2.6.39</td>
+			</tr>
+			<tr>
+					<td>nftables</td>
+					<td>4.1</td>
+					<td>4.5</td>
+			</tr>
+	</tbody>
+</table>
+<p>Router vendors sometimes strip parts of the kernel, so keen-pbr does not rely on the version number: when the service starts, it checks that everything it needs actually works. If something is missing, only that part of interception is turned off and the rest of keen-pbr keeps working. The result is shown on the status page of the web UI and in <code>GET /api/health/service</code> (the <code>intercept</code> field). The check runs once at startup: if you install missing kernel modules, restart the service.</p>
+<h2>If you use dnsmasq: installation and problems<span class="hx:absolute hx:-mt-20" id="if-you-use-dnsmasq-installation-and-problems"></span>
+    <a href="#if-you-use-dnsmasq-installation-and-problems" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>Installation by platform<span class="hx:absolute hx:-mt-20" id="installation-by-platform"></span>
     <a href="#installation-by-platform" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>keen-pbr does not install dnsmasq; install it yourself when you need this feature. Step-by-step install and rollback are on the installation pages: <a href="/docs/getting-started/installation/keenetic/#dnsmasq">Keenetic</a>, <a href="/docs/getting-started/installation/openwrt/#dnsmasq">OpenWrt</a>, <a href="/docs/getting-started/installation/debian/#dnsmasq">Debian</a>. What keen-pbr changes on each platform:</p>
 <p><strong>OpenWrt</strong>: install <code>dnsmasq</code>. keen-pbr adds three <code>addnmount</code> entries to the dnsmasq section in <code>/etc/config/dhcp</code>, so that the sandboxed dnsmasq can run keen-pbr. While management is on and default DNS servers are set, keen-pbr takes the servers without a domain out of <code>/etc/config/dhcp</code>; per-domain servers stay. Turning management off or clearing the default servers returns them. Removing the package removes the added entries.</p>
 <p><strong>Keenetic (Entware)</strong>: install <code>dnsmasq-full</code> (replaces the built-in ndnproxy as the LAN resolver). The first time you turn management on, keen-pbr adds a marked block with one <code>conf-script</code> line to <code>/opt/etc/dnsmasq.conf</code>. <code>install-recommended-config</code> adds the same block. If dnsmasq is not installed, the status page shows an error.</p>
@@ -1314,7 +1503,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
  is already installed in exactly one instance. That instance keeps being used. If the drop-in is found in several instances, selection stops with <code>DNSMASQ_INSTANCE_AMBIGUOUS</code>.</li>
 <li><strong>Automatic</strong>: the field is empty, nothing is installed yet, and exactly one enabled instance has DNS (<code>port</code> is not <code>0</code>). With none, the result is <code>DNSMASQ_NO_DNS_INSTANCE</code>; with several, <code>DNSMASQ_INSTANCE_AMBIGUOUS</code>.</li>
 </ol>
-<p>When the choice is ambiguous, keen-pbr does not guess: it modifies nothing and leaves existing drop-ins alone. Run <code>keen-pbr dnsmasq detect</code> to see the candidates, then set <code>dns.dnsmasq_instance</code> in <code>config.json</code> or in the Web UI under DNS settings. If keen-pbr&rsquo;s drop-in is also installed in an instance that is not selected, <code>detect</code> and the logs show a warning with the command that removes it (<code>keen-pbr dnsmasq remove &lt;selector&gt;</code>).</p>
+<p>When the choice is ambiguous, keen-pbr does not guess: it modifies nothing and leaves existing drop-ins alone. Run <code>keen-pbr dnsmasq detect</code> to see the candidates, then set it under <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Local DNS server management</strong> &gt; <strong>dnsmasq instance</strong> (or <code>dns.dnsmasq_instance</code> in <code>config.json</code>). If keen-pbr&rsquo;s drop-in is also installed in an instance that is not selected, <code>detect</code> and the logs show a warning with the command that removes it (<code>keen-pbr dnsmasq remove &lt;selector&gt;</code>).</p>
 <h4>DNS endpoint detection<span class="hx:absolute hx:-mt-20" id="dns-endpoint-detection"></span>
     <a href="#dns-endpoint-detection" class="subheading-anchor" aria-label="Permalink for this section"></a></h4><p>keen-pbr finds the address the selected dnsmasq answers on by itself: it reads the configuration dnsmasq actually loaded and checks the address with a DNS query. If dnsmasq does not serve DNS (<code>port=0</code>, no DNS socket, or another 
   <abbr title="An isolated copy of the Linux network stack with its own interfaces, routes and firewall.">network namespace</abbr>
@@ -1349,12 +1538,12 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 			<tr>
 					<td><code>DNSMASQ_NOT_INSTALLED</code></td>
 					<td>dnsmasq is not installed.</td>
-					<td>Install dnsmasq (see above), or, if you do not need it, turn off <strong>Manage dnsmasq configuration</strong> in the Web UI (<code>dns.resolver_integration: &quot;none&quot;</code>).</td>
+					<td>Install dnsmasq (see above), or, if you do not need it, turn off <strong>Manage dnsmasq configuration</strong> (<code>dns.resolver_integration: &quot;none&quot;</code>).</td>
 			</tr>
 			<tr>
 					<td><code>DNSMASQ_NO_DNS_INSTANCE</code></td>
 					<td>No enabled instance serves DNS.</td>
-					<td>Enable an instance with DNS, or turn off <strong>Manage dnsmasq configuration</strong> in the Web UI (<code>dns.resolver_integration: &quot;none&quot;</code>).</td>
+					<td>Enable an instance with DNS, or turn off <strong>Manage dnsmasq configuration</strong> (<code>dns.resolver_integration: &quot;none&quot;</code>).</td>
 			</tr>
 			<tr>
 					<td><code>DNSMASQ_INSTANCE_NOT_FOUND</code></td>
@@ -1364,7 +1553,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 			<tr>
 					<td><code>DNSMASQ_INSTANCE_AMBIGUOUS</code></td>
 					<td>Several instances qualify.</td>
-					<td>Set <code>dns.dnsmasq_instance</code>.</td>
+					<td>Set <strong>dnsmasq instance</strong> (<code>dns.dnsmasq_instance</code>).</td>
 			</tr>
 			<tr>
 					<td><code>DNSMASQ_NOT_RUNNING</code></td>
@@ -1448,12 +1637,12 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 	</tbody>
 </table>
 <h3>How it works<span class="hx:absolute hx:-mt-20" id="how-it-works"></span>
-    <a href="#how-it-works" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>keen-pbr never writes the generated dnsmasq config to flash. dnsmasq&rsquo;s configuration holds one 
+    <a href="#how-it-works" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>One 
   <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr>
- line (<code>conf-script=keen-pbr generate-resolver-config dnsmasq</code>). Each time dnsmasq starts, it runs that command and reads the per-list rules and default DNS servers from its output.</p>
+ line in the dnsmasq configuration makes dnsmasq run keen-pbr at every start and get the per-list rules and default DNS servers from it.</p>
 <ul>
-<li>With <strong>Manage dnsmasq configuration</strong> on, dnsmasq is restarted when this output changes (list update, settings change, or once after keen-pbr starts), and only after the checks described in <a href="#checks-before-every-restart">Checks before every restart</a> have passed.</li>
-<li>With it off, the output is the servers from <code>dnsmasq-fallback.conf</code> (Keenetic: <code>/opt/etc/keen-pbr/</code>, Debian and OpenWrt: <code>/etc/keen-pbr/</code>). They are added to dnsmasq&rsquo;s own servers; clear the file to avoid that. On OpenWrt the file is empty by default.</li>
+<li>With <strong>Manage dnsmasq configuration</strong> on, dnsmasq is restarted when this data changes (list update, settings change, or once after keen-pbr starts), and only after the checks described in <a href="#checks-before-every-restart">Checks before every restart</a> have passed.</li>
+<li>With it off, dnsmasq gets the servers from the <code>dnsmasq-fallback.conf</code> file (Keenetic: <code>/opt/etc/keen-pbr/</code>, Debian and OpenWrt: <code>/etc/keen-pbr/</code>). They are added to dnsmasq&rsquo;s own servers; clear the file to avoid that. On OpenWrt the file is empty by default.</li>
 <li>With it on but no default DNS servers set, dnsmasq also gets the servers from <code>dnsmasq-fallback.conf</code>.</li>
 </ul>
 <h3>On stop, disable, or uninstall<span class="hx:absolute hx:-mt-20" id="on-stop-disable-or-uninstall"></span>
@@ -1468,238 +1657,6 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 </ul>
 <h3>Troubleshooting<span class="hx:absolute hx:-mt-20" id="troubleshooting"></span>
     <a href="#troubleshooting" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>See <a href="/docs/troubleshooting/#per-list-dns-servers-do-not-work">Per-list DNS servers do not work</a>.</p>
-<h2>DNS interception<span class="hx:absolute hx:-mt-20" id="dns-interception"></span>
-    <a href="#dns-interception" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>The <code>intercept</code> section is enabled by default. It controls how keen-pbr learns the IP addresses of domains from your lists:</p>
-<ul>
-<li><strong>DNS</strong>: keen-pbr briefly holds a DNS reply passing through the router, adds its addresses to the list&rsquo;s set, and only then lets the reply reach the client. This way even the first connection to a site takes the right route.</li>
-<li><strong>L7</strong>: keen-pbr reads the site name at the start of TLS, HTTP and 
-  <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr>
- connections. This helps when a device uses encrypted DNS.</li>
-</ul>
-<p>Change these settings only when the defaults do not suit you:</p>
-<table>
-	<thead>
-			<tr>
-					<th>Field</th>
-					<th>Type</th>
-					<th>Default</th>
-					<th>Description</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>enabled</code></td>
-					<td>boolean</td>
-					<td><code>true</code></td>
-					<td>Enable interception</td>
-			</tr>
-			<tr>
-					<td><code>min_ttl_ms</code> / <code>max_ttl_ms</code></td>
-					<td>integer</td>
-					<td><code>300000</code> / <code>86400000</code></td>
-					<td>How long to keep an address in a dynamic set: no less and no more than this, in milliseconds (rounded to seconds). Within these bounds the 
-  <abbr title="How long a DNS answer may be cached, in seconds.">TTL</abbr>
- from the DNS reply is used</td>
-			</tr>
-			<tr>
-					<td><code>dns.enabled</code></td>
-					<td>boolean</td>
-					<td><code>true</code></td>
-					<td>Read DNS replies (UDP and TCP)</td>
-			</tr>
-			<tr>
-					<td><code>dns.queue_num</code></td>
-					<td>integer</td>
-					<td><code>9053</code></td>
-					<td>
-  <abbr title="A netfilter mechanism that passes packets to a user-space program and waits for its verdict. keen-pbr uses it to hold DNS replies briefly.">NFQUEUE</abbr>
- number. Change it only if another program uses it</td>
-			</tr>
-			<tr>
-					<td><code>dns.hold_timeout_ms</code></td>
-					<td>integer</td>
-					<td><code>30</code></td>
-					<td>How long to wait for addresses to be written before passing the DNS reply to the client. If time runs out, the reply goes out without waiting</td>
-			</tr>
-			<tr>
-					<td><code>dns.marker</code></td>
-					<td>object</td>
-					<td><code>check.keen-pbr.fyi</code> / <code>127.0.0.88</code></td>
-					<td>Test domain: if the client&rsquo;s DNS goes through the router, it resolves to <code>127.0.0.88</code></td>
-			</tr>
-			<tr>
-					<td><code>l7.enabled</code></td>
-					<td>boolean</td>
-					<td><code>true</code></td>
-					<td>Read site names in connections</td>
-			</tr>
-			<tr>
-					<td><code>l7.nflog_group</code></td>
-					<td>integer</td>
-					<td><code>9054</code></td>
-					<td>
-  <abbr title="A netfilter mechanism that sends copies of packets to a user-space program without delaying them.">NFLOG</abbr>
- group number. Change it only if another program uses it</td>
-			</tr>
-			<tr>
-					<td><code>l7.tls</code> / <code>http</code> / <code>quic</code></td>
-					<td>boolean</td>
-					<td><code>true</code></td>
-					<td>Which protocols to read</td>
-			</tr>
-	</tbody>
-</table>
-<p>The <code>dns.dns_test_server</code> field from earlier versions has no effect. To check DNS, use <code>nslookup check.keen-pbr.fyi</code> or the DNS check widget in the web UI.</p>
-<h3>Kernel requirements<span class="hx:absolute hx:-mt-20" id="kernel-requirements"></span>
-    <a href="#kernel-requirements" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Interception works on most routers. Minimum Linux kernel versions:</p>
-<table>
-	<thead>
-			<tr>
-					<th>Firewall backend</th>
-					<th>DNS interception</th>
-					<th>L7 interception</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td>iptables</td>
-					<td>3.8</td>
-					<td>2.6.39</td>
-			</tr>
-			<tr>
-					<td>nftables</td>
-					<td>4.1</td>
-					<td>4.5</td>
-			</tr>
-	</tbody>
-</table>
-<p>Router vendors sometimes strip parts of the kernel, so keen-pbr does not rely on the version number: when the service starts, it checks that everything it needs actually works. If something is missing, only that part of interception is turned off and the rest of keen-pbr keeps working. The result is shown on the status page of the web UI and in <code>GET /api/health/service</code> (the <code>intercept</code> field). The check runs once at startup: if you install missing kernel modules, restart the service.</p>
-<h2>DNS Servers<span class="hx:absolute hx:-mt-20" id="dns-servers"></span>
-    <a href="#dns-servers" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>A server <code>tag</code> must be unique and follow the same rules as outbound tags: lowercase Latin letters, digits and <code>_</code>, starts with a letter, at most 24 characters.</p>
-<table>
-	<thead>
-			<tr>
-					<th>Field</th>
-					<th>Type</th>
-					<th>Required</th>
-					<th>Description</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>tag</code></td>
-					<td>string</td>
-					<td>yes</td>
-					<td>Unique identifier for this DNS server</td>
-			</tr>
-			<tr>
-					<td><code>type</code></td>
-					<td>string</td>
-					<td>no</td>
-					<td>DNS source type: <code>static</code> (default) or <code>keenetic</code></td>
-			</tr>
-			<tr>
-					<td><code>address</code></td>
-					<td>string</td>
-					<td>for <code>static</code></td>
-					<td>IP address of the DNS server, with optional port, for example <code>&quot;10.8.0.1&quot;</code>, <code>&quot;10.8.0.1:5353&quot;</code>, <code>&quot;2001:4860:4860::8888&quot;</code>, or <code>&quot;[2001:4860:4860::8888]:5353&quot;</code></td>
-			</tr>
-			<tr>
-					<td><code>detour</code></td>
-					<td>string</td>
-					<td>no</td>
-					<td>Outbound to use when contacting this DNS server</td>
-			</tr>
-	</tbody>
-</table>
-<p>The <code>detour</code> field is useful when a DNS server must be reached through a specific connection, usually the same VPN that will carry the matching traffic.</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;static&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;10.8.0.1:5353&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;detour&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">},</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google_dns&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">},</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google_dns_v6&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;[2001:4860:4860::8888]:53&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">},</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;keenetic_dns&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;keenetic&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">]</span>
-</span></span><span class="line"><span class="cl">  <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<h3><code>type: keenetic</code> (built-in router DNS via RCI)<span class="hx:absolute hx:-mt-20" id="type-keenetic-built-in-router-dns-via-rci"></span>
-    <a href="#type-keenetic-built-in-router-dns-via-rci" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>On Keenetic routers, <code>type: &quot;keenetic&quot;</code> takes the DNS servers from the router&rsquo;s current settings.</p>
-<p>Rules and behavior:</p>
-<ul>
-<li>At most one <code>dns.servers</code> entry may use <code>type: &quot;keenetic&quot;</code>.</li>
-<li><code>address</code> must not be set for <code>type: &quot;keenetic&quot;</code> (resolved from 
-  <abbr title="The Keenetic router&#39;s built-in configuration API.">RCI</abbr>
-).</li>
-<li>keen-pbr reads <code>dns_server = ...</code> entries that are not tied to a domain from the <strong>System</strong> proxy policy.</li>
-<li>If any of them are encrypted (
-  <abbr title="DNS over HTTPS: encrypted DNS. The router cannot read these queries.">DoH</abbr>
-/DoT), all encrypted servers are used in order.</li>
-<li>Otherwise, all plain (unencrypted) servers are used in order.</li>
-</ul>
-<h3>How <code>detour</code> works<span class="hx:absolute hx:-mt-20" id="how-detour-works"></span>
-    <a href="#how-detour-works" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>With <code>detour</code>, DNS queries that the router itself sends to this server (for example from dnsmasq) go through the given outbound. For example, if <code>vpn_dns</code> has <code>detour: &quot;vpn&quot;</code>, the router reaches <code>vpn_dns</code> through <code>vpn</code>.</p>
-<p>Queries that devices in your network send directly to the same address are not affected; route them with a normal route rule.</p>
-<h2>Complete Example<span class="hx:absolute hx:-mt-20" id="complete-example"></span>
-    <a href="#complete-example" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;10.8.0.1:5353&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;detour&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">},</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google_dns&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">},</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google_dns_v6&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;[2001:4860:4860::8888]:53&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">]</span>
-</span></span><span class="line"><span class="cl">  <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

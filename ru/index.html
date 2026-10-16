@@ -28,13 +28,13 @@
 
 
 	<meta itemprop="name" content="keen-pbr">
-	<meta itemprop="description" content="Выборочная маршрутизация для Linux-роутеров Направляйте нужный трафик через VPN, WAN или пользовательские таблицы маршрутизации. Разработано для роутеров OpenWRT, Keenetic® и Netcraze®. Начало работы Выборочная маршрутизация Маршрутизация трафика на основе списков доменов, IP-адресов, портов и адресов. Правила проверяются по порядку; трафик, не попавший ни под одно правило, идёт через обычную системную маршрутизацию.
+	<meta itemprop="description" content="Выборочная маршрутизация для Linux-роутеров Направляйте нужный трафик через VPN, провайдера или свои каналы. Работает на роутерах Keenetic®, NetCraze®, OpenWrt и на Debian. Начало работы Выборочная маршрутизация Маршрутизация трафика на основе списков доменов, IP-адресов, портов и адресов. Правила проверяются по порядку; трафик, не попавший ни под одно правило, идёт через обычную системную маршрутизацию.
 google.com internal.site WAN Corp VPN Веб-интерфейс Управление правилами маршрутизации, мониторинг состояния outbounds и перезагрузка конфигурации через браузер — без SSH.
 keen-pbr.local keen-pbr Get packets sorted Панель управления Состояние сервиса, проверки DNS и активные маршруты running Core сервис Проверка DNS Состояние outbounds">
-	<meta itemprop="wordCount" content="228">
+	<meta itemprop="wordCount" content="234">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="keen-pbr">
-	<meta name="twitter:description" content="Выборочная маршрутизация для Linux-роутеров Направляйте нужный трафик через VPN, WAN или пользовательские таблицы маршрутизации. Разработано для роутеров OpenWRT, Keenetic® и Netcraze®. Начало работы Выборочная маршрутизация Маршрутизация трафика на основе списков доменов, IP-адресов, портов и адресов. Правила проверяются по порядку; трафик, не попавший ни под одно правило, идёт через обычную системную маршрутизацию.
+	<meta name="twitter:description" content="Выборочная маршрутизация для Linux-роутеров Направляйте нужный трафик через VPN, провайдера или свои каналы. Работает на роутерах Keenetic®, NetCraze®, OpenWrt и на Debian. Начало работы Выборочная маршрутизация Маршрутизация трафика на основе списков доменов, IP-адресов, портов и адресов. Правила проверяются по порядку; трафик, не попавший ни под одно правило, идёт через обычную системную маршрутизацию.
 google.com internal.site WAN Corp VPN Веб-интерфейс Управление правилами маршрутизации, мониторинг состояния outbounds и перезагрузка конфигурации через браузер — без SSH.
 keen-pbr.local keen-pbr Get packets sorted Панель управления Состояние сервиса, проверки DNS и активные маршруты running Core сервис Проверка DNS Состояние outbounds">
 
@@ -598,7 +598,7 @@ keen-pbr.local keen-pbr Get packets sorted Панель управления С�
   class="not-prose hx:text-xl hx:text-gray-600 hx:dark:text-gray-400 hx:sm:text-xl"
   
 >
-  Направляйте нужный трафик через VPN, WAN или пользовательские таблицы маршрутизации. <br class="hx:sm:block hx:hidden" />Разработано для роутеров OpenWRT, Keenetic® и Netcraze®.
+  Направляйте нужный трафик через VPN, провайдера или свои каналы. <br class="hx:sm:block hx:hidden" />Работает на роутерах Keenetic®, NetCraze®, OpenWrt и на Debian.
 </p>
 
 </div>
@@ -861,7 +861,7 @@ keen-pbr.local keen-pbr Get packets sorted Панель управления С�
 <div class="hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:dark:border-neutral-800 hx:aspect-auto hx:max-md:min-h-[280px]" style="background: radial-gradient(ellipse at 50% 80%,rgba(239,68,68,0.15),hsla(0,0%,100%,0));display:flex;flex-direction:column;">
 <div class="hx:relative hx:w-full hx:p-6" style="flex:1;display:flex;flex-direction:column;">
 <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2">Failover и проверки состояния</h3>
-<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">urltest проверяет кандидаты outbound по задержке и выбирает самый быстрый в пределах допуска. Circuit breaker предотвращает флаппинг при устойчивых сбоях.</p>
+<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Тип urltest проверяет каналы и выбирает канал с самой низкой задержкой (в пределах допуска) или распределяет между ними соединения. Нестабильный канал временно исключается, чтобы трафик не метался между каналами.</p>
 <div style="flex:1;"></div>
 <div class="hx:mt-4">
   <div style="border:1.5px solid rgba(128,128,128,0.25);border-radius:10px;padding:8px 10px;background:rgba(128,128,128,0.06);">
@@ -931,7 +931,7 @@ keen-pbr.local keen-pbr Get packets sorted Панель управления С�
         <span class="hx:pr-2"><svg height=1.5rem xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg></span>
         <span>Несколько типов outbound</span>
       </h3>
-      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Трафик можно направить на конкретный интерфейс, в существующую таблицу маршрутизации (например, WAN) или полностью заблокировать. Тип <code>urltest</code> измеряет задержку и автоматически выбирает лучший интерфейс.</p>
+      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Трафик можно направить в конкретный интерфейс, в обычный выход через провайдера или заблокировать. Тип <code>urltest</code> сам выбирает лучший из нескольких каналов.</p>
     </div></a>
 
   <a
@@ -944,7 +944,7 @@ keen-pbr.local keen-pbr Get packets sorted Панель управления С�
         <span class="hx:pr-2"><svg height=1.5rem xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/></svg></span>
         <span>Интеграция с DNS</span>
       </h3>
-      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Перехватывает DNS и видимые L7-имена и напрямую заполняет динамические наборы; резолвер не настраивается и не требуется.</p>
+      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Настраивать DNS-сервер не нужно: keen-pbr узнаёт адреса сайтов из списков по DNS-ответам и по соединениям, которые проходят через роутер.</p>
     </div></a>
 
   <a
@@ -957,7 +957,7 @@ keen-pbr.local keen-pbr Get packets sorted Панель управления С�
         <span class="hx:pr-2"><svg height=1.5rem xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/></svg></span>
         <span>Два firewall-бэкенда</span>
       </h3>
-      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Автоматически определяет <code>nftables</code> или <code>iptables</code>. Работает на современных и старых ядрах без изменения конфигурации.</p>
+      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Сам определяет, что использовать, <code>nftables</code> или <code>iptables</code>. Работает на новых и старых прошивках без дополнительной настройки.</p>
     </div></a>
 
   <a
@@ -970,7 +970,7 @@ keen-pbr.local keen-pbr Get packets sorted Панель управления С�
         <span class="hx:pr-2"><svg height=1.5rem xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg></span>
         <span>REST API</span>
       </h3>
-      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Встроенный HTTP API для проверки состояния, верификации маршрутизации ядра в реальном времени и перезагрузки конфигурации без перезапуска демона.</p>
+      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Встроенный HTTP API: проверка состояния, проверка маршрутов и перезагрузка конфигурации без перезапуска сервиса.</p>
     </div></a>
 
   <a
@@ -983,7 +983,7 @@ keen-pbr.local keen-pbr Get packets sorted Панель управления С�
         <span class="hx:pr-2"><svg height=1.5rem xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></span>
         <span>Автообновление списков</span>
       </h3>
-      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Удалённые списки доменов и IP загружаются при запуске и обновляются по настраиваемому расписанию, с локальным кэшем в качестве резервного источника.</p>
+      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Списки доменов и IP загружаются по ссылке при запуске и обновляются по расписанию. Если источник недоступен, используется сохранённая копия.</p>
     </div></a>
 
 

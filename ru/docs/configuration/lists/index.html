@@ -9,84 +9,18 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Списки – keen-pbr</title>
-  <meta name="description" content="Списки — это группы сайтов или диапазонов IP, трафик к которым keen-pbr будет направлять по вашим правилам.
-Ключ lists — это объект, где каждый ключ — это имя списка, а значение — конфигурация списка.
-Имя списка: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
-Большинство пользователей начинают с простого списка доменов:
-config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Поля Поле Тип Обязательно Описание url string нет URL удалённого файла списка для загрузки и кэширования domains array of string нет Домены прямо в конфиге. *. в начале писать не обязательно ip_cidrs array of string нет IP-адреса и подсети ( CIDR ) прямо в конфиге file string нет Путь к локальному файлу списка ttl_ms integer нет (по умолчанию: 0) Сколько минимум хранить IP-адреса доменов этого списка, в миллисекундах. Если не задано или меньше 1000, используется intercept.min_ttl_ms. Если TTL в DNS-ответе больше, адрес хранится дольше, но не больше intercept.max_ttl_ms Домены записываются одинаково во всех источниках. *.google.com и google.com означают одно и то же. Некорректные домены в файлах и списках по URL пропускаются, а в domains — приводят к ошибке конфигурации." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/lists/" itemprop="url" />
+  <meta name="description" content="Список — это набор сайтов или диапазонов IP. Трафик к ним keen-pbr направляет по вашим правилам маршрутизации.
+В веб-интерфейсе: откройте Маршрутизация &gt; Списки и нажмите Добавить список. Задайте название и источник: URL, Файл на устройстве или Домены / IP. Затем нажмите Применить в панели черновика.
+В файле конфигурации ключ lists — объект, где каждый ключ — имя списка, а значение — его настройки. Имя списка: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$)." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/lists/" itemprop="url" />
 
 <meta property="og:title" content="Списки">
 <meta
   property="og:description"
   content="
     
-      Списки — это группы сайтов или диапазонов IP, трафик к которым keen-pbr будет направлять по вашим правилам.
-Ключ lists — это объект, где каждый ключ — это имя списка, а значение — конфигурация списка.
-Имя списка: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
-Большинство пользователей начинают с простого списка доменов:
-
-
-config.json{
-  &#34;lists&#34;: {
-    &#34;my_sites&#34;: {
-      &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;]
-    }
-  }
-}
-  
-    
-
-  
-
-
-Поля
-    
-	
-			
-					Поле
-					Тип
-					Обязательно
-					Описание
-			
-	
-	
-			
-					url
-					string
-					нет
-					URL удалённого файла списка для загрузки и кэширования
-			
-			
-					domains
-					array of string
-					нет
-					Домены прямо в конфиге. *. в начале писать не обязательно
-			
-			
-					ip_cidrs
-					array of string
-					нет
-					IP-адреса и подсети (
-  CIDR
-) прямо в конфиге
-			
-			
-					file
-					string
-					нет
-					Путь к локальному файлу списка
-			
-			
-					ttl_ms
-					integer
-					нет (по умолчанию: 0)
-					Сколько минимум хранить IP-адреса доменов этого списка, в миллисекундах. Если не задано или меньше 1000, используется intercept.min_ttl_ms. Если 
-  TTL
- в DNS-ответе больше, адрес хранится дольше, но не больше intercept.max_ttl_ms
-			
-	
-
-Домены записываются одинаково во всех источниках. *.google.com и google.com означают одно и то же. Некорректные домены в файлах и списках по URL пропускаются, а в domains — приводят к ошибке конфигурации.
+      Список — это набор сайтов или диапазонов IP. Трафик к ним keen-pbr направляет по вашим правилам маршрутизации.
+В веб-интерфейсе: откройте Маршрутизация &gt; Списки и нажмите Добавить список. Задайте название и источник: URL, Файл на устройстве или Домены / IP. Затем нажмите Применить в панели черновика.
+В файле конфигурации ключ lists — объект, где каждый ключ — имя списка, а значение — его настройки. Имя списка: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
     
   ">
 <meta
@@ -100,19 +34,15 @@ config.json{
 
 
 	<meta itemprop="name" content="Списки">
-	<meta itemprop="description" content="Списки — это группы сайтов или диапазонов IP, трафик к которым keen-pbr будет направлять по вашим правилам.
-Ключ lists — это объект, где каждый ключ — это имя списка, а значение — конфигурация списка.
-Имя списка: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
-Большинство пользователей начинают с простого списка доменов:
-config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Поля Поле Тип Обязательно Описание url string нет URL удалённого файла списка для загрузки и кэширования domains array of string нет Домены прямо в конфиге. *. в начале писать не обязательно ip_cidrs array of string нет IP-адреса и подсети ( CIDR ) прямо в конфиге file string нет Путь к локальному файлу списка ttl_ms integer нет (по умолчанию: 0) Сколько минимум хранить IP-адреса доменов этого списка, в миллисекундах. Если не задано или меньше 1000, используется intercept.min_ttl_ms. Если TTL в DNS-ответе больше, адрес хранится дольше, но не больше intercept.max_ttl_ms Домены записываются одинаково во всех источниках. *.google.com и google.com означают одно и то же. Некорректные домены в файлах и списках по URL пропускаются, а в domains — приводят к ошибке конфигурации.">
-	<meta itemprop="wordCount" content="540">
+	<meta itemprop="description" content="Список — это набор сайтов или диапазонов IP. Трафик к ним keen-pbr направляет по вашим правилам маршрутизации.
+В веб-интерфейсе: откройте Маршрутизация &gt; Списки и нажмите Добавить список. Задайте название и источник: URL, Файл на устройстве или Домены / IP. Затем нажмите Применить в панели черновика.
+В файле конфигурации ключ lists — объект, где каждый ключ — имя списка, а значение — его настройки. Имя списка: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).">
+	<meta itemprop="wordCount" content="573">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Списки">
-	<meta name="twitter:description" content="Списки — это группы сайтов или диапазонов IP, трафик к которым keen-pbr будет направлять по вашим правилам.
-Ключ lists — это объект, где каждый ключ — это имя списка, а значение — конфигурация списка.
-Имя списка: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
-Большинство пользователей начинают с простого списка доменов:
-config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Поля Поле Тип Обязательно Описание url string нет URL удалённого файла списка для загрузки и кэширования domains array of string нет Домены прямо в конфиге. *. в начале писать не обязательно ip_cidrs array of string нет IP-адреса и подсети ( CIDR ) прямо в конфиге file string нет Путь к локальному файлу списка ttl_ms integer нет (по умолчанию: 0) Сколько минимум хранить IP-адреса доменов этого списка, в миллисекундах. Если не задано или меньше 1000, используется intercept.min_ttl_ms. Если TTL в DNS-ответе больше, адрес хранится дольше, но не больше intercept.max_ttl_ms Домены записываются одинаково во всех источниках. *.google.com и google.com означают одно и то же. Некорректные домены в файлах и списках по URL пропускаются, а в domains — приводят к ошибке конфигурации.">
+	<meta name="twitter:description" content="Список — это набор сайтов или диапазонов IP. Трафик к ним keen-pbr направляет по вашим правилам маршрутизации.
+В веб-интерфейсе: откройте Маршрутизация &gt; Списки и нажмите Добавить список. Задайте название и источник: URL, Файл на устройстве или Домены / IP. Затем нажмите Применить в панели черновика.
+В файле конфигурации ключ lists — объект, где каждый ключ — имя списка, а значение — его настройки. Имя списка: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -988,7 +918,7 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%83%d0%b4%d0%b0%d0%bb%d1%91%d0%bd%d0%bd%d1%8b%d0%b9-%d1%81%d0%bf%d0%b8%d1%81%d0%be%d0%ba-%d0%bf%d0%be-url">Удалённый список по URL
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#remote-url-list">Удалённый список по URL
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1001,6 +931,10 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bb%d0%be%d0%ba%d0%b0%d0%bb%d1%8c%d0%bd%d1%8b%d0%b9-%d1%84%d0%b0%d0%b9%d0%bb">Локальный файл
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b2%d1%80%d0%b5%d0%bc%d1%8f-%d0%b6%d0%b8%d0%b7%d0%bd%d0%b8-ip-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%be%d0%b2-%d0%b4%d0%be%d0%bc%d0%b5%d0%bd%d0%be%d0%b2">Время жизни IP-адресов доменов
         </a>
       </li></ul>
       <div class="hx:mt-8 hx:border-t hx:bg-white hx:pt-8 hx:shadow-[0_-12px_16px_white] hx:dark:bg-dark hx:dark:shadow-[0_-12px_16px_#111] hx:sticky hx:bottom-0 hx:flex hx:flex-col hx:items-start hx:gap-2 hx:pb-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-t hx:contrast-more:border-neutral-400 hx:contrast-more:shadow-none hx:contrast-more:dark:border-neutral-400">
@@ -1086,10 +1020,10 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
     </div>
           </div>
           
-          <p>Списки — это группы сайтов или диапазонов IP, трафик к которым keen-pbr будет направлять по вашим правилам.</p>
-<p>Ключ <code>lists</code> — это объект, где каждый ключ — это имя списка, а значение — конфигурация списка.</p>
-<p>Имя списка: строчные латинские буквы, цифры и <code>_</code>, начинается с буквы, не длиннее 24 символов (<code>^[a-z][a-z0-9_]*$</code>).</p>
-<p>Большинство пользователей начинают с простого списка доменов:</p>
+          <p>Список — это набор сайтов или диапазонов IP. Трафик к ним keen-pbr направляет по вашим <a href="/ru/docs/configuration/route-rules/">правилам маршрутизации</a>.</p>
+<p><strong>В веб-интерфейсе:</strong> откройте <strong>Маршрутизация</strong> &gt; <strong>Списки</strong> и нажмите <strong>Добавить список</strong>. Задайте название и источник: <strong>URL</strong>, <strong>Файл на устройстве</strong> или <strong>Домены / IP</strong>. Затем нажмите <strong>Применить</strong> в панели черновика.</p>
+<p>В файле конфигурации ключ <code>lists</code> — объект, где каждый ключ — имя списка, а значение — его настройки. Имя списка: строчные латинские буквы, цифры и <code>_</code>, начинается с буквы, не длиннее 24 символов (<code>^[a-z][a-z0-9_]*$</code>).</p>
+<p>Чаще всего достаточно простого списка доменов:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1131,7 +1065,7 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
 					<td><code>domains</code></td>
 					<td>array of string</td>
 					<td>нет</td>
-					<td>Домены прямо в конфиге. <code>*.</code> в начале писать не обязательно</td>
+					<td>Домены прямо в конфиге</td>
 			</tr>
 			<tr>
 					<td><code>ip_cidrs</code></td>
@@ -1151,38 +1085,32 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
 					<td><code>ttl_ms</code></td>
 					<td>integer</td>
 					<td>нет (по умолчанию: <code>0</code>)</td>
-					<td>Сколько минимум хранить IP-адреса доменов этого списка, в миллисекундах. Если не задано или меньше 1000, используется <code>intercept.min_ttl_ms</code>. Если 
+					<td>Сколько минимум хранить IP-адреса доменов этого списка, в миллисекундах. В веб-интерфейсе: <strong>Время жизни IP-кэша (мс)</strong>. Если не задано или меньше 1000, используется <code>intercept.min_ttl_ms</code>. Если 
   <abbr title="Сколько секунд DNS-ответ можно хранить в кэше.">TTL</abbr>
  в DNS-ответе больше, адрес хранится дольше, но не больше <code>intercept.max_ttl_ms</code></td>
 			</tr>
+			<tr>
+					<td><code>detour</code></td>
+					<td>string</td>
+					<td>нет</td>
+					<td>Тег outbound, через который скачивается список по <code>url</code>. В веб-интерфейсе: <strong>Делать запросы через Outbound</strong>. Пригодится, если источник списка недоступен напрямую</td>
+			</tr>
 	</tbody>
 </table>
-<p>Домены записываются одинаково во всех источниках. <code>*.google.com</code> и <code>google.com</code> означают одно и то же. Некорректные домены в файлах и списках по URL пропускаются, а в <code>domains</code> — приводят к ошибке конфигурации.</p>
+<p>Домены записываются одинаково во всех источниках. Запись <code>google.com</code> подходит для самого домена и всех его поддоменов; <code>*.google.com</code> означает то же самое, префикс <code>*.</code> писать не нужно. Некорректные домены в файлах и списках по URL пропускаются, а в <code>domains</code> — приводят к ошибке конфигурации.</p>
 <p>Списки по URL скачиваются только по HTTP или HTTPS, в том числе с адресов в локальной сети.</p>
 <p>Локальный файл должен быть обычным файлом (не символической ссылкой). Размер файла ограничен <code>daemon.max_file_size_bytes</code> (по умолчанию 8 МиБ), длина строки — 4096 байтами.</p>
-<p>Должен быть предоставлен хотя бы один из <code>url</code>, <code>domains</code>, <code>ip_cidrs</code> или <code>file</code>.</p>
+<p>В списке должен быть задан хотя бы один из <code>url</code>, <code>domains</code>, <code>ip_cidrs</code> или <code>file</code>.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Если вы объединяете несколько источников в одной записи списка, все записи объединяются, но это не рекомендуется и может быть запрещено в будущих версиях.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Если в одном списке задано несколько источников, записи из них объединяются. Так делать не рекомендуется, лучше заведите отдельные списки.</div>
   </div>
 </div>
 
-<details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
-  <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
-    <strong class="hx:text-lg">Под капотом: откуда берутся IP-адреса доменов</strong>
-  </summary>
-  <div class="hx:p-2 hx:overflow-hidden">
-    <ul>
-<li>IP-адреса и подсети из <code>ip_cidrs</code>, <code>file</code> и <code>url</code> загружаются сразу при запуске.</li>
-<li>IP-адреса доменов keen-pbr узнаёт позже, когда устройство в сети обращается к сайту (из DNS-ответа или из самого соединения).</li>
-<li>IP-адрес домена хранится столько, сколько указано в DNS-ответе, но не меньше <code>ttl_ms</code> списка и в пределах <code>intercept.min_ttl_ms</code>–<code>intercept.max_ttl_ms</code>. Это не связано с тем, как часто обновляются списки по URL.</li>
-</ul>
-  </div>
-</details>
 <h2>Формат файла списка<span class="hx:absolute hx:-mt-20" id="формат-файла-списка"></span>
-    <a href="#%d1%84%d0%be%d1%80%d0%bc%d0%b0%d1%82-%d1%84%d0%b0%d0%b9%d0%bb%d0%b0-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Независимо от того, загружается ли из <code>url</code> или <code>file</code>, keen-pbr ожидает одну запись на строку:</p>
+    <a href="#%d1%84%d0%be%d1%80%d0%bc%d0%b0%d1%82-%d1%84%d0%b0%d0%b9%d0%bb%d0%b0-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Файл по <code>url</code> или <code>file</code> содержит одну запись на строку:</p>
 <ul>
 <li>IPv4-адрес: <code>93.184.216.34</code></li>
 <li>IPv4 
@@ -1190,22 +1118,21 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
 : <code>10.0.0.0/8</code></li>
 <li>IPv6-адрес: <code>2606:2800:220:1:248:1893:25c8:1946</code></li>
 <li>IPv6 CIDR: <code>2001:db8::/32</code></li>
-<li>Домен: <code>example.com</code> — подходит сам домен и все его поддомены
-<ul>
-<li>Домен с wildcard: <code>*.example.org</code> эквивалентен <code>example.org</code>, поэтому <strong>нет необходимости</strong> добавлять <code>*.</code> перед доменом. Для совместимости префикс <code>*.</code> автоматически удаляется</li>
-</ul>
-</li>
+<li>Домен: <code>example.com</code> — подходит сам домен и все его поддомены (<code>*.example.com</code> писать не нужно, запись понимается так же)</li>
 <li>Комментарии: строки, начинающиеся с <code>#</code>, игнорируются</li>
 <li>Пустые строки игнорируются</li>
 </ul>
 <h2>Примеры<span class="hx:absolute hx:-mt-20" id="примеры"></span>
-    <a href="#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><h3>Удалённый список по URL<span class="hx:absolute hx:-mt-20" id="удалённый-список-по-url"></span>
-    <a href="#%d1%83%d0%b4%d0%b0%d0%bb%d1%91%d0%bd%d0%bd%d1%8b%d0%b9-%d1%81%d0%bf%d0%b8%d1%81%d0%be%d0%ba-%d0%bf%d0%be-url" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+    <a href="#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><h3>Удалённый список по URL<span class="hx:absolute hx:-mt-20" id="remote-url-list"></span>
+    <a href="#remote-url-list" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Одного домена часто мало: YouTube, например, отдаёт видео с <code>googlevideo.com</code>, а картинки с <code>ytimg.com</code>. Удобнее подключить готовый список. Их ведёт проект <a href="https://github.com/v2fly/domain-list-community"target="_blank" rel="noopener">v2fly/domain-list-community</a>, список для YouTube — <a href="https://github.com/v2fly/domain-list-community/blob/master/data/youtube"target="_blank" rel="noopener">data/youtube</a>. В keen-pbr указывайте ссылку на «сырой» файл (кнопка <strong>Raw</strong> на GitHub), как в примере ниже.</p>
+<p>В веб-интерфейсе: <strong>Маршрутизация</strong> &gt; <strong>Списки</strong> &gt; <strong>Добавить список</strong>, источник <strong>URL</strong>.</p>
+<p>Некоторые строки в списках v2fly содержат служебные пометки (<code>full:…</code>, <code>… @cn</code>). keen-pbr такие строки пропускает и пишет об этом предупреждение в журнал; остальные домены работают.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;lists&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;remote_list&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;url&#34;</span><span class="p">:</span> <span class="s2">&#34;https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/apple&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;youtube&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;url&#34;</span><span class="p">:</span> <span class="s2">&#34;https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/youtube&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1225,7 +1152,7 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Чтобы избежать повторной загрузки одного и того же списка снова и снова, даже если он не изменился, удалённый сервер должен поддерживать <code>If-Modified-Since</code> или <code>ETag</code>.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Чтобы неизменившийся список не скачивался заново при каждом обновлении, сервер должен поддерживать <code>If-Modified-Since</code> или <code>ETag</code>.</div>
   </div>
 </div>
 
@@ -1250,7 +1177,7 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
   </button>
 </div>
 </div>
-<p>Обе записи подходят для домена и всех его поддоменов. Написание <code>*.example.com</code> эквивалентно <code>example.com</code> — префикс <code>*.</code> автоматически удаляется keen-pbr.</p>
+<p>Каждая запись подходит для домена и всех его поддоменов.</p>
 <h3>Встроенный список IP<span class="hx:absolute hx:-mt-20" id="встроенный-список-ip"></span>
     <a href="#%d0%b2%d1%81%d1%82%d1%80%d0%be%d0%b5%d0%bd%d0%bd%d1%8b%d0%b9-%d1%81%d0%bf%d0%b8%d1%81%d0%be%d0%ba-ip" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1298,7 +1225,29 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
   </button>
 </div>
 </div>
-<p>Все четыре источника объединяются в один список. <code>ttl_ms: 86400000</code> означает, что IP-адреса доменов из этого списка хранятся не меньше 24 часов. IP-адреса из <code>ip_cidrs</code>, файла и URL хранятся, пока не изменится сам список.</p>
+<h3>Время жизни IP-адресов доменов<span class="hx:absolute hx:-mt-20" id="время-жизни-ip-адресов-доменов"></span>
+    <a href="#%d0%b2%d1%80%d0%b5%d0%bc%d1%8f-%d0%b6%d0%b8%d0%b7%d0%bd%d0%b8-ip-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%be%d0%b2-%d0%b4%d0%be%d0%bc%d0%b5%d0%bd%d0%be%d0%b2" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Чтобы адреса доменов из списка хранились не меньше суток, задайте <code>ttl_ms</code>:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;lists&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my_domains&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;domains&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;example.com&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;ttl_ms&#34;</span><span class="p">:</span> <span class="mi">86400000</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

@@ -9,25 +9,27 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Outbounds – keen-pbr</title>
-  <meta name="description" content="Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
-tag outbound: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
+  <meta name="description" content="Outbound — канал, через который пойдёт трафик: VPN-интерфейс, обычное соединение провайдера или блокировка. Какой трафик в какой outbound отправить, вы решаете в правилах маршрутизации.
+В веб-интерфейсе: откройте Маршрутизация &gt; Outbounds, нажмите Добавить outbound, введите Название (в конфиге оно называется tag) и выберите тип. Затем нажмите Применить в панели черновика.
+Название (tag): строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
 Большинству пользователей достаточно:
-одного outbound типа interface для VPN-соединения одного outbound типа table с table: 254 (основная таблица маршрутизации системы) для обычного соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/outbounds/" itemprop="url" />
+одного outbound типа Интерфейс (interface) для VPN-соединения одного outbound типа Таблица маршрутизации (table) с table: 254 (основная таблица маршрутизации системы) для обычного соединения, как правило wan при необходимости — одного outbound типа Автовыбор (urltest), чтобы keen-pbr сам выбирал рабочий из нескольких каналов Если не знаете, с чего начать, возьмите Интерфейс и вернитесь к остальным типам позже." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/outbounds/" itemprop="url" />
 
 <meta property="og:title" content="Outbounds">
 <meta
   property="og:description"
   content="
     
-      Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
-tag outbound: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
+      Outbound — канал, через который пойдёт трафик: VPN-интерфейс, обычное соединение провайдера или блокировка. Какой трафик в какой outbound отправить, вы решаете в правилах маршрутизации.
+В веб-интерфейсе: откройте Маршрутизация &gt; Outbounds, нажмите Добавить outbound, введите Название (в конфиге оно называется tag) и выберите тип. Затем нажмите Применить в панели черновика.
+Название (tag): строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
 Большинству пользователей достаточно:
 
-одного outbound типа interface для VPN-соединения
-одного outbound типа table с table: 254 (основная таблица маршрутизации системы) для обычного соединения, как правило wan
-при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений
+одного outbound типа Интерфейс (interface) для VPN-соединения
+одного outbound типа Таблица маршрутизации (table) с table: 254 (основная таблица маршрутизации системы) для обычного соединения, как правило wan
+при необходимости — одного outbound типа Автовыбор (urltest), чтобы keen-pbr сам выбирал рабочий из нескольких каналов
 
-Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
+Если не знаете, с чего начать, возьмите Интерфейс и вернитесь к остальным типам позже.
     
   ">
 <meta
@@ -41,17 +43,19 @@ tag outbound: строчные латинские буквы, цифры и _, �
 
 
 	<meta itemprop="name" content="Outbounds">
-	<meta itemprop="description" content="Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
-tag outbound: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
+	<meta itemprop="description" content="Outbound — канал, через который пойдёт трафик: VPN-интерфейс, обычное соединение провайдера или блокировка. Какой трафик в какой outbound отправить, вы решаете в правилах маршрутизации.
+В веб-интерфейсе: откройте Маршрутизация &gt; Outbounds, нажмите Добавить outbound, введите Название (в конфиге оно называется tag) и выберите тип. Затем нажмите Применить в панели черновика.
+Название (tag): строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
 Большинству пользователей достаточно:
-одного outbound типа interface для VPN-соединения одного outbound типа table с table: 254 (основная таблица маршрутизации системы) для обычного соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.">
-	<meta itemprop="wordCount" content="1362">
+одного outbound типа Интерфейс (interface) для VPN-соединения одного outbound типа Таблица маршрутизации (table) с table: 254 (основная таблица маршрутизации системы) для обычного соединения, как правило wan при необходимости — одного outbound типа Автовыбор (urltest), чтобы keen-pbr сам выбирал рабочий из нескольких каналов Если не знаете, с чего начать, возьмите Интерфейс и вернитесь к остальным типам позже.">
+	<meta itemprop="wordCount" content="1685">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Outbounds">
-	<meta name="twitter:description" content="Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
-tag outbound: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
+	<meta name="twitter:description" content="Outbound — канал, через который пойдёт трафик: VPN-интерфейс, обычное соединение провайдера или блокировка. Какой трафик в какой outbound отправить, вы решаете в правилах маршрутизации.
+В веб-интерфейсе: откройте Маршрутизация &gt; Outbounds, нажмите Добавить outbound, введите Название (в конфиге оно называется tag) и выберите тип. Затем нажмите Применить в панели черновика.
+Название (tag): строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
 Большинству пользователей достаточно:
-одного outbound типа interface для VPN-соединения одного outbound типа table с table: 254 (основная таблица маршрутизации системы) для обычного соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.">
+одного outbound типа Интерфейс (interface) для VPN-соединения одного outbound типа Таблица маршрутизации (table) с table: 254 (основная таблица маршрутизации системы) для обычного соединения, как правило wan при необходимости — одного outbound типа Автовыбор (urltest), чтобы keen-pbr сам выбирал рабочий из нескольких каналов Если не знаете, с чего начать, возьмите Интерфейс и вернитесь к остальным типам позже.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -973,11 +977,11 @@ tag outbound: строчные латинские буквы, цифры и _, �
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b3%d1%80%d1%83%d0%bf%d0%bf%d1%8b-outbound">Группы outbound
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b3%d1%80%d1%83%d0%bf%d0%bf%d1%8b-outbound-%d1%81%d1%82%d1%83%d0%bf%d0%b5%d0%bd%d0%b8">Группы outbound (ступени)
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b1%d0%b0%d0%bb%d0%b0%d0%bd%d1%81%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-strategy-balance">Балансировка (strategy: &#34;balance&#34;)
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bc%d0%bd%d0%be%d0%b3%d0%be%d0%bf%d1%83%d1%82%d0%b5%d0%b2%d0%b0%d1%8f-%d0%bf%d0%b5%d1%80%d0%b5%d0%b4%d0%b0%d1%87%d0%b0-strategy-balance">Многопутевая передача (strategy: &#34;balance&#34;)
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1075,15 +1079,16 @@ tag outbound: строчные латинские буквы, цифры и _, �
     </div>
           </div>
           
-          <p>Outbounds сообщают keen-pbr, куда отправить совпавший трафик.</p>
-<p><code>tag</code> outbound: строчные латинские буквы, цифры и <code>_</code>, начинается с буквы, не длиннее 24 символов (<code>^[a-z][a-z0-9_]*$</code>).</p>
+          <p>Outbound — канал, через который пойдёт трафик: VPN-интерфейс, обычное соединение провайдера или блокировка. Какой трафик в какой outbound отправить, вы решаете в <a href="/ru/docs/configuration/route-rules/">правилах маршрутизации</a>.</p>
+<p><strong>В веб-интерфейсе:</strong> откройте <strong>Маршрутизация</strong> &gt; <strong>Outbounds</strong>, нажмите <strong>Добавить outbound</strong>, введите <strong>Название</strong> (в конфиге оно называется <code>tag</code>) и выберите тип. Затем нажмите <strong>Применить</strong> в панели черновика.</p>
+<p>Название (<code>tag</code>): строчные латинские буквы, цифры и <code>_</code>, начинается с буквы, не длиннее 24 символов (<code>^[a-z][a-z0-9_]*$</code>).</p>
 <p>Большинству пользователей достаточно:</p>
 <ul>
-<li>одного outbound типа <code>interface</code> для VPN-соединения</li>
-<li>одного outbound типа <code>table</code> с <code>table: 254</code> (основная таблица маршрутизации системы) для обычного соединения, как правило <code>wan</code></li>
-<li>при необходимости — одного outbound типа <code>urltest</code> для автоматического выбора лучшего из нескольких соединений</li>
+<li>одного outbound типа <strong>Интерфейс</strong> (<code>interface</code>) для VPN-соединения</li>
+<li>одного outbound типа <strong>Таблица маршрутизации</strong> (<code>table</code>) с <code>table: 254</code> (основная таблица маршрутизации системы) для обычного соединения, как правило <code>wan</code></li>
+<li>при необходимости — одного outbound типа <strong>Автовыбор (urltest)</strong>, чтобы keen-pbr сам выбирал рабочий из нескольких каналов</li>
 </ul>
-<p>Если не знаете, с чего начать, возьмите тип <code>interface</code> и вернитесь к остальным позже.</p>
+<p>Если не знаете, с чего начать, возьмите <strong>Интерфейс</strong> и вернитесь к остальным типам позже.</p>
 <h2>Общий пример<span class="hx:absolute hx:-mt-20" id="общий-пример"></span>
     <a href="#%d0%be%d0%b1%d1%89%d0%b8%d0%b9-%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1116,7 +1121,7 @@ tag outbound: строчные латинские буквы, цифры и _, �
 </div>
 <h2>Типы<span class="hx:absolute hx:-mt-20" id="типы"></span>
     <a href="#%d1%82%d0%b8%d0%bf%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><h2><code>interface</code><span class="hx:absolute hx:-mt-20" id="interface"></span>
-    <a href="#interface" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение.</p>
+    <a href="#interface" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Нужен, когда трафик надо отправить через конкретный сетевой интерфейс: VPN-туннель (<code>tun0</code>, <code>wg0</code>) или отдельное интернет-соединение.</p>
 <table>
 	<thead>
 			<tr>
@@ -1149,18 +1154,32 @@ tag outbound: строчные латинские буквы, цифры и _, �
 					<td><code>gateway</code></td>
 					<td>string</td>
 					<td>нет</td>
-					<td>Необязательный IPv4-адрес шлюза</td>
+					<td>IPv4-адрес шлюза или <code>&quot;auto&quot;</code>. В веб-интерфейсе: <strong>Шлюз по умолчанию IPv4</strong></td>
 			</tr>
 			<tr>
 					<td><code>gateway6</code></td>
 					<td>string</td>
 					<td>нет</td>
-					<td>Необязательный IPv6-адрес шлюза</td>
+					<td>IPv6-адрес шлюза или <code>&quot;auto&quot;</code>. В веб-интерфейсе: <strong>Шлюз по умолчанию IPv6</strong></td>
+			</tr>
+			<tr>
+					<td><code>strict_enforcement</code></td>
+					<td>boolean</td>
+					<td>нет</td>
+					<td>Блокировать ли трафик этого outbound, пока его интерфейс или шлюз недоступен. Если не задано, действует общая настройка <strong>Блокировать трафик при недоступности outbound (kill-switch)</strong> в <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Общие</strong></td>
+			</tr>
+			<tr>
+					<td><code>strict_enforcement_action</code></td>
+					<td>string</td>
+					<td>нет</td>
+					<td>Как блокировать: <code>&quot;unreachable&quot;</code> (соединение сразу завершается ошибкой) или <code>&quot;blackhole&quot;</code> (пакеты молча отбрасываются)</td>
 			</tr>
 	</tbody>
 </table>
-<p>Для туннелей вроде <code>tun0</code> или <code>wg0</code> шлюз обычно не нужен: без <code>gateway</code> и <code>gateway6</code> трафик IPv4 и IPv6 отправляется прямо в интерфейс. Шлюз задают, когда следующий узел нужно указать явно, например для второго WAN за роутером провайдера.</p>
-<p>Если задать только один из них, трафик другой версии IP для этого outbound блокируется, а не уходит мимо VPN.</p>
+<p>Для туннелей вроде <code>tun0</code> или <code>wg0</code> шлюз обычно не нужен: без <code>gateway</code> и <code>gateway6</code> трафик IPv4 и IPv6 отправляется прямо в интерфейс. Шлюз нужен, когда интерфейс подключён к роутеру провайдера и трафик надо передать на его адрес, например для второго WAN.</p>
+<p>Шлюз можно не искать самому: укажите <code>&quot;auto&quot;</code> (в веб-интерфейсе введите <code>auto</code>), и keen-pbr возьмёт шлюз из маршрута по умолчанию этого интерфейса в основной таблице маршрутизации (если таких маршрутов несколько — из того, у которого меньше метрика). Если у интерфейса нет такого маршрута или у лучших маршрутов разные шлюзы, outbound считается недоступным для этой версии IP.</p>
+<p>Если задать шлюз только для одной версии IP, трафик другой версии для этого outbound блокируется, а не уходит мимо VPN.</p>
+<p><strong>Kill-switch</strong> в форме outbound определяет, что происходит с трафиком, пока интерфейс или шлюз недоступен. Варианты: <strong>Поведение по умолчанию</strong> (берётся общая настройка), <strong>Не блокировать</strong> (трафик идёт в обход, через основной маршрут), <strong>Блокировать с ошибкой</strong> (<code>strict_enforcement_action: &quot;unreachable&quot;</code>), <strong>Блокировать молча</strong> (<code>&quot;blackhole&quot;</code>).</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1186,7 +1205,7 @@ tag outbound: строчные латинские буквы, цифры и _, �
 </div>
 </div>
 <h2><code>table</code><span class="hx:absolute hx:-mt-20" id="table"></span>
-    <a href="#table" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Отправляет трафик через существующую таблицу маршрутизации: обычно <code>254</code>, основную таблицу системы (обычное интернет-соединение), или таблицу, которую создал другой сервис.</p>
+    <a href="#table" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Нужен, когда трафик надо отправить по уже существующей таблице маршрутизации (набору маршрутов системы): <code>254</code> — основная таблица, то есть обычное интернет-соединение, или таблица, которую создал другой сервис.</p>
 <p>Посмотреть, какие таблицы есть и как они называются:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1229,7 +1248,7 @@ tag outbound: строчные латинские буквы, цифры и _, �
 					<td><code>table</code></td>
 					<td>integer</td>
 					<td>да</td>
-					<td>Номер существующей таблицы маршрутизации</td>
+					<td>Номер существующей таблицы маршрутизации. В веб-интерфейсе: <strong>ID таблицы</strong></td>
 			</tr>
 	</tbody>
 </table>
@@ -1256,7 +1275,7 @@ tag outbound: строчные латинские буквы, цифры и _, �
 </div>
 </div>
 <h2><code>blackhole</code><span class="hx:absolute hx:-mt-20" id="blackhole"></span>
-    <a href="#blackhole" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Отбрасывает подходящий трафик. Полезно для блокировки доступа к конкретным ресурсам.</p>
+    <a href="#blackhole" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Нужен, чтобы заблокировать доступ к сайтам или адресам: подходящий трафик отбрасывается.</p>
 <table>
 	<thead>
 			<tr>
@@ -1303,8 +1322,8 @@ tag outbound: строчные латинские буквы, цифры и _, �
 </div>
 </div>
 <h2><code>ignore</code><span class="hx:absolute hx:-mt-20" id="ignore"></span>
-    <a href="#ignore" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Оставляет трафик как есть: keen-pbr его не трогает, и он идёт по обычной маршрутизации роутера, как если бы keen-pbr не было.</p>
-<p>Нужен для исключений. Правила проверяются сверху вниз, и срабатывает первое подходящее, поэтому правило с <code>ignore</code> ставят выше более общего правила. Например, весь список <code>streaming</code> идёт через VPN, кроме адресов из списка <code>streaming_direct</code> (<code>direct</code> — outbound типа <code>ignore</code> из примера ниже):</p>
+    <a href="#ignore" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Нужен для исключений: трафик идёт по обычной маршрутизации роутера, как будто keen-pbr его не трогает.</p>
+<p>Правила проверяются сверху вниз, и срабатывает первое подходящее, поэтому правило с <code>ignore</code> ставят выше более общего правила. Например, весь список <code>streaming</code> идёт через VPN, кроме адресов из списка <code>streaming_direct</code> (<code>direct</code> — outbound типа <code>ignore</code> из примера ниже):</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="s2">&#34;rules&#34;</span><span class="err">:</span> <span class="p">[</span>
@@ -1368,7 +1387,7 @@ tag outbound: строчные латинские буквы, цифры и _, �
 </div>
 </div>
 <h2><code>urltest</code><span class="hx:absolute hx:-mt-20" id="urltest"></span>
-    <a href="#urltest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Используйте, когда у вас несколько каналов (например, два VPN и обычный интернет) и keen-pbr должен сам выбирать рабочий. keen-pbr периодически открывает <code>url</code> через каждый канал и измеряет время ответа.</p>
+    <a href="#urltest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Нужен, когда у вас несколько каналов (например, два VPN и обычный интернет) и keen-pbr должен сам выбирать рабочий. keen-pbr периодически открывает <code>url</code> через каждый канал и измеряет время ответа. В веб-интерфейсе тип называется <strong>Автовыбор (urltest)</strong>.</p>
 <p>Если ни один канал не работает, трафик этого outbound блокируется, а не уходит через обычный интернет мимо VPN.</p>
 <table>
 	<thead>
@@ -1420,13 +1439,13 @@ tag outbound: строчные латинские буквы, цифры и _, �
 					<td><code>strategy</code></td>
 					<td>string</td>
 					<td>нет (по умолчанию: <code>&quot;priority&quot;</code>)</td>
-					<td><code>&quot;priority&quot;</code> — весь трафик идёт через один, самый быстрый канал. <code>&quot;balance&quot;</code> — новые соединения распределяются между рабочими каналами первой рабочей группы пропорционально <code>weight</code> (недоступно на Keenetic)</td>
+					<td>Как выбирать канал. В веб-интерфейсе: <strong>Стратегия выбора</strong>. <code>&quot;priority&quot;</code> (<strong>Самый быстрый</strong>) — весь трафик идёт через один канал: с самой низкой задержкой в первой рабочей ступени. <code>&quot;balance&quot;</code> (<strong>Многопутевая передача</strong>) — новые соединения распределяются между рабочими каналами по весу (недоступно на Keenetic)</td>
 			</tr>
 			<tr>
 					<td><code>conntrack_on_switch</code></td>
 					<td>string</td>
 					<td>нет (по умолчанию: <code>&quot;preserve&quot;</code>)</td>
-					<td>Что делать с открытыми соединениями при переходе на более быстрый канал: <code>&quot;preserve&quot;</code> — оставить на старом, <code>&quot;delete&quot;</code> — удалить их записи из 
+					<td>Что делать с открытыми соединениями при переключении на другой канал. В веб-интерфейсе: <strong>Соединения при переключении</strong>. <code>&quot;preserve&quot;</code> (<strong>Сохранять</strong>) — оставить на старом канале, <code>&quot;delete&quot;</code> (<strong>Сбрасывать</strong>) — удалить их записи из 
   <abbr title="Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).">conntrack</abbr>
 , чтобы они переподключились. См. <a href="/ru/docs/configuration/advanced/#резервный-канал-failover">Резервный канал</a></td>
 			</tr>
@@ -1434,7 +1453,7 @@ tag outbound: строчные латинские буквы, цифры и _, �
 					<td><code>outbound_groups</code></td>
 					<td>array</td>
 					<td>да</td>
-					<td>Упорядоченный список групп каналов (см. ниже)</td>
+					<td>Упорядоченный список групп каналов, в веб-интерфейсе — ступеней (см. ниже)</td>
 			</tr>
 			<tr>
 					<td><code>retry</code></td>
@@ -1489,8 +1508,9 @@ tag outbound: строчные латинские буквы, цифры и _, �
   </button>
 </div>
 </div>
-<h3>Группы outbound<span class="hx:absolute hx:-mt-20" id="группы-outbound"></span>
-    <a href="#%d0%b3%d1%80%d1%83%d0%bf%d0%bf%d1%8b-outbound" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p><code>outbound_groups</code> — список групп по приоритету. keen-pbr использует первую группу, в которой есть хотя бы один рабочий канал. Если в группе не работает ни один канал, используется следующая.</p>
+<h3>Группы outbound (ступени)<span class="hx:absolute hx:-mt-20" id="группы-outbound-ступени"></span>
+    <a href="#%d0%b3%d1%80%d1%83%d0%bf%d0%bf%d1%8b-outbound-%d1%81%d1%82%d1%83%d0%bf%d0%b5%d0%bd%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Группа — это набор каналов, из которых выбирается рабочий. Групп может быть несколько, они идут по порядку: первая — основная, следующие — резервные. keen-pbr использует первую группу, в которой есть хотя бы один рабочий канал. Резервная группа включается, только когда в вышестоящей не работает ни один канал.</p>
+<p>В веб-интерфейсе группы называются ступенями: <strong>Основная ступень</strong> и <strong>Резервная ступень N</strong>. Чтобы добавить запасной вариант, нажмите <strong>Добавить резервную ступень</strong>.</p>
 <table>
 	<thead>
 			<tr>
@@ -1524,13 +1544,13 @@ tag outbound: строчные латинские буквы, цифры и _, �
 					<td><code>outbound</code></td>
 					<td>string</td>
 					<td>да</td>
-					<td>Тег outbound (<code>interface</code>, <code>table</code> или <code>blackhole</code>)</td>
+					<td>Тег outbound типа <code>interface</code> или <code>table</code>. Ступень для блокировки добавлять не нужно: если ни один канал не работает, трафик блокируется сам</td>
 			</tr>
 			<tr>
 					<td><code>weight</code></td>
 					<td>integer 1-100</td>
 					<td>нет (по умолчанию: <code>1</code>)</td>
-					<td>Доля новых соединений при <code>strategy: &quot;balance&quot;</code>, при <code>priority</code> не используется. Каналы с весами 7 и 3 получат 70% и 30% новых соединений, пока оба работают</td>
+					<td>Вес канала, в веб-интерфейсе — <strong>Вес</strong>. Нужен только при <code>strategy: &quot;balance&quot;</code>: чем больше вес, тем больше новых соединений получает канал. Каналы с весами 7 и 3 получат 70% и 30% новых соединений, пока оба работают. Если один канал недоступен, его доля делится между остальными. Уже открытые соединения не переносятся</td>
 			</tr>
 	</tbody>
 </table>
@@ -1551,21 +1571,13 @@ tag outbound: строчные латинские буквы, цифры и _, �
   </button>
 </div>
 </div>
-<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
-  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-
-  <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Старый формат групп (<code>outbounds: [&quot;a&quot;, &quot;b&quot;]</code> и <code>weight</code> группы как её приоритет) тоже поддерживается. При первом запуске keen-pbr переписывает <code>config.json</code> в новый формат, а старый файл сохраняет рядом как <code>config.json.bak-pre-members</code>. Комментарии из старого файла в новый не переносятся. Смешивать старые и новые поля в одной группе нельзя.</div>
-  </div>
-</div>
-
-<h3>Балансировка (<code>strategy: &quot;balance&quot;</code>)<span class="hx:absolute hx:-mt-20" id="балансировка-strategy-balance"></span>
-    <a href="#%d0%b1%d0%b0%d0%bb%d0%b0%d0%bd%d1%81%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-strategy-balance" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Канал выбирается для каждого нового соединения, а не для каждого запроса: всё соединение, включая HTTP/2 и 
+<h3>Многопутевая передача (<code>strategy: &quot;balance&quot;</code>)<span class="hx:absolute hx:-mt-20" id="многопутевая-передача-strategy-balance"></span>
+    <a href="#%d0%bc%d0%bd%d0%be%d0%b3%d0%be%d0%bf%d1%83%d1%82%d0%b5%d0%b2%d0%b0%d1%8f-%d0%bf%d0%b5%d1%80%d0%b5%d0%b4%d0%b0%d1%87%d0%b0-strategy-balance" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Эта стратегия распределяет нагрузку между несколькими работающими каналами первой рабочей ступени. Канал выбирается для каждого нового соединения, а не для каждого запроса: всё соединение, включая HTTP/2 и 
   <abbr title="Транспортный протокол поверх UDP, на нём работает HTTP/3.">QUIC</abbr>
 , идёт через один канал. <code>tolerance_ms</code> и <code>conntrack_on_switch</code> при балансировке не используются. Если канал перестал работать, записи 
   <abbr title="Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).">conntrack</abbr>
  его соединений удаляются, а новые соединения распределяются между оставшимися каналами.</p>
-<p>С nftables соединения распределяются точно по весам. С iptables канал выбирается случайно с нужной вероятностью, поэтому на малом числе соединений доли могут заметно отличаться от весов, а на большом выравниваются. Для iptables нужен модуль ядра <code>xt_statistic</code>; если его нет, keen-pbr сообщит об этом при применении конфигурации. С <code>--use-raw-prerouting</code> балансировка недоступна.</p>
+<p>С nftables соединения распределяются точно по весам. С iptables канал выбирается случайно с нужной вероятностью, поэтому на малом числе соединений доли могут заметно отличаться от весов, а на большом выравниваются. Для iptables нужен модуль ядра <code>xt_statistic</code>; если его нет, keen-pbr сообщит об этом при применении конфигурации. На Keenetic эта стратегия недоступна. С <code>--use-raw-prerouting</code> балансировка недоступна.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
 
@@ -1592,8 +1604,8 @@ tag outbound: строчные латинские буквы, цифры и _, �
 			<tr>
 					<td><code>attempts</code></td>
 					<td>integer</td>
-					<td>нет (по умолчанию: <code>3</code>)</td>
-					<td>Сколько раз повторить проверку, прежде чем считать канал нерабочим</td>
+					<td>нет (по умолчанию: <code>1</code>)</td>
+					<td>Сколько всего раз проверять канал, включая первую попытку, прежде чем считать проверку неудачной</td>
 			</tr>
 			<tr>
 					<td><code>interval_ms</code></td>
@@ -1604,7 +1616,7 @@ tag outbound: строчные латинские буквы, цифры и _, �
 	</tbody>
 </table>
 <h3>Исключение нестабильного канала (<code>circuit_breaker</code>)<span class="hx:absolute hx:-mt-20" id="исключение-нестабильного-канала-circuit_breaker"></span>
-    <a href="#%d0%b8%d1%81%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bd%d0%b5%d1%81%d1%82%d0%b0%d0%b1%d0%b8%d0%bb%d1%8c%d0%bd%d0%be%d0%b3%d0%be-%d0%ba%d0%b0%d0%bd%d0%b0%d0%bb%d0%b0-circuit_breaker" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Если канал несколько раз подряд не прошёл проверку, keen-pbr временно перестаёт его использовать. Так трафик не прыгает туда-обратно, когда канал то работает, то нет.</p>
+    <a href="#%d0%b8%d1%81%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bd%d0%b5%d1%81%d1%82%d0%b0%d0%b1%d0%b8%d0%bb%d1%8c%d0%bd%d0%be%d0%b3%d0%be-%d0%ba%d0%b0%d0%bd%d0%b0%d0%bb%d0%b0-circuit_breaker" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Если канал несколько раз подряд не прошёл проверку, keen-pbr временно перестаёт его использовать. Так трафик не прыгает туда-обратно, когда канал то работает, то нет. Настройки по умолчанию подходят большинству, менять их не нужно.</p>
 <table>
 	<thead>
 			<tr>
@@ -1641,11 +1653,11 @@ tag outbound: строчные латинские буквы, цифры и _, �
 			</tr>
 	</tbody>
 </table>
-<p>Исключённый канал отображается как <strong>Недоступен</strong> на странице <strong>Outbounds</strong> веб-интерфейса и как <code>unavailable</code> в <code>GET /api/runtime/outbounds</code>.</p>
+<p>Исключённый канал отображается как <strong>Недоступен</strong> на странице <strong>Маршрутизация</strong> &gt; <strong>Outbounds</strong> веб-интерфейса и как <code>unavailable</code> в <code>GET /api/runtime/outbounds</code>.</p>
 <h2><code>icmptest</code><span class="hx:absolute hx:-mt-20" id="icmptest"></span>
-    <a href="#icmptest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>То же, что <code>urltest</code>, но каналы проверяются ping-ом (
+    <a href="#icmptest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Нужен вместо <code>urltest</code>, когда проверка по HTTP не подходит. В веб-интерфейсе тип называется <strong>Автовыбор (ICMP)</strong>. Канал проверяется ping-ом (
   <abbr title="Служебный протокол для диагностики сети. ping использует ICMP Echo.">ICMP</abbr>
- Echo) вместо HTTP-запроса. Для каждого канала в группе задайте <code>target</code> — IP-адрес, который будет пинговаться через этот канал.</p>
+ Echo) конкретного адреса. Для каждого канала в группе задайте <code>target</code> (в веб-интерфейсе — <strong>Цель ping</strong>): IP-адрес, который будет пинговаться через этот канал.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1728,11 +1740,11 @@ tag outbound: строчные латинские буквы, цифры и _, �
 					<td><code>outbound_groups[].members[].target</code></td>
 					<td>string</td>
 					<td>да</td>
-					<td>IPv4- или IPv6-адрес для ping через этот канал</td>
+					<td>IPv4- или IPv6-адрес для ping через этот канал (<strong>Цель ping</strong>)</td>
 			</tr>
 	</tbody>
 </table>
-<p><code>tolerance_ms</code>, <code>strategy</code>, <code>conntrack_on_switch</code>, группы и веса работают так же, как у <code>urltest</code>.</p>
+<p><code>tolerance_ms</code>, <code>strategy</code>, <code>conntrack_on_switch</code>, группы (ступени) и веса работают так же, как у <code>urltest</code>.</p>
 <p>Ping-и отправляются по очереди, поэтому проверка всех каналов занимает время. <code>interval_ms</code> должен быть больше этого времени хотя бы на 25%, иначе keen-pbr не примет конфигурацию и напишет минимально допустимое значение. Всего в группах может быть не больше 16 каналов.</p>
 
         </div>

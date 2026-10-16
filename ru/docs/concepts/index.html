@@ -9,22 +9,24 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Принцип работы – keen-pbr</title>
-  <meta name="description" content="Для обычной настройки эту страницу читать необязательно.
-Коротко: вы создаёте список сайтов, выбираете, какое соединение должно их обслуживать, а keen-pbr сам следит за тем, чтобы DNS и маршрутизация оставались согласованы и нужный трафик шёл нужным путём.
-Эта страница объясняет, что происходит «под капотом», — для тех, кто хочет разобраться глубже.
-Основные сущности Списки Именованные наборы IP-адресов, CIDR-диапазонов и доменных имён. Источники можно комбинировать в любых сочетаниях:" /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/concepts/" itemprop="url" />
+  <meta name="description" content="Для обычной настройки эту страницу читать необязательно. Она объясняет, как keen-pbr решает, куда отправить трафик.
+Идея в трёх словах: списки, правила, outbounds Проще всего сравнить keen-pbr с почтовым отделением, которое сортирует письма.
+Список — адресная книга. В одной книге записаны сайты, которые вы хотите открывать через VPN, в другой — адреса, которые нужно заблокировать. Правило маршрутизации — инструкция сортировщика: «письма из этой книги отправь вот этим маршрутом». Инструкции читаются сверху вниз, срабатывает первая подходящая. Outbound — маршрут доставки: VPN-интерфейс, обычное подключение к провайдеру или «выбросить письмо». Письмо, адреса которого нет ни в одной книге, уходит обычным маршрутом." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/concepts/" itemprop="url" />
 
 <meta property="og:title" content="Принцип работы">
 <meta
   property="og:description"
   content="
     
-      Для обычной настройки эту страницу читать необязательно.
-Коротко: вы создаёте список сайтов, выбираете, какое соединение должно их обслуживать, а keen-pbr сам следит за тем, чтобы DNS и маршрутизация оставались согласованы и нужный трафик шёл нужным путём.
-Эта страница объясняет, что происходит «под капотом», — для тех, кто хочет разобраться глубже.
-Основные сущности
-    Списки
-    Именованные наборы IP-адресов, CIDR-диапазонов и доменных имён. Источники можно комбинировать в любых сочетаниях:
+      Для обычной настройки эту страницу читать необязательно. Она объясняет, как keen-pbr решает, куда отправить трафик.
+Идея в трёх словах: списки, правила, outbounds
+    Проще всего сравнить keen-pbr с почтовым отделением, которое сортирует письма.
+
+Список — адресная книга. В одной книге записаны сайты, которые вы хотите открывать через VPN, в другой — адреса, которые нужно заблокировать.
+Правило маршрутизации — инструкция сортировщика: «письма из этой книги отправь вот этим маршрутом». Инструкции читаются сверху вниз, срабатывает первая подходящая.
+Outbound — маршрут доставки: VPN-интерфейс, обычное подключение к провайдеру или «выбросить письмо».
+
+Письмо, адреса которого нет ни в одной книге, уходит обычным маршрутом.
     
   ">
 <meta
@@ -38,17 +40,15 @@
 
 
 	<meta itemprop="name" content="Принцип работы">
-	<meta itemprop="description" content="Для обычной настройки эту страницу читать необязательно.
-Коротко: вы создаёте список сайтов, выбираете, какое соединение должно их обслуживать, а keen-pbr сам следит за тем, чтобы DNS и маршрутизация оставались согласованы и нужный трафик шёл нужным путём.
-Эта страница объясняет, что происходит «под капотом», — для тех, кто хочет разобраться глубже.
-Основные сущности Списки Именованные наборы IP-адресов, CIDR-диапазонов и доменных имён. Источники можно комбинировать в любых сочетаниях:">
-	<meta itemprop="wordCount" content="950">
+	<meta itemprop="description" content="Для обычной настройки эту страницу читать необязательно. Она объясняет, как keen-pbr решает, куда отправить трафик.
+Идея в трёх словах: списки, правила, outbounds Проще всего сравнить keen-pbr с почтовым отделением, которое сортирует письма.
+Список — адресная книга. В одной книге записаны сайты, которые вы хотите открывать через VPN, в другой — адреса, которые нужно заблокировать. Правило маршрутизации — инструкция сортировщика: «письма из этой книги отправь вот этим маршрутом». Инструкции читаются сверху вниз, срабатывает первая подходящая. Outbound — маршрут доставки: VPN-интерфейс, обычное подключение к провайдеру или «выбросить письмо». Письмо, адреса которого нет ни в одной книге, уходит обычным маршрутом.">
+	<meta itemprop="wordCount" content="615">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Принцип работы">
-	<meta name="twitter:description" content="Для обычной настройки эту страницу читать необязательно.
-Коротко: вы создаёте список сайтов, выбираете, какое соединение должно их обслуживать, а keen-pbr сам следит за тем, чтобы DNS и маршрутизация оставались согласованы и нужный трафик шёл нужным путём.
-Эта страница объясняет, что происходит «под капотом», — для тех, кто хочет разобраться глубже.
-Основные сущности Списки Именованные наборы IP-адресов, CIDR-диапазонов и доменных имён. Источники можно комбинировать в любых сочетаниях:">
+	<meta name="twitter:description" content="Для обычной настройки эту страницу читать необязательно. Она объясняет, как keen-pbr решает, куда отправить трафик.
+Идея в трёх словах: списки, правила, outbounds Проще всего сравнить keen-pbr с почтовым отделением, которое сортирует письма.
+Список — адресная книга. В одной книге записаны сайты, которые вы хотите открывать через VPN, в другой — адреса, которые нужно заблокировать. Правило маршрутизации — инструкция сортировщика: «письма из этой книги отправь вот этим маршрутом». Инструкции читаются сверху вниз, срабатывает первая подходящая. Outbound — маршрут доставки: VPN-интерфейс, обычное подключение к провайдеру или «выбросить письмо». Письмо, адреса которого нет ни в одной книге, уходит обычным маршрутом.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -278,39 +278,39 @@
   
     <ul class='hx:flex hx:flex-col hx:gap-1 hx:relative hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:dark:before:bg-neutral-800 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:pr-3 hx:rtl:before:right-0 hx:ltr:ml-3 hx:rtl:mr-3'><li>
               <a
-                href="#%d0%be%d1%81%d0%bd%d0%be%d0%b2%d0%bd%d1%8b%d0%b5-%d1%81%d1%83%d1%89%d0%bd%d0%be%d1%81%d1%82%d0%b8"
+                href="#%d0%b8%d0%b4%d0%b5%d1%8f-%d0%b2-%d1%82%d1%80%d1%91%d1%85-%d1%81%d0%bb%d0%be%d0%b2%d0%b0%d1%85-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b8-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-outbounds"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Основные сущности</a>
+              >Идея в трёх словах: списки, правила, outbounds</a>
+            </li>
+          <li>
+              <a
+                href="#%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b8"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >Списки</a>
+            </li>
+          <li>
+              <a
+                href="#outbounds"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >Outbounds</a>
+            </li>
+          <li>
+              <a
+                href="#%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >Правила маршрутизации</a>
+            </li>
+          <li>
+              <a
+                href="#dns"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >DNS</a>
             </li>
           <li>
               <a
                 href="#fwmark-%d0%b8-conntrack"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >fwmark и conntrack</a>
-            </li>
-          <li>
-              <a
-                href="#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82--%d0%bf%d0%be%d1%81%d0%bb%d0%b5%d0%b4%d0%be%d0%b2%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be%d1%81%d1%82%d1%8c-%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b0"
-                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Как это работает — последовательность запуска</a>
-            </li>
-          <li>
-              <a
-                href="#%d0%be%d0%b1%d0%b7%d0%be%d1%80-%d0%b0%d1%80%d1%85%d0%b8%d1%82%d0%b5%d0%ba%d1%82%d1%83%d1%80%d1%8b"
-                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Обзор архитектуры</a>
-            </li>
-          <li>
-              <a
-                href="#%d0%bf%d0%be%d1%82%d0%be%d0%ba-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d0%b0-%d0%b2%d0%be-%d0%b2%d1%80%d0%b5%d0%bc%d1%8f-%d0%b2%d1%8b%d0%bf%d0%be%d0%bb%d0%bd%d0%b5%d0%bd%d0%b8%d1%8f"
-                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Поток пакета во время выполнения</a>
-            </li>
-          <li>
-              <a
-                href="#%d0%bf%d0%be%d1%82%d0%be%d0%ba-%d1%80%d0%b0%d0%b7%d1%80%d0%b5%d1%88%d0%b5%d0%bd%d0%b8%d1%8f-dns"
-                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Поток разрешения DNS</a>
             </li>
           </ul>
   
@@ -930,43 +930,27 @@
 <nav class="hextra-toc hx:order-last hx:hidden hx:w-64 hx:shrink-0 hx:xl:block hx:print:hidden hx:px-4" aria-label="Содержание">
     <div class="hextra-scrollbar hx:sticky hx:top-16 hx:overflow-y-auto hx:pr-4 hx:pt-6 hx:text-sm [hyphens:auto] hx:max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] hx:ltr:-mr-4 hx:rtl:-ml-4"><p class="hx:mb-4 hx:font-semibold hx:tracking-tight">На этой странице</p><ul>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%81%d0%bd%d0%be%d0%b2%d0%bd%d1%8b%d0%b5-%d1%81%d1%83%d1%89%d0%bd%d0%be%d1%81%d1%82%d0%b8">Основные сущности
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b8%d0%b4%d0%b5%d1%8f-%d0%b2-%d1%82%d1%80%d1%91%d1%85-%d1%81%d0%bb%d0%be%d0%b2%d0%b0%d1%85-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b8-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-outbounds">Идея в трёх словах: списки, правила, outbounds
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b8">Списки
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b8">Списки
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#outbounds">Outbounds
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#outbounds">Outbounds
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8">Правила маршрутизации
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8">Правила маршрутизации
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns">DNS
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns">DNS
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#fwmark-%d0%b8-conntrack">fwmark и conntrack
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82--%d0%bf%d0%be%d1%81%d0%bb%d0%b5%d0%b4%d0%be%d0%b2%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be%d1%81%d1%82%d1%8c-%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b0">Как это работает — последовательность запуска
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d0%b1%d0%b7%d0%be%d1%80-%d0%b0%d1%80%d1%85%d0%b8%d1%82%d0%b5%d0%ba%d1%82%d1%83%d1%80%d1%8b">Обзор архитектуры
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d0%be%d1%82%d0%be%d0%ba-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d0%b0-%d0%b2%d0%be-%d0%b2%d1%80%d0%b5%d0%bc%d1%8f-%d0%b2%d1%8b%d0%bf%d0%be%d0%bb%d0%bd%d0%b5%d0%bd%d0%b8%d1%8f">Поток пакета во время выполнения
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d0%be%d1%82%d0%be%d0%ba-%d1%80%d0%b0%d0%b7%d1%80%d0%b5%d1%88%d0%b5%d0%bd%d0%b8%d1%8f-dns">Поток разрешения DNS
         </a>
       </li></ul>
       <div class="hx:mt-8 hx:border-t hx:bg-white hx:pt-8 hx:shadow-[0_-12px_16px_white] hx:dark:bg-dark hx:dark:shadow-[0_-12px_16px_#111] hx:sticky hx:bottom-0 hx:flex hx:flex-col hx:items-start hx:gap-2 hx:pb-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-t hx:contrast-more:border-neutral-400 hx:contrast-more:shadow-none hx:contrast-more:dark:border-neutral-400">
@@ -1049,54 +1033,60 @@
     </div>
           </div>
           
-          <p>Для обычной настройки эту страницу читать необязательно.</p>
-<p>Коротко: вы создаёте список сайтов, выбираете, какое соединение должно их обслуживать, а keen-pbr сам следит за тем, чтобы DNS и маршрутизация оставались согласованы и нужный трафик шёл нужным путём.</p>
-<p>Эта страница объясняет, что происходит «под капотом», — для тех, кто хочет разобраться глубже.</p>
-<h2>Основные сущности<span class="hx:absolute hx:-mt-20" id="основные-сущности"></span>
-    <a href="#%d0%be%d1%81%d0%bd%d0%be%d0%b2%d0%bd%d1%8b%d0%b5-%d1%81%d1%83%d1%89%d0%bd%d0%be%d1%81%d1%82%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><h3>Списки<span class="hx:absolute hx:-mt-20" id="списки"></span>
-    <a href="#%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Именованные наборы IP-адресов, CIDR-диапазонов и доменных имён. Источники можно комбинировать в любых сочетаниях:</p>
+          <p>Для обычной настройки эту страницу читать необязательно. Она объясняет, как keen-pbr решает, куда отправить трафик.</p>
+<h2>Идея в трёх словах: списки, правила, outbounds<span class="hx:absolute hx:-mt-20" id="идея-в-трёх-словах-списки-правила-outbounds"></span>
+    <a href="#%d0%b8%d0%b4%d0%b5%d1%8f-%d0%b2-%d1%82%d1%80%d1%91%d1%85-%d1%81%d0%bb%d0%be%d0%b2%d0%b0%d1%85-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b8-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-outbounds" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Проще всего сравнить keen-pbr с почтовым отделением, которое сортирует письма.</p>
 <ul>
-<li><strong>Удалённый URL</strong> (<code>url</code>) — загружается и кэшируется при запуске, обновляется по расписанию</li>
-<li><strong>IP/CIDR напрямую</strong> (<code>ip_cidrs</code>) — берутся прямо из конфига</li>
-<li><strong>Домены напрямую</strong> (<code>domains</code>) — берутся прямо из конфига</li>
-<li><strong>Локальный файл</strong> (<code>file</code>) — читается с диска</li>
+<li><strong>Список</strong> — адресная книга. В одной книге записаны сайты, которые вы хотите открывать через VPN, в другой — адреса, которые нужно заблокировать.</li>
+<li><strong>Правило маршрутизации</strong> — инструкция сортировщика: «письма из этой книги отправь вот этим маршрутом». Инструкции читаются сверху вниз, срабатывает первая подходящая.</li>
+<li><strong>Outbound</strong> — маршрут доставки: VPN-интерфейс, обычное подключение к провайдеру или «выбросить письмо».</li>
 </ul>
-<p>При запуске IP-адреса и подсети из списков загружаются в наборы ядра (
-  <abbr title="Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.">ipset</abbr>
- или nftables set) с именами вида <code>kpbr4_&lt;list&gt;</code> и <code>kpbr6_&lt;list&gt;</code>. Эти записи хранятся, пока список не изменится. С iptables keen-pbr при обновлении держит два набора на список (<code>kpbr4s_</code>/<code>kpbr4S_</code>) и переключается между ними, чтобы правила не оставались без данных.</p>
-<p>IP-адреса доменов keen-pbr берёт из DNS-ответов и соединений, которые проходят через роутер, и добавляет в отдельные наборы <code>kpbr4d_&lt;list&gt;</code> и <code>kpbr6d_&lt;list&gt;</code>. Такие наборы называются <strong>динамическими</strong>: каждый адрес в них хранится ограниченное время (
-  <abbr title="Сколько секунд DNS-ответ можно хранить в кэше.">TTL</abbr>
-), а затем удаляется.</p>
-<p>См. <a href="/ru/docs/configuration/lists/">Списки</a> для полного справочника.</p>
-<h3>Outbounds<span class="hx:absolute hx:-mt-20" id="outbounds"></span>
-    <a href="#outbounds" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Именованные цели для исходящего трафика. Доступны шесть типов:</p>
+<p>Письмо, адреса которого нет ни в одной книге, уходит обычным маршрутом.</p>
+<p>Например, у вас две книги, <code>streaming</code> (стриминговые сервисы) и <code>work</code> (рабочие сайты). Инструкции такие:</p>
+<ol>
+<li>Адреса из <code>local_networks</code> (ваша домашняя сеть) никуда не отправлять, оставить в сети.</li>
+<li>Адреса из <code>work</code> отправить через рабочий VPN.</li>
+<li>Адреса из <code>streaming</code> отправить через второй VPN.</li>
+</ol>
+<p>Всё остальное идёт напрямую через провайдера.</p>
+<h2>Списки<span class="hx:absolute hx:-mt-20" id="списки"></span>
+    <a href="#%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Список — набор доменов, IP-адресов и подсетей (CIDR-диапазонов, например <code>192.168.0.0/16</code>). Его можно составить из нескольких источников:</p>
+<ul>
+<li><strong>URL</strong> — список скачивается из интернета и обновляется по расписанию;</li>
+<li><strong>Файл на устройстве</strong> — список читается из файла на роутере;</li>
+<li><strong>Домены / IP</strong> — вы вписываете адреса прямо в конфигурацию.</li>
+</ul>
+<p>Для доменов вам не нужно знать IP-адреса. keen-pbr сам узнаёт адреса сайтов из списка, когда устройства в сети их открывают, и хранит их ограниченное время. Поэтому после изменения списков стоит очистить DNS-кэш на устройстве: иначе оно может обратиться к сайту по старому адресу, о котором keen-pbr ещё не знает.</p>
+<p>Подробности: <a href="/ru/docs/configuration/lists/">Списки</a>.</p>
+<h2>Outbounds<span class="hx:absolute hx:-mt-20" id="outbounds"></span>
+    <a href="#outbounds" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Outbound — канал, через который пойдёт трафик. Доступны шесть типов:</p>
 <table>
 	<thead>
 			<tr>
 					<th>Тип</th>
-					<th>Описание</th>
+					<th>Что делает</th>
 			</tr>
 	</thead>
 	<tbody>
 			<tr>
 					<td><code>interface</code></td>
-					<td>Маршрутизация через конкретный сетевой интерфейс с необязательными IPv4/IPv6-шлюзами</td>
+					<td>Отправляет трафик через выбранный сетевой интерфейс, например VPN. При необходимости можно указать шлюзы IPv4 и IPv6</td>
 			</tr>
 			<tr>
 					<td><code>table</code></td>
-					<td>Передать трафик в существующую таблицу маршрутизации ядра Linux</td>
+					<td>Отправляет трафик по одной из таблиц маршрутизации роутера. Таблица 254 — обычный выход в интернет через провайдера</td>
 			</tr>
 			<tr>
 					<td><code>blackhole</code></td>
-					<td>Отбросить совпавший трафик</td>
+					<td>Отбрасывает трафик, то есть блокирует его</td>
 			</tr>
 			<tr>
 					<td><code>ignore</code></td>
-					<td>Пропустить без изменений (пакет идёт по системной маршрутизации)</td>
+					<td>Оставляет трафик как есть: он идёт обычным путём, а правила ниже для него уже не проверяются</td>
 			</tr>
 			<tr>
 					<td><code>urltest</code></td>
-					<td>Автоматический выбор: проверяет каналы HTTP-запросом и выбирает самый быстрый или распределяет между ними соединения; нестабильный канал временно исключается</td>
+					<td>Сам выбирает лучший из нескольких каналов: проверяет их HTTP-запросом и берёт канал с самой низкой задержкой или распределяет соединения между ними. Нестабильный канал временно исключается</td>
 			</tr>
 			<tr>
 					<td><code>icmptest</code></td>
@@ -1106,135 +1096,36 @@
 			</tr>
 	</tbody>
 </table>
-<p>Outbounds типа <code>interface</code> и <code>table</code> получают 
-  <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
- и запись в таблице маршрутизации. <code>urltest</code> и <code>icmptest</code> выбирают один из своих каналов, а каналы — это такие outbounds. <code>blackhole</code> создаёт правило сброса пакетов в firewall, <code>ignore</code> — правило пропуска.</p>
-<p>Трафик, отправленный в <code>ignore</code>, не получает 
-  <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
-, и правила ниже для него уже не проверяются, поэтому он идёт по обычной маршрутизации роутера. <code>ignore</code> нужен для исключений: такое правило ставят выше более общего.</p>
-<p>См. <a href="/ru/docs/configuration/outbounds/">Outbounds</a> для полного справочника.</p>
-<h3>Правила маршрутизации<span class="hx:absolute hx:-mt-20" id="правила-маршрутизации"></span>
-    <a href="#%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Упорядоченный список пар «условие → действие». Каждое правило может фильтровать трафик по:</p>
+<p><code>ignore</code> нужен для исключений. Например, правило «домашняя сеть → <code>ignore</code>» ставят выше общего правила для VPN, чтобы локальный трафик не попал в туннель.</p>
+<p>Подробности: <a href="/ru/docs/configuration/outbounds/">Outbounds</a>.</p>
+<h2>Правила маршрутизации<span class="hx:absolute hx:-mt-20" id="правила-маршрутизации"></span>
+    <a href="#%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Правило связывает условия с outbound. Условия можно сочетать:</p>
 <ul>
-<li><strong>Принадлежности к списку</strong> — IP входит в именованный 
-  <abbr title="Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.">ipset</abbr>
-/nftset</li>
-<li><strong>Протоколу</strong> (<code>proto</code>) — <code>tcp</code>, <code>udp</code></li>
-<li><strong>Портам</strong> (<code>src_port</code>, <code>dest_port</code>) — одиночный, список, диапазон или отрицание</li>
-<li><strong>Адресам</strong> (<code>src_addr</code>, <code>dest_addr</code>) — 
+<li><strong>Списки</strong> — адрес входит в один из указанных списков;</li>
+<li><strong>Протокол</strong> — <code>tcp</code> или <code>udp</code>;</li>
+<li><strong>DSCP</strong> — метка приоритета трафика;</li>
+<li><strong>Исходный IP</strong> и <strong>IP назначения</strong> — адрес или подсеть (
   <abbr title="Запись подсети: адрес и длина префикса, например 192.168.1.0/24.">CIDR</abbr>
-, список или отрицание</li>
+), можно с отрицанием;</li>
+<li><strong>Исходный порт</strong> и <strong>Порт назначения</strong> — один порт, список или диапазон.</li>
 </ul>
-<p>Если в правиле указано несколько условий, пакет должен удовлетворять им ВСЕМ.</p>
-<p>Срабатывает первое подходящее правило. Трафик, не попавший ни под одно правило, не получает 
-  <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
- и идёт через обычную системную маршрутизацию.</p>
-<p>См. <a href="/ru/docs/configuration/route-rules/">Правила маршрутизации</a> для полного справочника.</p>
-<h3>DNS<span class="hx:absolute hx:-mt-20" id="dns"></span>
-    <a href="#dns" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Для маршрутизации по доменам резолвер настраивать не нужно: dnsmasq, DNS-прокси Keenetic или любой другой работают так, как вы их настроили. keen-pbr читает DNS-ответы, которые проходят через роутер, и имена сайтов в TLS-, HTTP- и QUIC-соединениях, а подходящие IP добавляет в набор списка, чтобы следующие пакеты пошли нужным маршрутом.</p>
-<p>С <a href="/ru/docs/configuration/dns/#per-list-dns-servers-dnsmasq">отдельными DNS-серверами для списков</a> (через dnsmasq) домены из конкретных списков можно разрешать через другие DNS-серверы, например чтобы получать адреса CDN нужного региона.</p>
-<p>См. <a href="/ru/docs/configuration/dns/">DNS</a> для полного справочника.</p>
-<hr>
+<p>Если в правиле несколько условий, трафик должен подойти под все. Правила проверяются сверху вниз, срабатывает первое подходящее. Трафик, который не подошёл ни под одно правило, идёт обычным путём.</p>
+<p>Подробности: <a href="/ru/docs/configuration/route-rules/">Правила маршрутизации</a>.</p>
+<h2>DNS<span class="hx:absolute hx:-mt-20" id="dns"></span>
+    <a href="#dns" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Для маршрутизации по доменам настраивать DNS-сервер не нужно. Dnsmasq, DNS-прокси Keenetic или любой другой резолвер работает как раньше. keen-pbr узнаёт адреса сайтов из списков по DNS-ответам и по именам сайтов в соединениях, которые проходят через роутер.</p>
+<p>Если для некоторых списков нужны другие DNS-серверы, например чтобы получать адреса CDN нужного региона, используйте <a href="/ru/docs/configuration/dns/#per-list-dns-servers-dnsmasq">отдельные DNS-серверы для списков</a> (через dnsmasq).</p>
+<p>Подробности: <a href="/ru/docs/configuration/dns/">DNS</a>.</p>
 <h2>fwmark и conntrack<span class="hx:absolute hx:-mt-20" id="fwmark-и-conntrack"></span>
-    <a href="#fwmark-%d0%b8-conntrack" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>keen-pbr опирается на два стандартных механизма ядра Linux. Их названия пригодятся, когда будете читать логи или искать ответ в интернете.</p>
+    <a href="#fwmark-%d0%b8-conntrack" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Эти два слова встречаются в логах и в поиске, если что-то пошло не так. Настраивать их обычно не нужно.</p>
 <ul>
-<li><strong>fwmark</strong> (firewall mark) — число, которое ядро хранит вместе с пакетом. Правила firewall keen-pbr ставят 
+<li><strong>
   <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
- подходящим пакетам, а записи <code>ip rule</code> вида <code>fwmark 0x00010000 lookup 150</code> отправляют пакеты с этим fwmark в таблицу маршрутизации outbound. У каждого outbound свой fwmark из диапазона, заданного в <a href="/ru/docs/configuration/advanced/#fwmark"><code>fwmark</code></a>.</li>
-<li><strong>conntrack</strong> (connection tracking) — таблица открытых соединений в ядре. keen-pbr копирует fwmark пакета в метку соединения (<strong>connmark</strong>) и восстанавливает её на следующих пакетах, поэтому всё соединение идёт одним маршрутом, даже если outbound или списки изменились. Когда соединения нужно перевести на другой канал, keen-pbr удаляет их записи из 
+</strong> — числовая метка на пакете. keen-pbr ставит её трафику из ваших списков, и по метке роутер понимает, в какой outbound отправить пакет. У каждого outbound своя метка из диапазона, который задан в настройке <a href="/ru/docs/configuration/advanced/#fwmark"><code>fwmark</code></a>.</li>
+<li><strong>
   <abbr title="Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).">conntrack</abbr>
-.</li>
+</strong> — таблица открытых соединений на роутере. Благодаря ей все пакеты одного соединения идут одним путём. Если соединение нужно перевести на другой канал, keen-pbr сбрасывает его запись в этой таблице, и устройство открывает соединение заново.</li>
 </ul>
-<h2>Как это работает — последовательность запуска<span class="hx:absolute hx:-mt-20" id="как-это-работает--последовательность-запуска"></span>
-    <a href="#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82--%d0%bf%d0%be%d1%81%d0%bb%d0%b5%d0%b4%d0%be%d0%b2%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be%d1%81%d1%82%d1%8c-%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><ol>
-<li><strong>Загрузка списков</strong> — скачиваются удалённые URL (при недоступности берётся кэш), читаются локальные файлы и встроенные записи</li>
-<li><strong>Заполнение наборов</strong> — IP-адреса и подсети загружаются в 
-  <abbr title="Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.">ipset</abbr>
- или nftables set</li>
-<li><strong>Настройка правил firewall</strong> — в таблице <code>mangle</code> iptables или в таблице <code>inet KeenPbrTable</code> nftables создаются правила, которые проверяют списки и фильтры и в <code>PREROUTING</code> / <code>prerouting</code> ставят нужные 
-  <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
-</li>
-<li><strong>Настройка маршрутизации</strong> — под каждый outbound создаются таблица маршрутизации и запись <code>ip rule</code> на основе назначенных fwmark</li>
-<li><strong>Запуск перехвата</strong> — keen-pbr начинает читать DNS-ответы и имена сайтов в соединениях (если ядро это поддерживает)</li>
-<li><strong>Запуск проверок каналов</strong> — если настроены outbounds типа <code>urltest</code> или <code>icmptest</code>, начинаются периодические проверки</li>
-</ol>
-<hr>
-<h2>Обзор архитектуры<span class="hx:absolute hx:-mt-20" id="обзор-архитектуры"></span>
-    <a href="#%d0%be%d0%b1%d0%b7%d0%be%d1%80-%d0%b0%d1%80%d1%85%d0%b8%d1%82%d0%b5%d0%ba%d1%82%d1%83%d1%80%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><div role="img" aria-label="Диаграмма">
-  <pre class="mermaid hx:mt-6">
-    flowchart TD
-    subgraph Config[&#34;config.json&#34;]
-        RoutingOutbounds[&#34;Outbounds\n(interface, table,\nканал, выбранный urltest)&#34;]
-        Lists[&#34;Списки\n(IP, подсети, домены)&#34;]
-        DNS[&#34;DNS\n(серверы + detour)&#34;]
-        RouteRules[&#34;Правила маршрутизации\n(список + фильтры →\nмаршрут / сброс / пропуск)&#34;]
-    end
 
-    subgraph Kernel[&#34;Ядро Linux&#34;]
-        Ipsets[&#34;ipsets / nftsets\n(IP из списков + IP доменов)&#34;]
-        FwmarkRules[&#34;Правила firewall\n(PREROUTING →\nfwmark, сброс или пропуск)&#34;]
-        IpRules[&#34;ip rule\n(fwmark → таблица)&#34;]
-        RoutingTables[&#34;Таблицы маршрутизации\n(таблица → интерфейсы)&#34;]
-        SystemRouting[&#34;Системная маршрутизация\n(обычный путь)&#34;]
-    end
-
-    Interceptor[&#34;Перехват keen-pbr\n(DNS-ответы, имена в TLS/HTTP/QUIC)&#34;]
-
-    Lists --&gt;|&#34;IP и подсети&#34;| Ipsets
-    Lists --&gt;|&#34;домены&#34;| Interceptor
-    DNS --&gt;|&#34;detour&#34;| FwmarkRules
-    Ipsets --&gt; FwmarkRules
-    RouteRules --&gt; FwmarkRules
-    RoutingOutbounds --&gt; IpRules
-    RoutingOutbounds --&gt; RoutingTables
-    FwmarkRules --&gt; IpRules
-    FwmarkRules --&gt; SystemRouting
-    IpRules --&gt; RoutingTables
-    Interceptor --&gt;|&#34;IP из ответов → динамические наборы&#34;| Ipsets
-  </pre>
-</div><hr>
-<h2>Поток пакета во время выполнения<span class="hx:absolute hx:-mt-20" id="поток-пакета-во-время-выполнения"></span>
-    <a href="#%d0%bf%d0%be%d1%82%d0%be%d0%ba-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d0%b0-%d0%b2%d0%be-%d0%b2%d1%80%d0%b5%d0%bc%d1%8f-%d0%b2%d1%8b%d0%bf%d0%be%d0%bb%d0%bd%d0%b5%d0%bd%d0%b8%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><div role="img" aria-label="Диаграмма">
-  <pre class="mermaid hx:mt-6">
-    flowchart TD
-    Packet([&#34;Входящий пакет\n(напр. dest: 93.184.216.34)&#34;])
-    PREROUTING[&#34;Firewall PREROUTING\n(netfilter mangle)&#34;]
-    IpsetCheck{&#34;IP в\nipset/nftset?&#34;}
-    NoMatch[&#34;Нет совпадения →\nнет fwmark\nсистемная маршрутизация&#34;]
-    Fwmark[&#34;Установить fwmark\n(напр. 0x00010000)&#34;]
-    IpRule[&#34;ip rule lookup\n(fwmark → table 150)&#34;]
-    RoutingTable[&#34;Таблица маршрутизации 150\ndefault via tun0 10.8.0.1&#34;]
-    Egress([&#34;Пакет выходит через VPN\n(tun0)&#34;])
-
-    Packet --&gt; PREROUTING
-    PREROUTING --&gt; IpsetCheck
-    IpsetCheck --&gt;|&#34;нет&#34;| NoMatch
-    IpsetCheck --&gt;|&#34;да (list: my_domains)&#34;| Fwmark
-    Fwmark --&gt; IpRule
-    IpRule --&gt; RoutingTable
-    RoutingTable --&gt; Egress
-  </pre>
-</div><hr>
-<h2>Поток разрешения DNS<span class="hx:absolute hx:-mt-20" id="поток-разрешения-dns"></span>
-    <a href="#%d0%bf%d0%be%d1%82%d0%be%d0%ba-%d1%80%d0%b0%d0%b7%d1%80%d0%b5%d1%88%d0%b5%d0%bd%d0%b8%d1%8f-dns" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><div role="img" aria-label="Диаграмма">
-  <pre class="mermaid hx:mt-6">
-    sequenceDiagram
-    participant Client as Устройство
-    participant Interceptor as Перехват keen-pbr
-    participant Resolver as Резолвер роутера
-    participant Ipset as ipset kpbr4d_my_domains
-    participant Firewall
-
-    Client-&gt;&gt;Resolver: запрос example.com
-    Resolver--&gt;&gt;Client: DNS-ответ
-    Resolver-&gt;&gt;Interceptor: keen-pbr читает ответ
-    Interceptor-&gt;&gt;Ipset: добавить 93.184.216.34 (ограниченный TTL)
-
-    Note over Client,Firewall: Следующий пакет на 93.184.216.34
-    Client-&gt;&gt;Firewall: пакет dest 93.184.216.34
-    Firewall-&gt;&gt;Firewall: совпадение ipset kpbr4d_my_domains → установить fwmark
-  </pre>
-</div>
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a
         href="/ru/docs/cli/"
@@ -1270,35 +1161,6 @@
   </aside></div></footer>
     
     <script defer src="/js/main.min.15eb8e58ef474e8764f1b2119666d41ed10d0c0d647ff5a407a86631cd51f0e2.js" integrity="sha256-FeuOWO9HTodk8bIRlmbUHtENDA1kf/WkB6hmMc1R8OI="></script>
-<script defer src="/js/flexsearch.433e941a8a573ebb9931fc16fc75266ab6b93f569ac2fb4f3dc66882e0416f4c.js" integrity="sha256-Qz6UGopXPruZMfwW/HUmara5P1aawvtPPcZoguBBb0w=" crossorigin="anonymous"></script><script defer src="/ru.search.min.c5b0a9a147fc0491e2259e86f6305b1907192705393b27bd88effb274f1fdb6b.js" integrity="sha256-xbCpoUf8BJHiJZ6G9jBbGQcZJwU5Oye9iO/7J08f22s="></script><script defer src="/js/mermaid.min.a8a6a6f805b074a8261a2825c86f99c8054acb3b35f50bb7e24a4f9f2c3c3b9f.js" integrity="sha256-qKam&#43;AWwdKgmGiglyG&#43;ZyAVKyzs19Qu34kpPnyw8O58=" crossorigin="anonymous"></script><script>
-  document.addEventListener("DOMContentLoaded", () => {
-    
-    document.querySelectorAll(".mermaid").forEach((el) => {
-      el.dataset.original = el.innerHTML;
-    });
-
-    const theme = document.documentElement.classList.contains("dark") ? "dark" : "default";
-    mermaid.initialize({ startOnLoad: true, theme: theme });
-
-    let timeout;
-    new MutationObserver(() => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        const theme = document.documentElement.classList.contains("dark") ? "dark" : "default";
-        document.querySelectorAll(".mermaid").forEach((el) => {
-          
-          el.innerHTML = el.dataset.original;
-          el.removeAttribute("data-processed");
-        });
-        mermaid.initialize({ startOnLoad: true, theme: theme });
-        mermaid.init();
-      }, 150);
-    }).observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-  });
-</script>
-
+<script defer src="/js/flexsearch.433e941a8a573ebb9931fc16fc75266ab6b93f569ac2fb4f3dc66882e0416f4c.js" integrity="sha256-Qz6UGopXPruZMfwW/HUmara5P1aawvtPPcZoguBBb0w=" crossorigin="anonymous"></script><script defer src="/ru.search.min.c5b0a9a147fc0491e2259e86f6305b1907192705393b27bd88effb274f1fdb6b.js" integrity="sha256-xbCpoUf8BJHiJZ6G9jBbGQcZJwU5Oye9iO/7J08f22s="></script>
   </body>
 </html>

@@ -8,16 +8,18 @@ Common config file locations:
 - OpenWrt: `/etc/keen-pbr/config.json`
 - Debian: `/etc/keen-pbr/config.json`
 
-If you installed the full package, you can usually do your first setup in the Web UI and come back to this section later. Most users only need these four parts of the config:
+If you installed the full package, configure keen-pbr in the Web UI: it writes the config for you, so you do not need to edit the file. If you installed `keen-pbr-headless` (no Web UI), edit the config file. Configuration has four parts:
 
-- [Outbounds]({{< relref "/docs/configuration/outbounds" >}}) — where matching traffic should go
-- [Lists]({{< relref "/docs/configuration/lists" >}}) — the sites or IP ranges you want to match
-- [Route Rules]({{< relref "/docs/configuration/route-rules" >}}) — which lists go through which outbound
-- [DNS]({{< relref "/docs/configuration/dns" >}}) — DNS server definitions and DNS interception
+- [Outbounds]({{< relref "/docs/configuration/outbounds" >}}) — the channels traffic can take: a VPN, your ISP connection, or a block
+- [Lists]({{< relref "/docs/configuration/lists" >}}) — the sites and IP ranges you want to route
+- [Route Rules]({{< relref "/docs/configuration/route-rules" >}}) — which list goes through which outbound
+- [DNS]({{< relref "/docs/configuration/dns" >}}) — DNS servers and DNS interception
+
+In the Web UI they correspond to the **Routing** > **Outbounds**, **Routing** > **Lists**, **Routing** > **Routing rules** and **General** > **Settings** menu items.
 
 ## Practical Example
 
-This example routes `google.com` through `vpn` and leaves everything else on `wan`:
+This example sends `google.com` through the VPN (`tun0`); all other traffic goes the usual way, through the router's main connection:
 
 ```json
 {
@@ -25,15 +27,7 @@ This example routes `google.com` through `vpn` and leaves everything else on `wa
     {
       "type": "interface",
       "tag": "vpn",
-      "interface": "tun0",
-      "gateway": "10.8.0.1",
-      "gateway6": "2001:db8::1"
-    },
-    {
-      "type": "interface",
-      "tag": "wan",
-      "interface": "eth0",
-      "gateway": "192.168.1.1"
+      "interface": "tun0"
     }
   ],
   "lists": {
@@ -51,13 +45,6 @@ This example routes `google.com` through `vpn` and leaves everything else on `wa
   }
 }
 ```
-
-## Basic Configuration
-
-- [Outbounds]({{< relref "/docs/configuration/outbounds" >}}) — choose the VPN and normal internet connections
-- [Lists]({{< relref "/docs/configuration/lists" >}}) — define the sites, domains, or IP ranges to match
-- [Route Rules]({{< relref "/docs/configuration/route-rules" >}}) — connect each list to an outbound
-- [DNS]({{< relref "/docs/configuration/dns" >}}) — DNS server definitions and DNS interception
 
 ## Advanced Configuration
 

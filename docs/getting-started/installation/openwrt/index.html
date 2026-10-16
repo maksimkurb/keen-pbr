@@ -9,42 +9,40 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>OpenWrt – keen-pbr</title>
-  <meta name="description" content="keen-pbr can be installed on OpenWrt routers from the keen-pbr package repository.
-Check which package manager your OpenWrt version uses The repository page automatically shows the correct flow for your target:
-OpenWrt 25.x and newer: apk OpenWrt 24.x and older: opkg Install from the repository page Open the repository instructions page, select OpenWrt in the OS selector on the left, and use the generated commands for your exact version and architecture:
-keen-pbr repository
-Example install commands:
-bash# OpenWrt 25.x and newer apk update apk add keen-pbr # or if you want headless version (without API and without WebUI) # apk update # apk add keen-pbr-headless bash# OpenWrt 24.x and older opkg update opkg install keen-pbr # or if you want headless version (without API and without WebUI) # opkg update # opkg install keen-pbr-headless The package installs its config at /etc/keen-pbr/config.json and enables the init script automatically.
-Useful service commands:
-bashservice keen-pbr start service keen-pbr enable service keen-pbr restart If you do not plan to use the keen-pbr Web UI or API, you can install the keen-pbr-headless package instead. It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version. DNS and L7 interception needs the kernel modules nfnetlink_queue, nfnetlink_log and nft_queue. The package pulls in kmod-nfnetlink-queue, kmod-nfnetlink-log and kmod-nft-queue automatically. If you installed an older build or removed them, install them manually; otherwise the daemon logs cannot bind netfilter queue/log ... Invalid argument and /api/health/service names the missing module. nft_log is part of kmod-nft-core. Next steps Open Quick Start and use the Web UI tab for the easiest first setup. If you installed keen-pbr-headless, use the JSON / CLI tab instead.
-If pre-built packages are not yet available for your platform, see Build from Source to compile keen-pbr yourself. " /><link rel="canonical" href="https://keen-pbr.fyi/docs/getting-started/installation/openwrt/" itemprop="url" />
+  <meta name="description" content="keen-pbr is installed on OpenWrt from the keen-pbr package repository. You run the commands over SSH.
+Find out which package manager your OpenWrt uses A package manager is the program that installs and updates other programs. Which one you have depends on the version:
+OpenWrt 25.x and newer: apk OpenWrt 24.x and older: opkg Install keen-pbr Connect to the router over SSH. Open the keen-pbr repository page, select the OS OpenWrt on the left, then your version and architecture. Run the commands it shows, in order. Install the package: bash# OpenWrt 25.x and newer apk update apk add keen-pbr # version without the web UI and API: # apk add keen-pbr-headless bash# OpenWrt 24.x and older opkg update opkg install keen-pbr # version without the web UI and API: # opkg install keen-pbr-headless The configuration is in /etc/keen-pbr/config.json. The service starts by itself every time the router boots.
+keen-pbr-headless takes less space: about 1.2 MB instead of 2.8 MB. It has no web UI and no API, so you configure it through the config file. If in doubt, install the regular keen-pbr. The package installs the kernel modules it needs. If the log contains cannot bind netfilter queue/log ... Invalid argument, install them manually: kmod-nfnetlink-queue, kmod-nfnetlink-log and kmod-nft-queue. Check that the service is running bashservice keen-pbr status If everything is fine, the command prints running.
+Open the web UI Open http://&lt;router-ip&gt;:12121 in your browser, for example http://192.168.1.1:12121. The headless version has no web UI.
+Set up your first rules Go to the Quick Start page and open the Web UI tab. If you installed keen-pbr-headless, open the JSON tab.
+If there are no ready-made packages for your platform, build keen-pbr yourself: Build from Source. " /><link rel="canonical" href="https://keen-pbr.fyi/docs/getting-started/installation/openwrt/" itemprop="url" />
 
 <meta property="og:title" content="OpenWrt">
 <meta
   property="og:description"
   content="
     
-      keen-pbr can be installed on OpenWrt routers from the keen-pbr package repository.
+      keen-pbr is installed on OpenWrt from the keen-pbr package repository. You run the commands over SSH.
 
-Check which package manager your OpenWrt version uses
-    The repository page automatically shows the correct flow for your target:
+Find out which package manager your OpenWrt uses
+    A package manager is the program that installs and updates other programs. Which one you have depends on the version:
 
 OpenWrt 25.x and newer: apk
 OpenWrt 24.x and older: opkg
 
-Install from the repository page
-    Open the repository instructions page, select OpenWrt in the OS selector on the left, and use the generated commands for your exact version and architecture:
+Install keen-pbr
+    
+Connect to the router over SSH.
+Open the keen-pbr repository page, select the OS OpenWrt on the left, then your version and architecture. Run the commands it shows, in order.
+Install the package:
 
-keen-pbr repository
-Example install commands:
 
 
 bash# OpenWrt 25.x and newer
 apk update
 apk add keen-pbr
 
-# or if you want headless version (without API and without WebUI)
-# apk update
+# version without the web UI and API:
 # apk add keen-pbr-headless
   
     
@@ -58,8 +56,7 @@ bash# OpenWrt 24.x and older
 opkg update
 opkg install keen-pbr
 
-# or if you want headless version (without API and without WebUI)
-# opkg update
+# version without the web UI and API:
 # opkg install keen-pbr-headless
   
     
@@ -67,39 +64,38 @@ opkg install keen-pbr
   
 
 
-The package installs its config at /etc/keen-pbr/config.json and enables the init script automatically.
-Useful service commands:
+The configuration is in /etc/keen-pbr/config.json. The service starts by itself every time the router boots.
+
+  
+  
+    keen-pbr-headless takes less space: about 1.2 MB instead of 2.8 MB. It has no web UI and no API, so you configure it through the config file. If in doubt, install the regular keen-pbr.
+  
 
 
-bashservice keen-pbr start
-service keen-pbr enable
-service keen-pbr restart
+  
+  
+    The package installs the kernel modules it needs. If the log contains cannot bind netfilter queue/log ... Invalid argument, install them manually: kmod-nfnetlink-queue, kmod-nfnetlink-log and kmod-nft-queue.
+  
+
+Check that the service is running
+    
+
+bashservice keen-pbr status
   
     
 
   
 
 
+If everything is fine, the command prints running.
+Open the web UI
+    Open http://&lt;router-ip&gt;:12121 in your browser, for example http://192.168.1.1:12121. The headless version has no web UI.
+Set up your first rules
+    Go to the Quick Start page and open the Web UI tab. If you installed keen-pbr-headless, open the JSON tab.
 
   
   
-    If you do not plan to use the keen-pbr Web UI or API, you can install the keen-pbr-headless package instead.
-It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version.
-  
-
-
-  
-  
-    DNS and L7 interception needs the kernel modules nfnetlink_queue, nfnetlink_log and nft_queue.
-The package pulls in kmod-nfnetlink-queue, kmod-nfnetlink-log and kmod-nft-queue automatically. If you installed an older build or removed them, install them manually; otherwise the daemon logs cannot bind netfilter queue/log ... Invalid argument and /api/health/service names the missing module. nft_log is part of kmod-nft-core.
-  
-
-Next steps
-    Open Quick Start and use the Web UI tab for the easiest first setup. If you installed keen-pbr-headless, use the JSON / CLI tab instead.
-
-  
-  
-    If pre-built packages are not yet available for your platform, see Build from Source to compile keen-pbr yourself.
+    If there are no ready-made packages for your platform, build keen-pbr yourself: Build from Source.
   
 
 
@@ -116,27 +112,23 @@ Next steps
 
 
 	<meta itemprop="name" content="OpenWrt">
-	<meta itemprop="description" content="keen-pbr can be installed on OpenWrt routers from the keen-pbr package repository.
-Check which package manager your OpenWrt version uses The repository page automatically shows the correct flow for your target:
-OpenWrt 25.x and newer: apk OpenWrt 24.x and older: opkg Install from the repository page Open the repository instructions page, select OpenWrt in the OS selector on the left, and use the generated commands for your exact version and architecture:
-keen-pbr repository
-Example install commands:
-bash# OpenWrt 25.x and newer apk update apk add keen-pbr # or if you want headless version (without API and without WebUI) # apk update # apk add keen-pbr-headless bash# OpenWrt 24.x and older opkg update opkg install keen-pbr # or if you want headless version (without API and without WebUI) # opkg update # opkg install keen-pbr-headless The package installs its config at /etc/keen-pbr/config.json and enables the init script automatically.
-Useful service commands:
-bashservice keen-pbr start service keen-pbr enable service keen-pbr restart If you do not plan to use the keen-pbr Web UI or API, you can install the keen-pbr-headless package instead. It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version. DNS and L7 interception needs the kernel modules nfnetlink_queue, nfnetlink_log and nft_queue. The package pulls in kmod-nfnetlink-queue, kmod-nfnetlink-log and kmod-nft-queue automatically. If you installed an older build or removed them, install them manually; otherwise the daemon logs cannot bind netfilter queue/log ... Invalid argument and /api/health/service names the missing module. nft_log is part of kmod-nft-core. Next steps Open Quick Start and use the Web UI tab for the easiest first setup. If you installed keen-pbr-headless, use the JSON / CLI tab instead.
-If pre-built packages are not yet available for your platform, see Build from Source to compile keen-pbr yourself.">
-	<meta itemprop="wordCount" content="469">
+	<meta itemprop="description" content="keen-pbr is installed on OpenWrt from the keen-pbr package repository. You run the commands over SSH.
+Find out which package manager your OpenWrt uses A package manager is the program that installs and updates other programs. Which one you have depends on the version:
+OpenWrt 25.x and newer: apk OpenWrt 24.x and older: opkg Install keen-pbr Connect to the router over SSH. Open the keen-pbr repository page, select the OS OpenWrt on the left, then your version and architecture. Run the commands it shows, in order. Install the package: bash# OpenWrt 25.x and newer apk update apk add keen-pbr # version without the web UI and API: # apk add keen-pbr-headless bash# OpenWrt 24.x and older opkg update opkg install keen-pbr # version without the web UI and API: # opkg install keen-pbr-headless The configuration is in /etc/keen-pbr/config.json. The service starts by itself every time the router boots.
+keen-pbr-headless takes less space: about 1.2 MB instead of 2.8 MB. It has no web UI and no API, so you configure it through the config file. If in doubt, install the regular keen-pbr. The package installs the kernel modules it needs. If the log contains cannot bind netfilter queue/log ... Invalid argument, install them manually: kmod-nfnetlink-queue, kmod-nfnetlink-log and kmod-nft-queue. Check that the service is running bashservice keen-pbr status If everything is fine, the command prints running.
+Open the web UI Open http://&lt;router-ip&gt;:12121 in your browser, for example http://192.168.1.1:12121. The headless version has no web UI.
+Set up your first rules Go to the Quick Start page and open the Web UI tab. If you installed keen-pbr-headless, open the JSON tab.
+If there are no ready-made packages for your platform, build keen-pbr yourself: Build from Source.">
+	<meta itemprop="wordCount" content="432">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="OpenWrt">
-	<meta name="twitter:description" content="keen-pbr can be installed on OpenWrt routers from the keen-pbr package repository.
-Check which package manager your OpenWrt version uses The repository page automatically shows the correct flow for your target:
-OpenWrt 25.x and newer: apk OpenWrt 24.x and older: opkg Install from the repository page Open the repository instructions page, select OpenWrt in the OS selector on the left, and use the generated commands for your exact version and architecture:
-keen-pbr repository
-Example install commands:
-bash# OpenWrt 25.x and newer apk update apk add keen-pbr # or if you want headless version (without API and without WebUI) # apk update # apk add keen-pbr-headless bash# OpenWrt 24.x and older opkg update opkg install keen-pbr # or if you want headless version (without API and without WebUI) # opkg update # opkg install keen-pbr-headless The package installs its config at /etc/keen-pbr/config.json and enables the init script automatically.
-Useful service commands:
-bashservice keen-pbr start service keen-pbr enable service keen-pbr restart If you do not plan to use the keen-pbr Web UI or API, you can install the keen-pbr-headless package instead. It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version. DNS and L7 interception needs the kernel modules nfnetlink_queue, nfnetlink_log and nft_queue. The package pulls in kmod-nfnetlink-queue, kmod-nfnetlink-log and kmod-nft-queue automatically. If you installed an older build or removed them, install them manually; otherwise the daemon logs cannot bind netfilter queue/log ... Invalid argument and /api/health/service names the missing module. nft_log is part of kmod-nft-core. Next steps Open Quick Start and use the Web UI tab for the easiest first setup. If you installed keen-pbr-headless, use the JSON / CLI tab instead.
-If pre-built packages are not yet available for your platform, see Build from Source to compile keen-pbr yourself.">
+	<meta name="twitter:description" content="keen-pbr is installed on OpenWrt from the keen-pbr package repository. You run the commands over SSH.
+Find out which package manager your OpenWrt uses A package manager is the program that installs and updates other programs. Which one you have depends on the version:
+OpenWrt 25.x and newer: apk OpenWrt 24.x and older: opkg Install keen-pbr Connect to the router over SSH. Open the keen-pbr repository page, select the OS OpenWrt on the left, then your version and architecture. Run the commands it shows, in order. Install the package: bash# OpenWrt 25.x and newer apk update apk add keen-pbr # version without the web UI and API: # apk add keen-pbr-headless bash# OpenWrt 24.x and older opkg update opkg install keen-pbr # version without the web UI and API: # opkg install keen-pbr-headless The configuration is in /etc/keen-pbr/config.json. The service starts by itself every time the router boots.
+keen-pbr-headless takes less space: about 1.2 MB instead of 2.8 MB. It has no web UI and no API, so you configure it through the config file. If in doubt, install the regular keen-pbr. The package installs the kernel modules it needs. If the log contains cannot bind netfilter queue/log ... Invalid argument, install them manually: kmod-nfnetlink-queue, kmod-nfnetlink-log and kmod-nft-queue. Check that the service is running bashservice keen-pbr status If everything is fine, the command prints running.
+Open the web UI Open http://&lt;router-ip&gt;:12121 in your browser, for example http://192.168.1.1:12121. The headless version has no web UI.
+Set up your first rules Go to the Quick Start page and open the Web UI tab. If you installed keen-pbr-headless, open the JSON tab.
+If there are no ready-made packages for your platform, build keen-pbr yourself: Build from Source.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -317,6 +309,12 @@ If pre-built packages are not yet available for your platform, see Build from So
                 href="#"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               ></a>
+            </li>
+          <li>
+              <a
+                href="#service-commands"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >Service commands</a>
             </li>
           <li>
               <a
@@ -994,15 +992,27 @@ If pre-built packages are not yet available for your platform, see Build from So
 <nav class="hextra-toc hx:order-last hx:hidden hx:w-64 hx:shrink-0 hx:xl:block hx:print:hidden hx:px-4" aria-label="Table of contents">
     <div class="hextra-scrollbar hx:sticky hx:top-16 hx:overflow-y-auto hx:pr-4 hx:pt-6 hx:text-sm [hyphens:auto] hx:max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] hx:ltr:-mr-4 hx:rtl:-ml-4"><p class="hx:mb-4 hx:font-semibold hx:tracking-tight">On this page</p><ul>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#check-which-package-manager-your-openwrt-version-uses">Check which package manager your OpenWrt version uses
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#find-out-which-package-manager-your-openwrt-uses">Find out which package manager your OpenWrt uses
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#install-from-the-repository-page">Install from the repository page
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#install-keen-pbr">Install keen-pbr
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#next-steps">Next steps
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#check-that-the-service-is-running">Check that the service is running
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#open-the-web-ui">Open the web UI
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#set-up-your-first-rules">Set up your first rules
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#service-commands">Service commands
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1103,27 +1113,27 @@ If pre-built packages are not yet available for your platform, see Build from So
     </div>
           </div>
           
-          <p>keen-pbr can be installed on OpenWrt routers from the keen-pbr package repository.</p>
+          <p>keen-pbr is installed on OpenWrt from the keen-pbr package repository. You run the commands over SSH.</p>
 <div class="hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]">
-<h3>Check which package manager your OpenWrt version uses<span class="hx:absolute hx:-mt-20" id="check-which-package-manager-your-openwrt-version-uses"></span>
-    <a href="#check-which-package-manager-your-openwrt-version-uses" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>The repository page automatically shows the correct flow for your target:</p>
+<h3>Find out which package manager your OpenWrt uses<span class="hx:absolute hx:-mt-20" id="find-out-which-package-manager-your-openwrt-uses"></span>
+    <a href="#find-out-which-package-manager-your-openwrt-uses" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>A package manager is the program that installs and updates other programs. Which one you have depends on the version:</p>
 <ul>
 <li>OpenWrt 25.x and newer: <code>apk</code></li>
 <li>OpenWrt 24.x and older: <code>opkg</code></li>
 </ul>
-<h3>Install from the repository page<span class="hx:absolute hx:-mt-20" id="install-from-the-repository-page"></span>
-    <a href="#install-from-the-repository-page" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Open the repository instructions page, select <strong>OpenWrt</strong> in the OS selector on the left, and use the generated commands for your exact version and architecture:</p>
-<p><a href="https://repo.keen-pbr.fyi/repository/stable/?lang=en"target="_blank" rel="noopener"><span class="hx:inline-block hx:align-text-bottom hextra-icon"><svg height=1em xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/></svg></span>
-keen-pbr repository</a></p>
-<p>Example install commands:</p>
+<h3>Install keen-pbr<span class="hx:absolute hx:-mt-20" id="install-keen-pbr"></span>
+    <a href="#install-keen-pbr" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ol>
+<li>Connect to the router over SSH.</li>
+<li>Open the <a href="https://repo.keen-pbr.fyi/repository/stable/?lang=en"target="_blank" rel="noopener">keen-pbr repository page</a>, select the OS <strong>OpenWrt</strong> on the left, then your version and architecture. Run the commands it shows, in order.</li>
+<li>Install the package:</li>
+</ol>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># OpenWrt 25.x and newer</span>
 </span></span><span class="line"><span class="cl">apk update
 </span></span><span class="line"><span class="cl">apk add keen-pbr
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># or if you want headless version (without API and without WebUI)</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># apk update</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># version without the web UI and API:</span>
 </span></span><span class="line"><span class="cl"><span class="c1"># apk add keen-pbr-headless</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1142,8 +1152,7 @@ keen-pbr repository</a></p>
 </span></span><span class="line"><span class="cl">opkg update
 </span></span><span class="line"><span class="cl">opkg install keen-pbr
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># or if you want headless version (without API and without WebUI)</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># opkg update</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># version without the web UI and API:</span>
 </span></span><span class="line"><span class="cl"><span class="c1"># opkg install keen-pbr-headless</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1156,13 +1165,23 @@ keen-pbr repository</a></p>
   </button>
 </div>
 </div>
-<p>The package installs its config at <code>/etc/keen-pbr/config.json</code> and enables the init script automatically.</p>
-<p>Useful service commands:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<p>The configuration is in <code>/etc/keen-pbr/config.json</code>. The service starts by itself every time the router boots.</p>
+<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
+  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+  <div class="hx:w-full hx:min-w-0 hx:leading-7">
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0"><code>keen-pbr-headless</code> takes less space: about 1.2 MB instead of 2.8 MB. It has no web UI and no API, so you configure it through the config file. If in doubt, install the regular <code>keen-pbr</code>.</div>
+  </div>
+</div>
+<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200">
+  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
+  <div class="hx:w-full hx:min-w-0 hx:leading-7">
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">The package installs the kernel modules it needs. If the log contains <code>cannot bind netfilter queue/log ... Invalid argument</code>, install them manually: <code>kmod-nfnetlink-queue</code>, <code>kmod-nfnetlink-log</code> and <code>kmod-nft-queue</code>.</div>
+  </div>
+</div>
+<h3>Check that the service is running<span class="hx:absolute hx:-mt-20" id="check-that-the-service-is-running"></span>
+    <a href="#check-that-the-service-is-running" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">service keen-pbr start
-</span></span><span class="line"><span class="cl">service keen-pbr <span class="nb">enable</span>
-</span></span><span class="line"><span class="cl">service keen-pbr restart</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">service keen-pbr status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1174,36 +1193,44 @@ keen-pbr repository</a></p>
   </button>
 </div>
 </div>
+<p>If everything is fine, the command prints <code>running</code>.</p>
+<h3>Open the web UI<span class="hx:absolute hx:-mt-20" id="open-the-web-ui"></span>
+    <a href="#open-the-web-ui" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Open <code>http://&lt;router-ip&gt;:12121</code> in your browser, for example <code>http://192.168.1.1:12121</code>. The headless version has no web UI.</p>
+<h3>Set up your first rules<span class="hx:absolute hx:-mt-20" id="set-up-your-first-rules"></span>
+    <a href="#set-up-your-first-rules" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Go to the <a href="/docs/getting-started/quick-start/">Quick Start</a> page and open the <strong>Web UI</strong> tab. If you installed <code>keen-pbr-headless</code>, open the <strong>JSON</strong> tab.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">If you do not plan to use the keen-pbr Web UI or API, you can install the <code>keen-pbr-headless</code> package instead.
-It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version.</div>
-  </div>
-</div>
-<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200">
-  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
-  <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">DNS and L7 interception needs the kernel modules <code>nfnetlink_queue</code>, <code>nfnetlink_log</code> and <code>nft_queue</code>.
-The package pulls in <code>kmod-nfnetlink-queue</code>, <code>kmod-nfnetlink-log</code> and <code>kmod-nft-queue</code> automatically. If you installed an older build or removed them, install them manually; otherwise the daemon logs <code>cannot bind netfilter queue/log ... Invalid argument</code> and <code>/api/health/service</code> names the missing module. <code>nft_log</code> is part of <code>kmod-nft-core</code>.</div>
-  </div>
-</div>
-<h3>Next steps<span class="hx:absolute hx:-mt-20" id="next-steps"></span>
-    <a href="#next-steps" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Open <a href="/docs/getting-started/quick-start/">Quick Start</a> and use the <strong>Web UI</strong> tab for the easiest first setup. If you installed <code>keen-pbr-headless</code>, use the <strong>JSON / CLI</strong> tab instead.</p>
-<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
-  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-  <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">If pre-built packages are not yet available for your platform, see <a href="/docs/developer/build-from-source/">Build from Source</a> to compile keen-pbr yourself.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">If there are no ready-made packages for your platform, build keen-pbr yourself: <a href="/docs/developer/build-from-source/">Build from Source</a>.</div>
   </div>
 </div>
 </div>
+<h2>Service commands<span class="hx:absolute hx:-mt-20" id="service-commands"></span>
+    <a href="#service-commands" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">service keen-pbr start
+</span></span><span class="line"><span class="cl">service keen-pbr restart
+</span></span><span class="line"><span class="cl">service keen-pbr status
+</span></span><span class="line"><span class="cl">service keen-pbr enable</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p><code>enable</code> turns on autostart when the router boots.</p>
 <h2>Separate DNS servers for lists (dnsmasq)<span class="hx:absolute hx:-mt-20" id="dnsmasq"></span>
-    <a href="#dnsmasq" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>keen-pbr does not need dnsmasq for routing, but OpenWrt already uses it as the system resolver. See <a href="/docs/configuration/dns/#do-i-need-dnsmasq">Do I need dnsmasq?</a> to decide whether you want keen-pbr to manage it.</p>
+    <a href="#dnsmasq" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>On OpenWrt, dnsmasq already works as the router&rsquo;s DNS server. keen-pbr does not need it for routing. To decide whether to let keen-pbr manage it, see <a href="/docs/configuration/dns/#do-i-need-dnsmasq">Do I need dnsmasq?</a>.</p>
 <h3>Turn it on<span class="hx:absolute hx:-mt-20" id="dnsmasq-install"></span>
-    <a href="#dnsmasq-install" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>In the Web UI, open <strong>General</strong> &gt; <strong>Local DNS server management</strong> and turn on <strong>Manage dnsmasq configuration</strong>. keen-pbr adds three <code>addnmount</code> entries to the dnsmasq section in <code>/etc/config/dhcp</code>, so that the sandboxed dnsmasq can run keen-pbr.</p>
-<p>While management is on and <strong>Default DNS servers</strong> are set, keen-pbr takes the servers without a domain out of the list in <code>/etc/config/dhcp</code> (LuCI <strong>DNS forwardings</strong>). Per-domain servers such as <code>/lan/192.168.1.1</code> stay. The removed servers return when you turn management off or clear the default servers.</p>
+    <a href="#dnsmasq-install" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>In the Web UI, open <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Local DNS server management</strong> and turn on <strong>Manage dnsmasq configuration</strong>.</p>
+<p>While management is on and <strong>Default upstream DNS servers</strong> are set, keen-pbr takes the servers without a domain out of the list in <code>/etc/config/dhcp</code> (LuCI <strong>DNS forwardings</strong>). Per-domain servers such as <code>/lan/192.168.1.1</code> stay. The removed servers return when you turn management off or clear those servers.</p>
 <h3>Return to how it was<span class="hx:absolute hx:-mt-20" id="dnsmasq-rollback"></span>
-    <a href="#dnsmasq-rollback" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Turn off <strong>Manage dnsmasq configuration</strong> and apply the config. keen-pbr restarts dnsmasq and returns the removed servers. Removing the package also removes the <code>addnmount</code> entries it added.</p>
+    <a href="#dnsmasq-rollback" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Turn off <strong>Manage dnsmasq configuration</strong> and apply the config. keen-pbr restarts dnsmasq and returns the removed servers.</p>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

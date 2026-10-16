@@ -9,260 +9,24 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Быстрый старт – keen-pbr</title>
-  <meta name="description" content="Это руководство поможет завершить первую рабочую настройку, которая отправляет выбранные сайты через VPN, сохраняя обычное соединение для остального трафика.
-Если вы установили полный пакет, веб-интерфейс — самое простое место для начала. Если вы установили keen-pbr-headless или предпочитаете редактировать файлы напрямую, используйте вкладку JSON / CLI.
-Для минимальной настройки нужно сделать четыре шага:
-graph LR; classDef default font-size:16pt; A[&#34;1. Добавьте outbounds&#34;] B[&#34;`2. Добавьте списки (необязательно)`&#34;] C[&#34;3. Добавьте правила маршрутизации&#34;] A==&gt;B; B==&gt;C; Веб-интерфейсJSON Если вы установили keen-pbr-headless, см. метод конфигурации JSON. Your browser does not support the video tag. Откройте веб-интерфейс Откройте http://&lt;ip-роутера&gt;:12121/ в браузере. На Keenetic / NetCraze также можно открыть http://my.keenetic.net:12121/.
-Создайте outbounds Перейдите в Outbounds и создайте две записи:
-Создайте outbound с именем vpn со следующими параметрами:
-тип = Интерфейс интерфейс = &lt;имя-вашего-vpn-интерфейса&gt; шлюз = &lt;ipv4-шлюза-vpn&gt;, если ваш VPN требует явный IPv4-шлюз gateway6 = &lt;ipv6-шлюза-vpn&gt;, если ваш VPN требует явный IPv6-шлюз Создайте другой outbound с именем default со следующими параметрами:
-тип = Таблица маршрутизации ID таблицы = 254 Почему default? В этом примере используется основная таблица маршрутизации Linux как запасной путь, поэтому default должен указывать на таблицу маршрутизации 254.
-Создайте тестовый список Перейдите в Списки и создайте список, например my_sites с типом Домены / IP, затем добавьте тестовый домен, например ifconfig.co.
-Добавьте правило маршрутизации Перейдите в Правила маршрутизации и направьте my_sites через outbound vpn.
-Проверка Примените конфигурацию и дождитесь исчезновения уведомления “черновик конфигурации”. Очистите DNS-кэш на вашем устройстве: На Windows ПК откройте командную строку и выполните ipconfig /flushdns. На Linux ПК откройте терминал и выполните sudo resolvectl flush-caches. На мобильных устройствах просто переподключитесь к WiFi. Откройте сайт из вашего списка (ifconfig.co) и проверьте, что он показывает другой IP, чем обычный сайт «мой IP» (например, wtfismyip.com) Для проверки настройки откройте сайт из вашего списка и убедитесь, что он работает через VPN. Если хотите проверить через командную строку, выполните:
-bashkeen-pbr test-routing ifconfig.co Если результат показывает ваш VPN outbound в обоих столбцах (ожидаемый и фактический), настройка работает.
-Используйте этот путь, если вы установили keen-pbr-headless или предпочитаете редактировать файл конфигурации напрямую.
-Расположение файла конфигурации:
-Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json Пример минимальной конфигурации:
-config.json{ &#34;version&#34;: &#34;3.4.0&#34;, // Outbounds — это то, куда может идти ваш трафик &#34;outbounds&#34;: [ { &#34;tag&#34;: &#34;vpn&#34;, // имя outbound; можно использовать буквы, цифры и подчёркивание &#34;type&#34;: &#34;interface&#34;, // outbound типа &#34;interface&#34; может маршрутизировать трафик через конкретный интерфейс &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;tag&#34;: &#34;out&#34;, &#34;type&#34;: &#34;table&#34;, // outbound типа &#34;table&#34; может маршрутизировать трафик в таблицу маршрутизации ядра iproute &#34;table&#34;: 254 // ядру routing table Linux &#34;main&#34; имеет ID 254. См. файл /etc/iproute2/rt_tables для дополнительной информации. }, { &#34;tag&#34;: &#34;direct_local&#34;, &#34;type&#34;: &#34;ignore&#34; // предотвращает маршрутизацию локальных и специальных сетей в туннели } ], &#34;lists&#34;: { &#34;local_networks&#34;: { // список по умолчанию, который предотвращает маршрутизацию локального трафика в туннель &#34;ip_cidrs&#34;: [ &#34;0.0.0.0/8&#34;, &#34;10.0.0.0/8&#34;, &#34;100.64.0.0/10&#34;, &#34;127.0.0.0/8&#34;, &#34;169.254.0.0/16&#34;, &#34;172.16.0.0/12&#34;, &#34;192.168.0.0/16&#34;, &#34;224.0.0.0/4&#34;, &#34;240.0.0.0/4&#34;, &#34;::1/128&#34;, &#34;fc00::/7&#34;, &#34;fe80::/10&#34;, &#34;ff00::/8&#34; ] }, &#34;my_sites&#34;: { // список с доменами inline &#34;domains&#34;: [&#34;ifconfig.co&#34;], &#34;ttl_ms&#34;: 3600000 // как долго разрешённый IP добавляется в routing ipsets после появления в DNS-ответе, в миллисекундах }, &#34;always_out&#34;: { // список с IP inline &#34;ip_cidrs&#34;: [&#34;120.131.22.11&#34;] }, &#34;my_remote_list&#34;: { // удалённый список &#34;url&#34;: &#34;https://example.com/my-list.lst&#34;, &#34;ttl_ms&#34;: 0 // если ttl равен 0, то IP будет добавлен в ipset навсегда (до перезапуска keen-pbr) }, &#34;my_local_file_list&#34;: { // локальный файл списка &#34;file&#34;: &#34;/etc/keen-pbr/local.lst&#34; } }, &#34;route&#34;: { &#34;rules&#34;: [ { // Правило по умолчанию: держите локальные и специальные сети локальными, никогда не отправляйте их в туннель &#34;list&#34;: [&#34;local_networks&#34;], &#34;outbound&#34;: &#34;direct_local&#34; }, { // Все IP и домены из списка &#34;my_sites&#34; будут маршрутизироваться на outbound &#34;vpn&#34; &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; }, { // Все IP и домены из списка &#34;always_out&#34; будут маршрутизироваться на outbound &#34;out&#34; &#34;list&#34;: [&#34;always_out&#34;], &#34;outbound&#34;: &#34;out&#34; } ] } } В этом примере outbound out повторно использует таблицу маршрутизации Linux main (с id 254). Если вы маршрутизируете трафик на эту таблицу, он будет следовать вашим системным маршрутам по умолчанию. Используйте gateway только для IPv4. Если нужен явный IPv6 next-hop, укажите gateway6. Если не указано ни одно из этих полей, keen-pbr создаст для interface outbound и IPv4-, и IPv6-маршруты по умолчанию. Что делает этот пример:
-Создаёт VPN outbound и outbound out, который повторно использует таблицу маршрутизации 254 (основная таблица маршрутизации) Добавляет список my_sites с ifconfig.co Добавляет список always_out с 120.131.22.11 Добавляет списки my_remote_list и my_local_file_list, которые не используются ни в каких правилах, но приведены здесь просто для примера Отправляет трафик для всех доменов из my_sites через vpn Отправляет трафик для всех IP из always_out через out Перезапустите сервис после сохранения конфигурации:
-Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr restart bashservice keen-pbr restart bashsystemctl restart keen-pbr Проверьте результат:
-bashkeen-pbr test-routing ifconfig.co Вы также можете выполнить keen-pbr status для более широкой проверки состояния." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/getting-started/quick-start/" itemprop="url" />
+  <meta name="description" content="После этого руководства выбранный сайт будет открываться через VPN, а весь остальной трафик пойдёт как раньше. Понадобится готовый VPN-интерфейс на роутере (например, tun0 или wg0).
+Если VPN на роутере ещё нет, настройте его по инструкции для вашей системы: Keenetic / NetCraze, OpenWrt, Debian. В веб-интерфейсе keen-pbr интерфейс выбирается из списка. Узнать имена всех интерфейсов в консоли можно командой ip addr: VPN-интерфейс — тот, у которого адрес из вашей VPN-сети. Если вы установили полный пакет, начните с веб-интерфейса. Если у вас keen-pbr-headless или вы привыкли править файлы, используйте вкладку JSON." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/getting-started/quick-start/" itemprop="url" />
 
 <meta property="og:title" content="Быстрый старт">
 <meta
   property="og:description"
   content="
     
-      Это руководство поможет завершить первую рабочую настройку, которая отправляет выбранные сайты через VPN, сохраняя обычное соединение для остального трафика.
-Если вы установили полный пакет, веб-интерфейс — самое простое место для начала. Если вы установили keen-pbr-headless или предпочитаете редактировать файлы напрямую, используйте вкладку JSON / CLI.
-Для минимальной настройки нужно сделать четыре шага:
-
-  
-    
-graph LR;
-    classDef default font-size:16pt;
-
-    A[&#34;1. Добавьте outbounds&#34;]
-    B[&#34;`2. Добавьте списки
-(необязательно)`&#34;]
-    C[&#34;3. Добавьте правила маршрутизации&#34;]
-
-    A==&gt;B;
-    B==&gt;C;
-  
-
-
-
-
-  Веб-интерфейсJSON
-
-
-  
-  
-    Если вы установили keen-pbr-headless, см. метод конфигурации JSON.
-  
-
-
-    
-        
-        
-        Your browser does not support the video tag.
-        
-    
-
-Откройте веб-интерфейс
-    Откройте http://&lt;ip-роутера&gt;:12121/ в браузере. На Keenetic / NetCraze также можно открыть http://my.keenetic.net:12121/.
-Создайте outbounds
-    Перейдите в Outbounds и создайте две записи:
-
-
-Создайте outbound с именем vpn со следующими параметрами:
-
-тип = Интерфейс
-интерфейс = &lt;имя-вашего-vpn-интерфейса&gt;
-шлюз = &lt;ipv4-шлюза-vpn&gt;, если ваш VPN требует явный IPv4-шлюз
-gateway6 = &lt;ipv6-шлюза-vpn&gt;, если ваш VPN требует явный IPv6-шлюз
-
-
-
-Создайте другой outbound с именем default со следующими параметрами:
-
-тип = Таблица маршрутизации
-ID таблицы = 254
-
-
-
-Почему default?
-    В этом примере используется основная таблица маршрутизации Linux как запасной путь, поэтому default должен указывать на таблицу маршрутизации 254.
-Создайте тестовый список
-    Перейдите в Списки и создайте список, например my_sites с типом Домены / IP, затем добавьте тестовый домен, например ifconfig.co.
-Добавьте правило маршрутизации
-    Перейдите в Правила маршрутизации и направьте my_sites через outbound vpn.
-Проверка
-    
-Примените конфигурацию и дождитесь исчезновения уведомления &ldquo;черновик конфигурации&rdquo;.
-Очистите DNS-кэш на вашем устройстве:
-
-На Windows ПК откройте командную строку и выполните ipconfig /flushdns.
-На Linux ПК откройте терминал и выполните sudo resolvectl flush-caches.
-На мобильных устройствах просто переподключитесь к WiFi.
-
-
-Откройте сайт из вашего списка (ifconfig.co) и проверьте, что он показывает другой IP, чем обычный сайт «мой IP» (например, wtfismyip.com)
-
-
-Для проверки настройки откройте сайт из вашего списка и убедитесь, что он работает через VPN. Если хотите проверить через командную строку, выполните:
-
-
-bashkeen-pbr test-routing ifconfig.co
-  
-    
+      После этого руководства выбранный сайт будет открываться через VPN, а весь остальной трафик пойдёт как раньше. Понадобится готовый VPN-интерфейс на роутере (например, tun0 или wg0).
 
   
 
-
-Если результат показывает ваш VPN outbound в обоих столбцах (ожидаемый и фактический), настройка работает.
-Используйте этот путь, если вы установили keen-pbr-headless или предпочитаете редактировать файл конфигурации напрямую.
-Расположение файла конфигурации:
-
-Keenetic / NetCraze: /opt/etc/keen-pbr/config.json
-OpenWrt: /etc/keen-pbr/config.json
-Debian: /etc/keen-pbr/config.json
-
-Пример минимальной конфигурации:
-
-
-config.json{
-  &#34;version&#34;: &#34;3.4.0&#34;,
-  // Outbounds — это то, куда может идти ваш трафик
-  &#34;outbounds&#34;: [
-    {
-      &#34;tag&#34;: &#34;vpn&#34;,          // имя outbound; можно использовать буквы, цифры и подчёркивание
-      &#34;type&#34;: &#34;interface&#34;,   // outbound типа &#34;interface&#34; может маршрутизировать трафик через конкретный интерфейс
-      &#34;interface&#34;: &#34;tun0&#34;,
-      &#34;gateway&#34;: &#34;10.8.0.1&#34;
-    },
-    {
-      &#34;tag&#34;: &#34;out&#34;,
-      &#34;type&#34;: &#34;table&#34;,  // outbound типа &#34;table&#34; может маршрутизировать трафик в таблицу маршрутизации ядра iproute
-      &#34;table&#34;: 254      // ядру routing table Linux &#34;main&#34; имеет ID 254. См. файл /etc/iproute2/rt_tables для дополнительной информации.
-    },
-    {
-      &#34;tag&#34;: &#34;direct_local&#34;,
-      &#34;type&#34;: &#34;ignore&#34;  // предотвращает маршрутизацию локальных и специальных сетей в туннели
-    }
-  ],
-  &#34;lists&#34;: {
-    &#34;local_networks&#34;: { // список по умолчанию, который предотвращает маршрутизацию локального трафика в туннель
-      &#34;ip_cidrs&#34;: [
-        &#34;0.0.0.0/8&#34;, &#34;10.0.0.0/8&#34;, &#34;100.64.0.0/10&#34;, &#34;127.0.0.0/8&#34;,
-        &#34;169.254.0.0/16&#34;, &#34;172.16.0.0/12&#34;, &#34;192.168.0.0/16&#34;,
-        &#34;224.0.0.0/4&#34;, &#34;240.0.0.0/4&#34;, &#34;::1/128&#34;, &#34;fc00::/7&#34;, &#34;fe80::/10&#34;, &#34;ff00::/8&#34;
-      ]
-    },
-    &#34;my_sites&#34;: {   // список с доменами inline
-      &#34;domains&#34;: [&#34;ifconfig.co&#34;],
-      &#34;ttl_ms&#34;: 3600000 // как долго разрешённый IP добавляется в routing ipsets после появления в DNS-ответе, в миллисекундах
-    },
-    &#34;always_out&#34;: { // список с IP inline
-      &#34;ip_cidrs&#34;: [&#34;120.131.22.11&#34;]
-    },
-    &#34;my_remote_list&#34;: { // удалённый список
-      &#34;url&#34;: &#34;https://example.com/my-list.lst&#34;,
-      &#34;ttl_ms&#34;: 0 // если ttl равен 0, то IP будет добавлен в ipset навсегда (до перезапуска keen-pbr)
-    },
-    &#34;my_local_file_list&#34;: { // локальный файл списка
-      &#34;file&#34;: &#34;/etc/keen-pbr/local.lst&#34;
-    }
-  },
-  &#34;route&#34;: {
-    &#34;rules&#34;: [
-      { // Правило по умолчанию: держите локальные и специальные сети локальными, никогда не отправляйте их в туннель
-        &#34;list&#34;: [&#34;local_networks&#34;],
-        &#34;outbound&#34;: &#34;direct_local&#34;
-      },
-      { // Все IP и домены из списка &#34;my_sites&#34; будут маршрутизироваться на outbound &#34;vpn&#34;
-        &#34;list&#34;: [&#34;my_sites&#34;],
-        &#34;outbound&#34;: &#34;vpn&#34;
-      },
-      { // Все IP и домены из списка &#34;always_out&#34; будут маршрутизироваться на outbound &#34;out&#34;
-        &#34;list&#34;: [&#34;always_out&#34;],
-        &#34;outbound&#34;: &#34;out&#34;
-      }
-    ]
-  }
-}
   
-    
-
+    Если VPN на роутере ещё нет, настройте его по инструкции для вашей системы: Keenetic / NetCraze, OpenWrt, Debian. В веб-интерфейсе keen-pbr интерфейс выбирается из списка. Узнать имена всех интерфейсов в консоли можно командой ip addr: VPN-интерфейс — тот, у которого адрес из вашей VPN-сети.
   
 
 
-
-  
-  
-    В этом примере outbound out повторно использует таблицу маршрутизации Linux main (с id 254).
-Если вы маршрутизируете трафик на эту таблицу, он будет следовать вашим системным маршрутам по умолчанию.
-  
-
-
-  
-  
-    Используйте gateway только для IPv4. Если нужен явный IPv6 next-hop, укажите gateway6.
-Если не указано ни одно из этих полей, keen-pbr создаст для interface outbound и IPv4-, и IPv6-маршруты по умолчанию.
-  
-
-Что делает этот пример:
-
-Создаёт VPN outbound и outbound out, который повторно использует таблицу маршрутизации 254 (основная таблица маршрутизации)
-Добавляет список my_sites с ifconfig.co
-Добавляет список always_out с 120.131.22.11
-Добавляет списки my_remote_list и my_local_file_list, которые не используются ни в каких правилах, но приведены здесь просто для примера
-Отправляет трафик для всех доменов из my_sites через vpn
-Отправляет трафик для всех IP из always_out через out
-
-Перезапустите сервис после сохранения конфигурации:
-
-  Keenetic / NetCrazeOpenWrtDebian
-
-
-bash/opt/etc/init.d/S80keen-pbr restart
-  
-    
-
-  
-
-
-
-bashservice keen-pbr restart
-  
-    
-
-  
-
-
-
-bashsystemctl restart keen-pbr
-  
-    
-
-  
-
-
-
-Проверьте результат:
-
-
-bashkeen-pbr test-routing ifconfig.co
-  
-    
-
-  
-
-
-Вы также можете выполнить keen-pbr status для более широкой проверки состояния.
-
+Если вы установили полный пакет, начните с веб-интерфейса. Если у вас keen-pbr-headless или вы привыкли править файлы, используйте вкладку JSON.
     
   ">
 <meta
@@ -276,47 +40,13 @@ bashkeen-pbr test-routing ifconfig.co
 
 
 	<meta itemprop="name" content="Быстрый старт">
-	<meta itemprop="description" content="Это руководство поможет завершить первую рабочую настройку, которая отправляет выбранные сайты через VPN, сохраняя обычное соединение для остального трафика.
-Если вы установили полный пакет, веб-интерфейс — самое простое место для начала. Если вы установили keen-pbr-headless или предпочитаете редактировать файлы напрямую, используйте вкладку JSON / CLI.
-Для минимальной настройки нужно сделать четыре шага:
-graph LR; classDef default font-size:16pt; A[&#34;1. Добавьте outbounds&#34;] B[&#34;`2. Добавьте списки (необязательно)`&#34;] C[&#34;3. Добавьте правила маршрутизации&#34;] A==&gt;B; B==&gt;C; Веб-интерфейсJSON Если вы установили keen-pbr-headless, см. метод конфигурации JSON. Your browser does not support the video tag. Откройте веб-интерфейс Откройте http://&lt;ip-роутера&gt;:12121/ в браузере. На Keenetic / NetCraze также можно открыть http://my.keenetic.net:12121/.
-Создайте outbounds Перейдите в Outbounds и создайте две записи:
-Создайте outbound с именем vpn со следующими параметрами:
-тип = Интерфейс интерфейс = &lt;имя-вашего-vpn-интерфейса&gt; шлюз = &lt;ipv4-шлюза-vpn&gt;, если ваш VPN требует явный IPv4-шлюз gateway6 = &lt;ipv6-шлюза-vpn&gt;, если ваш VPN требует явный IPv6-шлюз Создайте другой outbound с именем default со следующими параметрами:
-тип = Таблица маршрутизации ID таблицы = 254 Почему default? В этом примере используется основная таблица маршрутизации Linux как запасной путь, поэтому default должен указывать на таблицу маршрутизации 254.
-Создайте тестовый список Перейдите в Списки и создайте список, например my_sites с типом Домены / IP, затем добавьте тестовый домен, например ifconfig.co.
-Добавьте правило маршрутизации Перейдите в Правила маршрутизации и направьте my_sites через outbound vpn.
-Проверка Примените конфигурацию и дождитесь исчезновения уведомления “черновик конфигурации”. Очистите DNS-кэш на вашем устройстве: На Windows ПК откройте командную строку и выполните ipconfig /flushdns. На Linux ПК откройте терминал и выполните sudo resolvectl flush-caches. На мобильных устройствах просто переподключитесь к WiFi. Откройте сайт из вашего списка (ifconfig.co) и проверьте, что он показывает другой IP, чем обычный сайт «мой IP» (например, wtfismyip.com) Для проверки настройки откройте сайт из вашего списка и убедитесь, что он работает через VPN. Если хотите проверить через командную строку, выполните:
-bashkeen-pbr test-routing ifconfig.co Если результат показывает ваш VPN outbound в обоих столбцах (ожидаемый и фактический), настройка работает.
-Используйте этот путь, если вы установили keen-pbr-headless или предпочитаете редактировать файл конфигурации напрямую.
-Расположение файла конфигурации:
-Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json Пример минимальной конфигурации:
-config.json{ &#34;version&#34;: &#34;3.4.0&#34;, // Outbounds — это то, куда может идти ваш трафик &#34;outbounds&#34;: [ { &#34;tag&#34;: &#34;vpn&#34;, // имя outbound; можно использовать буквы, цифры и подчёркивание &#34;type&#34;: &#34;interface&#34;, // outbound типа &#34;interface&#34; может маршрутизировать трафик через конкретный интерфейс &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;tag&#34;: &#34;out&#34;, &#34;type&#34;: &#34;table&#34;, // outbound типа &#34;table&#34; может маршрутизировать трафик в таблицу маршрутизации ядра iproute &#34;table&#34;: 254 // ядру routing table Linux &#34;main&#34; имеет ID 254. См. файл /etc/iproute2/rt_tables для дополнительной информации. }, { &#34;tag&#34;: &#34;direct_local&#34;, &#34;type&#34;: &#34;ignore&#34; // предотвращает маршрутизацию локальных и специальных сетей в туннели } ], &#34;lists&#34;: { &#34;local_networks&#34;: { // список по умолчанию, который предотвращает маршрутизацию локального трафика в туннель &#34;ip_cidrs&#34;: [ &#34;0.0.0.0/8&#34;, &#34;10.0.0.0/8&#34;, &#34;100.64.0.0/10&#34;, &#34;127.0.0.0/8&#34;, &#34;169.254.0.0/16&#34;, &#34;172.16.0.0/12&#34;, &#34;192.168.0.0/16&#34;, &#34;224.0.0.0/4&#34;, &#34;240.0.0.0/4&#34;, &#34;::1/128&#34;, &#34;fc00::/7&#34;, &#34;fe80::/10&#34;, &#34;ff00::/8&#34; ] }, &#34;my_sites&#34;: { // список с доменами inline &#34;domains&#34;: [&#34;ifconfig.co&#34;], &#34;ttl_ms&#34;: 3600000 // как долго разрешённый IP добавляется в routing ipsets после появления в DNS-ответе, в миллисекундах }, &#34;always_out&#34;: { // список с IP inline &#34;ip_cidrs&#34;: [&#34;120.131.22.11&#34;] }, &#34;my_remote_list&#34;: { // удалённый список &#34;url&#34;: &#34;https://example.com/my-list.lst&#34;, &#34;ttl_ms&#34;: 0 // если ttl равен 0, то IP будет добавлен в ipset навсегда (до перезапуска keen-pbr) }, &#34;my_local_file_list&#34;: { // локальный файл списка &#34;file&#34;: &#34;/etc/keen-pbr/local.lst&#34; } }, &#34;route&#34;: { &#34;rules&#34;: [ { // Правило по умолчанию: держите локальные и специальные сети локальными, никогда не отправляйте их в туннель &#34;list&#34;: [&#34;local_networks&#34;], &#34;outbound&#34;: &#34;direct_local&#34; }, { // Все IP и домены из списка &#34;my_sites&#34; будут маршрутизироваться на outbound &#34;vpn&#34; &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; }, { // Все IP и домены из списка &#34;always_out&#34; будут маршрутизироваться на outbound &#34;out&#34; &#34;list&#34;: [&#34;always_out&#34;], &#34;outbound&#34;: &#34;out&#34; } ] } } В этом примере outbound out повторно использует таблицу маршрутизации Linux main (с id 254). Если вы маршрутизируете трафик на эту таблицу, он будет следовать вашим системным маршрутам по умолчанию. Используйте gateway только для IPv4. Если нужен явный IPv6 next-hop, укажите gateway6. Если не указано ни одно из этих полей, keen-pbr создаст для interface outbound и IPv4-, и IPv6-маршруты по умолчанию. Что делает этот пример:
-Создаёт VPN outbound и outbound out, который повторно использует таблицу маршрутизации 254 (основная таблица маршрутизации) Добавляет список my_sites с ifconfig.co Добавляет список always_out с 120.131.22.11 Добавляет списки my_remote_list и my_local_file_list, которые не используются ни в каких правилах, но приведены здесь просто для примера Отправляет трафик для всех доменов из my_sites через vpn Отправляет трафик для всех IP из always_out через out Перезапустите сервис после сохранения конфигурации:
-Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr restart bashservice keen-pbr restart bashsystemctl restart keen-pbr Проверьте результат:
-bashkeen-pbr test-routing ifconfig.co Вы также можете выполнить keen-pbr status для более широкой проверки состояния.">
-	<meta itemprop="wordCount" content="786">
+	<meta itemprop="description" content="После этого руководства выбранный сайт будет открываться через VPN, а весь остальной трафик пойдёт как раньше. Понадобится готовый VPN-интерфейс на роутере (например, tun0 или wg0).
+Если VPN на роутере ещё нет, настройте его по инструкции для вашей системы: Keenetic / NetCraze, OpenWrt, Debian. В веб-интерфейсе keen-pbr интерфейс выбирается из списка. Узнать имена всех интерфейсов в консоли можно командой ip addr: VPN-интерфейс — тот, у которого адрес из вашей VPN-сети. Если вы установили полный пакет, начните с веб-интерфейса. Если у вас keen-pbr-headless или вы привыкли править файлы, используйте вкладку JSON.">
+	<meta itemprop="wordCount" content="1066">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Быстрый старт">
-	<meta name="twitter:description" content="Это руководство поможет завершить первую рабочую настройку, которая отправляет выбранные сайты через VPN, сохраняя обычное соединение для остального трафика.
-Если вы установили полный пакет, веб-интерфейс — самое простое место для начала. Если вы установили keen-pbr-headless или предпочитаете редактировать файлы напрямую, используйте вкладку JSON / CLI.
-Для минимальной настройки нужно сделать четыре шага:
-graph LR; classDef default font-size:16pt; A[&#34;1. Добавьте outbounds&#34;] B[&#34;`2. Добавьте списки (необязательно)`&#34;] C[&#34;3. Добавьте правила маршрутизации&#34;] A==&gt;B; B==&gt;C; Веб-интерфейсJSON Если вы установили keen-pbr-headless, см. метод конфигурации JSON. Your browser does not support the video tag. Откройте веб-интерфейс Откройте http://&lt;ip-роутера&gt;:12121/ в браузере. На Keenetic / NetCraze также можно открыть http://my.keenetic.net:12121/.
-Создайте outbounds Перейдите в Outbounds и создайте две записи:
-Создайте outbound с именем vpn со следующими параметрами:
-тип = Интерфейс интерфейс = &lt;имя-вашего-vpn-интерфейса&gt; шлюз = &lt;ipv4-шлюза-vpn&gt;, если ваш VPN требует явный IPv4-шлюз gateway6 = &lt;ipv6-шлюза-vpn&gt;, если ваш VPN требует явный IPv6-шлюз Создайте другой outbound с именем default со следующими параметрами:
-тип = Таблица маршрутизации ID таблицы = 254 Почему default? В этом примере используется основная таблица маршрутизации Linux как запасной путь, поэтому default должен указывать на таблицу маршрутизации 254.
-Создайте тестовый список Перейдите в Списки и создайте список, например my_sites с типом Домены / IP, затем добавьте тестовый домен, например ifconfig.co.
-Добавьте правило маршрутизации Перейдите в Правила маршрутизации и направьте my_sites через outbound vpn.
-Проверка Примените конфигурацию и дождитесь исчезновения уведомления “черновик конфигурации”. Очистите DNS-кэш на вашем устройстве: На Windows ПК откройте командную строку и выполните ipconfig /flushdns. На Linux ПК откройте терминал и выполните sudo resolvectl flush-caches. На мобильных устройствах просто переподключитесь к WiFi. Откройте сайт из вашего списка (ifconfig.co) и проверьте, что он показывает другой IP, чем обычный сайт «мой IP» (например, wtfismyip.com) Для проверки настройки откройте сайт из вашего списка и убедитесь, что он работает через VPN. Если хотите проверить через командную строку, выполните:
-bashkeen-pbr test-routing ifconfig.co Если результат показывает ваш VPN outbound в обоих столбцах (ожидаемый и фактический), настройка работает.
-Используйте этот путь, если вы установили keen-pbr-headless или предпочитаете редактировать файл конфигурации напрямую.
-Расположение файла конфигурации:
-Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json Пример минимальной конфигурации:
-config.json{ &#34;version&#34;: &#34;3.4.0&#34;, // Outbounds — это то, куда может идти ваш трафик &#34;outbounds&#34;: [ { &#34;tag&#34;: &#34;vpn&#34;, // имя outbound; можно использовать буквы, цифры и подчёркивание &#34;type&#34;: &#34;interface&#34;, // outbound типа &#34;interface&#34; может маршрутизировать трафик через конкретный интерфейс &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;tag&#34;: &#34;out&#34;, &#34;type&#34;: &#34;table&#34;, // outbound типа &#34;table&#34; может маршрутизировать трафик в таблицу маршрутизации ядра iproute &#34;table&#34;: 254 // ядру routing table Linux &#34;main&#34; имеет ID 254. См. файл /etc/iproute2/rt_tables для дополнительной информации. }, { &#34;tag&#34;: &#34;direct_local&#34;, &#34;type&#34;: &#34;ignore&#34; // предотвращает маршрутизацию локальных и специальных сетей в туннели } ], &#34;lists&#34;: { &#34;local_networks&#34;: { // список по умолчанию, который предотвращает маршрутизацию локального трафика в туннель &#34;ip_cidrs&#34;: [ &#34;0.0.0.0/8&#34;, &#34;10.0.0.0/8&#34;, &#34;100.64.0.0/10&#34;, &#34;127.0.0.0/8&#34;, &#34;169.254.0.0/16&#34;, &#34;172.16.0.0/12&#34;, &#34;192.168.0.0/16&#34;, &#34;224.0.0.0/4&#34;, &#34;240.0.0.0/4&#34;, &#34;::1/128&#34;, &#34;fc00::/7&#34;, &#34;fe80::/10&#34;, &#34;ff00::/8&#34; ] }, &#34;my_sites&#34;: { // список с доменами inline &#34;domains&#34;: [&#34;ifconfig.co&#34;], &#34;ttl_ms&#34;: 3600000 // как долго разрешённый IP добавляется в routing ipsets после появления в DNS-ответе, в миллисекундах }, &#34;always_out&#34;: { // список с IP inline &#34;ip_cidrs&#34;: [&#34;120.131.22.11&#34;] }, &#34;my_remote_list&#34;: { // удалённый список &#34;url&#34;: &#34;https://example.com/my-list.lst&#34;, &#34;ttl_ms&#34;: 0 // если ttl равен 0, то IP будет добавлен в ipset навсегда (до перезапуска keen-pbr) }, &#34;my_local_file_list&#34;: { // локальный файл списка &#34;file&#34;: &#34;/etc/keen-pbr/local.lst&#34; } }, &#34;route&#34;: { &#34;rules&#34;: [ { // Правило по умолчанию: держите локальные и специальные сети локальными, никогда не отправляйте их в туннель &#34;list&#34;: [&#34;local_networks&#34;], &#34;outbound&#34;: &#34;direct_local&#34; }, { // Все IP и домены из списка &#34;my_sites&#34; будут маршрутизироваться на outbound &#34;vpn&#34; &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; }, { // Все IP и домены из списка &#34;always_out&#34; будут маршрутизироваться на outbound &#34;out&#34; &#34;list&#34;: [&#34;always_out&#34;], &#34;outbound&#34;: &#34;out&#34; } ] } } В этом примере outbound out повторно использует таблицу маршрутизации Linux main (с id 254). Если вы маршрутизируете трафик на эту таблицу, он будет следовать вашим системным маршрутам по умолчанию. Используйте gateway только для IPv4. Если нужен явный IPv6 next-hop, укажите gateway6. Если не указано ни одно из этих полей, keen-pbr создаст для interface outbound и IPv4-, и IPv6-маршруты по умолчанию. Что делает этот пример:
-Создаёт VPN outbound и outbound out, который повторно использует таблицу маршрутизации 254 (основная таблица маршрутизации) Добавляет список my_sites с ifconfig.co Добавляет список always_out с 120.131.22.11 Добавляет списки my_remote_list и my_local_file_list, которые не используются ни в каких правилах, но приведены здесь просто для примера Отправляет трафик для всех доменов из my_sites через vpn Отправляет трафик для всех IP из always_out через out Перезапустите сервис после сохранения конфигурации:
-Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr restart bashservice keen-pbr restart bashsystemctl restart keen-pbr Проверьте результат:
-bashkeen-pbr test-routing ifconfig.co Вы также можете выполнить keen-pbr status для более широкой проверки состояния.">
+	<meta name="twitter:description" content="После этого руководства выбранный сайт будет открываться через VPN, а весь остальной трафик пойдёт как раньше. Понадобится готовый VPN-интерфейс на роутере (например, tun0 или wg0).
+Если VPN на роутере ещё нет, настройте его по инструкции для вашей системы: Keenetic / NetCraze, OpenWrt, Debian. В веб-интерфейсе keen-pbr интерфейс выбирается из списка. Узнать имена всех интерфейсов в консоли можно командой ip addr: VPN-интерфейс — тот, у которого адрес из вашей VPN-сети. Если вы установили полный пакет, начните с веб-интерфейса. Если у вас keen-pbr-headless или вы привыкли править файлы, используйте вкладку JSON.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -1242,9 +972,17 @@ bashkeen-pbr test-routing ifconfig.co Вы также можете выполн�
     </div>
           </div>
           
-          <p>Это руководство поможет завершить первую рабочую настройку, которая отправляет выбранные сайты через VPN, сохраняя обычное соединение для остального трафика.</p>
-<p>Если вы установили полный пакет, веб-интерфейс — самое простое место для начала. Если вы установили <code>keen-pbr-headless</code> или предпочитаете редактировать файлы напрямую, используйте вкладку JSON / CLI.</p>
-<p>Для минимальной настройки нужно сделать четыре шага:</p>
+          <p>После этого руководства выбранный сайт будет открываться через VPN, а весь остальной трафик пойдёт как раньше. Понадобится готовый VPN-интерфейс на роутере (например, <code>tun0</code> или <code>wg0</code>).</p>
+<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
+  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+
+  <div class="hx:w-full hx:min-w-0 hx:leading-7">
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Если VPN на роутере ещё нет, настройте его по инструкции для вашей системы: <a href="https://help.keenetic.com/hc/ru/articles/360010592379"target="_blank" rel="noopener">Keenetic / NetCraze</a>, <a href="https://openwrt.org/docs/guide-user/services/vpn/wireguard/start"target="_blank" rel="noopener">OpenWrt</a>, <a href="https://wiki.debian.org/WireGuard"target="_blank" rel="noopener">Debian</a>. В веб-интерфейсе keen-pbr интерфейс выбирается из списка. Узнать имена всех интерфейсов в консоли можно командой <code>ip addr</code>: VPN-интерфейс — тот, у которого адрес из вашей VPN-сети.</div>
+  </div>
+</div>
+
+<p>Если вы установили полный пакет, начните с веб-интерфейса. Если у вас <code>keen-pbr-headless</code> или вы привыкли править файлы, используйте вкладку JSON.</p>
+<p>Настройка состоит из трёх шагов:</p>
 <div role="img" aria-label="Диаграмма">
   <pre class="mermaid hx:mt-6">
     
@@ -1259,13 +997,20 @@ graph LR;
     A==&gt;B;
     B==&gt;C;
   </pre>
-</div>
+</div><p>Три понятия, которые встретятся дальше:</p>
+<ul>
+<li><strong>outbound</strong> — канал, через который пойдёт трафик: VPN-интерфейс, обычное подключение к провайдеру или блокировка;</li>
+<li><strong>список</strong> — набор доменов и IP-адресов, например «сайты, которые должны идти через VPN»;</li>
+<li><strong>правило маршрутизации</strong> — связка «трафик из этого списка идёт в этот outbound».</li>
+</ul>
+<p>В конфигурации по умолчанию уже есть outbounds <code>wan</code> (обычный выход в интернет через провайдера), <code>block</code> и <code>direct_local</code>, а также список <code>local_networks</code> с правилом, которое оставляет домашнюю сеть локальной. Вам нужно создать только outbound <code>vpn</code>, список и одно правило.</p>
+
 
 
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Веб-интерфейс,JSON"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-00-0" role="tab" type="button" aria-controls="tabs-panel-tabs-00-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Веб-интерфейс</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-00-1" role="tab" type="button" aria-controls="tabs-panel-tabs-00-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>JSON</span></span></button></div>
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Веб-интерфейс,JSON"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-0" role="tab" type="button" aria-controls="tabs-panel-tabs-01-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Веб-интерфейс</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-1" role="tab" type="button" aria-controls="tabs-panel-tabs-01-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>JSON</span></span></button></div>
 </div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-00-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-00-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
     <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Если вы установили <code>keen-pbr-headless</code>, см. метод конфигурации <strong>JSON</strong>.</div>
@@ -1280,54 +1025,59 @@ graph LR;
         style="width: 100%; border-radius: 12px;"
         >
         <source src="/docs/getting-started/quick-start-video.mp4" type="video/mp4">
-        Your browser does not support the video tag.
+        Ваш браузер не умеет показывать видео.
         </video>
     </figure>
 </p>
 <div class="hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]"><h3>Откройте веб-интерфейс<span class="hx:absolute hx:-mt-20" id="откройте-веб-интерфейс"></span>
     <a href="#%d0%be%d1%82%d0%ba%d1%80%d0%be%d0%b9%d1%82%d0%b5-%d0%b2%d0%b5%d0%b1-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Откройте <code>http://&lt;ip-роутера&gt;:12121/</code> в браузере. На Keenetic / NetCraze также можно открыть <code>http://my.keenetic.net:12121/</code>.</p>
-<h3>Создайте outbounds<span class="hx:absolute hx:-mt-20" id="создайте-outbounds"></span>
-    <a href="#%d1%81%d0%be%d0%b7%d0%b4%d0%b0%d0%b9%d1%82%d0%b5-outbounds" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Перейдите в <strong>Outbounds</strong> и создайте две записи:</p>
-<ol>
-<li>
-<p>Создайте outbound с именем <code>vpn</code> со следующими параметрами:</p>
-<ul>
-<li><code>тип = Интерфейс</code></li>
-<li><code>интерфейс = &lt;имя-вашего-vpn-интерфейса&gt;</code></li>
-<li><code>шлюз = &lt;ipv4-шлюза-vpn&gt;</code>, если ваш VPN требует явный IPv4-шлюз</li>
-<li><code>gateway6 = &lt;ipv6-шлюза-vpn&gt;</code>, если ваш VPN требует явный IPv6-шлюз</li>
-</ul>
-</li>
-<li>
-<p>Создайте другой outbound с именем <code>default</code> со следующими параметрами:</p>
-<ul>
-<li><code>тип = Таблица маршрутизации</code></li>
-<li><code>ID таблицы = 254</code></li>
-</ul>
-</li>
+<h3>Создайте outbound для VPN<span class="hx:absolute hx:-mt-20" id="создайте-outbound-для-vpn"></span>
+    <a href="#%d1%81%d0%be%d0%b7%d0%b4%d0%b0%d0%b9%d1%82%d0%b5-outbound-%d0%b4%d0%bb%d1%8f-vpn" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><ol>
+<li>Откройте <strong>Маршрутизация</strong> &gt; <strong>Outbounds</strong> и нажмите <strong>Добавить outbound</strong>.</li>
+<li>В поле <strong>Название</strong> введите <code>vpn</code>.</li>
+<li>В поле <strong>Тип</strong> выберите <strong>Интерфейс</strong>.</li>
+<li>В поле <strong>Интерфейс</strong> выберите имя вашего VPN-интерфейса из списка.</li>
+<li>Поля <strong>Шлюз по умолчанию IPv4</strong> и <strong>Шлюз по умолчанию IPv6</strong> оставьте пустыми. Шлюз — это адрес следующего роутера на пути; VPN-туннелям он обычно не нужен. Если заполнить только одно из полей, трафик другого вида (IPv4 или IPv6) через этот outbound не пойдёт.</li>
+<li>Нажмите <strong>Создать outbound</strong>.</li>
 </ol>
-<h4 class="no-step-marker">Почему <code>default</code>?<span class="hx:absolute hx:-mt-20" id="почему-default"></span>
-    <a href="#%d0%bf%d0%be%d1%87%d0%b5%d0%bc%d1%83-default" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h4><p>В этом примере используется основная таблица маршрутизации Linux как запасной путь, поэтому <code>default</code> должен указывать на таблицу маршрутизации <code>254</code>.</p>
+<p>Outbound <code>wan</code> уже существует: это обычный выход в интернет через провайдера (таблица маршрутизации 254). Если его нет, создайте его: <strong>Тип</strong> &gt; <strong>Таблица маршрутизации</strong>, <strong>ID таблицы</strong> <code>254</code>.</p>
 <h3>Создайте тестовый список<span class="hx:absolute hx:-mt-20" id="создайте-тестовый-список"></span>
-    <a href="#%d1%81%d0%be%d0%b7%d0%b4%d0%b0%d0%b9%d1%82%d0%b5-%d1%82%d0%b5%d1%81%d1%82%d0%be%d0%b2%d1%8b%d0%b9-%d1%81%d0%bf%d0%b8%d1%81%d0%be%d0%ba" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Перейдите в <strong>Списки</strong> и создайте список, например <code>my_sites</code> с типом <strong>Домены / IP</strong>, затем добавьте тестовый домен, например <code>ifconfig.co</code>.</p>
+    <a href="#%d1%81%d0%be%d0%b7%d0%b4%d0%b0%d0%b9%d1%82%d0%b5-%d1%82%d0%b5%d1%81%d1%82%d0%be%d0%b2%d1%8b%d0%b9-%d1%81%d0%bf%d0%b8%d1%81%d0%be%d0%ba" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><ol>
+<li>Откройте <strong>Маршрутизация</strong> &gt; <strong>Списки</strong> и нажмите <strong>Добавить список</strong>.</li>
+<li>В поле <strong>Название</strong> введите <code>my_sites</code>.</li>
+<li>В поле <strong>Тип источника</strong> выберите <strong>Домены / IP</strong>.</li>
+<li>В поле <strong>Домены</strong> введите <code>ifconfig.co</code>. Для настоящего сервиса вроде YouTube одного домена мало: подключите готовый список, см. <a href="/ru/docs/configuration/lists/#remote-url-list">Удалённый список по URL</a>.</li>
+<li>Нажмите <strong>Создать список</strong>.</li>
+</ol>
 <h3>Добавьте правило маршрутизации<span class="hx:absolute hx:-mt-20" id="добавьте-правило-маршрутизации"></span>
-    <a href="#%d0%b4%d0%be%d0%b1%d0%b0%d0%b2%d1%8c%d1%82%d0%b5-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%be-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Перейдите в <strong>Правила маршрутизации</strong> и направьте <code>my_sites</code> через outbound <code>vpn</code>.</p>
-<h3>Проверка<span class="hx:absolute hx:-mt-20" id="проверка"></span>
-    <a href="#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><ol>
-<li>Примените конфигурацию и дождитесь исчезновения уведомления &ldquo;черновик конфигурации&rdquo;.</li>
-<li>Очистите DNS-кэш на вашем устройстве:
+    <a href="#%d0%b4%d0%be%d0%b1%d0%b0%d0%b2%d1%8c%d1%82%d0%b5-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%be-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><ol>
+<li>Откройте <strong>Маршрутизация</strong> &gt; <strong>Правила маршрутизации</strong> и нажмите <strong>Добавить правило маршрутизации</strong>.</li>
+<li>Нажмите <strong>Выберите первое условие</strong>, выберите <strong>Списки</strong> и отметьте <code>my_sites</code>.</li>
+<li>В поле <strong>Направить трафик в</strong> выберите <code>vpn</code>.</li>
+<li>Нажмите <strong>Создать правило</strong>.</li>
+</ol>
+<p>Новое правило появится в списке под правилом <code>local_networks</code>. Правила проверяются сверху вниз, срабатывает первое подходящее.</p>
+<h3>Примените настройки<span class="hx:absolute hx:-mt-20" id="примените-настройки"></span>
+    <a href="#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d0%bd%d0%b8%d1%82%d0%b5-%d0%bd%d0%b0%d1%81%d1%82%d1%80%d0%be%d0%b9%d0%ba%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Вверху страницы появится баннер «Конфигурация была изменена. Сохраните её на диск для применения.» Нажмите <strong>Применить</strong> и дождитесь, пока баннер исчезнет.</p>
+<h3>Проверьте результат<span class="hx:absolute hx:-mt-20" id="проверьте-результат"></span>
+    <a href="#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d1%8c%d1%82%d0%b5-%d1%80%d0%b5%d0%b7%d1%83%d0%bb%d1%8c%d1%82%d0%b0%d1%82" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><ol>
+<li>
+<p>Очистите DNS-кэш на вашем устройстве:</p>
 <ul>
-<li>На Windows ПК откройте командную строку и выполните <code>ipconfig /flushdns</code>.</li>
-<li>На Linux ПК откройте терминал и выполните <code>sudo resolvectl flush-caches</code>.</li>
-<li>На мобильных устройствах просто переподключитесь к WiFi.</li>
+<li>На Windows откройте командную строку и выполните <code>ipconfig /flushdns</code>.</li>
+<li>На Linux откройте терминал и выполните <code>sudo resolvectl flush-caches</code>.</li>
+<li>На мобильных устройствах переподключитесь к Wi-Fi.</li>
 </ul>
 </li>
-<li>Откройте сайт из вашего списка (<code>ifconfig.co</code>) и проверьте, что он показывает другой IP, чем обычный сайт «мой IP» (например, <code>wtfismyip.com</code>)</li>
+<li>
+<p>Откройте <code>ifconfig.co</code> и сравните IP-адрес с тем, что показывает обычный сайт «мой IP» (например, <code>wtfismyip.com</code>). Если адреса разные, <code>ifconfig.co</code> идёт через VPN.</p>
+<p>Проверяйте с компьютера или телефона в вашей сети, а не командой <code>curl</code> на самом роутере: трафик самого роутера по умолчанию идёт мимо правил. Подробнее: <a href="/ru/docs/faq/#router-own-traffic">FAQ</a>.</p>
+</li>
+<li>
+<p>Для проверки из командной строки выполните на роутере:</p>
+</li>
 </ol>
-</div>
-<p>Для проверки настройки откройте сайт из вашего списка и убедитесь, что он работает через VPN. Если хотите проверить через командную строку, выполните:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr test-routing ifconfig.co</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1340,73 +1090,76 @@ graph LR;
   </button>
 </div>
 </div>
-<p>Если результат показывает ваш VPN outbound в обоих столбцах (ожидаемый и фактический), настройка работает.</p>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-00-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-00-1" aria-hidden="true"><p>Используйте этот путь, если вы установили <code>keen-pbr-headless</code> или предпочитаете редактировать файл конфигурации напрямую.</p>
+<p>В таблице результата столбцы <code>Expected Outbound</code> и <code>Actual Outbound</code> должны показывать <code>vpn</code>, а в последнем столбце должно быть <code>OK</code>.</p>
+</div>
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-1" aria-hidden="true"><p>Используйте этот путь, если вы установили <code>keen-pbr-headless</code> или предпочитаете редактировать файл конфигурации напрямую.</p>
 <p>Расположение файла конфигурации:</p>
 <ul>
 <li>Keenetic / NetCraze: <code>/opt/etc/keen-pbr/config.json</code></li>
 <li>OpenWrt: <code>/etc/keen-pbr/config.json</code></li>
 <li>Debian: <code>/etc/keen-pbr/config.json</code></li>
 </ul>
-<p>Пример минимальной конфигурации:</p>
+<p>В файле уже есть outbounds <code>wan</code>, <code>block</code> и <code>direct_local</code>, список <code>local_networks</code> и правило для него. Добавьте к ним outbound <code>vpn</code>, списки и правила, как в примере ниже. Остальные разделы (<code>daemon</code>, <code>dns</code>, <code>fwmark</code>, <code>iproute</code>, <code>lists_autoupdate</code>, <code>api</code>) оставьте как есть.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;version&#34;</span><span class="p">:</span> <span class="s2">&#34;3.4.0&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="c1">// Outbounds — это то, куда может идти ваш трафик
+</span></span><span class="line"><span class="cl">  <span class="c1">// Outbounds — каналы, через которые может идти ваш трафик
 </span></span></span><span class="line"><span class="cl">  <span class="nt">&#34;outbounds&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">,</span>          <span class="c1">// имя outbound; можно использовать буквы, цифры и подчёркивание
-</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;interface&#34;</span><span class="p">,</span>   <span class="c1">// outbound типа &#34;interface&#34; может маршрутизировать трафик через конкретный интерфейс
-</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;interface&#34;</span><span class="p">:</span> <span class="s2">&#34;tun0&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;gateway&#34;</span><span class="p">:</span> <span class="s2">&#34;10.8.0.1&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">,</span>          <span class="c1">// имя outbound: буквы, цифры и подчёркивание
+</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;interface&#34;</span><span class="p">,</span>   <span class="c1">// трафик пойдёт через сетевой интерфейс
+</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;interface&#34;</span><span class="p">:</span> <span class="s2">&#34;tun0&#34;</span>    <span class="c1">// имя вашего VPN-интерфейса; шлюз для туннеля обычно не нужен
+</span></span></span><span class="line"><span class="cl">    <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;out&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;table&#34;</span><span class="p">,</span>  <span class="c1">// outbound типа &#34;table&#34; может маршрутизировать трафик в таблицу маршрутизации ядра iproute
-</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;table&#34;</span><span class="p">:</span> <span class="mi">254</span>      <span class="c1">// ядру routing table Linux &#34;main&#34; имеет ID 254. См. файл /etc/iproute2/rt_tables для дополнительной информации.
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;wan&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;table&#34;</span><span class="p">,</span>  <span class="c1">// трафик пойдёт по одной из таблиц маршрутизации роутера
+</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;table&#34;</span><span class="p">:</span> <span class="mi">254</span>      <span class="c1">// 254 — основная таблица роутера: обычный выход в интернет через провайдера
+</span></span></span><span class="line"><span class="cl">    <span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;block&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;blackhole&#34;</span>  <span class="c1">// трафик отбрасывается
 </span></span></span><span class="line"><span class="cl">    <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;direct_local&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;ignore&#34;</span>  <span class="c1">// предотвращает маршрутизацию локальных и специальных сетей в туннели
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;ignore&#34;</span>  <span class="c1">// трафик идёт как обычно; нужен, чтобы локальные сети не попали в туннель
 </span></span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">],</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;lists&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;local_networks&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// список по умолчанию, который предотвращает маршрутизацию локального трафика в туннель
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;local_networks&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// список по умолчанию: локальные и служебные сети
 </span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;ip_cidrs&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">        <span class="s2">&#34;0.0.0.0/8&#34;</span><span class="p">,</span> <span class="s2">&#34;10.0.0.0/8&#34;</span><span class="p">,</span> <span class="s2">&#34;100.64.0.0/10&#34;</span><span class="p">,</span> <span class="s2">&#34;127.0.0.0/8&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="s2">&#34;169.254.0.0/16&#34;</span><span class="p">,</span> <span class="s2">&#34;172.16.0.0/12&#34;</span><span class="p">,</span> <span class="s2">&#34;192.168.0.0/16&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="s2">&#34;224.0.0.0/4&#34;</span><span class="p">,</span> <span class="s2">&#34;240.0.0.0/4&#34;</span><span class="p">,</span> <span class="s2">&#34;::1/128&#34;</span><span class="p">,</span> <span class="s2">&#34;fc00::/7&#34;</span><span class="p">,</span> <span class="s2">&#34;fe80::/10&#34;</span><span class="p">,</span> <span class="s2">&#34;ff00::/8&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">]</span>
 </span></span><span class="line"><span class="cl">    <span class="p">},</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my_sites&#34;</span><span class="p">:</span> <span class="p">{</span>   <span class="c1">// список с доменами inline
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my_sites&#34;</span><span class="p">:</span> <span class="p">{</span>   <span class="c1">// список с доменами прямо в конфиге
 </span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;domains&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;ifconfig.co&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;ttl_ms&#34;</span><span class="p">:</span> <span class="mi">3600000</span> <span class="c1">// как долго разрешённый IP добавляется в routing ipsets после появления в DNS-ответе, в миллисекундах
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;ttl_ms&#34;</span><span class="p">:</span> <span class="mi">3600000</span> <span class="c1">// минимум, сколько мс IP, узнанный из DNS-ответа, остаётся в списке; DNS TTL может продлить срок до 24 часов
 </span></span></span><span class="line"><span class="cl">    <span class="p">},</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;always_out&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// список с IP inline
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;always_wan&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// список с IP прямо в конфиге
 </span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;ip_cidrs&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;120.131.22.11&#34;</span><span class="p">]</span>
 </span></span><span class="line"><span class="cl">    <span class="p">},</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my_remote_list&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// удалённый список
-</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;url&#34;</span><span class="p">:</span> <span class="s2">&#34;https://example.com/my-list.lst&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;ttl_ms&#34;</span><span class="p">:</span> <span class="mi">0</span> <span class="c1">// если ttl равен 0, то IP будет добавлен в ipset навсегда (до перезапуска keen-pbr)
-</span></span></span><span class="line"><span class="cl">    <span class="p">},</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my_local_file_list&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// локальный файл списка
-</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;file&#34;</span><span class="p">:</span> <span class="s2">&#34;/etc/keen-pbr/local.lst&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my_remote_list&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// список, который загружается по ссылке
+</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;url&#34;</span><span class="p">:</span> <span class="s2">&#34;https://example.com/my-list.lst&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my_local_file_list&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="c1">// список из файла на роутере
+</span></span></span><span class="line"><span class="cl">      <span class="nt">&#34;file&#34;</span><span class="p">:</span> <span class="s2">&#34;/etc/keen-pbr/local.lst&#34;</span> <span class="c1">// укажите путь к своему файлу
+</span></span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">},</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span> <span class="c1">// Правило по умолчанию: держите локальные и специальные сети локальными, никогда не отправляйте их в туннель
+</span></span><span class="line"><span class="cl">      <span class="p">{</span> <span class="c1">// Правило по умолчанию: локальные сети никогда не идут в туннель
 </span></span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;local_networks&#34;</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;direct_local&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">},</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span> <span class="c1">// Все IP и домены из списка &#34;my_sites&#34; будут маршрутизироваться на outbound &#34;vpn&#34;
+</span></span><span class="line"><span class="cl">      <span class="p">{</span> <span class="c1">// Домены и IP из списка &#34;my_sites&#34; идут через &#34;vpn&#34;
 </span></span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_sites&#34;</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">},</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span> <span class="c1">// Все IP и домены из списка &#34;always_out&#34; будут маршрутизироваться на outbound &#34;out&#34;
-</span></span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;always_out&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;out&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span> <span class="c1">// IP из списка &#34;always_wan&#34; идут через &#34;wan&#34;, то есть напрямую через провайдера
+</span></span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;always_wan&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;wan&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">}</span>
 </span></span><span class="line"><span class="cl">    <span class="p">]</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
@@ -1425,31 +1178,21 @@ graph LR;
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">В этом примере outbound <code>out</code> повторно использует таблицу маршрутизации Linux <code>main</code> (с id <code>254</code>).
-Если вы маршрутизируете трафик на эту таблицу, он будет следовать вашим системным маршрутам по умолчанию.</div>
-  </div>
-</div>
-<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
-  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-  <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Используйте <code>gateway</code> только для IPv4. Если нужен явный IPv6 next-hop, укажите <code>gateway6</code>.
-Если не указано ни одно из этих полей, keen-pbr создаст для interface outbound и IPv4-, и IPv6-маршруты по умолчанию.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Шлюз — адрес следующего роутера на пути. Для туннелей вроде <code>tun0</code> или <code>wg0</code> поля <code>gateway</code> и <code>gateway6</code> обычно не нужны: если не указать ни одно из них, трафик IPv4 и IPv6 пойдёт прямо в интерфейс. Если указать только одно, другой вид трафика через этот outbound не пойдёт.</div>
   </div>
 </div>
 <p>Что делает этот пример:</p>
 <ul>
-<li>Создаёт VPN outbound и outbound <code>out</code>, который повторно использует таблицу маршрутизации <code>254</code> (основная таблица маршрутизации)</li>
-<li>Добавляет список <code>my_sites</code> с <code>ifconfig.co</code></li>
-<li>Добавляет список <code>always_out</code> с <code>120.131.22.11</code></li>
-<li>Добавляет списки <code>my_remote_list</code> и <code>my_local_file_list</code>, которые не используются ни в каких правилах, но приведены здесь просто для примера</li>
-<li>Отправляет трафик для всех доменов из <code>my_sites</code> через <code>vpn</code></li>
-<li>Отправляет трафик для всех IP из <code>always_out</code> через <code>out</code></li>
+<li>добавляет outbound <code>vpn</code> для VPN-интерфейса и использует готовые <code>wan</code>, <code>block</code> и <code>direct_local</code>;</li>
+<li>создаёт список <code>my_sites</code> с <code>ifconfig.co</code> и список <code>always_wan</code> с <code>120.131.22.11</code>;</li>
+<li>создаёт списки <code>my_remote_list</code> и <code>my_local_file_list</code>; ни одно правило их не использует, они приведены как пример;</li>
+<li>отправляет домены из <code>my_sites</code> через <code>vpn</code>, а IP из <code>always_wan</code> — через <code>wan</code>.</li>
 </ul>
 <p>Перезапустите сервис после сохранения конфигурации:</p>
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-0" role="tab" type="button" aria-controls="tabs-panel-tabs-02-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-1" role="tab" type="button" aria-controls="tabs-panel-tabs-02-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-2" role="tab" type="button" aria-controls="tabs-panel-tabs-02-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-0" role="tab" type="button" aria-controls="tabs-panel-tabs-01-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-1" role="tab" type="button" aria-controls="tabs-panel-tabs-01-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-2" role="tab" type="button" aria-controls="tabs-panel-tabs-01-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
 </div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">/opt/etc/init.d/S80keen-pbr restart</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1462,7 +1205,7 @@ graph LR;
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">service keen-pbr restart</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1475,7 +1218,7 @@ graph LR;
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">systemctl restart keen-pbr</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1489,7 +1232,7 @@ graph LR;
 </div>
 </div>
 </div></div>
-<p>Проверьте результат:</p>
+<p>Очистите DNS-кэш на вашем устройстве (<code>ipconfig /flushdns</code> на Windows, <code>sudo resolvectl flush-caches</code> на Linux, переподключение к Wi-Fi на телефоне) и проверьте результат на роутере:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr test-routing ifconfig.co</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1504,14 +1247,15 @@ graph LR;
   </button>
 </div>
 </div>
-<p>Вы также можете выполнить <code>keen-pbr status</code> для более широкой проверки состояния.</p>
+<p>В столбцах <code>Expected Outbound</code> и <code>Actual Outbound</code> должен быть <code>vpn</code>, а в последнем столбце — <code>OK</code>.</p>
+<p>Для более общей проверки выполните <code>keen-pbr status</code>.</p>
 </div></div>
 
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Для полного справочника начните с раздела <a href="/ru/docs/configuration/">Конфигурация</a> или сразу откройте <a href="/ru/docs/configuration/full-reference-config/">Полный пример конфигурации</a>. Если что-то не работает, см. раздел <a href="/ru/docs/troubleshooting/">Устранение неполадок</a>.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Все настройки описаны в разделе <a href="/ru/docs/configuration/">Конфигурация</a>, готовый пример — в <a href="/ru/docs/configuration/full-reference-config/">Полном примере конфигурации</a>. Если что-то не работает, см. раздел <a href="/ru/docs/troubleshooting/">Устранение неполадок</a>.</div>
   </div>
 </div>
 

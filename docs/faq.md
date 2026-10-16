@@ -2,21 +2,37 @@
 
 ## What firewall backend will be used?
 
-With `daemon.firewall_backend: "auto"` (the default), keen-pbr uses nftables if the `nft` command is installed, and iptables/ipset otherwise.
+It depends on `daemon.firewall_backend`. The default is `"auto"`: keen-pbr uses nftables if the `nft` command is available, and iptables/ipset otherwise. On Keenetic, iptables/ipset is always used.
 
 ## How do I reload lists without restarting the service?
 
-Use `SIGHUP`:
+Run the command for your platform:
 
+{{< tabs >}}
+{{< tab name="Keenetic / NetCraze" selected=true >}}
 ```bash {filename="bash"}
-kill -HUP $(cat /var/run/keen-pbr.pid)
+/opt/etc/init.d/S80keen-pbr reload
 ```
+{{< /tab >}}
+{{< tab name="OpenWrt" >}}
+```bash {filename="bash"}
+service keen-pbr reload
+```
+{{< /tab >}}
+{{< tab name="Debian" >}}
+```bash {filename="bash"}
+systemctl reload keen-pbr
+```
+{{< /tab >}}
+{{< /tabs >}}
 
-This triggers a full reload: it re-downloads all remote lists and re-applies firewall and routing rules.
+This is a full reload: it re-downloads all remote lists and re-applies the firewall and routing rules.
 
-{{< callout type="info" >}}
-`SIGUSR1` is different — it re-verifies routing tables and triggers immediate URL tests, but does **not** re-download lists.
-{{< /callout >}}
+In the `keen-pbr-headless` build this command does not work. To re-download the lists and apply them, run `keen-pbr download --reload`.
+
+{{% details title="What `reapply-firewall` does" closed="true" %}}
+On Keenetic there is also `/opt/etc/init.d/S80keen-pbr reapply-firewall`. It re-verifies the routing tables and starts the `urltest` channel checks immediately, but does not re-download lists.
+{{% /details %}}
 
 ## What happens if a remote list URL is unreachable at startup?
 
@@ -51,9 +67,9 @@ One entry per line. Supported formats:
 - IPv6 address: `2606:2800:220:1:248:1893:25c8:1946`
 - {{< term "CIDR" >}}: `10.0.0.0/8`
 - Domain: `example.com` (automatically includes all sub-domains)
-  - entries like `*.example.com` are also supported and handled the same way as `example.com`
-- Lines starting with `#` are comments and are ignored
-- Empty lines are ignored
+  - entries like `*.example.com` work the same way as `example.com`
+- Lines starting with `#` are comments and are skipped
+- Empty lines are skipped
 
 ## How do I verify routing is correctly applied?
 
@@ -63,11 +79,15 @@ Run:
 keen-pbr status
 ```
 
-keen-pbr compares the firewall rules, routing tables and `ip rule` entries in the kernel with what it expects and marks each item `OK`, `MISSING` or `MISMATCH`. The same check is on the status page of the web UI and in `GET /api/health/routing`. To check a specific site, use `keen-pbr test-routing <domain-or-ip>`.
+keen-pbr compares the firewall rules, routing tables and `ip rule` entries in the kernel with what it expects and marks each item `OK`, `MISSING`, `MISMATCH` or `ERROR`. The same check is in the web UI: the **Diagnostics** panel on the **General** > **Dashboard** page. To check a specific site, click **Where does this traffic go?** on the same page or run `keen-pbr test-routing <domain-or-ip>`.
+
+## Why does a check from the router itself not go through the VPN? {#router-own-traffic}
+
+The **Process router's own traffic** (shown in **Advanced** settings mode) option (**General** > **Settings** > **General**) is off by default: the rules apply to traffic from devices on your local network, not to commands like `curl` in the router's SSH console. Test routing from a device on the network. Also, if the **Processed (inbound) interfaces** list is not empty, make sure the device connects through one of those interfaces.
 
 ## Can I combine multiple sources in one list?
 
-Yes. `url`, `domains`, `ip_cidrs`, and `file` can all be set in the same list entry and are merged:
+Yes. `url`, `domains`, `ip_cidrs`, and `file` can all be set in the same list entry and the data is combined:
 
 ```json
 {
@@ -83,6 +103,6 @@ Yes. `url`, `domains`, `ip_cidrs`, and `file` can all be set in the same list en
 ```
 
 {{< callout type="warning" >}}
-The web UI can combine only `ip_cidrs` and `domains`. Combining them with `url` or `file` is not supported in the web UI and is not recommended; it may be disallowed in a future version.
+The web UI can combine only `ip_cidrs` and `domains`. Do not combine them with `url` or `file`: the web UI does not support this, and a future version may reject it.
 {{< /callout >}}
 

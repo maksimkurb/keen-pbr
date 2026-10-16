@@ -28,13 +28,13 @@
 
 
 	<meta itemprop="name" content="keen-pbr">
-	<meta itemprop="description" content="Policy-based routing for Linux routers Route traffic selectively through VPN, WAN, or custom tables. Built for OpenWRT, Keenetic® and Netcraze® routers. Get Started Selective Routing Route traffic based on domain lists, IP CIDRs, ports, and addresses. First-match rule evaluation with normal system routing for unmatched traffic.
+	<meta itemprop="description" content="Policy-based routing for Linux routers Send selected traffic through a VPN, your provider, or your own channels. Works on Keenetic®, NetCraze®, OpenWrt routers and on Debian. Get Started Selective Routing Route traffic based on domain lists, IP CIDRs, ports, and addresses. First-match rule evaluation with normal system routing for unmatched traffic.
 google.com internal.site WAN Corp VPN Web Interface Manage routing rules, monitor outbound health, and reload configuration from a clean browser-based dashboard — no SSH required.
 keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks and active routes running Core service DNS check Outbounds health">
-	<meta itemprop="wordCount" content="232">
+	<meta itemprop="wordCount" content="259">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="keen-pbr">
-	<meta name="twitter:description" content="Policy-based routing for Linux routers Route traffic selectively through VPN, WAN, or custom tables. Built for OpenWRT, Keenetic® and Netcraze® routers. Get Started Selective Routing Route traffic based on domain lists, IP CIDRs, ports, and addresses. First-match rule evaluation with normal system routing for unmatched traffic.
+	<meta name="twitter:description" content="Policy-based routing for Linux routers Send selected traffic through a VPN, your provider, or your own channels. Works on Keenetic®, NetCraze®, OpenWrt routers and on Debian. Get Started Selective Routing Route traffic based on domain lists, IP CIDRs, ports, and addresses. First-match rule evaluation with normal system routing for unmatched traffic.
 google.com internal.site WAN Corp VPN Web Interface Manage routing rules, monitor outbound health, and reload configuration from a clean browser-based dashboard — no SSH required.
 keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks and active routes running Core service DNS check Outbounds health">
 
@@ -598,7 +598,7 @@ keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks 
   class="not-prose hx:text-xl hx:text-gray-600 hx:dark:text-gray-400 hx:sm:text-xl"
   
 >
-  Route traffic selectively through VPN, WAN, or custom tables. <br class="hx:sm:block hx:hidden" />Built for OpenWRT, Keenetic® and Netcraze® routers.
+  Send selected traffic through a VPN, your provider, or your own channels. <br class="hx:sm:block hx:hidden" />Works on Keenetic®, NetCraze®, OpenWrt routers and on Debian.
 </p>
 
 </div>
@@ -861,7 +861,7 @@ keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks 
 <div class="hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:dark:border-neutral-800 hx:aspect-auto hx:max-md:min-h-[280px]" style="background: radial-gradient(ellipse at 50% 80%,rgba(239,68,68,0.15),hsla(0,0%,100%,0));display:flex;flex-direction:column;">
 <div class="hx:relative hx:w-full hx:p-6" style="flex:1;display:flex;flex-direction:column;">
 <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2">Failover &amp; Health Checks</h3>
-<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">urltest probes candidate outbounds by latency and picks the fastest within tolerance. Circuit breaker prevents flapping under sustained failures.</p>
+<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">The urltest type checks your channels and picks the one with the lowest latency (within tolerance) or spreads connections between them. An unstable channel is temporarily excluded so traffic does not jump back and forth.</p>
 <div style="flex:1;"></div>
 <div class="hx:mt-4">
   <div style="border:1.5px solid rgba(128,128,128,0.25);border-radius:10px;padding:8px 10px;background:rgba(128,128,128,0.06);">
@@ -931,7 +931,7 @@ keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks 
         <span class="hx:pr-2"><svg height=1.5rem xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg></span>
         <span>Multiple Outbound Types</span>
       </h3>
-      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Route traffic to a specific interface, to an existing routing table (e.g. WAN), or block it completely. Use <code>urltest</code> to monitor latency and automatically select the best interface.</p>
+      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Send traffic to a specific interface, through the normal provider connection, or block it. The <code>urltest</code> type picks the best of several channels on its own.</p>
     </div></a>
 
   <a
@@ -944,7 +944,7 @@ keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks 
         <span class="hx:pr-2"><svg height=1.5rem xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/></svg></span>
         <span>DNS Integration</span>
       </h3>
-      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Intercepts DNS and visible L7 names to fill dynamic sets directly; no resolver is configured or required.</p>
+      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">No DNS server setup needed: keen-pbr learns the addresses of listed sites from DNS replies and from connections passing through the router.</p>
     </div></a>
 
   <a
@@ -957,7 +957,7 @@ keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks 
         <span class="hx:pr-2"><svg height=1.5rem xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/></svg></span>
         <span>Dual Firewall Backend</span>
       </h3>
-      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Auto-detects <code>nftables</code> or <code>iptables</code>. Works on both modern and legacy kernels without configuration changes.</p>
+      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Picks <code>nftables</code> or <code>iptables</code> on its own. Works on new and old firmware without extra setup.</p>
     </div></a>
 
   <a
@@ -970,7 +970,7 @@ keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks 
         <span class="hx:pr-2"><svg height=1.5rem xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg></span>
         <span>REST API</span>
       </h3>
-      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Built-in HTTP API for health checks, live kernel routing verification, and hot config reloads — no daemon restart required.</p>
+      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Built-in HTTP API: status checks, route checks and config reloads without restarting the service.</p>
     </div></a>
 
   <a
@@ -983,7 +983,7 @@ keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks 
         <span class="hx:pr-2"><svg height=1.5rem xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></span>
         <span>Auto-updating lists</span>
       </h3>
-      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Remote domain and IP lists are downloaded at startup and refreshed on a configurable cron schedule, with local cache fallback.</p>
+      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Domain and IP lists are downloaded from a URL at startup and refreshed on a schedule. If the source is unavailable, the saved copy is used.</p>
     </div></a>
 
 

@@ -9,41 +9,40 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>OpenWrt – keen-pbr</title>
-  <meta name="description" content="keen-pbr можно установить на роутерах OpenWrt из репозитория пакетов keen-pbr.
-Проверьте, какой менеджер пакетов использует ваша версия OpenWrt Страница репозитория автоматически показывает правильный путь для вашей целевой системы:
-OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Установите со страницы репозитория Откройте страницу инструкций репозитория, выберите OpenWrt в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:
-Репозиторий keen-pbr
-Примеры команд установки:
-bash# OpenWrt 25.x и новее apk update apk add keen-pbr # или если нужна версия без API и без веб-интерфейса # apk update # apk add keen-pbr-headless bash# OpenWrt 24.x и старше opkg update opkg install keen-pbr # или если нужна версия без API и без веб-интерфейса # opkg update # opkg install keen-pbr-headless Пакет устанавливает конфигурацию в /etc/keen-pbr/config.json и автоматически включает init-скрипт.
-Полезные команды сервиса:
-bashservice keen-pbr start service keen-pbr enable service keen-pbr restart Если вы не планируете использовать веб-интерфейс keen-pbr или API, можно установить пакет keen-pbr-headless. Он занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и не включает API-сервер. Также вы можете отключить API-сервер через флаг конфигурации в любой момент в полной версии пакета. Для перехвата DNS и L7 нужны модули ядра nfnetlink_queue, nfnetlink_log и nft_queue. Пакет автоматически подтягивает kmod-nfnetlink-queue, kmod-nfnetlink-log и kmod-nft-queue. Если вы ставили старую сборку или удалили их, установите вручную; иначе демон пишет cannot bind netfilter queue/log ... Invalid argument, а /api/health/service называет отсутствующий модуль. nft_log входит в kmod-nft-core. Следующие шаги Откройте Быстрый старт и используйте вкладку Веб-интерфейс для самой простой первоначальной настройки. Если вы установили keen-pbr-headless, используйте вкладку JSON / CLI.
-Если готовые пакеты ещё не доступны для вашей платформы, см. раздел Сборка из исходного кода, чтобы собрать keen-pbr самостоятельно. " /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/getting-started/installation/openwrt/" itemprop="url" />
+  <meta name="description" content="keen-pbr ставится на OpenWrt из репозитория пакетов keen-pbr. Команды выполняются по SSH.
+Узнайте, какой менеджер пакетов у вашей OpenWrt Менеджер пакетов — программа, которая устанавливает и обновляет другие программы. Какой из них у вас, зависит от версии:
+OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Установите keen-pbr Подключитесь к роутеру по SSH. Откройте страницу репозитория keen-pbr, слева выберите ОС OpenWrt и свою версию и архитектуру. Выполните показанные команды по порядку. Установите пакет: bash# OpenWrt 25.x и новее apk update apk add keen-pbr # версия без веб-интерфейса и API: # apk add keen-pbr-headless bash# OpenWrt 24.x и старше opkg update opkg install keen-pbr # версия без веб-интерфейса и API: # opkg install keen-pbr-headless Конфигурация лежит в /etc/keen-pbr/config.json. Сервис запускается сам при каждой загрузке роутера.
+keen-pbr-headless занимает меньше места: около 1,2 МБ вместо 2,8 МБ. Веб-интерфейса и API в нём нет, настраивать придётся через файл конфигурации. Если сомневаетесь, ставьте обычный keen-pbr. Пакет сам ставит нужные модули ядра. Если в логе есть строка cannot bind netfilter queue/log ... Invalid argument, установите их вручную: kmod-nfnetlink-queue, kmod-nfnetlink-log и kmod-nft-queue. Проверьте, что сервис запущен bashservice keen-pbr status Если всё в порядке, команда напишет running.
+Откройте веб-интерфейс Откройте в браузере http://&lt;ip-роутера&gt;:12121, например http://192.168.1.1:12121. В headless-версии веб-интерфейса нет.
+Настройте первые правила Перейдите к Быстрому старту и откройте вкладку Веб-интерфейс. Если поставили keen-pbr-headless, откройте вкладку JSON.
+Если готовых пакетов для вашей платформы нет, соберите keen-pbr сами: Сборка из исходного кода. " /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/getting-started/installation/openwrt/" itemprop="url" />
 
 <meta property="og:title" content="OpenWrt">
 <meta
   property="og:description"
   content="
     
-      keen-pbr можно установить на роутерах OpenWrt из репозитория пакетов keen-pbr.
+      keen-pbr ставится на OpenWrt из репозитория пакетов keen-pbr. Команды выполняются по SSH.
 
-Проверьте, какой менеджер пакетов использует ваша версия OpenWrt
-    Страница репозитория автоматически показывает правильный путь для вашей целевой системы:
+Узнайте, какой менеджер пакетов у вашей OpenWrt
+    Менеджер пакетов — программа, которая устанавливает и обновляет другие программы. Какой из них у вас, зависит от версии:
 
 OpenWrt 25.x и новее: apk
 OpenWrt 24.x и старше: opkg
 
-Установите со страницы репозитория
-    Откройте страницу инструкций репозитория, выберите OpenWrt в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:
-Репозиторий keen-pbr
-Примеры команд установки:
+Установите keen-pbr
+    
+Подключитесь к роутеру по SSH.
+Откройте страницу репозитория keen-pbr, слева выберите ОС OpenWrt и свою версию и архитектуру. Выполните показанные команды по порядку.
+Установите пакет:
+
 
 
 bash# OpenWrt 25.x и новее
 apk update
 apk add keen-pbr
 
-# или если нужна версия без API и без веб-интерфейса
-# apk update
+# версия без веб-интерфейса и API:
 # apk add keen-pbr-headless
   
     
@@ -57,8 +56,7 @@ bash# OpenWrt 24.x и старше
 opkg update
 opkg install keen-pbr
 
-# или если нужна версия без API и без веб-интерфейса
-# opkg update
+# версия без веб-интерфейса и API:
 # opkg install keen-pbr-headless
   
     
@@ -66,39 +64,38 @@ opkg install keen-pbr
   
 
 
-Пакет устанавливает конфигурацию в /etc/keen-pbr/config.json и автоматически включает init-скрипт.
-Полезные команды сервиса:
+Конфигурация лежит в /etc/keen-pbr/config.json. Сервис запускается сам при каждой загрузке роутера.
+
+  
+  
+    keen-pbr-headless занимает меньше места: около 1,2 МБ вместо 2,8 МБ. Веб-интерфейса и API в нём нет, настраивать придётся через файл конфигурации. Если сомневаетесь, ставьте обычный keen-pbr.
+  
 
 
-bashservice keen-pbr start
-service keen-pbr enable
-service keen-pbr restart
+  
+  
+    Пакет сам ставит нужные модули ядра. Если в логе есть строка cannot bind netfilter queue/log ... Invalid argument, установите их вручную: kmod-nfnetlink-queue, kmod-nfnetlink-log и kmod-nft-queue.
+  
+
+Проверьте, что сервис запущен
+    
+
+bashservice keen-pbr status
   
     
 
   
 
 
+Если всё в порядке, команда напишет running.
+Откройте веб-интерфейс
+    Откройте в браузере http://&lt;ip-роутера&gt;:12121, например http://192.168.1.1:12121. В headless-версии веб-интерфейса нет.
+Настройте первые правила
+    Перейдите к Быстрому старту и откройте вкладку Веб-интерфейс. Если поставили keen-pbr-headless, откройте вкладку JSON.
 
   
   
-    Если вы не планируете использовать веб-интерфейс keen-pbr или API, можно установить пакет keen-pbr-headless.
-Он занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и не включает API-сервер. Также вы можете отключить API-сервер через флаг конфигурации в любой момент в полной версии пакета.
-  
-
-
-  
-  
-    Для перехвата DNS и L7 нужны модули ядра nfnetlink_queue, nfnetlink_log и nft_queue.
-Пакет автоматически подтягивает kmod-nfnetlink-queue, kmod-nfnetlink-log и kmod-nft-queue. Если вы ставили старую сборку или удалили их, установите вручную; иначе демон пишет cannot bind netfilter queue/log ... Invalid argument, а /api/health/service называет отсутствующий модуль. nft_log входит в kmod-nft-core.
-  
-
-Следующие шаги
-    Откройте Быстрый старт и используйте вкладку Веб-интерфейс для самой простой первоначальной настройки. Если вы установили keen-pbr-headless, используйте вкладку JSON / CLI.
-
-  
-  
-    Если готовые пакеты ещё не доступны для вашей платформы, см. раздел Сборка из исходного кода, чтобы собрать keen-pbr самостоятельно.
+    Если готовых пакетов для вашей платформы нет, соберите keen-pbr сами: Сборка из исходного кода.
   
 
 
@@ -115,27 +112,23 @@ service keen-pbr restart
 
 
 	<meta itemprop="name" content="OpenWrt">
-	<meta itemprop="description" content="keen-pbr можно установить на роутерах OpenWrt из репозитория пакетов keen-pbr.
-Проверьте, какой менеджер пакетов использует ваша версия OpenWrt Страница репозитория автоматически показывает правильный путь для вашей целевой системы:
-OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Установите со страницы репозитория Откройте страницу инструкций репозитория, выберите OpenWrt в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:
-Репозиторий keen-pbr
-Примеры команд установки:
-bash# OpenWrt 25.x и новее apk update apk add keen-pbr # или если нужна версия без API и без веб-интерфейса # apk update # apk add keen-pbr-headless bash# OpenWrt 24.x и старше opkg update opkg install keen-pbr # или если нужна версия без API и без веб-интерфейса # opkg update # opkg install keen-pbr-headless Пакет устанавливает конфигурацию в /etc/keen-pbr/config.json и автоматически включает init-скрипт.
-Полезные команды сервиса:
-bashservice keen-pbr start service keen-pbr enable service keen-pbr restart Если вы не планируете использовать веб-интерфейс keen-pbr или API, можно установить пакет keen-pbr-headless. Он занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и не включает API-сервер. Также вы можете отключить API-сервер через флаг конфигурации в любой момент в полной версии пакета. Для перехвата DNS и L7 нужны модули ядра nfnetlink_queue, nfnetlink_log и nft_queue. Пакет автоматически подтягивает kmod-nfnetlink-queue, kmod-nfnetlink-log и kmod-nft-queue. Если вы ставили старую сборку или удалили их, установите вручную; иначе демон пишет cannot bind netfilter queue/log ... Invalid argument, а /api/health/service называет отсутствующий модуль. nft_log входит в kmod-nft-core. Следующие шаги Откройте Быстрый старт и используйте вкладку Веб-интерфейс для самой простой первоначальной настройки. Если вы установили keen-pbr-headless, используйте вкладку JSON / CLI.
-Если готовые пакеты ещё не доступны для вашей платформы, см. раздел Сборка из исходного кода, чтобы собрать keen-pbr самостоятельно.">
-	<meta itemprop="wordCount" content="398">
+	<meta itemprop="description" content="keen-pbr ставится на OpenWrt из репозитория пакетов keen-pbr. Команды выполняются по SSH.
+Узнайте, какой менеджер пакетов у вашей OpenWrt Менеджер пакетов — программа, которая устанавливает и обновляет другие программы. Какой из них у вас, зависит от версии:
+OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Установите keen-pbr Подключитесь к роутеру по SSH. Откройте страницу репозитория keen-pbr, слева выберите ОС OpenWrt и свою версию и архитектуру. Выполните показанные команды по порядку. Установите пакет: bash# OpenWrt 25.x и новее apk update apk add keen-pbr # версия без веб-интерфейса и API: # apk add keen-pbr-headless bash# OpenWrt 24.x и старше opkg update opkg install keen-pbr # версия без веб-интерфейса и API: # opkg install keen-pbr-headless Конфигурация лежит в /etc/keen-pbr/config.json. Сервис запускается сам при каждой загрузке роутера.
+keen-pbr-headless занимает меньше места: около 1,2 МБ вместо 2,8 МБ. Веб-интерфейса и API в нём нет, настраивать придётся через файл конфигурации. Если сомневаетесь, ставьте обычный keen-pbr. Пакет сам ставит нужные модули ядра. Если в логе есть строка cannot bind netfilter queue/log ... Invalid argument, установите их вручную: kmod-nfnetlink-queue, kmod-nfnetlink-log и kmod-nft-queue. Проверьте, что сервис запущен bashservice keen-pbr status Если всё в порядке, команда напишет running.
+Откройте веб-интерфейс Откройте в браузере http://&lt;ip-роутера&gt;:12121, например http://192.168.1.1:12121. В headless-версии веб-интерфейса нет.
+Настройте первые правила Перейдите к Быстрому старту и откройте вкладку Веб-интерфейс. Если поставили keen-pbr-headless, откройте вкладку JSON.
+Если готовых пакетов для вашей платформы нет, соберите keen-pbr сами: Сборка из исходного кода.">
+	<meta itemprop="wordCount" content="360">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="OpenWrt">
-	<meta name="twitter:description" content="keen-pbr можно установить на роутерах OpenWrt из репозитория пакетов keen-pbr.
-Проверьте, какой менеджер пакетов использует ваша версия OpenWrt Страница репозитория автоматически показывает правильный путь для вашей целевой системы:
-OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Установите со страницы репозитория Откройте страницу инструкций репозитория, выберите OpenWrt в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:
-Репозиторий keen-pbr
-Примеры команд установки:
-bash# OpenWrt 25.x и новее apk update apk add keen-pbr # или если нужна версия без API и без веб-интерфейса # apk update # apk add keen-pbr-headless bash# OpenWrt 24.x и старше opkg update opkg install keen-pbr # или если нужна версия без API и без веб-интерфейса # opkg update # opkg install keen-pbr-headless Пакет устанавливает конфигурацию в /etc/keen-pbr/config.json и автоматически включает init-скрипт.
-Полезные команды сервиса:
-bashservice keen-pbr start service keen-pbr enable service keen-pbr restart Если вы не планируете использовать веб-интерфейс keen-pbr или API, можно установить пакет keen-pbr-headless. Он занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и не включает API-сервер. Также вы можете отключить API-сервер через флаг конфигурации в любой момент в полной версии пакета. Для перехвата DNS и L7 нужны модули ядра nfnetlink_queue, nfnetlink_log и nft_queue. Пакет автоматически подтягивает kmod-nfnetlink-queue, kmod-nfnetlink-log и kmod-nft-queue. Если вы ставили старую сборку или удалили их, установите вручную; иначе демон пишет cannot bind netfilter queue/log ... Invalid argument, а /api/health/service называет отсутствующий модуль. nft_log входит в kmod-nft-core. Следующие шаги Откройте Быстрый старт и используйте вкладку Веб-интерфейс для самой простой первоначальной настройки. Если вы установили keen-pbr-headless, используйте вкладку JSON / CLI.
-Если готовые пакеты ещё не доступны для вашей платформы, см. раздел Сборка из исходного кода, чтобы собрать keen-pbr самостоятельно.">
+	<meta name="twitter:description" content="keen-pbr ставится на OpenWrt из репозитория пакетов keen-pbr. Команды выполняются по SSH.
+Узнайте, какой менеджер пакетов у вашей OpenWrt Менеджер пакетов — программа, которая устанавливает и обновляет другие программы. Какой из них у вас, зависит от версии:
+OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Установите keen-pbr Подключитесь к роутеру по SSH. Откройте страницу репозитория keen-pbr, слева выберите ОС OpenWrt и свою версию и архитектуру. Выполните показанные команды по порядку. Установите пакет: bash# OpenWrt 25.x и новее apk update apk add keen-pbr # версия без веб-интерфейса и API: # apk add keen-pbr-headless bash# OpenWrt 24.x и старше opkg update opkg install keen-pbr # версия без веб-интерфейса и API: # opkg install keen-pbr-headless Конфигурация лежит в /etc/keen-pbr/config.json. Сервис запускается сам при каждой загрузке роутера.
+keen-pbr-headless занимает меньше места: около 1,2 МБ вместо 2,8 МБ. Веб-интерфейса и API в нём нет, настраивать придётся через файл конфигурации. Если сомневаетесь, ставьте обычный keen-pbr. Пакет сам ставит нужные модули ядра. Если в логе есть строка cannot bind netfilter queue/log ... Invalid argument, установите их вручную: kmod-nfnetlink-queue, kmod-nfnetlink-log и kmod-nft-queue. Проверьте, что сервис запущен bashservice keen-pbr status Если всё в порядке, команда напишет running.
+Откройте веб-интерфейс Откройте в браузере http://&lt;ip-роутера&gt;:12121, например http://192.168.1.1:12121. В headless-версии веб-интерфейса нет.
+Настройте первые правила Перейдите к Быстрому старту и откройте вкладку Веб-интерфейс. Если поставили keen-pbr-headless, откройте вкладку JSON.
+Если готовых пакетов для вашей платформы нет, соберите keen-pbr сами: Сборка из исходного кода.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -316,6 +309,12 @@ bashservice keen-pbr start service keen-pbr enable service keen-pbr restart Ес
                 href="#"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               ></a>
+            </li>
+          <li>
+              <a
+                href="#%d0%ba%d0%be%d0%bc%d0%b0%d0%bd%d0%b4%d1%8b-%d0%b4%d0%bb%d1%8f-%d1%83%d0%bf%d1%80%d0%b0%d0%b2%d0%bb%d0%b5%d0%bd%d0%b8%d1%8f-%d1%81%d0%b5%d1%80%d0%b2%d0%b8%d1%81%d0%be%d0%bc"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >Команды для управления сервисом</a>
             </li>
           <li>
               <a
@@ -993,15 +992,27 @@ bashservice keen-pbr start service keen-pbr enable service keen-pbr restart Ес
 <nav class="hextra-toc hx:order-last hx:hidden hx:w-64 hx:shrink-0 hx:xl:block hx:print:hidden hx:px-4" aria-label="Содержание">
     <div class="hextra-scrollbar hx:sticky hx:top-16 hx:overflow-y-auto hx:pr-4 hx:pt-6 hx:text-sm [hyphens:auto] hx:max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] hx:ltr:-mr-4 hx:rtl:-ml-4"><p class="hx:mb-4 hx:font-semibold hx:tracking-tight">На этой странице</p><ul>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d1%8c%d1%82%d0%b5-%d0%ba%d0%b0%d0%ba%d0%be%d0%b9-%d0%bc%d0%b5%d0%bd%d0%b5%d0%b4%d0%b6%d0%b5%d1%80-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d0%be%d0%b2-%d0%b8%d1%81%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d1%83%d0%b5%d1%82-%d0%b2%d0%b0%d1%88%d0%b0-%d0%b2%d0%b5%d1%80%d1%81%d0%b8%d1%8f-openwrt">Проверьте, какой менеджер пакетов использует ваша версия OpenWrt
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%83%d0%b7%d0%bd%d0%b0%d0%b9%d1%82%d0%b5-%d0%ba%d0%b0%d0%ba%d0%be%d0%b9-%d0%bc%d0%b5%d0%bd%d0%b5%d0%b4%d0%b6%d0%b5%d1%80-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d0%be%d0%b2-%d1%83-%d0%b2%d0%b0%d1%88%d0%b5%d0%b9-openwrt">Узнайте, какой менеджер пакетов у вашей OpenWrt
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-%d1%81%d0%be-%d1%81%d1%82%d1%80%d0%b0%d0%bd%d0%b8%d1%86%d1%8b-%d1%80%d0%b5%d0%bf%d0%be%d0%b7%d0%b8%d1%82%d0%be%d1%80%d0%b8%d1%8f">Установите со страницы репозитория
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-keen-pbr">Установите keen-pbr
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%81%d0%bb%d0%b5%d0%b4%d1%83%d1%8e%d1%89%d0%b8%d0%b5-%d1%88%d0%b0%d0%b3%d0%b8">Следующие шаги
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d1%8c%d1%82%d0%b5-%d1%87%d1%82%d0%be-%d1%81%d0%b5%d1%80%d0%b2%d0%b8%d1%81-%d0%b7%d0%b0%d0%bf%d1%83%d1%89%d0%b5%d0%bd">Проверьте, что сервис запущен
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%82%d0%ba%d1%80%d0%be%d0%b9%d1%82%d0%b5-%d0%b2%d0%b5%d0%b1-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81">Откройте веб-интерфейс
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bd%d0%b0%d1%81%d1%82%d1%80%d0%be%d0%b9%d1%82%d0%b5-%d0%bf%d0%b5%d1%80%d0%b2%d1%8b%d0%b5-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0">Настройте первые правила
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%ba%d0%be%d0%bc%d0%b0%d0%bd%d0%b4%d1%8b-%d0%b4%d0%bb%d1%8f-%d1%83%d0%bf%d1%80%d0%b0%d0%b2%d0%bb%d0%b5%d0%bd%d0%b8%d1%8f-%d1%81%d0%b5%d1%80%d0%b2%d0%b8%d1%81%d0%be%d0%bc">Команды для управления сервисом
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1102,26 +1113,27 @@ bashservice keen-pbr start service keen-pbr enable service keen-pbr restart Ес
     </div>
           </div>
           
-          <p>keen-pbr можно установить на роутерах OpenWrt из репозитория пакетов keen-pbr.</p>
+          <p>keen-pbr ставится на OpenWrt из репозитория пакетов keen-pbr. Команды выполняются по SSH.</p>
 <div class="hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]">
-<h3>Проверьте, какой менеджер пакетов использует ваша версия OpenWrt<span class="hx:absolute hx:-mt-20" id="проверьте-какой-менеджер-пакетов-использует-ваша-версия-openwrt"></span>
-    <a href="#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d1%8c%d1%82%d0%b5-%d0%ba%d0%b0%d0%ba%d0%be%d0%b9-%d0%bc%d0%b5%d0%bd%d0%b5%d0%b4%d0%b6%d0%b5%d1%80-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d0%be%d0%b2-%d0%b8%d1%81%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d1%83%d0%b5%d1%82-%d0%b2%d0%b0%d1%88%d0%b0-%d0%b2%d0%b5%d1%80%d1%81%d0%b8%d1%8f-openwrt" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Страница репозитория автоматически показывает правильный путь для вашей целевой системы:</p>
+<h3>Узнайте, какой менеджер пакетов у вашей OpenWrt<span class="hx:absolute hx:-mt-20" id="узнайте-какой-менеджер-пакетов-у-вашей-openwrt"></span>
+    <a href="#%d1%83%d0%b7%d0%bd%d0%b0%d0%b9%d1%82%d0%b5-%d0%ba%d0%b0%d0%ba%d0%be%d0%b9-%d0%bc%d0%b5%d0%bd%d0%b5%d0%b4%d0%b6%d0%b5%d1%80-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d0%be%d0%b2-%d1%83-%d0%b2%d0%b0%d1%88%d0%b5%d0%b9-openwrt" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Менеджер пакетов — программа, которая устанавливает и обновляет другие программы. Какой из них у вас, зависит от версии:</p>
 <ul>
 <li>OpenWrt 25.x и новее: <code>apk</code></li>
 <li>OpenWrt 24.x и старше: <code>opkg</code></li>
 </ul>
-<h3>Установите со страницы репозитория<span class="hx:absolute hx:-mt-20" id="установите-со-страницы-репозитория"></span>
-    <a href="#%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-%d1%81%d0%be-%d1%81%d1%82%d1%80%d0%b0%d0%bd%d0%b8%d1%86%d1%8b-%d1%80%d0%b5%d0%bf%d0%be%d0%b7%d0%b8%d1%82%d0%be%d1%80%d0%b8%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Откройте страницу инструкций репозитория, выберите <strong>OpenWrt</strong> в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:</p>
-<p><a href="https://repo.keen-pbr.fyi/repository/stable/?lang=ru"target="_blank" rel="noopener">Репозиторий keen-pbr</a></p>
-<p>Примеры команд установки:</p>
+<h3>Установите keen-pbr<span class="hx:absolute hx:-mt-20" id="установите-keen-pbr"></span>
+    <a href="#%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-keen-pbr" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><ol>
+<li>Подключитесь к роутеру по SSH.</li>
+<li>Откройте <a href="https://repo.keen-pbr.fyi/repository/stable/?lang=ru"target="_blank" rel="noopener">страницу репозитория keen-pbr</a>, слева выберите ОС <strong>OpenWrt</strong> и свою версию и архитектуру. Выполните показанные команды по порядку.</li>
+<li>Установите пакет:</li>
+</ol>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># OpenWrt 25.x и новее</span>
 </span></span><span class="line"><span class="cl">apk update
 </span></span><span class="line"><span class="cl">apk add keen-pbr
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># или если нужна версия без API и без веб-интерфейса</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># apk update</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># версия без веб-интерфейса и API:</span>
 </span></span><span class="line"><span class="cl"><span class="c1"># apk add keen-pbr-headless</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1140,8 +1152,7 @@ bashservice keen-pbr start service keen-pbr enable service keen-pbr restart Ес
 </span></span><span class="line"><span class="cl">opkg update
 </span></span><span class="line"><span class="cl">opkg install keen-pbr
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># или если нужна версия без API и без веб-интерфейса</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># opkg update</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># версия без веб-интерфейса и API:</span>
 </span></span><span class="line"><span class="cl"><span class="c1"># opkg install keen-pbr-headless</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1154,13 +1165,23 @@ bashservice keen-pbr start service keen-pbr enable service keen-pbr restart Ес
   </button>
 </div>
 </div>
-<p>Пакет устанавливает конфигурацию в <code>/etc/keen-pbr/config.json</code> и автоматически включает init-скрипт.</p>
-<p>Полезные команды сервиса:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<p>Конфигурация лежит в <code>/etc/keen-pbr/config.json</code>. Сервис запускается сам при каждой загрузке роутера.</p>
+<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
+  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+  <div class="hx:w-full hx:min-w-0 hx:leading-7">
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0"><code>keen-pbr-headless</code> занимает меньше места: около 1,2 МБ вместо 2,8 МБ. Веб-интерфейса и API в нём нет, настраивать придётся через файл конфигурации. Если сомневаетесь, ставьте обычный <code>keen-pbr</code>.</div>
+  </div>
+</div>
+<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200">
+  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
+  <div class="hx:w-full hx:min-w-0 hx:leading-7">
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Пакет сам ставит нужные модули ядра. Если в логе есть строка <code>cannot bind netfilter queue/log ... Invalid argument</code>, установите их вручную: <code>kmod-nfnetlink-queue</code>, <code>kmod-nfnetlink-log</code> и <code>kmod-nft-queue</code>.</div>
+  </div>
+</div>
+<h3>Проверьте, что сервис запущен<span class="hx:absolute hx:-mt-20" id="проверьте-что-сервис-запущен"></span>
+    <a href="#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d1%8c%d1%82%d0%b5-%d1%87%d1%82%d0%be-%d1%81%d0%b5%d1%80%d0%b2%d0%b8%d1%81-%d0%b7%d0%b0%d0%bf%d1%83%d1%89%d0%b5%d0%bd" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">service keen-pbr start
-</span></span><span class="line"><span class="cl">service keen-pbr <span class="nb">enable</span>
-</span></span><span class="line"><span class="cl">service keen-pbr restart</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">service keen-pbr status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1172,36 +1193,44 @@ bashservice keen-pbr start service keen-pbr enable service keen-pbr restart Ес
   </button>
 </div>
 </div>
+<p>Если всё в порядке, команда напишет <code>running</code>.</p>
+<h3>Откройте веб-интерфейс<span class="hx:absolute hx:-mt-20" id="откройте-веб-интерфейс"></span>
+    <a href="#%d0%be%d1%82%d0%ba%d1%80%d0%be%d0%b9%d1%82%d0%b5-%d0%b2%d0%b5%d0%b1-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Откройте в браузере <code>http://&lt;ip-роутера&gt;:12121</code>, например <code>http://192.168.1.1:12121</code>. В headless-версии веб-интерфейса нет.</p>
+<h3>Настройте первые правила<span class="hx:absolute hx:-mt-20" id="настройте-первые-правила"></span>
+    <a href="#%d0%bd%d0%b0%d1%81%d1%82%d1%80%d0%be%d0%b9%d1%82%d0%b5-%d0%bf%d0%b5%d1%80%d0%b2%d1%8b%d0%b5-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Перейдите к <a href="/ru/docs/getting-started/quick-start/">Быстрому старту</a> и откройте вкладку <strong>Веб-интерфейс</strong>. Если поставили <code>keen-pbr-headless</code>, откройте вкладку <strong>JSON</strong>.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Если вы не планируете использовать веб-интерфейс keen-pbr или API, можно установить пакет <code>keen-pbr-headless</code>.
-Он занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и не включает API-сервер. Также вы можете отключить API-сервер через флаг конфигурации в любой момент в полной версии пакета.</div>
-  </div>
-</div>
-<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200">
-  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
-  <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Для перехвата DNS и L7 нужны модули ядра <code>nfnetlink_queue</code>, <code>nfnetlink_log</code> и <code>nft_queue</code>.
-Пакет автоматически подтягивает <code>kmod-nfnetlink-queue</code>, <code>kmod-nfnetlink-log</code> и <code>kmod-nft-queue</code>. Если вы ставили старую сборку или удалили их, установите вручную; иначе демон пишет <code>cannot bind netfilter queue/log ... Invalid argument</code>, а <code>/api/health/service</code> называет отсутствующий модуль. <code>nft_log</code> входит в <code>kmod-nft-core</code>.</div>
-  </div>
-</div>
-<h3>Следующие шаги<span class="hx:absolute hx:-mt-20" id="следующие-шаги"></span>
-    <a href="#%d1%81%d0%bb%d0%b5%d0%b4%d1%83%d1%8e%d1%89%d0%b8%d0%b5-%d1%88%d0%b0%d0%b3%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Откройте <a href="/ru/docs/getting-started/quick-start/">Быстрый старт</a> и используйте вкладку <strong>Веб-интерфейс</strong> для самой простой первоначальной настройки. Если вы установили <code>keen-pbr-headless</code>, используйте вкладку <strong>JSON / CLI</strong>.</p>
-<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
-  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-  <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Если готовые пакеты ещё не доступны для вашей платформы, см. раздел <a href="/ru/docs/developer/build-from-source/">Сборка из исходного кода</a>, чтобы собрать keen-pbr самостоятельно.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Если готовых пакетов для вашей платформы нет, соберите keen-pbr сами: <a href="/ru/docs/developer/build-from-source/">Сборка из исходного кода</a>.</div>
   </div>
 </div>
 </div>
+<h2>Команды для управления сервисом<span class="hx:absolute hx:-mt-20" id="команды-для-управления-сервисом"></span>
+    <a href="#%d0%ba%d0%be%d0%bc%d0%b0%d0%bd%d0%b4%d1%8b-%d0%b4%d0%bb%d1%8f-%d1%83%d0%bf%d1%80%d0%b0%d0%b2%d0%bb%d0%b5%d0%bd%d0%b8%d1%8f-%d1%81%d0%b5%d1%80%d0%b2%d0%b8%d1%81%d0%be%d0%bc" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">service keen-pbr start
+</span></span><span class="line"><span class="cl">service keen-pbr restart
+</span></span><span class="line"><span class="cl">service keen-pbr status
+</span></span><span class="line"><span class="cl">service keen-pbr enable</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p><code>enable</code> включает автозапуск при загрузке роутера.</p>
 <h2>Отдельные DNS-серверы для списков (dnsmasq)<span class="hx:absolute hx:-mt-20" id="dnsmasq"></span>
-    <a href="#dnsmasq" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Для маршрутизации keen-pbr не нужен dnsmasq, но в OpenWrt он и так работает системным резолвером. Нужно ли отдать его под управление keen-pbr, читайте в разделе <a href="/ru/docs/configuration/dns/#do-i-need-dnsmasq">Нужен ли dnsmasq?</a>.</p>
+    <a href="#dnsmasq" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>В OpenWrt dnsmasq уже работает как DNS-сервер роутера. Для маршрутизации keen-pbr он не нужен. Стоит ли отдать его под управление keen-pbr, читайте в разделе <a href="/ru/docs/configuration/dns/#do-i-need-dnsmasq">Нужен ли dnsmasq?</a>.</p>
 <h3>Включение<span class="hx:absolute hx:-mt-20" id="dnsmasq-install"></span>
-    <a href="#dnsmasq-install" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>В веб-интерфейсе откройте <strong>Общее</strong> &gt; <strong>Управление локальным DNS-сервером</strong> и включите <strong>Управлять конфигурацией dnsmasq</strong>. keen-pbr добавит три записи <code>addnmount</code> в секцию dnsmasq в <code>/etc/config/dhcp</code>, чтобы dnsmasq в песочнице мог запускать keen-pbr.</p>
-<p>Пока управление включено и заданы <strong>Основные DNS-серверы</strong>, keen-pbr убирает из списка в <code>/etc/config/dhcp</code> (в LuCI <strong>DNS forwardings</strong>) серверы без домена. Серверы для отдельных доменов, например <code>/lan/192.168.1.1</code>, остаются. Убранные серверы вернутся, когда вы выключите управление или очистите основные серверы.</p>
+    <a href="#dnsmasq-install" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>В веб-интерфейсе откройте <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Управление локальным DNS-сервером</strong> и включите <strong>Управлять конфигурацией dnsmasq</strong>.</p>
+<p>Пока управление включено и заданы <strong>Вышестоящие DNS-сервера по умолчанию</strong>, keen-pbr убирает из списка в <code>/etc/config/dhcp</code> (в LuCI <strong>DNS forwardings</strong>) серверы без домена. Серверы для отдельных доменов, например <code>/lan/192.168.1.1</code>, остаются. Убранные серверы вернутся, когда вы выключите управление или очистите эти серверы.</p>
 <h3>Вернуть как было<span class="hx:absolute hx:-mt-20" id="dnsmasq-rollback"></span>
-    <a href="#dnsmasq-rollback" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Выключите <strong>Управлять конфигурацией dnsmasq</strong> и примените конфигурацию. keen-pbr перезапустит dnsmasq и вернёт убранные серверы. Записи <code>addnmount</code> исчезнут при удалении пакета.</p>
+    <a href="#dnsmasq-rollback" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Выключите <strong>Управлять конфигурацией dnsmasq</strong> и примените конфигурацию. keen-pbr перезапустит dnsmasq и вернёт убранные серверы.</p>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

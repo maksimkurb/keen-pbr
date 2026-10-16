@@ -9,17 +9,19 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Правила маршрутизации – keen-pbr</title>
-  <meta name="description" content="Правила маршрутизации соединяют ваши списки с вашими outbounds.
-Большинству пользователей нужно только одно простое правило для каждого списка, например:
-config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Правила проверяются сверху вниз. Первое совпадение выигрывает. Трафик, который не соответствует никакому правилу, не получает fwmark и идёт по обычной системной маршрутизации." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/route-rules/" itemprop="url" />
+  <meta name="description" content="Правило маршрутизации связывает условие («трафик к сайтам из этого списка») с outbound («отправить через этот канал»). Outbound — канал для трафика: VPN, провайдер или блокировка, см. Outbounds.
+В веб-интерфейсе: откройте Маршрутизация &gt; Правила маршрутизации и нажмите Добавить правило маршрутизации. Выберите Тип правила, задайте условия и Outbound, затем нажмите Применить в панели черновика. Чтобы временно отключить правило, снимите переключатель Включить правило.
+Большинству пользователей нужно одно простое правило на каждый список, например:
+config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Правила проверяются сверху вниз, срабатывает первое подходящее. Трафик, который не подошёл ни под одно правило, идёт по обычной маршрутизации роутера." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/route-rules/" itemprop="url" />
 
 <meta property="og:title" content="Правила маршрутизации">
 <meta
   property="og:description"
   content="
     
-      Правила маршрутизации соединяют ваши списки с вашими outbounds.
-Большинству пользователей нужно только одно простое правило для каждого списка, например:
+      Правило маршрутизации связывает условие («трафик к сайтам из этого списка») с outbound («отправить через этот канал»). Outbound — канал для трафика: VPN, провайдер или блокировка, см. Outbounds.
+В веб-интерфейсе: откройте Маршрутизация &gt; Правила маршрутизации и нажмите Добавить правило маршрутизации. Выберите Тип правила, задайте условия и Outbound, затем нажмите Применить в панели черновика. Чтобы временно отключить правило, снимите переключатель Включить правило.
+Большинству пользователей нужно одно простое правило на каждый список, например:
 
 
 config.json{
@@ -38,9 +40,7 @@ config.json{
   
 
 
-Правила проверяются сверху вниз. Первое совпадение выигрывает. Трафик, который не соответствует никакому правилу, не получает 
-  fwmark
- и идёт по обычной системной маршрутизации.
+Правила проверяются сверху вниз, срабатывает первое подходящее. Трафик, который не подошёл ни под одно правило, идёт по обычной маршрутизации роутера.
     
   ">
 <meta
@@ -54,15 +54,17 @@ config.json{
 
 
 	<meta itemprop="name" content="Правила маршрутизации">
-	<meta itemprop="description" content="Правила маршрутизации соединяют ваши списки с вашими outbounds.
-Большинству пользователей нужно только одно простое правило для каждого списка, например:
-config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Правила проверяются сверху вниз. Первое совпадение выигрывает. Трафик, который не соответствует никакому правилу, не получает fwmark и идёт по обычной системной маршрутизации.">
-	<meta itemprop="wordCount" content="1363">
+	<meta itemprop="description" content="Правило маршрутизации связывает условие («трафик к сайтам из этого списка») с outbound («отправить через этот канал»). Outbound — канал для трафика: VPN, провайдер или блокировка, см. Outbounds.
+В веб-интерфейсе: откройте Маршрутизация &gt; Правила маршрутизации и нажмите Добавить правило маршрутизации. Выберите Тип правила, задайте условия и Outbound, затем нажмите Применить в панели черновика. Чтобы временно отключить правило, снимите переключатель Включить правило.
+Большинству пользователей нужно одно простое правило на каждый список, например:
+config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Правила проверяются сверху вниз, срабатывает первое подходящее. Трафик, который не подошёл ни под одно правило, идёт по обычной маршрутизации роутера.">
+	<meta itemprop="wordCount" content="1595">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Правила маршрутизации">
-	<meta name="twitter:description" content="Правила маршрутизации соединяют ваши списки с вашими outbounds.
-Большинству пользователей нужно только одно простое правило для каждого списка, например:
-config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Правила проверяются сверху вниз. Первое совпадение выигрывает. Трафик, который не соответствует никакому правилу, не получает fwmark и идёт по обычной системной маршрутизации.">
+	<meta name="twitter:description" content="Правило маршрутизации связывает условие («трафик к сайтам из этого списка») с outbound («отправить через этот канал»). Outbound — канал для трафика: VPN, провайдер или блокировка, см. Outbounds.
+В веб-интерфейсе: откройте Маршрутизация &gt; Правила маршрутизации и нажмите Добавить правило маршрутизации. Выберите Тип правила, задайте условия и Outbound, затем нажмите Применить в панели черновика. Чтобы временно отключить правило, снимите переключатель Включить правило.
+Большинству пользователей нужно одно простое правило на каждый список, например:
+config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Правила проверяются сверху вниз, срабатывает первое подходящее. Трафик, который не подошёл ни под одно правило, идёт по обычной маршрутизации роутера.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -347,19 +349,19 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
             </li>
           <li>
               <a
-                href="#%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f"
+                href="#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-%d0%b2%d1%85%d0%be%d0%b4%d1%8f%d1%89%d0%b8%d1%85-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81%d0%be%d0%b2"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Конфигурация</a>
+              >Фильтр входящих интерфейсов</a>
             </li>
           <li>
               <a
-                href="#%d0%bf%d0%be%d0%bb%d1%8f-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8"
+                href="#%d0%bf%d0%be%d0%bb%d1%8f-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Поля правила маршрутизации</a>
+              >Поля правила</a>
             </li>
           <li>
               <a
-                href="#%d1%80%d0%b5%d0%b7%d0%b5%d1%80%d0%b2%d0%bd%d1%8b%d0%b9-%d0%ba%d0%b0%d0%bd%d0%b0%d0%bb-%d0%b8%d0%bb%d0%b8-%d0%b1%d0%b0%d0%bb%d0%b0%d0%bd%d1%81%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-%d0%b4%d0%bb%d1%8f-%d0%b2%d1%81%d0%b5%d0%b3%d0%be-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d0%bd%d0%b5%d1%82%d0%b0"
+                href="#failover-or-balancing-for-all-internet-traffic"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >Резервный канал или балансировка для всего интернета</a>
             </li>
@@ -942,15 +944,15 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f">Конфигурация
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-%d0%b2%d1%85%d0%be%d0%b4%d1%8f%d1%89%d0%b8%d1%85-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81%d0%be%d0%b2">Фильтр входящих интерфейсов
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d0%be%d0%bb%d1%8f-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8">Поля правила маршрутизации
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d0%be%d0%bb%d1%8f-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0">Поля правила
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%80%d0%b5%d0%b7%d0%b5%d1%80%d0%b2%d0%bd%d1%8b%d0%b9-%d0%ba%d0%b0%d0%bd%d0%b0%d0%bb-%d0%b8%d0%bb%d0%b8-%d0%b1%d0%b0%d0%bb%d0%b0%d0%bd%d1%81%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-%d0%b4%d0%bb%d1%8f-%d0%b2%d1%81%d0%b5%d0%b3%d0%be-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d0%bd%d0%b5%d1%82%d0%b0">Резервный канал или балансировка для всего интернета
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#failover-or-balancing-for-all-internet-traffic">Резервный канал или балансировка для всего интернета
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -958,23 +960,31 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b1%d0%b0%d0%b7%d0%be%d0%b2%d1%8b%d0%b9--%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d1%8f-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn">Базовый — маршрутизация списка через VPN
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%81%d0%bf%d0%b8%d1%81%d0%be%d0%ba-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn">Список через VPN
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b2%d1%80%d0%b5%d0%bc%d0%b5%d0%bd%d0%bd%d0%be%d0%b5-%d0%be%d1%82%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d0%b1%d0%b5%d0%b7-%d1%83%d0%b4%d0%b0%d0%bb%d0%b5%d0%bd%d0%b8%d1%8f">Временное отключение правила без удаления
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b8%d1%81%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%b8%d0%b7-%d0%be%d0%b1%d1%89%d0%b5%d0%b3%d0%be-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0">Исключение из общего правила
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-%d0%b2%d1%85%d0%be%d0%b4%d1%8f%d1%89%d0%b8%d1%85-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81%d0%be%d0%b2--%d0%be%d0%b1%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%ba%d0%b0-%d1%82%d0%be%d0%bb%d1%8c%d0%ba%d0%be-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d0%be%d0%b2-%d1%81-br0">Фильтр входящих интерфейсов — обработка только пакетов с br0
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b1%d0%bb%d0%be%d0%ba%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0">Блокировка списка
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-%d0%b2%d1%85%d0%be%d0%b4%d1%8f%d1%89%d0%b8%d1%85-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81%d0%be%d0%b2-%d0%be%d1%82%d0%ba%d0%bb%d1%8e%d1%87%d1%91%d0%bd-%d0%be%d1%82%d1%81%d1%83%d1%82%d1%81%d1%82%d0%b2%d1%83%d0%b5%d1%82-%d0%b8%d0%bb%d0%b8-%d0%bf%d1%83%d1%81%d1%82%d0%be%d0%b9">Фильтр входящих интерфейсов отключён (отсутствует или пустой)
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d0%b4%d0%bd%d0%be-%d1%83%d1%81%d1%82%d1%80%d0%be%d0%b9%d1%81%d1%82%d0%b2%d0%be-%d0%b8%d0%bb%d0%b8-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d1%8c">Одно устройство или подсеть
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-%d0%bf%d0%be%d1%80%d1%82%d0%be%d0%b2--%d1%82%d0%be%d0%bb%d1%8c%d0%ba%d0%be-https-tcp-%d0%b8%d0%b7-%d0%b4%d0%b2%d1%83%d1%85-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d0%b5%d0%b9">Фильтр портов — только HTTPS TCP из двух подсетей
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b2%d1%80%d0%b5%d0%bc%d0%b5%d0%bd%d0%bd%d0%be%d0%b5-%d0%be%d1%82%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0">Временное отключение правила
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d0%be%d1%80%d1%82%d1%8b-%d0%b8-%d0%bf%d1%80%d0%be%d1%82%d0%be%d0%ba%d0%be%d0%bb-https-%d0%b8%d0%b7-%d0%b4%d0%b2%d1%83%d1%85-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d0%b5%d0%b9">Порты и протокол: HTTPS из двух подсетей
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b2%d1%81%d0%b5-%d1%83%d1%81%d0%bb%d0%be%d0%b2%d0%b8%d1%8f-%d1%81%d1%80%d0%b0%d0%b7%d1%83-dns-%d0%b7%d0%b0%d0%bf%d1%80%d0%be%d1%81%d1%8b-%d0%ba-google-dns-%d0%b8%d0%b7-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d0%b8">Все условия сразу: DNS-запросы к Google DNS из подсети
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -990,27 +1000,19 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%be%d0%b2--%d1%82%d1%80%d0%b0%d1%84%d0%b8%d0%ba-%d0%b8%d0%b7-%d0%ba%d0%be%d0%bd%d0%ba%d1%80%d0%b5%d1%82%d0%bd%d0%be%d0%b9-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d0%b8">Фильтр адресов — трафик из конкретной подсети
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b8%d1%81%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d1%8f-%d1%87%d0%b5%d1%80%d0%b5%d0%b7--%d0%b2%d1%81%d0%b5-%d0%b8%d1%81%d1%82%d0%be%d1%87%d0%bd%d0%b8%d0%ba%d0%b8-%d0%ba%d1%80%d0%be%d0%bc%d0%b5-%d0%bb%d0%be%d0%ba%d0%b0%d0%bb%d1%8c%d0%bd%d0%be%d0%b9-lan">Исключения через !: все источники, кроме локальной LAN
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d0%be%d0%bb%d0%bd%d1%8b%d0%b9-%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80--google-dns-%d0%b8%d0%b7-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d0%b8-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn">Полный фильтр — Google DNS из подсети через VPN
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b8%d1%81%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d1%8f-%d1%87%d0%b5%d1%80%d0%b5%d0%b7--tcp-%d1%82%d1%80%d0%b0%d1%84%d0%b8%d0%ba-%d0%ba-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%b0%d0%bc-%d0%b8%d0%b7-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0-%d0%ba%d1%80%d0%be%d0%bc%d0%b5-https">Исключения через !: TCP-трафик к адресам из списка, кроме HTTPS
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%82%d1%80%d0%b8%d1%86%d0%b0%d0%bd%d0%b8%d0%b5--%d0%b2%d1%81%d0%b5-%d0%b8%d1%81%d1%82%d0%be%d1%87%d0%bd%d0%b8%d0%ba%d0%b8-%d0%ba%d1%80%d0%be%d0%bc%d0%b5-%d0%bb%d0%be%d0%ba%d0%b0%d0%bb%d1%8c%d0%bd%d0%be%d0%b9-lan">Отрицание — все источники, кроме локальной LAN
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b8%d1%81%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d1%8f-%d1%87%d0%b5%d1%80%d0%b5%d0%b7--udp-%d1%82%d1%80%d0%b0%d1%84%d0%b8%d0%ba-%d0%ba-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%b0%d0%bc-%d0%b8%d0%b7-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0-%d0%ba%d1%80%d0%be%d0%bc%d0%b5-dns-%d0%b8-ntp">Исключения через !: UDP-трафик к адресам из списка, кроме DNS и NTP
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%82%d1%80%d0%b8%d1%86%d0%b0%d0%bd%d0%b8%d0%b5--%d0%b2%d0%b5%d1%81%d1%8c-tcp-%d0%ba%d1%80%d0%be%d0%bc%d0%b5-https-%d0%b8%d0%b4%d1%91%d1%82-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn">Отрицание — весь TCP, кроме HTTPS, идёт через VPN
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%82%d1%80%d0%b8%d1%86%d0%b0%d0%bd%d0%b8%d0%b5--%d0%b2%d0%b5%d1%81%d1%8c-udp-%d0%ba%d1%80%d0%be%d0%bc%d0%b5-dns-%d0%b8-ntp-%d0%b8%d0%b4%d1%91%d1%82-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn">Отрицание — весь UDP, кроме DNS и NTP, идёт через VPN
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%82%d1%80%d0%b8%d1%86%d0%b0%d0%bd%d0%b8%d0%b5--%d0%b1%d0%bb%d0%be%d0%ba%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-%d1%82%d1%80%d0%b0%d1%84%d0%b8%d0%ba%d0%b0-%d0%bd%d0%b5-%d0%b8%d0%b4%d1%83%d1%89%d0%b5%d0%b3%d0%be-%d0%b2-%d0%b4%d0%be%d0%b2%d0%b5%d1%80%d0%b5%d0%bd%d0%bd%d1%83%d1%8e-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d1%8c">Отрицание — блокировка трафика, НЕ идущего в доверенную подсеть
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b8%d1%81%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d1%8f-%d1%87%d0%b5%d1%80%d0%b5%d0%b7--%d0%b1%d0%bb%d0%be%d0%ba%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-%d0%b2%d1%81%d0%b5%d0%b3%d0%be-%d0%b8%d0%b7-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0-%d0%ba%d1%80%d0%be%d0%bc%d0%b5-%d0%b4%d0%be%d0%b2%d0%b5%d1%80%d0%b5%d0%bd%d0%bd%d1%8b%d1%85-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d0%b5%d0%b9">Исключения через !: блокировка всего из списка, кроме доверенных подсетей
         </a>
       </li></ul>
       <div class="hx:mt-8 hx:border-t hx:bg-white hx:pt-8 hx:shadow-[0_-12px_16px_white] hx:dark:bg-dark hx:dark:shadow-[0_-12px_16px_#111] hx:sticky hx:bottom-0 hx:flex hx:flex-col hx:items-start hx:gap-2 hx:pb-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-t hx:contrast-more:border-neutral-400 hx:contrast-more:shadow-none hx:contrast-more:dark:border-neutral-400">
@@ -1096,8 +1098,9 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
     </div>
           </div>
           
-          <p>Правила маршрутизации соединяют ваши списки с вашими outbounds.</p>
-<p>Большинству пользователей нужно только одно простое правило для каждого списка, например:</p>
+          <p>Правило маршрутизации связывает условие («трафик к сайтам из этого списка») с outbound («отправить через этот канал»). Outbound — канал для трафика: VPN, провайдер или блокировка, см. <a href="/ru/docs/configuration/outbounds/">Outbounds</a>.</p>
+<p><strong>В веб-интерфейсе:</strong> откройте <strong>Маршрутизация</strong> &gt; <strong>Правила маршрутизации</strong> и нажмите <strong>Добавить правило маршрутизации</strong>. Выберите <strong>Тип правила</strong>, задайте условия и <strong>Outbound</strong>, затем нажмите <strong>Применить</strong> в панели черновика. Чтобы временно отключить правило, снимите переключатель <strong>Включить правило</strong>.</p>
+<p>Большинству пользователей нужно одно простое правило на каждый список, например:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1121,11 +1124,9 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
-<p>Правила проверяются сверху вниз. Первое совпадение выигрывает. Трафик, который не соответствует никакому правилу, не получает 
-  <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
- и идёт по обычной системной маршрутизации.</p>
+<p>Правила проверяются сверху вниз, срабатывает первое подходящее. Трафик, который не подошёл ни под одно правило, идёт по обычной маршрутизации роутера.</p>
 <h2>Правило по умолчанию для локальных сетей<span class="hx:absolute hx:-mt-20" id="правило-по-умолчанию-для-локальных-сетей"></span>
-    <a href="#%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%be-%d0%bf%d0%be-%d1%83%d0%bc%d0%be%d0%bb%d1%87%d0%b0%d0%bd%d0%b8%d1%8e-%d0%b4%d0%bb%d1%8f-%d0%bb%d0%be%d0%ba%d0%b0%d0%bb%d1%8c%d0%bd%d1%8b%d1%85-%d1%81%d0%b5%d1%82%d0%b5%d0%b9" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Все поставляемые примеры конфигурации содержат правило по умолчанию в начале списка правил, которое предотвращает маршрутизацию локальных и специальных сетей в туннели:</p>
+    <a href="#%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%be-%d0%bf%d0%be-%d1%83%d0%bc%d0%be%d0%bb%d1%87%d0%b0%d0%bd%d0%b8%d1%8e-%d0%b4%d0%bb%d1%8f-%d0%bb%d0%be%d0%ba%d0%b0%d0%bb%d1%8c%d0%bd%d1%8b%d1%85-%d1%81%d0%b5%d1%82%d0%b5%d0%b9" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Во всех примерах конфигурации список правил начинается с правила, которое не пускает локальные и специальные сети в туннели:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1150,7 +1151,7 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
-<p>Список <code>local_networks</code> содержит RFC-зарезервированные диапазоны IP-адресов, которые всегда должны использовать локальную маршрутизацию:</p>
+<p>В списке <code>local_networks</code> зарезервированные диапазоны адресов, которые всегда идут по локальной маршрутизации:</p>
 <ul>
 <li>Адреса link-local: <code>169.254.0.0/16</code>, <code>fe80::/10</code></li>
 <li>Loopback: <code>127.0.0.0/8</code>, <code>::1/128</code></li>
@@ -1158,16 +1159,15 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 <li>Уникальные локальные адреса: <code>fc00::/7</code></li>
 <li>Диапазоны специального назначения: <code>0.0.0.0/8</code>, <code>100.64.0.0/10</code>, <code>224.0.0.0/4</code>, <code>240.0.0.0/4</code>, <code>ff00::/8</code></li>
 </ul>
-<p><code>direct_local</code> — outbound типа <code>ignore</code>: трафик в эти сети остаётся на обычной маршрутизации роутера.</p>
-<p><strong>Почему это важно:</strong> без этого правила правило для всех адресов, например <code>&quot;dest_addr&quot;: &quot;0.0.0.0/0&quot;</code>, отправит в туннель и трафик на локальные и служебные адреса, и роутер или другие локальные адреса могут стать недоступны. Правила с <code>default_gateway</code> пропускают такие адреса сами.</p>
-<p><strong>Если ваша приватная сеть должна идти через туннель:</strong> Если у вас есть корпоративная сеть 10.x или 172.16.x, которая должна маршрутизироваться через туннель (например, к VPN), добавьте правило для неё <em>выше</em> правила local_networks по умолчанию:</p>
+<p><code>direct_local</code> — outbound типа <code>ignore</code>: трафик в эти сети идёт по обычной маршрутизации роутера.</p>
+<p><strong>Зачем это нужно:</strong> без этого правила правило для всех адресов, например <code>&quot;dest_addr&quot;: &quot;0.0.0.0/0&quot;</code>, отправит в туннель и трафик к локальным адресам, и роутер или другие устройства сети могут стать недоступны. Правила с <code>default_gateway</code> пропускают такие адреса сами.</p>
+<p><strong>Если ваша приватная сеть должна идти через туннель</strong> (например, корпоративная сеть 10.x или 172.16.x за VPN), добавьте правило для неё <em>выше</em> правила <code>local_networks</code>:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;corporate_vpn&#34;</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;dest_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;10.0.0.0/8&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">},</span>
@@ -1190,12 +1190,13 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
-<h2>Конфигурация<span class="hx:absolute hx:-mt-20" id="конфигурация"></span>
-    <a href="#%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h2>Фильтр входящих интерфейсов<span class="hx:absolute hx:-mt-20" id="фильтр-входящих-интерфейсов"></span>
+    <a href="#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-%d0%b2%d1%85%d0%be%d0%b4%d1%8f%d1%89%d0%b8%d1%85-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81%d0%be%d0%b2" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>По умолчанию правила действуют на трафик всех интерфейсов. Если нужно обрабатывать только трафик из некоторых сетей (например, только из LAN <code>br0</code>), перечислите их в <code>inbound_interfaces</code>. В веб-интерфейсе: <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Общие</strong> &gt; <strong>Обрабатываемые (входящие) интерфейсы</strong>.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;inbound_interfaces&#34;</span><span class="p">:</span> <span class="p">[</span><span class="err">...</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;inbound_interfaces&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;br0&#34;</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span><span class="err">...</span><span class="p">]</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1224,7 +1225,7 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 					<td><code>inbound_interfaces</code></td>
 					<td>array of string</td>
 					<td>нет</td>
-					<td>Опциональный фильтр входящих интерфейсов. Если отсутствует или пустой, все интерфейсы доступны. Если непустой, keen-pbr обрабатывает только пакеты, пришедшие через перечисленные интерфейсы.</td>
+					<td>Интерфейсы, трафик с которых обрабатывается. Если отсутствует или пустой, обрабатываются все</td>
 			</tr>
 			<tr>
 					<td><code>rules</code></td>
@@ -1234,10 +1235,11 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 			</tr>
 	</tbody>
 </table>
-<p>Если включён <code>process_router_traffic</code>, правила не действуют на пакеты самого роутера, которые уходят через интерфейс из <code>inbound_interfaces</code> (например, ответы DHCP клиентам в LAN), а также на широковещательные и multicast-пакеты роутера. Поэтому не добавляйте в <code>inbound_interfaces</code> интерфейс, через который роутер выходит в интернет: иначе трафик самого роутера keen-pbr маршрутизировать не будет.</p>
-<p>DHCP (UDP-порты 67–68 для IPv4 и 546–547 для IPv6) keen-pbr не маршрутизирует никогда, что бы ни было в правилах, поэтому устройства всегда получают адреса от роутера.</p>
-<h2>Поля правила маршрутизации<span class="hx:absolute hx:-mt-20" id="поля-правила-маршрутизации"></span>
-    <a href="#%d0%bf%d0%be%d0%bb%d1%8f-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><table>
+<p>Трафик самого роутера обрабатывается, только если включена настройка <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Общие</strong> &gt; <strong>Обрабатывать собственный трафик роутера</strong> (виден в режиме настроек <strong>Продвинутый</strong>) (<code>iproute.process_router_traffic</code>). Не добавляйте в <code>inbound_interfaces</code> интерфейс, через который роутер выходит в интернет: иначе трафик самого роутера не будет маршрутизироваться.</p>
+<p>DHCP (UDP-порты 67–68 для IPv4 и 546–547 для IPv6) keen-pbr не маршрутизирует никогда, поэтому устройства всегда получают адреса от роутера.</p>
+<h2>Поля правила<span class="hx:absolute hx:-mt-20" id="поля-правила"></span>
+    <a href="#%d0%bf%d0%be%d0%bb%d1%8f-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>В форме правила в веб-интерфейсе условия, которые можно добавить: <strong>Списки</strong>, <strong>Протокол</strong>, <strong>DSCP</strong>, <strong>Исходный IP</strong>, <strong>IP назначения</strong>, <strong>Исходный порт</strong>, <strong>Порт назначения</strong>. Все заданные условия должны выполняться одновременно.</p>
+<table>
 	<thead>
 			<tr>
 					<th>Поле</th>
@@ -1251,67 +1253,67 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 					<td><code>enabled</code></td>
 					<td>boolean</td>
 					<td>нет</td>
-					<td>Активно ли это правило. <code>false</code> отключает его. <code>true</code>, отсутствует или <code>null</code> все означают включено.</td>
+					<td>Активно ли правило. <code>false</code> отключает его; <code>true</code>, отсутствие поля и <code>null</code> значат «включено». В веб-интерфейсе: <strong>Включить правило</strong></td>
 			</tr>
 			<tr>
 					<td><code>list</code></td>
 					<td>array of string</td>
 					<td>нет</td>
-					<td>Списки, к которым относится правило. Поле можно опустить, если задано другое условие; в каждом правиле должно быть хотя бы одно условие совпадения.</td>
+					<td>Списки, к которым относится правило (<strong>Списки</strong>). Поле можно опустить, если задано другое условие; в каждом правиле должно быть хотя бы одно условие</td>
 			</tr>
 			<tr>
 					<td><code>outbound</code></td>
 					<td>string</td>
 					<td>да</td>
-					<td>Тег outbound, куда отправить подходящий трафик</td>
+					<td>Тег outbound, куда отправить подходящий трафик (<strong>Outbound</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>proto</code></td>
 					<td>string</td>
 					<td>нет</td>
-					<td>Протокол: <code>&quot;tcp&quot;</code>, <code>&quot;udp&quot;</code> или <code>&quot;tcp/udp&quot;</code></td>
+					<td>Протокол: <code>&quot;tcp&quot;</code>, <code>&quot;udp&quot;</code> или <code>&quot;tcp/udp&quot;</code> (<strong>Протокол</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>dscp</code></td>
 					<td>integer</td>
 					<td>нет</td>
-					<td>Значение DSCP-метки от <code>1</code> до <code>63</code></td>
+					<td>Значение DSCP-метки от <code>1</code> до <code>63</code> (<strong>DSCP</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>src_port</code></td>
 					<td>string</td>
 					<td>нет</td>
-					<td>Сопоставлять только конкретные исходные порты</td>
+					<td>Только эти исходные порты (<strong>Исходный порт</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>dest_port</code></td>
 					<td>string</td>
 					<td>нет</td>
-					<td>Сопоставлять только конкретные порты назначения</td>
+					<td>Только эти порты назначения (<strong>Порт назначения</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>src_addr</code></td>
 					<td>string</td>
 					<td>нет</td>
-					<td>Сопоставлять только конкретные исходные адреса</td>
+					<td>Только эти адреса источника, то есть устройства или подсети, откуда идёт трафик (<strong>Исходные адреса</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>dest_addr</code></td>
 					<td>string</td>
 					<td>нет</td>
-					<td>Сопоставлять только конкретные адреса назначения</td>
+					<td>Только эти адреса назначения (<strong>Адреса назначения</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>default_gateway</code></td>
 					<td><code>&quot;ipv4&quot;</code> или <code>&quot;ipv6&quot;</code></td>
 					<td>нет</td>
-					<td>Весь трафик, который иначе ушёл бы через основной шлюз, кроме локальных, напрямую подключённых, link-local и multicast-адресов. Только nftables. Ставьте такие правила последними</td>
+					<td>Весь интернет-трафик, который иначе ушёл бы через основной шлюз роутера (кроме адресов локальной сети). В веб-интерфейсе: <strong>Тип правила</strong> &gt; <strong>Шлюз по умолчанию IPv4</strong> / <strong>Шлюз по умолчанию IPv6</strong>. Только nftables. Ставьте такие правила последними</td>
 			</tr>
 	</tbody>
 </table>
-<h2>Резервный канал или балансировка для всего интернета<span class="hx:absolute hx:-mt-20" id="резервный-канал-или-балансировка-для-всего-интернета"></span>
-    <a href="#%d1%80%d0%b5%d0%b7%d0%b5%d1%80%d0%b2%d0%bd%d1%8b%d0%b9-%d0%ba%d0%b0%d0%bd%d0%b0%d0%bb-%d0%b8%d0%bb%d0%b8-%d0%b1%d0%b0%d0%bb%d0%b0%d0%bd%d1%81%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-%d0%b4%d0%bb%d1%8f-%d0%b2%d1%81%d0%b5%d0%b3%d0%be-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d0%bd%d0%b5%d1%82%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Чтобы весь интернет-трафик шёл через <code>urltest</code> или <code>icmptest</code>, добавьте в конец списка правил по одному правилу с <code>default_gateway</code> для IPv4 и для IPv6 (работает только с nftables). Адреса локальной сети и напрямую подключённых сетей keen-pbr берёт из основной таблицы маршрутизации и оставляет на обычной маршрутизации.</p>
-<p>По умолчанию такие правила действуют только на трафик устройств в сети. Чтобы они действовали и на трафик самого роутера, установите <code>iproute.process_router_traffic: true</code>.</p>
+<h2>Резервный канал или балансировка для всего интернета<span class="hx:absolute hx:-mt-20" id="failover-or-balancing-for-all-internet-traffic"></span>
+    <a href="#failover-or-balancing-for-all-internet-traffic" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Это нужно, чтобы весь интернет-трафик шёл через автовыбор (<code>urltest</code> или <code>icmptest</code>): если основной канал упал, трафик переключится на запасной, а при <code>balance</code> распределится между несколькими. Для этого в конец списка правил добавьте по правилу с <code>default_gateway</code> для IPv4 и для IPv6. Работает только с nftables; с iptables конфигурация не пройдёт проверку. Адреса локальной сети остаются на обычной маршрутизации.</p>
+<p>По умолчанию такие правила действуют только на трафик устройств в сети. Чтобы они действовали и на трафик самого роутера, включите <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Общие</strong> &gt; <strong>Обрабатывать собственный трафик роутера</strong> (<code>iproute.process_router_traffic: true</code>).</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1333,14 +1335,14 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 </div>
 </div>
 <h2>Примеры<span class="hx:absolute hx:-mt-20" id="примеры"></span>
-    <a href="#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><h3>Базовый — маршрутизация списка через VPN<span class="hx:absolute hx:-mt-20" id="базовый--маршрутизация-списка-через-vpn"></span>
-    <a href="#%d0%b1%d0%b0%d0%b7%d0%be%d0%b2%d1%8b%d0%b9--%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d1%8f-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+    <a href="#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><h3>Список через VPN<span class="hx:absolute hx:-mt-20" id="список-через-vpn"></span>
+    <a href="#%d1%81%d0%bf%d0%b8%d1%81%d0%be%d0%ba-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Самый частый случай: сайты и IP из списков идут через VPN.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_domains&#34;</span><span class="p">,</span> <span class="s2">&#34;my_ips&#34;</span><span class="p">,</span> <span class="s2">&#34;remote_list&#34;</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">}</span>
@@ -1358,8 +1360,107 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
-<h3>Временное отключение правила без удаления<span class="hx:absolute hx:-mt-20" id="временное-отключение-правила-без-удаления"></span>
-    <a href="#%d0%b2%d1%80%d0%b5%d0%bc%d0%b5%d0%bd%d0%bd%d0%be%d0%b5-%d0%be%d1%82%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d0%b1%d0%b5%d0%b7-%d1%83%d0%b4%d0%b0%d0%bb%d0%b5%d0%bd%d0%b8%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Исключение из общего правила<span class="hx:absolute hx:-mt-20" id="исключение-из-общего-правила"></span>
+    <a href="#%d0%b8%d1%81%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%b8%d0%b7-%d0%be%d0%b1%d1%89%d0%b5%d0%b3%d0%be-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Правила проверяются сверху вниз, поэтому исключение ставят выше общего правила. Здесь весь список <code>streaming</code> идёт через VPN, кроме адресов из списка <code>streaming_direct</code>. Outbound <code>direct</code> имеет тип <code>ignore</code> (трафик идёт обычным путём).</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span> <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;streaming_direct&#34;</span><span class="p">],</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;direct&#34;</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span> <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;streaming&#34;</span><span class="p">],</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<h3>Блокировка списка<span class="hx:absolute hx:-mt-20" id="блокировка-списка"></span>
+    <a href="#%d0%b1%d0%bb%d0%be%d0%ba%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Outbound <code>block</code> имеет тип <code>blackhole</code>: трафик к адресам из списка отбрасывается.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;ads&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;block&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<h3>Одно устройство или подсеть<span class="hx:absolute hx:-mt-20" id="одно-устройство-или-подсеть"></span>
+    <a href="#%d0%be%d0%b4%d0%bd%d0%be-%d1%83%d1%81%d1%82%d1%80%d0%be%d0%b9%d1%81%d1%82%d0%b2%d0%be-%d0%b8%d0%bb%d0%b8-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d1%8c" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Весь трафик устройства <code>192.168.10.20</code> идёт через VPN. Чтобы выбрать подсеть, укажите её: <code>192.168.10.0/24</code>.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;src_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;192.168.10.20&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Условия можно сочетать: правило ниже направит через VPN только адреса из списка <code>my_ips</code>, и только от устройств подсети <code>192.168.10.0/24</code>.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_ips&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;src_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;192.168.10.0/24&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<h3>Временное отключение правила<span class="hx:absolute hx:-mt-20" id="временное-отключение-правила"></span>
+    <a href="#%d0%b2%d1%80%d0%b5%d0%bc%d0%b5%d0%bd%d0%bd%d0%be%d0%b5-%d0%be%d1%82%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Поставьте <code>&quot;enabled&quot;: false</code> (в веб-интерфейсе снимите <strong>Включить правило</strong>), и правило перестанет действовать, но останется в конфиге.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
@@ -1383,60 +1484,8 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
-<p>Когда <code>enabled</code> отсутствует или установлен в <code>null</code>, правило обрабатывается как включённое.</p>
-<h3>Фильтр входящих интерфейсов — обработка только пакетов с <code>br0</code><span class="hx:absolute hx:-mt-20" id="фильтр-входящих-интерфейсов--обработка-только-пакетов-с-br0"></span>
-    <a href="#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-%d0%b2%d1%85%d0%be%d0%b4%d1%8f%d1%89%d0%b8%d1%85-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81%d0%be%d0%b2--%d0%be%d0%b1%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%ba%d0%b0-%d1%82%d0%be%d0%bb%d1%8c%d0%ba%d0%be-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d0%be%d0%b2-%d1%81-br0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;inbound_interfaces&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;br0&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_domains&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">]</span>
-</span></span><span class="line"><span class="cl">  <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<h3>Фильтр входящих интерфейсов отключён (отсутствует или пустой)<span class="hx:absolute hx:-mt-20" id="фильтр-входящих-интерфейсов-отключён-отсутствует-или-пустой"></span>
-    <a href="#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-%d0%b2%d1%85%d0%be%d0%b4%d1%8f%d1%89%d0%b8%d1%85-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81%d0%be%d0%b2-%d0%be%d1%82%d0%ba%d0%bb%d1%8e%d1%87%d1%91%d0%bd-%d0%be%d1%82%d1%81%d1%83%d1%82%d1%81%d1%82%d0%b2%d1%83%d0%b5%d1%82-%d0%b8%d0%bb%d0%b8-%d0%bf%d1%83%d1%81%d1%82%d0%be%d0%b9" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Если <code>inbound_interfaces</code> отсутствует (по умолчанию) или явно установлен в пустой массив, фильтрация интерфейсов отключена и правила маршрутизации применяются независимо от входящего интерфейса.</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;inbound_interfaces&#34;</span><span class="p">:</span> <span class="p">[],</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_domains&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">]</span>
-</span></span><span class="line"><span class="cl">  <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<h3>Фильтр портов — только HTTPS TCP из двух подсетей<span class="hx:absolute hx:-mt-20" id="фильтр-портов--только-https-tcp-из-двух-подсетей"></span>
-    <a href="#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-%d0%bf%d0%be%d1%80%d1%82%d0%be%d0%b2--%d1%82%d0%be%d0%bb%d1%8c%d0%ba%d0%be-https-tcp-%d0%b8%d0%b7-%d0%b4%d0%b2%d1%83%d1%85-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d0%b5%d0%b9" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Порты и протокол: HTTPS из двух подсетей<span class="hx:absolute hx:-mt-20" id="порты-и-протокол-https-из-двух-подсетей"></span>
+    <a href="#%d0%bf%d0%be%d1%80%d1%82%d1%8b-%d0%b8-%d0%bf%d1%80%d0%be%d1%82%d0%be%d0%ba%d0%be%d0%bb-https-%d0%b8%d0%b7-%d0%b4%d0%b2%d1%83%d1%85-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d0%b5%d0%b9" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
@@ -1446,6 +1495,33 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;src_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;192.168.20.0/24,192.168.30.0/24&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;proto&#34;</span><span class="p">:</span> <span class="s2">&#34;tcp&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;dest_port&#34;</span><span class="p">:</span> <span class="s2">&#34;443&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<h3>Все условия сразу: DNS-запросы к Google DNS из подсети<span class="hx:absolute hx:-mt-20" id="все-условия-сразу-dns-запросы-к-google-dns-из-подсети"></span>
+    <a href="#%d0%b2%d1%81%d0%b5-%d1%83%d1%81%d0%bb%d0%be%d0%b2%d0%b8%d1%8f-%d1%81%d1%80%d0%b0%d0%b7%d1%83-dns-%d0%b7%d0%b0%d0%bf%d1%80%d0%be%d1%81%d1%8b-%d0%ba-google-dns-%d0%b8%d0%b7-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Правило сработает, только если выполнены все условия: запрос из подсети <code>192.168.10.0/24</code>, к адресу <code>8.8.8.8</code>, на порт 53.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;src_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;192.168.10.0/24&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;dest_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;dest_port&#34;</span><span class="p">:</span> <span class="s2">&#34;53&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">}</span>
 </span></span><span class="line"><span class="cl">    <span class="p">]</span>
@@ -1549,60 +1625,9 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 </div>
 </div>
 <p><code>owner</code> видит только пакеты, созданные на том же компьютере, поэтому добавляйте эти правила на Linux-ноутбуке или ПК, где запущено приложение, а не на роутере с keen-pbr.</p>
-<h3>Фильтр адресов — трафик из конкретной подсети<span class="hx:absolute hx:-mt-20" id="фильтр-адресов--трафик-из-конкретной-подсети"></span>
-    <a href="#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%be%d0%b2--%d1%82%d1%80%d0%b0%d1%84%d0%b8%d0%ba-%d0%b8%d0%b7-%d0%ba%d0%be%d0%bd%d0%ba%d1%80%d0%b5%d1%82%d0%bd%d0%be%d0%b9-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_ips&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;src_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;192.168.10.0/24&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">]</span>
-</span></span><span class="line"><span class="cl">  <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<h3>Полный фильтр — Google DNS из подсети через VPN<span class="hx:absolute hx:-mt-20" id="полный-фильтр--google-dns-из-подсети-через-vpn"></span>
-    <a href="#%d0%bf%d0%be%d0%bb%d0%bd%d1%8b%d0%b9-%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80--google-dns-%d0%b8%d0%b7-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d0%b8-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_domains&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;src_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;192.168.10.0/24&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;dest_addr&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;dest_port&#34;</span><span class="p">:</span> <span class="s2">&#34;53&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">]</span>
-</span></span><span class="line"><span class="cl">  <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<h3>Отрицание — все источники, кроме локальной LAN<span class="hx:absolute hx:-mt-20" id="отрицание--все-источники-кроме-локальной-lan"></span>
-    <a href="#%d0%be%d1%82%d1%80%d0%b8%d1%86%d0%b0%d0%bd%d0%b8%d0%b5--%d0%b2%d1%81%d0%b5-%d0%b8%d1%81%d1%82%d0%be%d1%87%d0%bd%d0%b8%d0%ba%d0%b8-%d0%ba%d1%80%d0%be%d0%bc%d0%b5-%d0%bb%d0%be%d0%ba%d0%b0%d0%bb%d1%8c%d0%bd%d0%be%d0%b9-lan" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Исключения через <code>!</code>: все источники, кроме локальной LAN<span class="hx:absolute hx:-mt-20" id="исключения-через--все-источники-кроме-локальной-lan"></span>
+    <a href="#%d0%b8%d1%81%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d1%8f-%d1%87%d0%b5%d1%80%d0%b5%d0%b7--%d0%b2%d1%81%d0%b5-%d0%b8%d1%81%d1%82%d0%be%d1%87%d0%bd%d0%b8%d0%ba%d0%b8-%d0%ba%d1%80%d0%be%d0%bc%d0%b5-%d0%bb%d0%be%d0%ba%d0%b0%d0%bb%d1%8c%d0%bd%d0%be%d0%b9-lan" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Знак <code>!</code> означает «все, кроме». Правило ниже отправляет через VPN адреса из <code>my_ips</code>, если запрос идёт не из <code>192.168.1.0/24</code>.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
@@ -1626,8 +1651,8 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
-<h3>Отрицание — весь TCP, кроме HTTPS, идёт через VPN<span class="hx:absolute hx:-mt-20" id="отрицание--весь-tcp-кроме-https-идёт-через-vpn"></span>
-    <a href="#%d0%be%d1%82%d1%80%d0%b8%d1%86%d0%b0%d0%bd%d0%b8%d0%b5--%d0%b2%d0%b5%d1%81%d1%8c-tcp-%d0%ba%d1%80%d0%be%d0%bc%d0%b5-https-%d0%b8%d0%b4%d1%91%d1%82-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Исключения через <code>!</code>: TCP-трафик к адресам из списка, кроме HTTPS<span class="hx:absolute hx:-mt-20" id="исключения-через--tcp-трафик-к-адресам-из-списка-кроме-https"></span>
+    <a href="#%d0%b8%d1%81%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d1%8f-%d1%87%d0%b5%d1%80%d0%b5%d0%b7--tcp-%d1%82%d1%80%d0%b0%d1%84%d0%b8%d0%ba-%d0%ba-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%b0%d0%bc-%d0%b8%d0%b7-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0-%d0%ba%d1%80%d0%be%d0%bc%d0%b5-https" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
@@ -1652,8 +1677,8 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
-<h3>Отрицание — весь UDP, кроме DNS и NTP, идёт через VPN<span class="hx:absolute hx:-mt-20" id="отрицание--весь-udp-кроме-dns-и-ntp-идёт-через-vpn"></span>
-    <a href="#%d0%be%d1%82%d1%80%d0%b8%d1%86%d0%b0%d0%bd%d0%b8%d0%b5--%d0%b2%d0%b5%d1%81%d1%8c-udp-%d0%ba%d1%80%d0%be%d0%bc%d0%b5-dns-%d0%b8-ntp-%d0%b8%d0%b4%d1%91%d1%82-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Исключения через <code>!</code>: UDP-трафик к адресам из списка, кроме DNS и NTP<span class="hx:absolute hx:-mt-20" id="исключения-через--udp-трафик-к-адресам-из-списка-кроме-dns-и-ntp"></span>
+    <a href="#%d0%b8%d1%81%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d1%8f-%d1%87%d0%b5%d1%80%d0%b5%d0%b7--udp-%d1%82%d1%80%d0%b0%d1%84%d0%b8%d0%ba-%d0%ba-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%b0%d0%bc-%d0%b8%d0%b7-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0-%d0%ba%d1%80%d0%be%d0%bc%d0%b5-dns-%d0%b8-ntp" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
@@ -1682,12 +1707,13 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Имейте в виду, что DNS работает поверх TCP и UDP, но это правило покрывает только UDP. Это правило показано только для справки, в реальной жизни вы, вероятно, также захотите добавить TCP-правило для порта 53.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">DNS работает и поверх TCP, и поверх UDP, а это правило покрывает только UDP. Пример приведён для справки: на практике обычно нужно такое же правило и для TCP-порта 53.</div>
   </div>
 </div>
 
-<h3>Отрицание — блокировка трафика, НЕ идущего в доверенную подсеть<span class="hx:absolute hx:-mt-20" id="отрицание--блокировка-трафика-не-идущего-в-доверенную-подсеть"></span>
-    <a href="#%d0%be%d1%82%d1%80%d0%b8%d1%86%d0%b0%d0%bd%d0%b8%d0%b5--%d0%b1%d0%bb%d0%be%d0%ba%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-%d1%82%d1%80%d0%b0%d1%84%d0%b8%d0%ba%d0%b0-%d0%bd%d0%b5-%d0%b8%d0%b4%d1%83%d1%89%d0%b5%d0%b3%d0%be-%d0%b2-%d0%b4%d0%be%d0%b2%d0%b5%d1%80%d0%b5%d0%bd%d0%bd%d1%83%d1%8e-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d1%8c" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Исключения через <code>!</code>: блокировка всего из списка, кроме доверенных подсетей<span class="hx:absolute hx:-mt-20" id="исключения-через--блокировка-всего-из-списка-кроме-доверенных-подсетей"></span>
+    <a href="#%d0%b8%d1%81%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d1%8f-%d1%87%d0%b5%d1%80%d0%b5%d0%b7--%d0%b1%d0%bb%d0%be%d0%ba%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-%d0%b2%d1%81%d0%b5%d0%b3%d0%be-%d0%b8%d0%b7-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0-%d0%ba%d1%80%d0%be%d0%bc%d0%b5-%d0%b4%d0%be%d0%b2%d0%b5%d1%80%d0%b5%d0%bd%d0%bd%d1%8b%d1%85-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d0%b5%d0%b9" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Адреса из списка <code>my_ips</code> блокируются, если они не входят в <code>10.0.0.0/8</code> или <code>172.16.0.0/12</code>.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
