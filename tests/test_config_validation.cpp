@@ -2182,6 +2182,48 @@ TEST_CASE("outbound_group members are validated") {
     }
 }
 
+TEST_CASE("outbound_group members must be interface or table outbounds") {
+    const auto wrap = [](const std::string& type_fields, const std::string& member) {
+        return R"({"outbounds":[
+          {"type":"interface","tag":"a","interface":"eth0"},
+          {"type":"table","tag":"t","table":254},
+          {"type":"blackhole","tag":"bh"},
+          {"type":"ignore","tag":"ig"},
+          {"type":"urltest","tag":"other_u","url":"http://example.test",
+           "outbound_groups":[{"members":[{"outbound":"a"}]}]},
+          {"type":"icmptest","tag":"other_i","interval_ms":60000,
+           "outbound_groups":[{"members":[{"outbound":"t","target":"1.1.1.1"}]}]},
+          {)" + type_fields + R"(,"outbound_groups":[{"members":[)" + member + R"(]}]}]})";
+    };
+    const std::string urltest = R"("type":"urltest","tag":"u","url":"http://example.test")";
+    const std::string icmptest = R"("type":"icmptest","tag":"u","interval_ms":60000)";
+    const auto member = [](bool icmp, const std::string& tag) {
+        return R"({"outbound":")" + tag + "\"" +
+               (icmp ? R"(,"target":"1.1.1.1")" : "") + "}";
+    };
+
+    for (const bool icmp : {false, true}) {
+        CAPTURE(icmp);
+        const auto& type_fields = icmp ? icmptest : urltest;
+        CHECK(validate_issues(wrap(type_fields, member(icmp, "a"))).empty());
+        CHECK(validate_issues(wrap(type_fields, member(icmp, "t"))).empty());
+        for (const char* tag : {"ig", "other_u", "other_i", "u"}) {
+            CAPTURE(tag);
+            const auto issues = validate_issues(wrap(type_fields, member(icmp, tag)));
+            REQUIRE_FALSE(issues.empty());
+            CHECK(issues.front().message.find(icmp ? "Icmptest" : "Urltest") == 0);
+            CHECK(issues.front().message.find("not an interface or table outbound") !=
+                  std::string::npos);
+        }
+
+        const auto cfg = parse_config(wrap(type_fields, member(icmp, "bh")));
+        CHECK_NOTHROW(validate_config(cfg));
+        const auto warnings = config_warnings(cfg);
+        REQUIRE(warnings.size() == 1);
+        CHECK(warnings.front().find("blackhole outbound 'bh'") != std::string::npos);
+    }
+}
+
 TEST_CASE("upgrade_config_file_if_needed rewrites once and keeps the first backup") {
     namespace fs = std::filesystem;
     const fs::path dir = fs::temp_directory_path() /
@@ -2275,7 +2317,7 @@ TEST_CASE("balance validation: a test group cannot be a member of another test g
        "outbound_groups":[{"outbounds":["inner"]}]}
     ]})");
     REQUIRE_FALSE(issues.empty());
-    CHECK(issues.front().message.find("not an interface, table, or blackhole") !=
+    CHECK(issues.front().message.find("not an interface or table outbound") !=
           std::string::npos);
 }
 

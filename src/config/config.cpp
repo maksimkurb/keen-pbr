@@ -1472,14 +1472,18 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
                     }
 
                     found = true;
+                    // Blackhole members are never probed or selected, so
+                    // config_warnings() reports them instead of rejecting
+                    // configs that already have one.
                     if (target.type != OutboundType::INTERFACE &&
                         target.type != OutboundType::TABLE &&
-                        (!is_icmp && target.type != OutboundType::BLACKHOLE)) {
+                        target.type != OutboundType::BLACKHOLE) {
                         add_issue(
                             issues, member_path + ".outbound",
-                            "Urltest outbound '" + ob.tag +
+                            std::string(is_icmp ? "Icmptest" : "Urltest") +
+                                " outbound '" + ob.tag +
                                 "' references outbound '" + ref_tag +
-                                "' which is not an interface, table, or blackhole outbound");
+                                "' which is not an interface or table outbound");
                     }
                     break;
                 }
@@ -1487,7 +1491,8 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
                 if (!found) {
                     add_issue(
                         issues, member_path + ".outbound",
-                        "Urltest outbound '" + ob.tag +
+                        std::string(is_icmp ? "Icmptest" : "Urltest") +
+                            " outbound '" + ob.tag +
                             "' references unknown outbound tag '" + ref_tag + "'");
                 }
             }
@@ -1916,6 +1921,26 @@ std::vector<std::string> config_warnings(const Config& config) {
         warnings.push_back(
             "dns.dns_test_server is deprecated and ignored: replaced by "
             "intercept.dns.marker");
+    }
+    const auto& outbounds = config.outbounds.value_or(std::vector<Outbound>{});
+    for (const auto& ob : outbounds) {
+        if (ob.type != OutboundType::URLTEST && ob.type != OutboundType::ICMPTEST) {
+            continue;
+        }
+        for (const auto& group : ob.outbound_groups.value_or(std::vector<OutboundGroup>{})) {
+            for (const auto& tag : outbound_group_tags(group)) {
+                const auto target = std::find_if(
+                    outbounds.begin(), outbounds.end(),
+                    [&tag](const Outbound& candidate) { return candidate.tag == tag; });
+                if (target == outbounds.end() || target->type != OutboundType::BLACKHOLE) {
+                    continue;
+                }
+                warnings.push_back(
+                    "Outbound '" + ob.tag + "' lists blackhole outbound '" + tag +
+                    "' as a group member; it is never selected and is ignored. "
+                    "Traffic is blocked anyway when no member works.");
+            }
+        }
     }
     return warnings;
 }

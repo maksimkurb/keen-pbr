@@ -7,7 +7,7 @@
  */
 
 export interface OutboundGroupMember {
-  /** Member interface, table or (urltest only) blackhole outbound tag. */
+  /** Member interface or table outbound tag. */
   outbound: string;
   /** Literal IPv4 or IPv6 address to ping through this member. Required for `icmptest` outbounds; rejected for `urltest` outbounds.
    */
