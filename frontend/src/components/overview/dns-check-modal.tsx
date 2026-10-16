@@ -1,12 +1,5 @@
-import {
-  AlertCircle,
-  Check,
-  CheckCircle2,
-  Copy,
-  Loader2,
-  Terminal,
-} from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react"
+import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 
 import type { DnsCheckStatus, DnsEventFailure } from "@/hooks/use-dns-check"
@@ -18,19 +11,8 @@ import {
 } from "@/hooks/use-dns-check"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { CommandCopyField } from "@/components/shared/command-copy-field"
 import { ResponsiveDialog } from "@/components/shared/responsive-dialog"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-  InputGroupText,
-} from "@/components/ui/input-group"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 
 export function DnsCheckModal({
   open,
@@ -119,7 +101,11 @@ export function DnsCheckModal({
             <div className="text-sm text-muted-foreground">
               {t("overview.dnsCheck.modal.copyCommand")}
             </div>
-            <CommandCopyField key={command} command={command} />
+            <CommandCopyField
+              key={command}
+              command={command}
+              ariaLabel={t("overview.dnsCheck.modal.copyAria")}
+            />
           </div>
         ) : null}
 
@@ -148,75 +134,6 @@ function StatusLine({ icon, text }: { icon: React.ReactNode; text: string }) {
       {icon}
       <span>{text}</span>
     </div>
-  )
-}
-
-function CommandCopyField({ command }: { command: string }) {
-  const { t } = useTranslation()
-  const [copyFeedback, setCopyFeedback] = useState<
-    "idle" | "copied" | "failed"
-  >("idle")
-  const resetTimerRef = useRef<number | null>(null)
-
-  useEffect(() => {
-    if (copyFeedback !== "copied") {
-      return
-    }
-
-    resetTimerRef.current = window.setTimeout(() => {
-      setCopyFeedback("idle")
-      resetTimerRef.current = null
-    }, 1000)
-
-    return () => {
-      if (resetTimerRef.current !== null) {
-        window.clearTimeout(resetTimerRef.current)
-        resetTimerRef.current = null
-      }
-    }
-  }, [copyFeedback])
-
-  return (
-    <InputGroup>
-      <InputGroupAddon>
-        <InputGroupText>
-          <Terminal className="h-4 w-4" />
-        </InputGroupText>
-      </InputGroupAddon>
-      <InputGroupInput
-        className="cursor-pointer font-mono text-sm"
-        onClick={(event) => {
-          event.currentTarget.select()
-          void copyCommand(command, setCopyFeedback)
-        }}
-        readOnly
-        value={command}
-      />
-      <InputGroupAddon align="inline-end">
-        <Tooltip>
-          <TooltipTrigger render={<InputGroupButton size="icon-xs" />}>
-            <InputGroupButton
-              aria-label={t("overview.dnsCheck.modal.copyAria")}
-              onClick={() => void copyCommand(command, setCopyFeedback)}
-              size="icon-xs"
-            >
-              {copyFeedback === "copied" ? (
-                <Check className="text-emerald-600" />
-              ) : (
-                <Copy />
-              )}
-            </InputGroupButton>
-          </TooltipTrigger>
-          <TooltipContent>
-            {copyFeedback === "copied"
-              ? t("common.copied")
-              : copyFeedback === "failed"
-                ? t("common.clipboardUnavailable")
-                : t("common.copy")}
-          </TooltipContent>
-        </Tooltip>
-      </InputGroupAddon>
-    </InputGroup>
   )
 }
 
@@ -255,47 +172,4 @@ function getPcStatusText(
   }
 
   return t("overview.dnsCheck.status.manualIncomplete")
-}
-
-async function copyCommand(
-  command: string,
-  setCopyFeedback: (value: "idle" | "copied" | "failed") => void
-) {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(command)
-      setCopyFeedback("copied")
-      return
-    }
-  } catch {
-    // Fall back to `execCommand("copy")` on insecure origins where the Clipboard API is unavailable.
-  }
-
-  if (copyCommandWithExec(command)) {
-    setCopyFeedback("copied")
-  } else {
-    setCopyFeedback("failed")
-  }
-}
-
-function copyCommandWithExec(command: string) {
-  const textarea = document.createElement("textarea")
-  textarea.value = command
-  textarea.setAttribute("readonly", "")
-  textarea.style.position = "fixed"
-  textarea.style.top = "0"
-  textarea.style.left = "0"
-  textarea.style.opacity = "0"
-
-  document.body.appendChild(textarea)
-  textarea.focus()
-  textarea.select()
-
-  try {
-    return document.execCommand("copy")
-  } catch {
-    return false
-  } finally {
-    document.body.removeChild(textarea)
-  }
 }

@@ -256,7 +256,8 @@ export const ruTranslation = {
       interceptWarning: "Предупреждение перехвата трафика",
       routingCheckFailed: "Не удалось выполнить проверки маршрутизации",
       chainMissing: "Цепочка межсетевого экрана отсутствует",
-      preroutingMissing: "Цепочка межсетевого экрана не подключена к PREROUTING",
+      preroutingMissing:
+        "Цепочка межсетевого экрана не подключена к PREROUTING",
       firewallRules: "Правила межсетевого экрана не совпадают: {{count}}",
       routes: "Таблицы маршрутизации не совпадают: {{count}}",
       policies: "Политики маршрутизации не совпадают: {{count}}",
@@ -269,8 +270,10 @@ export const ruTranslation = {
       hostWarning: {
         nat_missing: "{{interface}}: для этого WAN нет NAT (MASQUERADE/SNAT)",
         nat_partial: "{{interface}}: NAT покрывает только часть подсетей",
-        rp_filter_strict: "{{interface}}: строгий rp_filter может отбрасывать ответы",
-        fwmark_mask_conflict: "Стороннее правило использует биты метки пакета, зарезервированные keen-pbr",
+        rp_filter_strict:
+          "{{interface}}: строгий rp_filter может отбрасывать ответы",
+        fwmark_mask_conflict:
+          "Стороннее правило использует биты метки пакета, зарезервированные keen-pbr",
       },
     },
     healthy: {
@@ -455,6 +458,26 @@ export const ruTranslation = {
         manualIncomplete: "Ручной тест устройства ещё не завершён.",
       },
     },
+    dnsmasqMissing: {
+      title: "dnsmasq не установлен",
+      description:
+        "Включено «Управлять конфигурацией dnsmasq», но dnsmasq не установлен. Пока это так, DNS-правила и основные DNS-серверы не работают.",
+      install: {
+        title: "Установить dnsmasq",
+        command: "Выполните по SSH:",
+        pickup:
+          "После установки keen-pbr сам найдёт dnsmasq и применит DNS-правила.",
+        docs: "Инструкция по настройке dnsmasq",
+        docsFor: "Инструкция по настройке dnsmasq для {{os}}",
+        copyAria: "Скопировать команду установки",
+      },
+      disable: {
+        title: "Не использовать dnsmasq",
+        description:
+          "Если отдельные DNS-серверы для списков не нужны, выключите «Управлять конфигурацией dnsmasq» в разделе «Общее».",
+        action: "Открыть настройку",
+      },
+    },
     dnsRules: {
       server: "DNS-сервер",
       inactive: "Не активно",
@@ -485,30 +508,50 @@ export const ruTranslation = {
       repairPausedHint:
         "Кнопка «Применить» или «Перезапустить» включит его снова.",
       lastError: "Последняя ошибка",
+      howToFix: "Как исправить",
+      setupDocs: "Инструкция по настройке dnsmasq",
+      setupDocsFor: "Инструкция по настройке dnsmasq для {{os}}",
       instance: "Экземпляр dnsmasq",
       endpoint: "DNS-адрес",
       errors: {
         DNSMASQ_NO_HOOK: "Эта сборка не умеет управлять dnsmasq.",
         DNSMASQ_HOOK_FAILED: "Ошибка вспомогательного скрипта dnsmasq.",
-        DNSMASQ_NOT_INSTALLED: "dnsmasq не установлен. Если отдельные DNS-серверы для списков не нужны, <settings>выключите «Управлять конфигурацией dnsmasq»</settings> в разделе «Общее». Иначе установите dnsmasq.",
-        DNSMASQ_NO_DNS_INSTANCE: "Нет включённого экземпляра dnsmasq, который обслуживает DNS. Если dnsmasq не нужен, <settings>выключите «Управлять конфигурацией dnsmasq»</settings> в разделе «Общее».",
-        DNSMASQ_INSTANCE_NOT_FOUND: "Экземпляр dnsmasq, указанный в настройках, не найден.",
-        DNSMASQ_INSTANCE_AMBIGUOUS: "Найдено несколько экземпляров dnsmasq. Выберите один в настройках.",
-        DNSMASQ_NOT_RUNNING: "dnsmasq не запущен. keen-pbr его не запускает; запустите dnsmasq, и keen-pbr применит правила.",
-        DNSMASQ_DNS_DISABLED: "В этом экземпляре dnsmasq DNS выключен (port=0).",
-        DNSMASQ_OTHER_NETNS: "dnsmasq работает в другом сетевом пространстве имён.",
+        DNSMASQ_NOT_INSTALLED:
+          "dnsmasq не установлен. Если отдельные DNS-серверы для списков не нужны, <settings>выключите «Управлять конфигурацией dnsmasq»</settings> в разделе «Общее». Иначе установите dnsmasq.",
+        DNSMASQ_NO_DNS_INSTANCE:
+          "Нет включённого экземпляра dnsmasq, который обслуживает DNS. Если dnsmasq не нужен, <settings>выключите «Управлять конфигурацией dnsmasq»</settings> в разделе «Общее».",
+        DNSMASQ_INSTANCE_NOT_FOUND:
+          "Экземпляр dnsmasq, указанный в настройках, не найден.",
+        DNSMASQ_INSTANCE_AMBIGUOUS:
+          "Найдено несколько экземпляров dnsmasq. Выберите один в настройках.",
+        DNSMASQ_NOT_RUNNING:
+          "dnsmasq не запущен. keen-pbr его не запускает; запустите dnsmasq, и keen-pbr применит правила.",
+        DNSMASQ_DNS_DISABLED:
+          "В этом экземпляре dnsmasq DNS выключен (port=0).",
+        DNSMASQ_OTHER_NETNS:
+          "dnsmasq работает в другом сетевом пространстве имён.",
         DNSMASQ_NO_DNS_LISTENER: "dnsmasq не принимает DNS-запросы.",
-        DNSMASQ_ENDPOINT_UNRESPONSIVE: "dnsmasq не отвечает на DNS-запросы. Перезапуск не выполнялся.",
-        DNSMASQ_DROPIN_NOT_LOADED: "dnsmasq не читает каталог, в который keen-pbr устанавливает свою конфигурацию.",
-        DNSMASQ_FOREIGN_DROPIN: "Путь конфигурации keen-pbr занят файлом, созданным не keen-pbr.",
-        DNSMASQ_CONF_SCRIPT_UNSUPPORTED: "Этот dnsmasq не поддерживает conf-script.",
-        DNSMASQ_TEST_FAILED: "dnsmasq не прошёл собственную проверку конфигурации.",
-        DNSMASQ_PREFLIGHT_FAILED: "dnsmasq отклонил новую конфигурацию. Работающий dnsmasq не изменён.",
+        DNSMASQ_ENDPOINT_UNRESPONSIVE:
+          "dnsmasq не отвечает на DNS-запросы. Перезапуск не выполнялся.",
+        DNSMASQ_DROPIN_NOT_LOADED:
+          "dnsmasq не читает каталог, в который keen-pbr устанавливает свою конфигурацию.",
+        DNSMASQ_FOREIGN_DROPIN:
+          "Путь конфигурации keen-pbr занят файлом, созданным не keen-pbr.",
+        DNSMASQ_CONF_SCRIPT_UNSUPPORTED:
+          "Этот dnsmasq не поддерживает conf-script.",
+        DNSMASQ_TEST_FAILED:
+          "dnsmasq не прошёл собственную проверку конфигурации.",
+        DNSMASQ_PREFLIGHT_FAILED:
+          "dnsmasq отклонил новую конфигурацию. Работающий dnsmasq не изменён.",
         DNSMASQ_APPLY_FAILED: "Не удалось установить конфигурацию в dnsmasq.",
-        DNSMASQ_CONFIG_NOT_LOADED: "dnsmasq перезапущен, но не загрузил конфигурацию keen-pbr.",
-        DNSMASQ_STAMP_MISMATCH: "dnsmasq использует устаревшую конфигурацию keen-pbr.",
-        DNSMASQ_REPAIR_PAUSED: "Автоматическое восстановление приостановлено после повторных ошибок.",
-        DNSMASQ_PROBE_FAILED: "dnsmasq запущен, но перестал отвечать. Перезапуск не выполнялся.",
+        DNSMASQ_CONFIG_NOT_LOADED:
+          "dnsmasq перезапущен, но не загрузил конфигурацию keen-pbr.",
+        DNSMASQ_STAMP_MISMATCH:
+          "dnsmasq использует устаревшую конфигурацию keen-pbr.",
+        DNSMASQ_REPAIR_PAUSED:
+          "Автоматическое восстановление приостановлено после повторных ошибок.",
+        DNSMASQ_PROBE_FAILED:
+          "dnsmasq запущен, но перестал отвечать. Перезапуск не выполнялся.",
       },
     },
     intercept: {
@@ -658,7 +701,8 @@ export const ruTranslation = {
         issues: {
           ok: {
             title: "Маршрут совпадает с правилом",
-            reason: "Рассчитанный outbound и маршрут межсетевого экрана совпадают.",
+            reason:
+              "Рассчитанный outbound и маршрут межсетевого экрана совпадают.",
             advice: "",
           },
           dns: {
@@ -677,13 +721,15 @@ export const ruTranslation = {
           },
           firewall: {
             title: "Фактический маршрут неизвестен",
-            reason: "Не получилось проверить наборы или условия правил на роутере.",
+            reason:
+              "Не получилось проверить наборы или условия правил на роутере.",
             advice:
               "Посмотрите состояние сервиса и раздел «Диагностика» ниже. Раз проверка не удалась, нельзя сказать наверняка, что IP нет в наборе.",
           },
           missing_ipset: {
             title: "IP нет в нужном ipset",
-            reason: "Адрес есть в списке, но его нет в ipset выбранного правила.",
+            reason:
+              "Адрес есть в списке, но его нет в ipset выбранного правила.",
             reasonDomain:
               "Домен есть в списке, но его IP пока нет в ipset правила. keen-pbr добавляет адреса, когда клиент запрашивает домен через DNS роутера.",
             steps: {

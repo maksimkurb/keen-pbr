@@ -129,7 +129,6 @@ void print_usage(const char *argv0) {
                "dnsmasq conf-script, always exits 0)\n"
             << "  dnsmasq detect [--json]            List dnsmasq instances, their DNS endpoints and which one keen-pbr uses\n"
             << "  dnsmasq remove <selector>          Restart one dnsmasq instance without keen-pbr's generated config (OpenWrt: also return the moved servers)\n"
-            << "  dnsmasq finish-upgrade <keep|off>  After an upgrade from 3.3.x: keep dnsmasq management on or turn it off, and stamp the config version\n"
             << "  hash-password [--update]           Generate an authentication password hash; --update writes config.json\n";
 }
 

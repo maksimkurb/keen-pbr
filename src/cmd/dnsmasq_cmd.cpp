@@ -1,18 +1,14 @@
 #include "dnsmasq_cmd.hpp"
 
 #include "../config/config.hpp"
-#include "../config/config_writer.hpp"
 #include "../config/dnsmasq_selector.hpp"
 #include "../daemon/dnsmasq_detector.hpp"
-#include "../log/logger.hpp"
 #include "../util/safe_exec.hpp"
 
 #include <unistd.h>
 
-#include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <iterator>
 #include <sstream>
 
 namespace keen_pbr3 {
@@ -36,8 +32,7 @@ std::string trim(std::string s) {
 
 void print_usage_to_stderr() {
     std::cerr << "Usage: keen-pbr dnsmasq detect [--json]\n"
-                 "       keen-pbr dnsmasq remove <selector>\n"
-                 "       keen-pbr dnsmasq finish-upgrade <keep|off>\n";
+                 "       keen-pbr dnsmasq remove <selector>\n";
 }
 
 std::optional<Config> load_config_or_warn(const std::string& config_path, bool warn) {
@@ -110,57 +105,6 @@ int run_remove(const std::vector<std::string>& args, const std::string& config_p
     }
     std::cout.flush();
     return r.exit_code < 0 ? 1 : r.exit_code;
-}
-
-// Records the 3.3.x -> 3.4 dnsmasq decision: stamps the config version and
-// turns dnsmasq management on (keep) or off.  The original text is kept once
-// in <config>.bak-pre-version.  The daemon must be restarted afterwards.
-int run_finish_upgrade(const std::vector<std::string>& args,
-                       const std::string& config_path) {
-    if (args.size() != 2 || (args[1] != "keep" && args[1] != "off")) {
-        print_usage_to_stderr();
-        return 64;
-    }
-    const auto mode = args[1] == "keep" ? ResolverIntegrationMode::DNSMASQ
-                                        : ResolverIntegrationMode::NONE;
-
-    std::ifstream in(config_path, std::ios::binary);
-    if (!in.is_open()) {
-        std::cerr << "cannot open " << config_path << '\n';
-        return 1;
-    }
-    const std::string original{std::istreambuf_iterator<char>(in),
-                               std::istreambuf_iterator<char>()};
-    in.close();
-
-    // The migration's "dnsmasq management stays on" note is for the daemon
-    // log; here the user has just made that choice.
-    Logger::instance().set_level(LogLevel::warn);
-    const auto upgraded = versioned_config_text(original, mode);
-    if (!upgraded) {
-        std::cerr << config_path
-                  << " is not a config this version can upgrade "
-                     "(invalid JSON, a bad version or a newer version)\n";
-        return 1;
-    }
-    try {
-        (void)parse_config(*upgraded);
-    } catch (const std::exception& e) {
-        std::cerr << config_path << " is invalid: " << e.what() << '\n';
-        return 1;
-    }
-
-    if (*upgraded != original) {
-        const std::string backup_path = config_path + ".bak-pre-version";
-        std::error_code ec;
-        if (!std::filesystem::exists(backup_path, ec)) {
-            write_config_atomically(backup_path, original);
-        }
-        write_config_atomically(config_path, *upgraded);
-    }
-    std::cout << "dnsmasq management is " << (mode == ResolverIntegrationMode::DNSMASQ ? "on" : "off")
-              << " in " << config_path << '\n';
-    return 0;
 }
 
 } // namespace
@@ -286,7 +230,6 @@ int run_dnsmasq_command(const std::vector<std::string>& args, const std::string&
     try {
         if (!args.empty() && args[0] == "detect") return run_detect(args, config_path, hook_path);
         if (!args.empty() && args[0] == "remove") return run_remove(args, config_path, hook_path);
-        if (!args.empty() && args[0] == "finish-upgrade") return run_finish_upgrade(args, config_path);
         print_usage_to_stderr();
         return 64;
     } catch (const std::exception& e) {

@@ -27,6 +27,7 @@ import { CountersPanel } from "@/components/overview/counters-panel"
 import { DiagnosticsDownloadDialog } from "@/components/overview/diagnostics-download-dialog"
 import { DiagnosticsPanel } from "@/components/overview/diagnostics-panel"
 import { DnsRulesPanel } from "@/components/overview/dns-rules-panel"
+import { DnsmasqMissingDialog } from "@/components/overview/dnsmasq-missing-dialog"
 import { InterceptPanel } from "@/components/overview/intercept-panel"
 import {
   collectHealthySummaries,
@@ -39,6 +40,24 @@ import { ServiceStatusBar } from "@/components/overview/service-status-bar"
 import { getApiErrorMessage } from "@/lib/api-errors"
 
 const HIGHLIGHT_MS = 1800
+// The dnsmasq-missing window opens by itself once per browser session.
+const DNSMASQ_MISSING_SHOWN_KEY = "keen-pbr.overview.dnsmasqMissingShown"
+
+function readSessionFlag(key: string): boolean {
+  try {
+    return window.sessionStorage.getItem(key) === "1"
+  } catch {
+    return false
+  }
+}
+
+function writeSessionFlag(key: string) {
+  try {
+    window.sessionStorage.setItem(key, "1")
+  } catch {
+    // Storage blocked: the window may open again on the next visit.
+  }
+}
 
 export function OverviewPage() {
   const { t } = useTranslation()
@@ -48,6 +67,10 @@ export function OverviewPage() {
   const [isRoutingTestOpen, setIsRoutingTestOpen] = useState(false)
   const [showHealthyDiagnostics, setShowHealthyDiagnostics] = useState(false)
   const [highlightDiagnostics, setHighlightDiagnostics] = useState(false)
+  const [isDnsmasqMissingOpen, setIsDnsmasqMissingOpen] = useState(false)
+  const [dnsmasqMissingSeen, setDnsmasqMissingSeen] = useState(() =>
+    readSessionFlag(DNSMASQ_MISSING_SHOWN_KEY)
+  )
   const routingTargetRef = useRef<HTMLInputElement>(null)
   const diagnosticsRef = useRef<HTMLElement>(null)
 
@@ -90,6 +113,17 @@ export function OverviewPage() {
 
   const isServiceRunning =
     serviceHealth?.status === "running" || serviceHealth?.status === "degraded"
+  const dnsmasqMissing =
+    serviceHealth?.dnsmasq?.mode === "dnsmasq" &&
+    serviceHealth.dnsmasq.error_code === "DNSMASQ_NOT_INSTALLED"
+
+  const onDnsmasqMissingOpenChange = (open: boolean) => {
+    setIsDnsmasqMissingOpen(open)
+    if (!open) {
+      setDnsmasqMissingSeen(true)
+      writeSessionFlag(DNSMASQ_MISSING_SHOWN_KEY)
+    }
+  }
   const interceptEnabled =
     Boolean(loadedConfig) && loadedConfig?.intercept?.enabled !== false
   const requestedInterceptDns =
@@ -234,10 +268,22 @@ export function OverviewPage() {
             requestedL7={requestedInterceptL7}
             serviceRunning={isServiceRunning}
           />
-          <DnsRulesPanel dimmed={dimmed} health={serviceHealth?.dnsmasq} />
+          <DnsRulesPanel
+            dimmed={dimmed}
+            health={serviceHealth?.dnsmasq}
+            osType={serviceHealth?.os_type}
+            onShowDnsmasqMissing={() => setIsDnsmasqMissingOpen(true)}
+          />
           <CountersPanel dimmed={dimmed} health={serviceHealth?.intercept} />
         </div>
       </div>
+
+      <DnsmasqMissingDialog
+        open={dnsmasqMissing && (isDnsmasqMissingOpen || !dnsmasqMissingSeen)}
+        onOpenChange={onDnsmasqMissingOpenChange}
+        osType={serviceHealth?.os_type}
+        osVersion={serviceHealth?.os_version}
+      />
 
       <ResponsiveDialog
         open={isRoutingTestOpen}

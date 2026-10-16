@@ -256,12 +256,16 @@ void collect_routing_issues(const RoutingHealthReport& report,
 }
 
 void collect_dnsmasq_issues(const api::DnsmasqHealth& dnsmasq,
+                            const std::string& setup_docs_url,
                             std::vector<api::HealthIssue>& issues) {
     if (dnsmasq.mode != api::ResolverIntegration::DNSMASQ) return;
     if (dnsmasq.state == api::State::ERROR) {
         auto issue = make_issue("dnsmasq", api::Severity::ERROR, api::Code::DNSMASQ_ERROR,
                                 "dnsmasq does not serve the DNS rules");
-        if (dnsmasq.last_error) {
+        if (dnsmasq.error_code && *dnsmasq.error_code == "DNSMASQ_NOT_INSTALLED") {
+            // `keen-pbr status` shows this text; the web UI has its own help.
+            issue.detail = "dnsmasq is not installed, see " + setup_docs_url;
+        } else if (dnsmasq.last_error) {
             issue.detail = dnsmasq.last_error;
         } else if (dnsmasq.repair_reason) {
             issue.detail = dnsmasq.repair_reason;
@@ -392,6 +396,15 @@ std::vector<api::KernelCheckElement> collect_kernel_checks(
     return checks;
 }
 
+std::string dnsmasq_setup_docs_url(std::string_view os_type) {
+    constexpr std::string_view base = "https://keen-pbr.fyi/docs/";
+    if (os_type == "keenetic" || os_type == "openwrt" || os_type == "debian") {
+        return std::string(base) + "getting-started/installation/" + std::string(os_type) +
+               "/#dnsmasq-install";
+    }
+    return std::string(base) + "configuration/dns/#do-i-need-dnsmasq";
+}
+
 api::HealthIssuesResponse collect_health_issues(const HealthIssueInputs& inputs) {
     api::HealthIssuesResponse response;
     auto& issues = response.issues;
@@ -427,7 +440,9 @@ api::HealthIssuesResponse collect_health_issues(const HealthIssueInputs& inputs)
     }
 
     if (inputs.routing_health) collect_routing_issues(*inputs.routing_health, issues);
-    if (inputs.dnsmasq) collect_dnsmasq_issues(*inputs.dnsmasq, issues);
+    if (inputs.dnsmasq) {
+        collect_dnsmasq_issues(*inputs.dnsmasq, inputs.dnsmasq_setup_docs_url, issues);
+    }
     if (inputs.outbounds) collect_outbound_issues(*inputs.outbounds, issues);
     return response;
 }

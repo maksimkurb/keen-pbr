@@ -9,9 +9,6 @@ if [ "$PKG_UPGRADE" = "1" ] && ! grep -q '"version"' /opt/etc/keen-pbr/config.js
     echo "What's new in 3.4.0: https://keen-pbr.fyi/docs/changelog/#v3-4-0"
 fi
 
-# keen-pbr 3.3.x depended on dnsmasq, and opkg may have just removed it.
-/opt/usr/lib/keen-pbr/upgrade-dnsmasq.sh postinst
-
 echo ""
 # restart, not start: when the old package's prerm could not stop its daemon,
 # start would report "already running" and leave the old binary serving.

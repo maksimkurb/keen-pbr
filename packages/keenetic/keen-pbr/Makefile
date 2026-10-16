@@ -127,7 +127,6 @@ define Package/keen-pbr/install
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/dnsmasq-fallback.conf $(1)/opt/etc/keen-pbr/dnsmasq-fallback.conf
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq.sh $(1)/opt/usr/lib/keen-pbr/dnsmasq.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq-hook.sh $(1)/opt/usr/lib/keen-pbr/dnsmasq-hook.sh
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/upgrade-dnsmasq.sh $(1)/opt/usr/lib/keen-pbr/upgrade-dnsmasq.sh
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq.recommended.conf $(1)/opt/usr/lib/keen-pbr/dnsmasq.recommended.conf
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/common/cleanup-firewall.sh $(1)/opt/usr/lib/keen-pbr/cleanup-firewall.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh
@@ -186,7 +185,6 @@ define Package/keen-pbr-headless/install
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/dnsmasq-fallback.conf $(1)/opt/etc/keen-pbr/dnsmasq-fallback.conf
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq.sh $(1)/opt/usr/lib/keen-pbr/dnsmasq.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq-hook.sh $(1)/opt/usr/lib/keen-pbr/dnsmasq-hook.sh
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/upgrade-dnsmasq.sh $(1)/opt/usr/lib/keen-pbr/upgrade-dnsmasq.sh
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq.recommended.conf $(1)/opt/usr/lib/keen-pbr/dnsmasq.recommended.conf
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/common/cleanup-firewall.sh $(1)/opt/usr/lib/keen-pbr/cleanup-firewall.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh

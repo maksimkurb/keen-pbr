@@ -266,7 +266,8 @@ export const enTranslation = {
         nat_missing: "{{interface}}: no NAT (MASQUERADE/SNAT) for this WAN",
         nat_partial: "{{interface}}: NAT covers only some source subnets",
         rp_filter_strict: "{{interface}}: strict rp_filter may drop replies",
-        fwmark_mask_conflict: "A foreign rule uses packet mark bits reserved for keen-pbr",
+        fwmark_mask_conflict:
+          "A foreign rule uses packet mark bits reserved for keen-pbr",
       },
     },
     healthy: {
@@ -449,6 +450,26 @@ export const enTranslation = {
         manualIncomplete: "Manual device test has not completed yet.",
       },
     },
+    dnsmasqMissing: {
+      title: "dnsmasq is not installed",
+      description:
+        '"Manage dnsmasq configuration" is on, but dnsmasq is not installed. Until you fix this, DNS rules and default DNS servers do not work.',
+      install: {
+        title: "Install dnsmasq",
+        command: "Run over SSH:",
+        pickup:
+          "Once dnsmasq is installed, keen-pbr finds it and applies the DNS rules.",
+        docs: "dnsmasq setup instructions",
+        docsFor: "dnsmasq setup instructions for {{os}}",
+        copyAria: "Copy the install command",
+      },
+      disable: {
+        title: "Do not use dnsmasq",
+        description:
+          'If you do not need separate DNS servers for lists, turn off "Manage dnsmasq configuration" in General.',
+        action: "Open the setting",
+      },
+    },
     dnsRules: {
       server: "DNS server",
       inactive: "Not active",
@@ -477,30 +498,49 @@ export const enTranslation = {
       repairPaused: "Automatic repair paused after {{max}} attempts.",
       repairPausedHint: "Apply or Restart re-arms automatic repair.",
       lastError: "Last error",
+      howToFix: "How to fix",
+      setupDocs: "dnsmasq setup instructions",
+      setupDocsFor: "dnsmasq setup instructions for {{os}}",
       instance: "dnsmasq instance",
       endpoint: "DNS endpoint",
       errors: {
         DNSMASQ_NO_HOOK: "This build cannot manage dnsmasq.",
         DNSMASQ_HOOK_FAILED: "The dnsmasq helper script failed.",
-        DNSMASQ_NOT_INSTALLED: "dnsmasq is not installed. If you do not need separate DNS servers for lists, <settings>turn off \"Manage dnsmasq configuration\"</settings> in General. Otherwise install dnsmasq.",
-        DNSMASQ_NO_DNS_INSTANCE: "No enabled dnsmasq instance serves DNS. If you do not need dnsmasq, <settings>turn off \"Manage dnsmasq configuration\"</settings> in General.",
-        DNSMASQ_INSTANCE_NOT_FOUND: "The dnsmasq instance set in settings does not exist.",
-        DNSMASQ_INSTANCE_AMBIGUOUS: "Several dnsmasq instances were found. Choose one in settings.",
-        DNSMASQ_NOT_RUNNING: "dnsmasq is not running. keen-pbr does not start it; start it and keen-pbr will apply the rules.",
-        DNSMASQ_DNS_DISABLED: "DNS is disabled in this dnsmasq instance (port=0).",
+        DNSMASQ_NOT_INSTALLED:
+          'dnsmasq is not installed. If you do not need separate DNS servers for lists, <settings>turn off "Manage dnsmasq configuration"</settings> in General. Otherwise install dnsmasq.',
+        DNSMASQ_NO_DNS_INSTANCE:
+          'No enabled dnsmasq instance serves DNS. If you do not need dnsmasq, <settings>turn off "Manage dnsmasq configuration"</settings> in General.',
+        DNSMASQ_INSTANCE_NOT_FOUND:
+          "The dnsmasq instance set in settings does not exist.",
+        DNSMASQ_INSTANCE_AMBIGUOUS:
+          "Several dnsmasq instances were found. Choose one in settings.",
+        DNSMASQ_NOT_RUNNING:
+          "dnsmasq is not running. keen-pbr does not start it; start it and keen-pbr will apply the rules.",
+        DNSMASQ_DNS_DISABLED:
+          "DNS is disabled in this dnsmasq instance (port=0).",
         DNSMASQ_OTHER_NETNS: "dnsmasq runs in another network namespace.",
         DNSMASQ_NO_DNS_LISTENER: "dnsmasq does not listen for DNS queries.",
-        DNSMASQ_ENDPOINT_UNRESPONSIVE: "dnsmasq does not answer DNS queries. It was not restarted.",
-        DNSMASQ_DROPIN_NOT_LOADED: "dnsmasq does not read the directory where keen-pbr installs its configuration.",
-        DNSMASQ_FOREIGN_DROPIN: "A file not written by keen-pbr occupies the keen-pbr configuration path.",
-        DNSMASQ_CONF_SCRIPT_UNSUPPORTED: "This dnsmasq does not support conf-script.",
+        DNSMASQ_ENDPOINT_UNRESPONSIVE:
+          "dnsmasq does not answer DNS queries. It was not restarted.",
+        DNSMASQ_DROPIN_NOT_LOADED:
+          "dnsmasq does not read the directory where keen-pbr installs its configuration.",
+        DNSMASQ_FOREIGN_DROPIN:
+          "A file not written by keen-pbr occupies the keen-pbr configuration path.",
+        DNSMASQ_CONF_SCRIPT_UNSUPPORTED:
+          "This dnsmasq does not support conf-script.",
         DNSMASQ_TEST_FAILED: "dnsmasq failed its own configuration test.",
-        DNSMASQ_PREFLIGHT_FAILED: "dnsmasq rejected the new configuration. The running dnsmasq was not changed.",
-        DNSMASQ_APPLY_FAILED: "Installing the configuration into dnsmasq failed.",
-        DNSMASQ_CONFIG_NOT_LOADED: "dnsmasq restarted but did not load the keen-pbr configuration.",
-        DNSMASQ_STAMP_MISMATCH: "dnsmasq serves an outdated keen-pbr configuration.",
-        DNSMASQ_REPAIR_PAUSED: "Automatic repair is paused after repeated failures.",
-        DNSMASQ_PROBE_FAILED: "dnsmasq is running but stopped answering. It was not restarted.",
+        DNSMASQ_PREFLIGHT_FAILED:
+          "dnsmasq rejected the new configuration. The running dnsmasq was not changed.",
+        DNSMASQ_APPLY_FAILED:
+          "Installing the configuration into dnsmasq failed.",
+        DNSMASQ_CONFIG_NOT_LOADED:
+          "dnsmasq restarted but did not load the keen-pbr configuration.",
+        DNSMASQ_STAMP_MISMATCH:
+          "dnsmasq serves an outdated keen-pbr configuration.",
+        DNSMASQ_REPAIR_PAUSED:
+          "Automatic repair is paused after repeated failures.",
+        DNSMASQ_PROBE_FAILED:
+          "dnsmasq is running but stopped answering. It was not restarted.",
       },
     },
     intercept: {
@@ -605,7 +645,8 @@ export const enTranslation = {
     routingDiagnostics: {
       trace: {
         writeEvidence: {
-          recorded: "keen-pbr has already added or refreshed this IP in the ipset.",
+          recorded:
+            "keen-pbr has already added or refreshed this IP in the ipset.",
           age: "Last time {{age}} s ago.",
           nowMissing: "It is not in the ipset now, and why it left is unknown.",
           no_record: "keen-pbr has no record of adding this IP to the ipset.",
@@ -619,7 +660,8 @@ export const enTranslation = {
         ipGroup: "For {{count}} of {{total}} IPs",
         matches: "Matches",
         differs: "Mismatch",
-        pathInterface: "{{outbound}} traffic leaves through interface {{interfaces}}.",
+        pathInterface:
+          "{{outbound}} traffic leaves through interface {{interfaces}}.",
         pathGroup: "{{outbound}} currently uses {{members}}.",
         pathMember: "{{outbound}} (interface {{interface}})",
 
@@ -627,8 +669,7 @@ export const enTranslation = {
           "The service reports outbound {{outbound}} as unavailable. A matching route does not confirm that it can carry traffic.",
         dns: "DNS resolution",
         dnsEmpty: "DNS returned no IP addresses for this domain.",
-        dnsResolverDnsmasq:
-          "Resolved by dnsmasq {{endpoint}} ({{instance}})",
+        dnsResolverDnsmasq: "Resolved by dnsmasq {{endpoint}} ({{instance}})",
         dnsResolverSystem: "Resolved by the router's system resolver",
         dnsClientNote:
           "This check uses the router's DNS. Devices that use DoH, DoT or their own DNS server may get different addresses.",
@@ -668,13 +709,15 @@ export const enTranslation = {
           },
           firewall: {
             title: "The actual route is unknown",
-            reason: "The sets or rule conditions on the router could not be checked.",
+            reason:
+              "The sets or rule conditions on the router could not be checked.",
             advice:
               "Check the service status and the Diagnostics section below. Since the check failed, it is not certain that the IP is missing from the set.",
           },
           missing_ipset: {
             title: "IP not in the expected ipset",
-            reason: "The address is in the list but not in the selected rule’s ipset.",
+            reason:
+              "The address is in the list but not in the selected rule’s ipset.",
             reasonDomain:
               "The domain is in the list, but its IPs are not in the rule’s ipset yet. keen-pbr adds addresses when a client looks the domain up through the router’s DNS.",
             steps: {

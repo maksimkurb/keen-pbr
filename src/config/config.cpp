@@ -1158,28 +1158,6 @@ std::optional<std::string> upgraded_config_text(const std::string& json_str) {
     return parsed.dump(2) + "\n";
 }
 
-std::optional<std::string> versioned_config_text(
-    const std::string& json_str,
-    std::optional<ResolverIntegrationMode> resolver_integration) {
-    json parsed = json::parse(json_str, nullptr, false, true);
-    if (parsed.is_discarded() || !parsed.is_object()) return std::nullopt;
-    std::vector<ConfigValidationIssue> issues;
-    migrate_legacy_icmptest(parsed, issues);
-    migrate_legacy_group_members(parsed, issues);
-    migrate_config_version(parsed, issues);
-    if (!issues.empty()) return std::nullopt;
-    const auto version = parsed.find("version");
-    if (version == parsed.end() || *version != KEEN_PBR3_VERSION_STRING) {
-        return std::nullopt;
-    }
-    if (resolver_integration) {
-        json& dns = parsed["dns"];
-        if (!dns.is_object()) dns = json::object();
-        dns["resolver_integration"] = resolver_integration_name(*resolver_integration);
-    }
-    return parsed.dump(2) + "\n";
-}
-
 Config parse_config(std::istream& json_stream) {
     return parse_config_input(json_stream);
 }

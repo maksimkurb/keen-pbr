@@ -4,15 +4,25 @@ import { Link } from "wouter"
 
 import type { DnsmasqHealth } from "@/api/generated/model"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  dnsmasqSetupDocsUrl,
+  dnsmasqSetupOsLabel,
+  isDnsmasqSetupError,
+} from "@/lib/dnsmasq-setup"
 
 import { Panel, PanelHeader, PanelNote } from "./overview-panel"
 
 export function DnsRulesPanel({
   health,
   dimmed,
+  osType,
+  onShowDnsmasqMissing,
 }: {
   health?: DnsmasqHealth
   dimmed: boolean
+  osType?: string
+  onShowDnsmasqMissing?: () => void
 }) {
   const { t, i18n } = useTranslation()
   const state = health?.mode === "dnsmasq" ? health.state : "disabled"
@@ -158,6 +168,34 @@ export function DnsRulesPanel({
                   {health?.last_error
                     ? `${t("overview.dnsRules.lastError")}: ${health.last_error}`
                     : null}
+                  {health?.error_code === "DNSMASQ_NOT_INSTALLED" &&
+                  onShowDnsmasqMissing ? (
+                    <span className="mt-2 block">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={onShowDnsmasqMissing}
+                      >
+                        {t("overview.dnsRules.howToFix")}
+                      </Button>
+                    </span>
+                  ) : isDnsmasqSetupError(health?.error_code) ? (
+                    <a
+                      className="mt-1 block underline underline-offset-2"
+                      href={dnsmasqSetupDocsUrl(
+                        t("common.documentationUrl"),
+                        osType
+                      )}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      {dnsmasqSetupOsLabel(osType)
+                        ? t("overview.dnsRules.setupDocsFor", {
+                            os: dnsmasqSetupOsLabel(osType),
+                          })
+                        : t("overview.dnsRules.setupDocs")}
+                    </a>
+                  ) : null}
                 </span>
               </PanelNote>
             </div>

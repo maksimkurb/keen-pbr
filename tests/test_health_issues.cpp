@@ -231,3 +231,30 @@ TEST_CASE("a dead dnsmasq without an error message gets a fixed detail") {
     CHECK(response.issues[0].code == api::Code::DNSMASQ_ERROR);
     CHECK(response.issues[0].detail_code == api::DetailCode::DNSMASQ_DEAD);
 }
+
+TEST_CASE("a missing dnsmasq points at the install guide of the OS") {
+    api::DnsmasqHealth dnsmasq{};
+    dnsmasq.mode = api::ResolverIntegration::DNSMASQ;
+    dnsmasq.state = api::State::ERROR;
+    dnsmasq.error_code = "DNSMASQ_NOT_INSTALLED";
+    dnsmasq.last_error = "dnsmasq is not installed";
+    HealthIssueInputs inputs;
+    inputs.service_running = true;
+    inputs.dnsmasq = &dnsmasq;
+    inputs.dnsmasq_setup_docs_url = dnsmasq_setup_docs_url("keenetic");
+    const auto response = collect_health_issues(inputs);
+    REQUIRE(response.issues.size() == 1);
+    CHECK(response.issues[0].detail ==
+          std::optional<std::string>(
+              "dnsmasq is not installed, see https://keen-pbr.fyi/docs/"
+              "getting-started/installation/keenetic/#dnsmasq-install"));
+}
+
+TEST_CASE("dnsmasq install guide link follows the OS") {
+    CHECK(dnsmasq_setup_docs_url("openwrt") ==
+          "https://keen-pbr.fyi/docs/getting-started/installation/openwrt/#dnsmasq-install");
+    CHECK(dnsmasq_setup_docs_url("debian") ==
+          "https://keen-pbr.fyi/docs/getting-started/installation/debian/#dnsmasq-install");
+    CHECK(dnsmasq_setup_docs_url("linux") ==
+          "https://keen-pbr.fyi/docs/configuration/dns/#do-i-need-dnsmasq");
+}

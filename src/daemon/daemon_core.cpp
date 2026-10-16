@@ -700,6 +700,7 @@ Daemon::health_issues_from(const ServiceHealthState &service,
       intercept_enabled && intercept_config.l7.value_or(InterceptL7Config{})
                                .enabled.value_or(config_defaults::intercept_l7_enabled);
   if (service.dnsmasq) inputs.dnsmasq = &*service.dnsmasq;
+  inputs.dnsmasq_setup_docs_url = dnsmasq_setup_docs_url(service.os_type);
   inputs.outbounds = &outbounds.outbounds;
   return collect_health_issues(inputs);
 }

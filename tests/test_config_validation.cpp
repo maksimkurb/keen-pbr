@@ -1930,42 +1930,6 @@ TEST_CASE("config version: upgrading does not ask for a rewrite of the file") {
     CHECK_FALSE(upgraded_config_text(R"({"dns":{"fallback":["s"]}})").has_value());
 }
 
-TEST_CASE("config version: versioned_config_text stamps the version and the dnsmasq choice") {
-    const std::string current = KEEN_PBR3_VERSION_STRING;
-    const auto stamped = [](const std::string& text,
-                            std::optional<ResolverIntegrationMode> mode) {
-        const auto out = versioned_config_text(text, mode);
-        REQUIRE(out.has_value());
-        return parse_config(*out);
-    };
-
-    // 3.3.x config, keep: dnsmasq stays on and the version is written.
-    const auto keep = stamped(R"({"dns":{"fallback":[]}})", ResolverIntegrationMode::DNSMASQ);
-    CHECK(keep.version == current);
-    CHECK(effective_resolver_integration(keep) == ResolverIntegrationMode::DNSMASQ);
-    const auto keep_text =
-        versioned_config_text("{}", ResolverIntegrationMode::DNSMASQ).value();
-    CHECK(keep_text.find(R"("version": ")" + current + "\"") != std::string::npos);
-
-    // 3.3.x config, off: the migration's "dnsmasq" is overridden.
-    const auto off = stamped("{}", ResolverIntegrationMode::NONE);
-    CHECK(off.version == current);
-    CHECK(effective_resolver_integration(off) == ResolverIntegrationMode::NONE);
-
-    // No choice: migrations only.
-    CHECK(effective_resolver_integration(stamped("{}", std::nullopt)) ==
-          ResolverIntegrationMode::DNSMASQ);
-
-    // Not JSON, a bad version or a newer version: nothing to write.
-    CHECK_FALSE(versioned_config_text("[]", std::nullopt).has_value());
-    CHECK_FALSE(versioned_config_text("{", std::nullopt).has_value());
-    CHECK_FALSE(versioned_config_text(R"({"version":"3.4"})", std::nullopt).has_value());
-    const std::string next_major = std::to_string(KEEN_PBR3_VERSION_MAJOR + 1) + ".0.0";
-    CHECK_FALSE(versioned_config_text(R"({"version":")" + next_major + R"("})",
-                                      ResolverIntegrationMode::NONE)
-                    .has_value());
-}
-
 TEST_CASE("dns rules validation: unknown server, list and fallback tags are rejected") {
     const std::string lists = R"("lists":{"l":{"domains":["example.com"]}},)";
     const auto ok = validate_issues("{" + lists +
