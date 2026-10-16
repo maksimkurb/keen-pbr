@@ -42,7 +42,7 @@
 Коротко: вы создаёте список сайтов, выбираете, какое соединение должно их обслуживать, а keen-pbr сам следит за тем, чтобы DNS и маршрутизация оставались согласованы и нужный трафик шёл нужным путём.
 Эта страница объясняет, что происходит «под капотом», — для тех, кто хочет разобраться глубже.
 Основные сущности Списки Именованные наборы IP-адресов, CIDR-диапазонов и доменных имён. Источники можно комбинировать в любых сочетаниях:">
-	<meta itemprop="wordCount" content="780">
+	<meta itemprop="wordCount" content="950">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Принцип работы">
 	<meta name="twitter:description" content="Для обычной настройки эту страницу читать необязательно.
@@ -284,6 +284,12 @@
             </li>
           <li>
               <a
+                href="#fwmark-%d0%b8-conntrack"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >fwmark и conntrack</a>
+            </li>
+          <li>
+              <a
                 href="#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82--%d0%bf%d0%be%d1%81%d0%bb%d0%b5%d0%b4%d0%be%d0%b2%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be%d1%81%d1%82%d1%8c-%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b0"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >Как это работает — последовательность запуска</a>
@@ -394,6 +400,18 @@
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -441,6 +459,18 @@
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div>
               
@@ -684,6 +714,18 @@
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -728,6 +770,17 @@
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -897,6 +950,10 @@
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#fwmark-%d0%b8-conntrack">fwmark и conntrack
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82--%d0%bf%d0%be%d1%81%d0%bb%d0%b5%d0%b4%d0%be%d0%b2%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be%d1%81%d1%82%d1%8c-%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b0">Как это работает — последовательность запуска
         </a>
       </li>
@@ -1004,11 +1061,15 @@
 <li><strong>Домены напрямую</strong> (<code>domains</code>) — берутся прямо из конфига</li>
 <li><strong>Локальный файл</strong> (<code>file</code>) — читается с диска</li>
 </ul>
-<p>При запуске IP/CIDR-записи загружаются в kernel sets. Бэкенд iptables чередует <code>kpbr4s_/kpbr4S_</code> и <code>kpbr6s_/kpbr6S_</code>, а nftables сохраняет стабильные имена <code>kpbr4_</code>/<code>kpbr6_</code>. Время жизни статических записей не ограничено.</p>
-<p>Домены превращаются в директивы dnsmasq <code>ipset=</code>/<code>nftset=</code>: при разрешении домена его IP динамически добавляются в соответствующий набор (<code>kpbr4d_&lt;list&gt;</code>, <code>kpbr6d_&lt;list&gt;</code>) и хранятся там до истечения <code>ttl_ms</code>, заданного для этого списка.</p>
+<p>При запуске IP-адреса и подсети из списков загружаются в наборы ядра (
+  <abbr title="Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.">ipset</abbr>
+ или nftables set) с именами вида <code>kpbr4_&lt;list&gt;</code> и <code>kpbr6_&lt;list&gt;</code>. Эти записи хранятся, пока список не изменится. С iptables keen-pbr при обновлении держит два набора на список (<code>kpbr4s_</code>/<code>kpbr4S_</code>) и переключается между ними, чтобы правила не оставались без данных.</p>
+<p>IP-адреса доменов keen-pbr берёт из DNS-ответов и соединений, которые проходят через роутер, и добавляет в отдельные наборы <code>kpbr4d_&lt;list&gt;</code> и <code>kpbr6d_&lt;list&gt;</code>. Такие наборы называются <strong>динамическими</strong>: каждый адрес в них хранится ограниченное время (
+  <abbr title="Сколько секунд DNS-ответ можно хранить в кэше.">TTL</abbr>
+), а затем удаляется.</p>
 <p>См. <a href="/ru/docs/configuration/lists/">Списки</a> для полного справочника.</p>
 <h3>Outbounds<span class="hx:absolute hx:-mt-20" id="outbounds"></span>
-    <a href="#outbounds" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Именованные цели для исходящего трафика. Доступны пять типов:</p>
+    <a href="#outbounds" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Именованные цели для исходящего трафика. Доступны шесть типов:</p>
 <table>
 	<thead>
 			<tr>
@@ -1035,37 +1096,67 @@
 			</tr>
 			<tr>
 					<td><code>urltest</code></td>
-					<td>Адаптивный выбор: проверяет кандидаты по задержке и выбирает наилучший в рамках заданного допуска; включает circuit breaker для предотвращения флаппинга</td>
+					<td>Автоматический выбор: проверяет каналы HTTP-запросом и выбирает самый быстрый или распределяет между ними соединения; нестабильный канал временно исключается</td>
+			</tr>
+			<tr>
+					<td><code>icmptest</code></td>
+					<td>То же, что <code>urltest</code>, но каналы проверяются ping-ом (
+  <abbr title="Служебный протокол для диагностики сети. ping использует ICMP Echo.">ICMP</abbr>
+)</td>
 			</tr>
 	</tbody>
 </table>
-<p>Outbounds типа <code>interface</code> и <code>table</code> получают fwmark и запись в таблице маршрутизации. <code>urltest</code> выбирает из дочерних outbounds. <code>blackhole</code> создаёт правило сброса пакетов в firewall, <code>ignore</code> — правило пропуска.</p>
-<p>Когда правило указывает на <code>ignore</code>, keen-pbr выставляет вердикт «пропустить» в firewall — дальнейшая обработка правил keen-pbr прекращается, а пакет остаётся без метки. Ни таблица маршрутизации, ни запись <code>ip rule</code> для такого совпадения не создаются, поэтому пакет продолжает путь через обычную системную маршрутизацию. Поскольку правила обрабатываются по принципу «первое совпадение побеждает», <code>ignore</code> чаще всего применяется для исключений, которые ставятся перед более широкими перехватывающими правилами.</p>
+<p>Outbounds типа <code>interface</code> и <code>table</code> получают 
+  <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
+ и запись в таблице маршрутизации. <code>urltest</code> и <code>icmptest</code> выбирают один из своих каналов, а каналы — это такие outbounds. <code>blackhole</code> создаёт правило сброса пакетов в firewall, <code>ignore</code> — правило пропуска.</p>
+<p>Трафик, отправленный в <code>ignore</code>, не получает 
+  <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
+, и правила ниже для него уже не проверяются, поэтому он идёт по обычной маршрутизации роутера. <code>ignore</code> нужен для исключений: такое правило ставят выше более общего.</p>
 <p>См. <a href="/ru/docs/configuration/outbounds/">Outbounds</a> для полного справочника.</p>
 <h3>Правила маршрутизации<span class="hx:absolute hx:-mt-20" id="правила-маршрутизации"></span>
     <a href="#%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Упорядоченный список пар «условие → действие». Каждое правило может фильтровать трафик по:</p>
 <ul>
-<li><strong>Принадлежности к списку</strong> — IP входит в именованный ipset/nftset</li>
+<li><strong>Принадлежности к списку</strong> — IP входит в именованный 
+  <abbr title="Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.">ipset</abbr>
+/nftset</li>
 <li><strong>Протоколу</strong> (<code>proto</code>) — <code>tcp</code>, <code>udp</code></li>
 <li><strong>Портам</strong> (<code>src_port</code>, <code>dest_port</code>) — одиночный, список, диапазон или отрицание</li>
-<li><strong>Адресам</strong> (<code>src_addr</code>, <code>dest_addr</code>) — CIDR, список или отрицание</li>
+<li><strong>Адресам</strong> (<code>src_addr</code>, <code>dest_addr</code>) — 
+  <abbr title="Запись подсети: адрес и длина префикса, например 192.168.1.0/24.">CIDR</abbr>
+, список или отрицание</li>
 </ul>
 <p>Если в правиле указано несколько условий, пакет должен удовлетворять им ВСЕМ.</p>
-<p>Срабатывает первое подходящее правило. Трафик, не попавший ни под одно правило, остаётся без метки и идёт через обычную системную маршрутизацию.</p>
+<p>Срабатывает первое подходящее правило. Трафик, не попавший ни под одно правило, не получает 
+  <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
+ и идёт через обычную системную маршрутизацию.</p>
 <p>См. <a href="/ru/docs/configuration/route-rules/">Правила маршрутизации</a> для полного справочника.</p>
 <h3>DNS<span class="hx:absolute hx:-mt-20" id="dns"></span>
-    <a href="#dns" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Связывает списки доменов с DNS-серверами через директивы dnsmasq <code>server=</code>. Когда запрашивается домен из списка, dnsmasq переадресует запрос назначенному серверу. Полученные IP-адреса одновременно добавляются в соответствующий ipset/nftset, чтобы последующие пакеты шли через правильный outbound.</p>
-<p>Интеграция выполняется через <code>conf-file=</code> (или <code>conf-script=</code>): keen-pbr при запуске записывает файл <code>/tmp/keen-pbr-dnsmasq.conf</code>, который dnsmasq читает при следующей перезагрузке.</p>
+    <a href="#dns" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Для маршрутизации по доменам резолвер настраивать не нужно: dnsmasq, DNS-прокси Keenetic или любой другой работают так, как вы их настроили. keen-pbr читает DNS-ответы, которые проходят через роутер, и имена сайтов в TLS-, HTTP- и QUIC-соединениях, а подходящие IP добавляет в набор списка, чтобы следующие пакеты пошли нужным маршрутом.</p>
+<p>С <a href="/ru/docs/configuration/dns/#per-list-dns-servers-dnsmasq">отдельными DNS-серверами для списков</a> (через dnsmasq) домены из конкретных списков можно разрешать через другие DNS-серверы, например чтобы получать адреса CDN нужного региона.</p>
 <p>См. <a href="/ru/docs/configuration/dns/">DNS</a> для полного справочника.</p>
 <hr>
+<h2>fwmark и conntrack<span class="hx:absolute hx:-mt-20" id="fwmark-и-conntrack"></span>
+    <a href="#fwmark-%d0%b8-conntrack" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>keen-pbr опирается на два стандартных механизма ядра Linux. Их названия пригодятся, когда будете читать логи или искать ответ в интернете.</p>
+<ul>
+<li><strong>fwmark</strong> (firewall mark) — число, которое ядро хранит вместе с пакетом. Правила firewall keen-pbr ставят 
+  <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
+ подходящим пакетам, а записи <code>ip rule</code> вида <code>fwmark 0x00010000 lookup 150</code> отправляют пакеты с этим fwmark в таблицу маршрутизации outbound. У каждого outbound свой fwmark из диапазона, заданного в <a href="/ru/docs/configuration/advanced/#fwmark"><code>fwmark</code></a>.</li>
+<li><strong>conntrack</strong> (connection tracking) — таблица открытых соединений в ядре. keen-pbr копирует fwmark пакета в метку соединения (<strong>connmark</strong>) и восстанавливает её на следующих пакетах, поэтому всё соединение идёт одним маршрутом, даже если outbound или списки изменились. Когда соединения нужно перевести на другой канал, keen-pbr удаляет их записи из 
+  <abbr title="Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).">conntrack</abbr>
+.</li>
+</ul>
 <h2>Как это работает — последовательность запуска<span class="hx:absolute hx:-mt-20" id="как-это-работает--последовательность-запуска"></span>
     <a href="#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82--%d0%bf%d0%be%d1%81%d0%bb%d0%b5%d0%b4%d0%be%d0%b2%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be%d1%81%d1%82%d1%8c-%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><ol>
 <li><strong>Загрузка списков</strong> — скачиваются удалённые URL (при недоступности берётся кэш), читаются локальные файлы и встроенные записи</li>
-<li><strong>Заполнение ipsets/nftsets</strong> — IP/CIDR-записи загружаются в неактивные A/B-наборы iptables или стабильные наборы nftables</li>
-<li><strong>Настройка правил firewall</strong> — в таблице <code>mangle</code> iptables или в таблице <code>inet KeenPbrTable</code> nftables создаются правила сопоставления по спискам и фильтрам, после чего в <code>PREROUTING</code> / <code>prerouting</code> проставляются нужные fwmark</li>
+<li><strong>Заполнение наборов</strong> — IP-адреса и подсети загружаются в 
+  <abbr title="Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.">ipset</abbr>
+ или nftables set</li>
+<li><strong>Настройка правил firewall</strong> — в таблице <code>mangle</code> iptables или в таблице <code>inet KeenPbrTable</code> nftables создаются правила, которые проверяют списки и фильтры и в <code>PREROUTING</code> / <code>prerouting</code> ставят нужные 
+  <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
+</li>
 <li><strong>Настройка маршрутизации</strong> — под каждый outbound создаются таблица маршрутизации и запись <code>ip rule</code> на основе назначенных fwmark</li>
-<li><strong>Генерация конфигурации резолвера</strong> — файл <code>/tmp/keen-pbr-dnsmasq.conf</code> с директивами <code>server=</code> и <code>ipset=</code>/<code>nftset=</code> записывается на диск; dnsmasq получает сигнал перезагрузки</li>
-<li><strong>Запуск urltest-проверок</strong> — если настроены outbounds типа <code>urltest</code>, начинаются периодические замеры задержки</li>
+<li><strong>Запуск перехвата</strong> — keen-pbr начинает читать DNS-ответы и имена сайтов в соединениях (если ядро это поддерживает)</li>
+<li><strong>Запуск проверок каналов</strong> — если настроены outbounds типа <code>urltest</code> или <code>icmptest</code>, начинаются периодические проверки</li>
 </ol>
 <hr>
 <h2>Обзор архитектуры<span class="hx:absolute hx:-mt-20" id="обзор-архитектуры"></span>
@@ -1073,25 +1164,25 @@
   <pre class="mermaid hx:mt-6">
     flowchart TD
     subgraph Config[&#34;config.json&#34;]
-        RoutingOutbounds[&#34;Routing outbounds\n(interface, table,\nurltest-selected child)&#34;]
-        Lists[&#34;Lists\n(IPs, CIDRs, domains)&#34;]
-        DNS[&#34;DNS\n(servers + rules)&#34;]
-        RouteRules[&#34;Route Rules\n(list + filters →\nrouting / drop / pass)&#34;]
+        RoutingOutbounds[&#34;Outbounds\n(interface, table,\nканал, выбранный urltest)&#34;]
+        Lists[&#34;Списки\n(IP, подсети, домены)&#34;]
+        DNS[&#34;DNS\n(серверы + detour)&#34;]
+        RouteRules[&#34;Правила маршрутизации\n(список + фильтры →\nмаршрут / сброс / пропуск)&#34;]
     end
 
-    subgraph Kernel[&#34;Linux Kernel&#34;]
-        Ipsets[&#34;ipsets / nftsets\n(статические A/B + стабильные динамические)&#34;]
-        FwmarkRules[&#34;Firewall rules\n(PREROUTING →\nmark, drop, or pass)&#34;]
-        IpRules[&#34;ip rules\n(fwmark → table)&#34;]
-        RoutingTables[&#34;Routing tables\n(table → interfaces)&#34;]
-        SystemRouting[&#34;System routing\n(default path)&#34;]
+    subgraph Kernel[&#34;Ядро Linux&#34;]
+        Ipsets[&#34;ipsets / nftsets\n(IP из списков + IP доменов)&#34;]
+        FwmarkRules[&#34;Правила firewall\n(PREROUTING →\nfwmark, сброс или пропуск)&#34;]
+        IpRules[&#34;ip rule\n(fwmark → таблица)&#34;]
+        RoutingTables[&#34;Таблицы маршрутизации\n(таблица → интерфейсы)&#34;]
+        SystemRouting[&#34;Системная маршрутизация\n(обычный путь)&#34;]
     end
 
-    Dnsmasq[&#34;dnsmasq\n(ipset= / nftset=)&#34;]
+    Interceptor[&#34;Перехват keen-pbr\n(DNS-ответы, имена в TLS/HTTP/QUIC)&#34;]
 
-    Lists --&gt;|&#34;IP/CIDR entries&#34;| Ipsets
-    Lists --&gt;|&#34;domain entries&#34;| Dnsmasq
-    DNS --&gt; Dnsmasq
+    Lists --&gt;|&#34;IP и подсети&#34;| Ipsets
+    Lists --&gt;|&#34;домены&#34;| Interceptor
+    DNS --&gt;|&#34;detour&#34;| FwmarkRules
     Ipsets --&gt; FwmarkRules
     RouteRules --&gt; FwmarkRules
     RoutingOutbounds --&gt; IpRules
@@ -1099,7 +1190,7 @@
     FwmarkRules --&gt; IpRules
     FwmarkRules --&gt; SystemRouting
     IpRules --&gt; RoutingTables
-    Dnsmasq --&gt;|&#34;resolved IPs → ipset&#34;| Ipsets
+    Interceptor --&gt;|&#34;IP из ответов → динамические наборы&#34;| Ipsets
   </pre>
 </div><hr>
 <h2>Поток пакета во время выполнения<span class="hx:absolute hx:-mt-20" id="поток-пакета-во-время-выполнения"></span>
@@ -1128,21 +1219,20 @@
     <a href="#%d0%bf%d0%be%d1%82%d0%be%d0%ba-%d1%80%d0%b0%d0%b7%d1%80%d0%b5%d1%88%d0%b5%d0%bd%d0%b8%d1%8f-dns" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><div role="img" aria-label="Диаграмма">
   <pre class="mermaid hx:mt-6">
     sequenceDiagram
-    participant Client
-    participant dnsmasq
-    participant VPN_DNS as VPN DNS (10.8.0.1)
-    participant Ipset as ipset kpbr4_my_domains
+    participant Client as Устройство
+    participant Interceptor as Перехват keen-pbr
+    participant Resolver as Резолвер роутера
+    participant Ipset as ipset kpbr4d_my_domains
     participant Firewall
 
-    Client-&gt;&gt;dnsmasq: запрос example.com
-    dnsmasq-&gt;&gt;VPN_DNS: перенаправление (server=/example.com/10.8.0.1)
-    VPN_DNS--&gt;&gt;dnsmasq: 93.184.216.34
-    dnsmasq-&gt;&gt;Ipset: добавить 93.184.216.34 (директива nftset=)
-    dnsmasq--&gt;&gt;Client: 93.184.216.34
+    Client-&gt;&gt;Resolver: запрос example.com
+    Resolver--&gt;&gt;Client: DNS-ответ
+    Resolver-&gt;&gt;Interceptor: keen-pbr читает ответ
+    Interceptor-&gt;&gt;Ipset: добавить 93.184.216.34 (ограниченный TTL)
 
     Note over Client,Firewall: Следующий пакет на 93.184.216.34
     Client-&gt;&gt;Firewall: пакет dest 93.184.216.34
-    Firewall-&gt;&gt;Firewall: совпадение ipset kpbr4_my_domains → установить fwmark
+    Firewall-&gt;&gt;Firewall: совпадение ipset kpbr4d_my_domains → установить fwmark
   </pre>
 </div>
         </div>
@@ -1180,7 +1270,7 @@
   </aside></div></footer>
     
     <script defer src="/js/main.min.15eb8e58ef474e8764f1b2119666d41ed10d0c0d647ff5a407a86631cd51f0e2.js" integrity="sha256-FeuOWO9HTodk8bIRlmbUHtENDA1kf/WkB6hmMc1R8OI="></script>
-<script defer src="/js/flexsearch.433e941a8a573ebb9931fc16fc75266ab6b93f569ac2fb4f3dc66882e0416f4c.js" integrity="sha256-Qz6UGopXPruZMfwW/HUmara5P1aawvtPPcZoguBBb0w=" crossorigin="anonymous"></script><script defer src="/ru.search.min.c5b0a9a147fc0491e2259e86f6305b1907192705393b27bd88effb274f1fdb6b.js" integrity="sha256-xbCpoUf8BJHiJZ6G9jBbGQcZJwU5Oye9iO/7J08f22s="></script><script defer src="/js/mermaid.min.581ed7d74bd9048d0e3a91363927d72ef22942d7722546b27f7cc29e35390eb8.js" integrity="sha256-WB7X10vZBI0OOpE2OSfXLvIpQtdyJUayf3zCnjU5Drg=" crossorigin="anonymous"></script><script>
+<script defer src="/js/flexsearch.433e941a8a573ebb9931fc16fc75266ab6b93f569ac2fb4f3dc66882e0416f4c.js" integrity="sha256-Qz6UGopXPruZMfwW/HUmara5P1aawvtPPcZoguBBb0w=" crossorigin="anonymous"></script><script defer src="/ru.search.min.c5b0a9a147fc0491e2259e86f6305b1907192705393b27bd88effb274f1fdb6b.js" integrity="sha256-xbCpoUf8BJHiJZ6G9jBbGQcZJwU5Oye9iO/7J08f22s="></script><script defer src="/js/mermaid.min.a8a6a6f805b074a8261a2825c86f99c8054acb3b35f50bb7e24a4f9f2c3c3b9f.js" integrity="sha256-qKam&#43;AWwdKgmGiglyG&#43;ZyAVKyzs19Qu34kpPnyw8O58=" crossorigin="anonymous"></script><script>
   document.addEventListener("DOMContentLoaded", () => {
     
     document.querySelectorAll(".mermaid").forEach((el) => {

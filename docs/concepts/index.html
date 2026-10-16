@@ -42,7 +42,7 @@ Core Entities
 The short version is simple: you create a list of sites, choose which connection should carry them, and keen-pbr keeps DNS and routing in sync so the right traffic uses the right path.
 This page explains what happens under the hood for readers who want the deeper technical model.
 Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:">
-	<meta itemprop="wordCount" content="823">
+	<meta itemprop="wordCount" content="1016">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Concepts">
 	<meta name="twitter:description" content="You do not need this page to finish a normal setup.
@@ -118,11 +118,11 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
           </a>
           <a class="hx:p-2 hx:text-current" target="_blank" rel="noreferrer" href="https://t.me/keen_pbr" title="Telegram"><svg height=24 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><path fill="currentColor" d="M248 8C111.033 8 0 119.033 0 256s111.033 248 248 248 248-111.033 248-248S384.967 8 248 8m114.952 168.66c-3.732 39.215-19.881 134.378-28.1 178.3-3.476 18.584-10.322 24.816-16.948 25.425-14.4 1.326-25.338-9.517-39.287-18.661-21.827-14.308-34.158-23.215-55.346-37.177-24.485-16.135-8.612-25 5.342-39.5 3.652-3.793 67.107-61.51 68.335-66.746.153-.655.3-3.1-1.154-4.384s-3.59-.849-5.135-.5q-3.283.746-104.608 69.142-14.845 10.194-26.894 9.934c-8.855-.191-25.888-5.006-38.551-9.123-15.531-5.048-27.875-7.717-26.8-16.291q.84-6.7 18.45-13.7 108.446-47.248 144.628-62.3c68.872-28.647 83.183-33.623 92.511-33.789 2.052-.034 6.639.474 9.61 2.885a10.45 10.45 0 0 1 3.53 6.716 43.8 43.8 0 0 1 .417 9.769"/></svg><span class="hx:sr-only">Telegram</span>
           </a><a
-  title="Sponsor this project"
+  title="Support this project"
   href="/docs/donate"
   
   class="hx:text-sm hx:contrast-more:text-gray-700 hx:contrast-more:dark:text-gray-100 hx:relative hx:-ml-2 hx:hidden hx:whitespace-nowrap hx:p-2 hx:md:inline-flex hx:items-center hx:gap-1 hx:text-gray-600 hx:hover:text-gray-800 hx:dark:text-gray-400 hx:dark:hover:text-gray-200 donation-nav-button"
-><span class="hx:inline-flex hx:items-center"><svg height="1em" class="hx:inline-block" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M640-440 474-602q-31-30-52.5-66.5T400-748q0-55 38.5-93.5T532-880q32 0 60 13.5t48 36.5q20-23 48-36.5t60-13.5q55 0 93.5 38.5T880-748q0 43-21 79.5T807-602L640-440Zm0-112 109-107q19-19 35-40.5t16-48.5q0-22-15-37t-37-15q-14 0-26.5 5.5T700-778l-60 72-60-72q-9-11-21.5-16.5T532-800q-22 0-37 15t-15 37q0 27 16 48.5t35 40.5l109 107ZM280-220l278 76 238-74q-5-9-14.5-15.5T760-240H558q-27 0-43-2t-33-8l-93-31 22-78 81 27q17 5 40 8t68 4q0-11-6.5-21T578-354l-234-86h-64v220ZM40-80v-440h304q7 0 14 1.5t13 3.5l235 87q33 12 53.5 42t20.5 66h80q50 0 85 33t35 87v40L560-60l-280-78v58H40Zm80-80h80v-280h-80v280Zm520-546Z"/></svg></span><span class="hx:text-center">Sponsor this project</span>
+><span class="hx:inline-flex hx:items-center"><svg height="1em" class="hx:inline-block" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M640-440 474-602q-31-30-52.5-66.5T400-748q0-55 38.5-93.5T532-880q32 0 60 13.5t48 36.5q20-23 48-36.5t60-13.5q55 0 93.5 38.5T880-748q0 43-21 79.5T807-602L640-440Zm0-112 109-107q19-19 35-40.5t16-48.5q0-22-15-37t-37-15q-14 0-26.5 5.5T700-778l-60 72-60-72q-9-11-21.5-16.5T532-800q-22 0-37 15t-15 37q0 27 16 48.5t35 40.5l109 107ZM280-220l278 76 238-74q-5-9-14.5-15.5T760-240H558q-27 0-43-2t-33-8l-93-31 22-78 81 27q17 5 40 8t68 4q0-11-6.5-21T578-354l-234-86h-64v220ZM40-80v-440h304q7 0 14 1.5t13 3.5l235 87q33 12 53.5 42t20.5 66h80q50 0 85 33t35 87v40L560-60l-280-78v58H40Zm80-80h80v-280h-80v280Zm520-546Z"/></svg></span><span class="hx:text-center">Support this project</span>
 </a><button type="button" aria-label="Menu" aria-expanded="false" class="hextra-hamburger-menu hx:cursor-pointer hx:-mr-2 hx:rounded-sm hx:p-2 hx:active:bg-gray-400/20 hx:md:hidden hx:hextra-focus-visible-inset"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
   </nav>
 </div>
@@ -284,6 +284,12 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
             </li>
           <li>
               <a
+                href="#fwmark-and-conntrack"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >fwmark and conntrack</a>
+            </li>
+          <li>
+              <a
                 href="#how-it-works--startup-sequence"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >How It Works — Startup Sequence</a>
@@ -394,6 +400,18 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Multi-WAN Load Balancing</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -446,6 +464,18 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
               
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
     <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Changelog</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
       hx:hextra-focus-visible-inset
         hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
@@ -493,7 +523,7 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
       href="/docs/donate/"
       
     >
-      <span class="hx:min-w-0 [word-break:break-word]">Sponsor this project</span>
+      <span class="hx:min-w-0 [word-break:break-word]">Support this project</span>
     </a>
   </div></li>
     </ul>
@@ -684,6 +714,18 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Multi-WAN Load Balancing</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -728,6 +770,17 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Changelog</span>
     </a>
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -897,6 +950,10 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#fwmark-and-conntrack">fwmark and conntrack
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#how-it-works--startup-sequence">How It Works — Startup Sequence
         </a>
       </li>
@@ -1004,11 +1061,15 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
 <li><strong>Inline domains</strong> (<code>domains</code>) — loaded directly from config</li>
 <li><strong>Local file</strong> (<code>file</code>) — read from disk</li>
 </ul>
-<p>At startup, IP/CIDR entries are loaded into kernel sets. The iptables backend alternates between <code>kpbr4s_/kpbr4S_</code> and <code>kpbr6s_/kpbr6S_</code>; nftables keeps stable <code>kpbr4_</code>/<code>kpbr6_</code> names. Static entries have no timeout.</p>
-<p>Domain entries generate dnsmasq <code>ipset=</code>/<code>nftset=</code> directives so that when a domain is resolved, its IPs are dynamically added to the matching set (<code>kpbr4d_&lt;list&gt;</code>, <code>kpbr6d_&lt;list&gt;</code>, entries are timing out after <code>ttl_ms</code> configured for domain list).</p>
+<p>At startup, IP addresses and subnets from lists are loaded into kernel sets (
+  <abbr title="A named set of IP addresses or subnets in the Linux kernel, used by iptables rules to match many addresses at once.">ipset</abbr>
+ or nftables sets) named like <code>kpbr4_&lt;list&gt;</code> and <code>kpbr6_&lt;list&gt;</code>. These entries stay until the list changes. With iptables, keen-pbr keeps two sets per list (<code>kpbr4s_</code>/<code>kpbr4S_</code>) and swaps between them on update, so rules are never left without data.</p>
+<p>IP addresses of domains are collected from DNS replies and connections passing through the router and added to separate <code>kpbr4d_&lt;list&gt;</code> and <code>kpbr6d_&lt;list&gt;</code> sets. These are called <strong>dynamic sets</strong>: each address in them is kept for a limited time (
+  <abbr title="How long a DNS answer may be cached, in seconds.">TTL</abbr>
+) and then removed.</p>
 <p>See <a href="/docs/configuration/lists/">Lists</a> for the full reference.</p>
 <h3>Outbounds<span class="hx:absolute hx:-mt-20" id="outbounds"></span>
-    <a href="#outbounds" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Named egress targets. Five types:</p>
+    <a href="#outbounds" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Named egress targets. Six types:</p>
 <table>
 	<thead>
 			<tr>
@@ -1035,37 +1096,65 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
 			</tr>
 			<tr>
 					<td><code>urltest</code></td>
-					<td>Adaptive selection: probes candidate outbounds by latency, picks the fastest within a tolerance window; includes circuit breaker to prevent flapping</td>
+					<td>Automatic selection: checks links with an HTTP request and picks the fastest one or spreads connections between them; an unstable link is temporarily excluded</td>
+			</tr>
+			<tr>
+					<td><code>icmptest</code></td>
+					<td>Same as <code>urltest</code>, but links are checked with ping (
+  <abbr title="Service protocol for network diagnostics. ping uses ICMP Echo.">ICMP</abbr>
+)</td>
 			</tr>
 	</tbody>
 </table>
-<p><code>interface</code> and <code>table</code> outbounds get fwmarks and policy-routing entries. <code>urltest</code> selects among child outbounds that do. <code>blackhole</code> becomes a firewall drop rule, and <code>ignore</code> becomes a firewall pass-through rule.</p>
-<p>When a rule points to <code>ignore</code>, keen-pbr installs a matching firewall verdict that stops further keen-pbr rule processing and leaves the packet unmarked. No routing table or <code>ip rule</code> is created for that match, so the packet continues through the system&rsquo;s normal routing path. Because route rules are first-match wins, <code>ignore</code> is mainly used to carve out exceptions before broader rules below it.</p>
+<p><code>interface</code> and <code>table</code> outbounds get fwmarks and policy-routing entries. <code>urltest</code> and <code>icmptest</code> pick one of their links, which are such outbounds. <code>blackhole</code> becomes a firewall drop rule, and <code>ignore</code> becomes a firewall pass-through rule.</p>
+<p>Traffic sent to <code>ignore</code> gets no 
+  <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
+, and the rules below are not checked for it, so it follows the router&rsquo;s normal routing. <code>ignore</code> is used for exceptions: put such a rule above a broader one.</p>
 <p>See <a href="/docs/configuration/outbounds/">Outbounds</a> for the full reference.</p>
 <h3>Route Rules<span class="hx:absolute hx:-mt-20" id="route-rules"></span>
     <a href="#route-rules" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>An ordered list of match → action pairs. Each rule can match traffic by:</p>
 <ul>
-<li><strong>List membership</strong> — IP is in a named ipset/nftset</li>
+<li><strong>List membership</strong> — IP is in a named 
+  <abbr title="A named set of IP addresses or subnets in the Linux kernel, used by iptables rules to match many addresses at once.">ipset</abbr>
+/nftset</li>
 <li><strong>Protocol</strong> (<code>proto</code>) — <code>tcp</code>, <code>udp</code></li>
 <li><strong>Port filters</strong> (<code>src_port</code>, <code>dest_port</code>) — single, list, range, or negation</li>
-<li><strong>Address filters</strong> (<code>src_addr</code>, <code>dest_addr</code>) — CIDR, list, or negation</li>
+<li><strong>Address filters</strong> (<code>src_addr</code>, <code>dest_addr</code>) — 
+  <abbr title="Subnet notation: an address and prefix length, for example 192.168.1.0/24.">CIDR</abbr>
+, list, or negation</li>
 </ul>
 <p>If a rule specifies multiple match fields, a packet must satisfy ALL specified conditions for the rule to match.</p>
-<p>First matching rule wins. Unmatched traffic is left unmarked and follows the system&rsquo;s normal routing.</p>
+<p>First matching rule wins. Unmatched traffic gets no 
+  <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
+ and follows the system&rsquo;s normal routing.</p>
 <p>See <a href="/docs/configuration/route-rules/">Route Rules</a> for the full reference.</p>
 <h3>DNS<span class="hx:absolute hx:-mt-20" id="dns"></span>
-    <a href="#dns" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Maps domain lists to DNS servers via dnsmasq <code>server=</code> directives. When a domain in a list is queried, dnsmasq forwards the query to the assigned DNS server. The response IPs are simultaneously injected into the corresponding ipset/nftset so that subsequent packets are routed correctly.</p>
-<p>Integration is via <code>conf-file=</code> (or <code>conf-script=</code>): keen-pbr writes <code>/tmp/keen-pbr-dnsmasq.conf</code> on startup; dnsmasq reads it on the next reload.</p>
+    <a href="#dns" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Domain routing does not need any resolver setup: dnsmasq, the Keenetic DNS proxy or any other resolver keeps working as you set it up. keen-pbr reads DNS replies passing through the router and site names in TLS, HTTP and 
+  <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr>
+ connections, and adds matching IPs to the list&rsquo;s set so the following packets are routed correctly.</p>
+<p>With <a href="/docs/configuration/dns/#per-list-dns-servers-dnsmasq">per-list DNS servers</a> (via dnsmasq), domains from specific lists can be resolved through other DNS servers, for example to get CDN addresses for the right region.</p>
 <p>See <a href="/docs/configuration/dns/">DNS</a> for the full reference.</p>
 <hr>
+<h2>fwmark and conntrack<span class="hx:absolute hx:-mt-20" id="fwmark-and-conntrack"></span>
+    <a href="#fwmark-and-conntrack" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>keen-pbr relies on two standard Linux kernel mechanisms. Knowing their names helps when reading logs and searching for help.</p>
+<ul>
+<li><strong>fwmark</strong> (firewall mark) is a number the kernel attaches to a packet. keen-pbr&rsquo;s firewall rules set a 
+  <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
+ on matching packets, and <code>ip rule</code> entries such as <code>fwmark 0x00010000 lookup 150</code> send packets with that mark to the outbound&rsquo;s routing table. Each outbound gets its own fwmark from the range set in <a href="/docs/configuration/advanced/#fwmark"><code>fwmark</code></a>.</li>
+<li><strong>conntrack</strong> (connection tracking) is the kernel&rsquo;s table of open connections. keen-pbr copies a packet&rsquo;s fwmark into the connection&rsquo;s mark (<strong>connmark</strong>) and restores it on later packets, so a whole connection keeps the same route even after the outbound or the lists change. When keen-pbr needs connections to move to another link, it deletes their 
+  <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
+ entries.</li>
+</ul>
 <h2>How It Works — Startup Sequence<span class="hx:absolute hx:-mt-20" id="how-it-works--startup-sequence"></span>
     <a href="#how-it-works--startup-sequence" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><ol>
 <li><strong>Load lists</strong> — download remote URLs (using cache if unavailable), read local files and inline entries</li>
-<li><strong>Populate ipsets/nftsets</strong> — IP/CIDR entries are inserted into the inactive A/B iptables sets or stable nftables sets</li>
-<li><strong>Install firewall rules</strong> — create rules in the <code>iptables</code> <code>mangle</code> table or the <code>nftables</code> <code>inet KeenPbrTable</code> table that match configured lists and filters, then set the appropriate fwmark in <code>PREROUTING</code> / <code>prerouting</code></li>
+<li><strong>Fill sets</strong> — IP addresses and subnets are loaded into ipsets or nftables sets</li>
+<li><strong>Install firewall rules</strong> — create rules in the <code>iptables</code> <code>mangle</code> table or the <code>nftables</code> <code>inet KeenPbrTable</code> table that match configured lists and filters, then set the appropriate 
+  <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
+ in <code>PREROUTING</code> / <code>prerouting</code></li>
 <li><strong>Install routing</strong> — create routing tables and <code>ip rule</code> entries for each outbound based on assigned fwmarks</li>
-<li><strong>Generate resolver config</strong> — write <code>/tmp/keen-pbr-dnsmasq.conf</code> with <code>server=</code> + <code>ipset=</code>/<code>nftset=</code> directives; signal dnsmasq to reload</li>
-<li><strong>Start urltest probing</strong> — if any <code>urltest</code> outbounds are configured, begin periodic latency probes</li>
+<li><strong>Start interception</strong> — keen-pbr starts reading DNS replies and site names in connections (if the kernel supports it)</li>
+<li><strong>Start link checks</strong> — if <code>urltest</code> or <code>icmptest</code> outbounds are configured, periodic checks begin</li>
 </ol>
 <hr>
 <h2>Architecture Overview<span class="hx:absolute hx:-mt-20" id="architecture-overview"></span>
@@ -1073,25 +1162,25 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
   <pre class="mermaid hx:mt-6">
     flowchart TD
     subgraph Config[&#34;config.json&#34;]
-        RoutingOutbounds[&#34;Routing outbounds\n(interface, table,\nurltest-selected child)&#34;]
+        RoutingOutbounds[&#34;Routing outbounds\n(interface, table,\nlink chosen by urltest)&#34;]
         Lists[&#34;Lists\n(IPs, CIDRs, domains)&#34;]
-        DNS[&#34;DNS\n(servers + rules)&#34;]
+        DNS[&#34;DNS\n(servers + detour)&#34;]
         RouteRules[&#34;Route Rules\n(list + filters →\nrouting / drop / pass)&#34;]
     end
 
     subgraph Kernel[&#34;Linux Kernel&#34;]
-        Ipsets[&#34;ipsets / nftsets\n(static A/B + stable dynamic sets)&#34;]
+        Ipsets[&#34;ipsets / nftsets\n(list IPs + learned domain IPs)&#34;]
         FwmarkRules[&#34;Firewall rules\n(PREROUTING →\nmark, drop, or pass)&#34;]
         IpRules[&#34;ip rules\n(fwmark → table)&#34;]
         RoutingTables[&#34;Routing tables\n(table → interfaces)&#34;]
         SystemRouting[&#34;System routing\n(default path)&#34;]
     end
 
-    Dnsmasq[&#34;dnsmasq\n(ipset= / nftset=)&#34;]
+    Interceptor[&#34;keen-pbr interception\n(DNS replies, TLS/HTTP/QUIC names)&#34;]
 
     Lists --&gt;|&#34;IP/CIDR entries&#34;| Ipsets
-    Lists --&gt;|&#34;domain entries&#34;| Dnsmasq
-    DNS --&gt; Dnsmasq
+    Lists --&gt;|&#34;domain entries&#34;| Interceptor
+    DNS --&gt;|&#34;detour&#34;| FwmarkRules
     Ipsets --&gt; FwmarkRules
     RouteRules --&gt; FwmarkRules
     RoutingOutbounds --&gt; IpRules
@@ -1099,7 +1188,7 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
     FwmarkRules --&gt; IpRules
     FwmarkRules --&gt; SystemRouting
     IpRules --&gt; RoutingTables
-    Dnsmasq --&gt;|&#34;resolved IPs → ipset&#34;| Ipsets
+    Interceptor --&gt;|&#34;resolved IPs → dynamic sets&#34;| Ipsets
   </pre>
 </div><hr>
 <h2>Runtime Packet Flow<span class="hx:absolute hx:-mt-20" id="runtime-packet-flow"></span>
@@ -1129,20 +1218,19 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
   <pre class="mermaid hx:mt-6">
     sequenceDiagram
     participant Client
-    participant dnsmasq
-    participant VPN_DNS as VPN DNS (10.8.0.1)
-    participant Ipset as ipset kpbr4_my_domains
+    participant Interceptor as keen-pbr interception
+    participant Resolver as system resolver
+    participant Ipset as ipset kpbr4d_my_domains
     participant Firewall
 
-    Client-&gt;&gt;dnsmasq: query example.com
-    dnsmasq-&gt;&gt;VPN_DNS: forward (server=/example.com/10.8.0.1)
-    VPN_DNS--&gt;&gt;dnsmasq: 93.184.216.34
-    dnsmasq-&gt;&gt;Ipset: add 93.184.216.34 (nftset= directive)
-    dnsmasq--&gt;&gt;Client: 93.184.216.34
+    Client-&gt;&gt;Resolver: query example.com
+    Resolver--&gt;&gt;Client: DNS response
+    Resolver-&gt;&gt;Interceptor: keen-pbr reads the reply
+    Interceptor-&gt;&gt;Ipset: add 93.184.216.34 (bounded TTL)
 
     Note over Client,Firewall: Next packet to 93.184.216.34
     Client-&gt;&gt;Firewall: packet dest 93.184.216.34
-    Firewall-&gt;&gt;Firewall: match ipset kpbr4_my_domains → set fwmark
+    Firewall-&gt;&gt;Firewall: match ipset kpbr4d_my_domains → set fwmark
   </pre>
 </div>
         </div>
@@ -1180,7 +1268,7 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
   </aside></div></footer>
     
     <script defer src="/js/main.min.15eb8e58ef474e8764f1b2119666d41ed10d0c0d647ff5a407a86631cd51f0e2.js" integrity="sha256-FeuOWO9HTodk8bIRlmbUHtENDA1kf/WkB6hmMc1R8OI="></script>
-<script defer src="/js/flexsearch.433e941a8a573ebb9931fc16fc75266ab6b93f569ac2fb4f3dc66882e0416f4c.js" integrity="sha256-Qz6UGopXPruZMfwW/HUmara5P1aawvtPPcZoguBBb0w=" crossorigin="anonymous"></script><script defer src="/en.search.min.1218c2ef45ef833ab2111711159d544ed1bd06f1713be74314bbf3d8fc783522.js" integrity="sha256-EhjC70XvgzqyERcRFZ1UTtG9BvFxO&#43;dDFLvz2Px4NSI="></script><script defer src="/js/mermaid.min.581ed7d74bd9048d0e3a91363927d72ef22942d7722546b27f7cc29e35390eb8.js" integrity="sha256-WB7X10vZBI0OOpE2OSfXLvIpQtdyJUayf3zCnjU5Drg=" crossorigin="anonymous"></script><script>
+<script defer src="/js/flexsearch.433e941a8a573ebb9931fc16fc75266ab6b93f569ac2fb4f3dc66882e0416f4c.js" integrity="sha256-Qz6UGopXPruZMfwW/HUmara5P1aawvtPPcZoguBBb0w=" crossorigin="anonymous"></script><script defer src="/en.search.min.1218c2ef45ef833ab2111711159d544ed1bd06f1713be74314bbf3d8fc783522.js" integrity="sha256-EhjC70XvgzqyERcRFZ1UTtG9BvFxO&#43;dDFLvz2Px4NSI="></script><script defer src="/js/mermaid.min.a8a6a6f805b074a8261a2825c86f99c8054acb3b35f50bb7e24a4f9f2c3c3b9f.js" integrity="sha256-qKam&#43;AWwdKgmGiglyG&#43;ZyAVKyzs19Qu34kpPnyw8O58=" crossorigin="anonymous"></script><script>
   document.addEventListener("DOMContentLoaded", () => {
     
     document.querySelectorAll(".mermaid").forEach((el) => {

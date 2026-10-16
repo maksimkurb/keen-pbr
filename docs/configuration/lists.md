@@ -1,10 +1,10 @@
 # Lists
 
-Lists are groups of sites or IP ranges that you want keen-pbr to match.
+Lists are groups of sites or IP ranges whose traffic keen-pbr routes according to your rules.
 
 The `lists` key is an object where each key is the list name and the value is the list configuration.
 
-List names must match `^[a-z][a-z0-9_]*$` and be at most 24 characters.
+A list name uses lowercase Latin letters, digits and `_`, starts with a letter, and is at most 24 characters long (`^[a-z][a-z0-9_]*$`).
 
 Most users start with a simple domain list such as:
 
@@ -23,23 +23,16 @@ Most users start with a simple domain list such as:
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `url` | string | no | URL to a remote list file to download and cache |
-| `domains` | array of string | no | Inline DNS-compatible domain patterns (supports a leading `*.`) |
-| `ip_cidrs` | array of string | no | Inline IP addresses or CIDR ranges |
+| `domains` | array of string | no | Domains written directly in the config. A leading `*.` is optional |
+| `ip_cidrs` | array of string | no | IP addresses and subnets ({{< term "CIDR" >}}) written directly in the config |
 | `file` | string | no | Path to a local list file |
-| `ttl_ms` | integer | no (default: `0`) | How long resolved IPs should stay cached for domain-based lists. Most users can leave this at `0`. |
+| `ttl_ms` | integer | no (default: `0`) | Minimum time to keep the IP addresses of this list's domains, in milliseconds. If unset or below 1000, `intercept.min_ttl_ms` is used. If the {{< term "TTL" >}} in the DNS reply is longer, the address is kept longer, but no more than `intercept.max_ttl_ms` |
 
-Inline, local-file, and URL-backed lists use the same domain syntax. A leading
-`*.` and one trailing root dot are normalized away, so `*.google.com` is emitted
-to dnsmasq as `google.com`. DNS service labels containing underscores are allowed;
-whitespace, directive separators, malformed wildcards, and invalid labels are skipped
-in files and rejected in inline configuration.
+Domains are written the same way in every source. `*.google.com` and `google.com` mean the same thing. Invalid domains are skipped in files and URL lists, and cause a configuration error in `domains`.
 
-Remote list URLs and every redirect must use HTTP or HTTPS. Private and local
-HTTP(S) destinations remain allowed for router-local list deployments.
+URL lists are downloaded only over HTTP or HTTPS, including from addresses on your local network.
 
-Local list sources must be regular files and may not be symlinks, devices, or
-FIFOs. Local and cached files use `daemon.max_file_size_bytes` (8 MiB by default)
-and each physical line is limited to 4096 bytes.
+A local file must be a regular file (not a symlink). File size is limited by `daemon.max_file_size_bytes` (8 MiB by default), and line length by 4096 bytes.
 
 At least one of `url`, `domains`, `ip_cidrs`, or `file` must be provided. 
 
@@ -48,11 +41,9 @@ If you combine multiple sources in a single list entry, all entries are merged, 
 {{< /callout >}}
 
 {{% details title="Under the hood: how domain lists are matched" closed="true" %}}
-Each list is backed by static and dynamic IP sets.
-
-- Static entries from `ip_cidrs`, `file`, and `url` are loaded immediately.
-- Domain entries are added later, when dnsmasq resolves them.
-- If `ttl_ms` is set, those resolved IPs for domains expire automatically after that time.
+- IP addresses and subnets from `ip_cidrs`, `file` and `url` are loaded right at startup.
+- keen-pbr learns domain IPs later, when a device on the network connects to the site (from the DNS reply or from the connection itself).
+- A domain's IP address is kept as long as the DNS reply says, but no less than the list's `ttl_ms` and within `intercept.min_ttl_ms`–`intercept.max_ttl_ms`. This has nothing to do with how often URL lists are refreshed.
 {{% /details %}}
 
 ## List File Format
@@ -60,10 +51,10 @@ Each list is backed by static and dynamic IP sets.
 Whether loaded from `url` or `file`, keen-pbr expects one entry per line:
 
 - IPv4 address: `93.184.216.34`
-- IPv4 CIDR: `10.0.0.0/8`
+- IPv4 {{< term "CIDR" >}}: `10.0.0.0/8`
 - IPv6 address: `2606:2800:220:1:248:1893:25c8:1946`
 - IPv6 CIDR: `2001:db8::/32`
-- Domain: `example.com` — matches the domain and all its subdomains (dnsmasq `server=/example.com/` semantics)
+- Domain: `example.com` — covers the domain and all its subdomains
   - Wildcard domain: `*.example.org` is equivalent to `example.org`, so **there is no need** to add `*.` before domain. For compatibility, the `*.` prefix is stripped automatically
 - Comments: lines starting with `#` are ignored
 - Empty lines are ignored
@@ -100,7 +91,7 @@ To avoid downloading the same list again and again even when it has not changed,
 }
 ```
 
-Both entries match the domain and all its subdomains. Writing `*.example.com` is equivalent to `example.com` — the `*.` prefix is stripped automatically by keen-pbr.
+Both entries cover the domain and all its subdomains. Writing `*.example.com` is equivalent to `example.com` — the `*.` prefix is stripped automatically by keen-pbr.
 
 ### Inline IP list
 
@@ -131,5 +122,5 @@ Both entries match the domain and all its subdomains. Writing `*.example.com` is
 }
 ```
 
-All four sources are merged into a single list. `ttl_ms: 86400000` sets a 24-hour TTL for dnsmasq-resolved IPs in the stable dynamic set (`kpbr4d_combined` / `kpbr6d_combined`). Static IPs from `ip_cidrs` and the cached URL/file are loaded into the active A/B iptables set (`kpbr4s_combined` or `kpbr4S_combined`) or the stable nftables set (`kpbr4_combined`) and never expire automatically.
+All four sources are merged into a single list. `ttl_ms: 86400000` means the IP addresses of this list's domains are kept for at least 24 hours. IP addresses from `ip_cidrs`, the file and the URL stay until the list itself changes.
 

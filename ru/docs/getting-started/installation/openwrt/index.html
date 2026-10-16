@@ -11,8 +11,13 @@
 <title>OpenWrt – keen-pbr</title>
   <meta name="description" content="keen-pbr можно установить на роутерах OpenWrt из репозитория пакетов keen-pbr.
 Проверьте, какой менеджер пакетов использует ваша версия OpenWrt Страница репозитория автоматически показывает правильный путь для вашей целевой системы:
-OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Замените dnsmasq на dnsmasq-full Установите dnsmasq-full перед установкой keen-pbr:
-Для OpenWrt 25.x и новее тоже нужен dnsmasq-full вместо стандартного dnsmasq. У меня нет роутера с apk, чтобы проверить точные шаги замены. Если вы знаете правильную процедуру, пожалуйста, отправьте PR с исправлением документации. bash# OpenWrt 25.x и новее apk --update-cache add dnsmasq-full # OpenWrt 24.x и старше opkg update &amp;&amp; cd /tmp/ &amp;&amp; opkg download dnsmasq-full opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk; Установите со страницы репозитория Откройте страницу инструкций репозитория, выберите OpenWrt в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:" /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/getting-started/installation/openwrt/" itemprop="url" />
+OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Установите со страницы репозитория Откройте страницу инструкций репозитория, выберите OpenWrt в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:
+Репозиторий keen-pbr
+Примеры команд установки:
+bash# OpenWrt 25.x и новее apk update apk add keen-pbr # или если нужна версия без API и без веб-интерфейса # apk update # apk add keen-pbr-headless bash# OpenWrt 24.x и старше opkg update opkg install keen-pbr # или если нужна версия без API и без веб-интерфейса # opkg update # opkg install keen-pbr-headless Пакет устанавливает конфигурацию в /etc/keen-pbr/config.json и автоматически включает init-скрипт.
+Полезные команды сервиса:
+bashservice keen-pbr start service keen-pbr enable service keen-pbr restart Если вы не планируете использовать веб-интерфейс keen-pbr или API, можно установить пакет keen-pbr-headless. Он занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и не включает API-сервер. Также вы можете отключить API-сервер через флаг конфигурации в любой момент в полной версии пакета. Для перехвата DNS и L7 нужны модули ядра nfnetlink_queue, nfnetlink_log и nft_queue. Пакет автоматически подтягивает kmod-nfnetlink-queue, kmod-nfnetlink-log и kmod-nft-queue. Если вы ставили старую сборку или удалили их, установите вручную; иначе демон пишет cannot bind netfilter queue/log ... Invalid argument, а /api/health/service называет отсутствующий модуль. nft_log входит в kmod-nft-core. Следующие шаги Откройте Быстрый старт и используйте вкладку Веб-интерфейс для самой простой первоначальной настройки. Если вы установили keen-pbr-headless, используйте вкладку JSON / CLI.
+Если готовые пакеты ещё не доступны для вашей платформы, см. раздел Сборка из исходного кода, чтобы собрать keen-pbr самостоятельно. " /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/getting-started/installation/openwrt/" itemprop="url" />
 
 <meta property="og:title" content="OpenWrt">
 <meta
@@ -27,31 +32,76 @@ OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Замени�
 OpenWrt 25.x и новее: apk
 OpenWrt 24.x и старше: opkg
 
-Замените dnsmasq на dnsmasq-full
-    Установите dnsmasq-full перед установкой keen-pbr:
-
-  
-  
-    Для OpenWrt 25.x и новее тоже нужен dnsmasq-full вместо стандартного dnsmasq.
-У меня нет роутера с apk, чтобы проверить точные шаги замены. Если вы знаете правильную процедуру, пожалуйста, отправьте PR с исправлением документации.
-  
-
+Установите со страницы репозитория
+    Откройте страницу инструкций репозитория, выберите OpenWrt в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:
+Репозиторий keen-pbr
+Примеры команд установки:
 
 
 bash# OpenWrt 25.x и новее
-apk --update-cache add dnsmasq-full
+apk update
+apk add keen-pbr
 
-# OpenWrt 24.x и старше
-opkg update &amp;&amp; cd /tmp/ &amp;&amp; opkg download dnsmasq-full
-opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk;
+# или если нужна версия без API и без веб-интерфейса
+# apk update
+# apk add keen-pbr-headless
   
     
 
   
 
 
-Установите со страницы репозитория
-    Откройте страницу инструкций репозитория, выберите OpenWrt в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:
+
+
+bash# OpenWrt 24.x и старше
+opkg update
+opkg install keen-pbr
+
+# или если нужна версия без API и без веб-интерфейса
+# opkg update
+# opkg install keen-pbr-headless
+  
+    
+
+  
+
+
+Пакет устанавливает конфигурацию в /etc/keen-pbr/config.json и автоматически включает init-скрипт.
+Полезные команды сервиса:
+
+
+bashservice keen-pbr start
+service keen-pbr enable
+service keen-pbr restart
+  
+    
+
+  
+
+
+
+  
+  
+    Если вы не планируете использовать веб-интерфейс keen-pbr или API, можно установить пакет keen-pbr-headless.
+Он занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и не включает API-сервер. Также вы можете отключить API-сервер через флаг конфигурации в любой момент в полной версии пакета.
+  
+
+
+  
+  
+    Для перехвата DNS и L7 нужны модули ядра nfnetlink_queue, nfnetlink_log и nft_queue.
+Пакет автоматически подтягивает kmod-nfnetlink-queue, kmod-nfnetlink-log и kmod-nft-queue. Если вы ставили старую сборку или удалили их, установите вручную; иначе демон пишет cannot bind netfilter queue/log ... Invalid argument, а /api/health/service называет отсутствующий модуль. nft_log входит в kmod-nft-core.
+  
+
+Следующие шаги
+    Откройте Быстрый старт и используйте вкладку Веб-интерфейс для самой простой первоначальной настройки. Если вы установили keen-pbr-headless, используйте вкладку JSON / CLI.
+
+  
+  
+    Если готовые пакеты ещё не доступны для вашей платформы, см. раздел Сборка из исходного кода, чтобы собрать keen-pbr самостоятельно.
+  
+
+
     
   ">
 <meta
@@ -67,15 +117,25 @@ opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq
 	<meta itemprop="name" content="OpenWrt">
 	<meta itemprop="description" content="keen-pbr можно установить на роутерах OpenWrt из репозитория пакетов keen-pbr.
 Проверьте, какой менеджер пакетов использует ваша версия OpenWrt Страница репозитория автоматически показывает правильный путь для вашей целевой системы:
-OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Замените dnsmasq на dnsmasq-full Установите dnsmasq-full перед установкой keen-pbr:
-Для OpenWrt 25.x и новее тоже нужен dnsmasq-full вместо стандартного dnsmasq. У меня нет роутера с apk, чтобы проверить точные шаги замены. Если вы знаете правильную процедуру, пожалуйста, отправьте PR с исправлением документации. bash# OpenWrt 25.x и новее apk --update-cache add dnsmasq-full # OpenWrt 24.x и старше opkg update &amp;&amp; cd /tmp/ &amp;&amp; opkg download dnsmasq-full opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk; Установите со страницы репозитория Откройте страницу инструкций репозитория, выберите OpenWrt в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:">
-	<meta itemprop="wordCount" content="301">
+OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Установите со страницы репозитория Откройте страницу инструкций репозитория, выберите OpenWrt в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:
+Репозиторий keen-pbr
+Примеры команд установки:
+bash# OpenWrt 25.x и новее apk update apk add keen-pbr # или если нужна версия без API и без веб-интерфейса # apk update # apk add keen-pbr-headless bash# OpenWrt 24.x и старше opkg update opkg install keen-pbr # или если нужна версия без API и без веб-интерфейса # opkg update # opkg install keen-pbr-headless Пакет устанавливает конфигурацию в /etc/keen-pbr/config.json и автоматически включает init-скрипт.
+Полезные команды сервиса:
+bashservice keen-pbr start service keen-pbr enable service keen-pbr restart Если вы не планируете использовать веб-интерфейс keen-pbr или API, можно установить пакет keen-pbr-headless. Он занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и не включает API-сервер. Также вы можете отключить API-сервер через флаг конфигурации в любой момент в полной версии пакета. Для перехвата DNS и L7 нужны модули ядра nfnetlink_queue, nfnetlink_log и nft_queue. Пакет автоматически подтягивает kmod-nfnetlink-queue, kmod-nfnetlink-log и kmod-nft-queue. Если вы ставили старую сборку или удалили их, установите вручную; иначе демон пишет cannot bind netfilter queue/log ... Invalid argument, а /api/health/service называет отсутствующий модуль. nft_log входит в kmod-nft-core. Следующие шаги Откройте Быстрый старт и используйте вкладку Веб-интерфейс для самой простой первоначальной настройки. Если вы установили keen-pbr-headless, используйте вкладку JSON / CLI.
+Если готовые пакеты ещё не доступны для вашей платформы, см. раздел Сборка из исходного кода, чтобы собрать keen-pbr самостоятельно.">
+	<meta itemprop="wordCount" content="398">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="OpenWrt">
 	<meta name="twitter:description" content="keen-pbr можно установить на роутерах OpenWrt из репозитория пакетов keen-pbr.
 Проверьте, какой менеджер пакетов использует ваша версия OpenWrt Страница репозитория автоматически показывает правильный путь для вашей целевой системы:
-OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Замените dnsmasq на dnsmasq-full Установите dnsmasq-full перед установкой keen-pbr:
-Для OpenWrt 25.x и новее тоже нужен dnsmasq-full вместо стандартного dnsmasq. У меня нет роутера с apk, чтобы проверить точные шаги замены. Если вы знаете правильную процедуру, пожалуйста, отправьте PR с исправлением документации. bash# OpenWrt 25.x и новее apk --update-cache add dnsmasq-full # OpenWrt 24.x и старше opkg update &amp;&amp; cd /tmp/ &amp;&amp; opkg download dnsmasq-full opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk; Установите со страницы репозитория Откройте страницу инструкций репозитория, выберите OpenWrt в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:">
+OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Установите со страницы репозитория Откройте страницу инструкций репозитория, выберите OpenWrt в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:
+Репозиторий keen-pbr
+Примеры команд установки:
+bash# OpenWrt 25.x и новее apk update apk add keen-pbr # или если нужна версия без API и без веб-интерфейса # apk update # apk add keen-pbr-headless bash# OpenWrt 24.x и старше opkg update opkg install keen-pbr # или если нужна версия без API и без веб-интерфейса # opkg update # opkg install keen-pbr-headless Пакет устанавливает конфигурацию в /etc/keen-pbr/config.json и автоматически включает init-скрипт.
+Полезные команды сервиса:
+bashservice keen-pbr start service keen-pbr enable service keen-pbr restart Если вы не планируете использовать веб-интерфейс keen-pbr или API, можно установить пакет keen-pbr-headless. Он занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и не включает API-сервер. Также вы можете отключить API-сервер через флаг конфигурации в любой момент в полной версии пакета. Для перехвата DNS и L7 нужны модули ядра nfnetlink_queue, nfnetlink_log и nft_queue. Пакет автоматически подтягивает kmod-nfnetlink-queue, kmod-nfnetlink-log и kmod-nft-queue. Если вы ставили старую сборку или удалили их, установите вручную; иначе демон пишет cannot bind netfilter queue/log ... Invalid argument, а /api/health/service называет отсутствующий модуль. nft_log входит в kmod-nft-core. Следующие шаги Откройте Быстрый старт и используйте вкладку Веб-интерфейс для самой простой первоначальной настройки. Если вы установили keen-pbr-headless, используйте вкладку JSON / CLI.
+Если готовые пакеты ещё не доступны для вашей платформы, см. раздел Сборка из исходного кода, чтобы собрать keen-pbr самостоятельно.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -257,6 +317,12 @@ OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Замени�
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               ></a>
             </li>
+          <li>
+              <a
+                href="#dnsmasq"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >Отдельные DNS-серверы для списков (dnsmasq)</a>
+            </li>
           </ul>
   
               
@@ -397,6 +463,18 @@ OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Замени�
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -444,6 +522,18 @@ OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Замени�
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div>
               
@@ -687,6 +777,18 @@ OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Замени�
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -731,6 +833,17 @@ OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Замени�
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -884,15 +997,23 @@ OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Замени�
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b7%d0%b0%d0%bc%d0%b5%d0%bd%d0%b8%d1%82%d0%b5-dnsmasq-%d0%bd%d0%b0-dnsmasq-full">Замените dnsmasq на dnsmasq-full
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-%d1%81%d0%be-%d1%81%d1%82%d1%80%d0%b0%d0%bd%d0%b8%d1%86%d1%8b-%d1%80%d0%b5%d0%bf%d0%be%d0%b7%d0%b8%d1%82%d0%be%d1%80%d0%b8%d1%8f">Установите со страницы репозитория
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%81%d0%bb%d0%b5%d0%b4%d1%83%d1%8e%d1%89%d0%b8%d0%b5-%d1%88%d0%b0%d0%b3%d0%b8">Следующие шаги
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dnsmasq">Отдельные DNS-серверы для списков (dnsmasq)
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dnsmasq-install">Включение
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dnsmasq-rollback">Вернуть как было
         </a>
       </li></ul>
       <div class="hx:mt-8 hx:border-t hx:bg-white hx:pt-8 hx:shadow-[0_-12px_16px_white] hx:dark:bg-dark hx:dark:shadow-[0_-12px_16px_#111] hx:sticky hx:bottom-0 hx:flex hx:flex-col hx:items-start hx:gap-2 hx:pb-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-t hx:contrast-more:border-neutral-400 hx:contrast-more:shadow-none hx:contrast-more:dark:border-neutral-400">
@@ -989,34 +1110,6 @@ OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Замени�
 <li>OpenWrt 25.x и новее: <code>apk</code></li>
 <li>OpenWrt 24.x и старше: <code>opkg</code></li>
 </ul>
-<h3>Замените <code>dnsmasq</code> на <code>dnsmasq-full</code><span class="hx:absolute hx:-mt-20" id="замените-dnsmasq-на-dnsmasq-full"></span>
-    <a href="#%d0%b7%d0%b0%d0%bc%d0%b5%d0%bd%d0%b8%d1%82%d0%b5-dnsmasq-%d0%bd%d0%b0-dnsmasq-full" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Установите <code>dnsmasq-full</code> перед установкой keen-pbr:</p>
-<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
-  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-  <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Для OpenWrt 25.x и новее тоже нужен <code>dnsmasq-full</code> вместо стандартного <code>dnsmasq</code>.
-У меня нет роутера с <code>apk</code>, чтобы проверить точные шаги замены. Если вы знаете правильную процедуру, пожалуйста, отправьте PR с исправлением документации.</div>
-  </div>
-</div>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># OpenWrt 25.x и новее</span>
-</span></span><span class="line"><span class="cl">apk --update-cache add dnsmasq-full
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># OpenWrt 24.x и старше</span>
-</span></span><span class="line"><span class="cl">opkg update <span class="o">&amp;&amp;</span> <span class="nb">cd</span> /tmp/ <span class="o">&amp;&amp;</span> opkg download dnsmasq-full
-</span></span><span class="line"><span class="cl">opkg remove dnsmasq<span class="p">;</span> opkg install dnsmasq-full --cache /tmp/<span class="p">;</span> rm -f /tmp/dnsmasq-full*.ipk<span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
 <h3>Установите со страницы репозитория<span class="hx:absolute hx:-mt-20" id="установите-со-страницы-репозитория"></span>
     <a href="#%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-%d1%81%d0%be-%d1%81%d1%82%d1%80%d0%b0%d0%bd%d0%b8%d1%86%d1%8b-%d1%80%d0%b5%d0%bf%d0%be%d0%b7%d0%b8%d1%82%d0%be%d1%80%d0%b8%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Откройте страницу инструкций репозитория, выберите <strong>OpenWrt</strong> в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:</p>
 <p><a href="https://repo.keen-pbr.fyi/repository/stable/?lang=ru"target="_blank" rel="noopener">Репозиторий keen-pbr</a></p>
@@ -1086,6 +1179,13 @@ OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Замени�
 Он занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и не включает API-сервер. Также вы можете отключить API-сервер через флаг конфигурации в любой момент в полной версии пакета.</div>
   </div>
 </div>
+<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200">
+  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
+  <div class="hx:w-full hx:min-w-0 hx:leading-7">
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Для перехвата DNS и L7 нужны модули ядра <code>nfnetlink_queue</code>, <code>nfnetlink_log</code> и <code>nft_queue</code>.
+Пакет автоматически подтягивает <code>kmod-nfnetlink-queue</code>, <code>kmod-nfnetlink-log</code> и <code>kmod-nft-queue</code>. Если вы ставили старую сборку или удалили их, установите вручную; иначе демон пишет <code>cannot bind netfilter queue/log ... Invalid argument</code>, а <code>/api/health/service</code> называет отсутствующий модуль. <code>nft_log</code> входит в <code>kmod-nft-core</code>.</div>
+  </div>
+</div>
 <h3>Следующие шаги<span class="hx:absolute hx:-mt-20" id="следующие-шаги"></span>
     <a href="#%d1%81%d0%bb%d0%b5%d0%b4%d1%83%d1%8e%d1%89%d0%b8%d0%b5-%d1%88%d0%b0%d0%b3%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Откройте <a href="/ru/docs/getting-started/quick-start/">Быстрый старт</a> и используйте вкладку <strong>Веб-интерфейс</strong> для самой простой первоначальной настройки. Если вы установили <code>keen-pbr-headless</code>, используйте вкладку <strong>JSON / CLI</strong>.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
@@ -1095,6 +1195,13 @@ OpenWrt 25.x и новее: apk OpenWrt 24.x и старше: opkg Замени�
   </div>
 </div>
 </div>
+<h2>Отдельные DNS-серверы для списков (dnsmasq)<span class="hx:absolute hx:-mt-20" id="dnsmasq"></span>
+    <a href="#dnsmasq" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Для маршрутизации keen-pbr не нужен dnsmasq, но в OpenWrt он и так работает системным резолвером. Нужно ли отдать его под управление keen-pbr, читайте в разделе <a href="/ru/docs/configuration/dns/#do-i-need-dnsmasq">Нужен ли dnsmasq?</a>.</p>
+<h3>Включение<span class="hx:absolute hx:-mt-20" id="dnsmasq-install"></span>
+    <a href="#dnsmasq-install" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>В веб-интерфейсе откройте <strong>Общее</strong> &gt; <strong>Управление локальным DNS-сервером</strong> и включите <strong>Управлять конфигурацией dnsmasq</strong>. keen-pbr добавит три записи <code>addnmount</code> в секцию dnsmasq в <code>/etc/config/dhcp</code>, чтобы dnsmasq в песочнице мог запускать keen-pbr.</p>
+<p>Пока управление включено и заданы <strong>Основные DNS-серверы</strong>, keen-pbr убирает из списка в <code>/etc/config/dhcp</code> (в LuCI <strong>DNS forwardings</strong>) серверы без домена. Серверы для отдельных доменов, например <code>/lan/192.168.1.1</code>, остаются. Убранные серверы вернутся, когда вы выключите управление или очистите основные серверы.</p>
+<h3>Вернуть как было<span class="hx:absolute hx:-mt-20" id="dnsmasq-rollback"></span>
+    <a href="#dnsmasq-rollback" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Выключите <strong>Управлять конфигурацией dnsmasq</strong> и примените конфигурацию. keen-pbr перезапустит dnsmasq и вернёт убранные серверы. Записи <code>addnmount</code> исчезнут при удалении пакета.</p>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

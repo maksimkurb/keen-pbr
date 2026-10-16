@@ -10,10 +10,9 @@
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Outbounds – keen-pbr</title>
   <meta name="description" content="Outbounds tell keen-pbr where matching traffic should go.
-Every outbound tag must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
+An outbound tag uses lowercase Latin letters, digits and _, starts with a letter, and is at most 24 characters long (^[a-z][a-z0-9_]*$).
 Most users only need:
-one interface outbound for the VPN connection one interface outbound for the normal connection, often wan optionally one urltest outbound if they want automatic failover between several connections If you are not sure, start with interface outbounds and come back to the others later.
-Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;interface&#34;: &#34;eth0&#34;, &#34;gateway&#34;: &#34;192.168.1.1&#34; } ] } Types interface Use this when you want to send traffic through a specific connection such as a VPN tunnel or your normal internet uplink." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/outbounds/" itemprop="url" />
+one interface outbound for the VPN connection one table outbound with table: 254 (the system’s main routing table) for the normal connection, often wan optionally one urltest outbound if they want automatic failover between several connections If you are not sure, start with interface outbounds and come back to the others later." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/outbounds/" itemprop="url" />
 
 <meta property="og:title" content="Outbounds">
 <meta
@@ -21,43 +20,14 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
   content="
     
       Outbounds tell keen-pbr where matching traffic should go.
-Every outbound tag must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
+An outbound tag uses lowercase Latin letters, digits and _, starts with a letter, and is at most 24 characters long (^[a-z][a-z0-9_]*$).
 Most users only need:
 
 one interface outbound for the VPN connection
-one interface outbound for the normal connection, often wan
+one table outbound with table: 254 (the system&rsquo;s main routing table) for the normal connection, often wan
 optionally one urltest outbound if they want automatic failover between several connections
 
 If you are not sure, start with interface outbounds and come back to the others later.
-Common Example
-    
-
-config.json{
-  &#34;outbounds&#34;: [
-    {
-      &#34;type&#34;: &#34;interface&#34;,
-      &#34;tag&#34;: &#34;vpn&#34;,
-      &#34;interface&#34;: &#34;tun0&#34;,
-      &#34;gateway&#34;: &#34;10.8.0.1&#34;,
-      &#34;gateway6&#34;: &#34;2001:db8::1&#34;
-    },
-    {
-      &#34;type&#34;: &#34;interface&#34;,
-      &#34;tag&#34;: &#34;wan&#34;,
-      &#34;interface&#34;: &#34;eth0&#34;,
-      &#34;gateway&#34;: &#34;192.168.1.1&#34;
-    }
-  ]
-}
-  
-    
-
-  
-
-
-Types
-    interface
-    Use this when you want to send traffic through a specific connection such as a VPN tunnel or your normal internet uplink.
     
   ">
 <meta
@@ -72,18 +42,16 @@ Types
 
 	<meta itemprop="name" content="Outbounds">
 	<meta itemprop="description" content="Outbounds tell keen-pbr where matching traffic should go.
-Every outbound tag must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
+An outbound tag uses lowercase Latin letters, digits and _, starts with a letter, and is at most 24 characters long (^[a-z][a-z0-9_]*$).
 Most users only need:
-one interface outbound for the VPN connection one interface outbound for the normal connection, often wan optionally one urltest outbound if they want automatic failover between several connections If you are not sure, start with interface outbounds and come back to the others later.
-Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;interface&#34;: &#34;eth0&#34;, &#34;gateway&#34;: &#34;192.168.1.1&#34; } ] } Types interface Use this when you want to send traffic through a specific connection such as a VPN tunnel or your normal internet uplink.">
-	<meta itemprop="wordCount" content="1183">
+one interface outbound for the VPN connection one table outbound with table: 254 (the system’s main routing table) for the normal connection, often wan optionally one urltest outbound if they want automatic failover between several connections If you are not sure, start with interface outbounds and come back to the others later.">
+	<meta itemprop="wordCount" content="1499">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Outbounds">
 	<meta name="twitter:description" content="Outbounds tell keen-pbr where matching traffic should go.
-Every outbound tag must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
+An outbound tag uses lowercase Latin letters, digits and _, starts with a letter, and is at most 24 characters long (^[a-z][a-z0-9_]*$).
 Most users only need:
-one interface outbound for the VPN connection one interface outbound for the normal connection, often wan optionally one urltest outbound if they want automatic failover between several connections If you are not sure, start with interface outbounds and come back to the others later.
-Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;interface&#34;: &#34;eth0&#34;, &#34;gateway&#34;: &#34;192.168.1.1&#34; } ] } Types interface Use this when you want to send traffic through a specific connection such as a VPN tunnel or your normal internet uplink.">
+one interface outbound for the VPN connection one table outbound with table: 254 (the system’s main routing table) for the normal connection, often wan optionally one urltest outbound if they want automatic failover between several connections If you are not sure, start with interface outbounds and come back to the others later.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -153,11 +121,11 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
           </a>
           <a class="hx:p-2 hx:text-current" target="_blank" rel="noreferrer" href="https://t.me/keen_pbr" title="Telegram"><svg height=24 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><path fill="currentColor" d="M248 8C111.033 8 0 119.033 0 256s111.033 248 248 248 248-111.033 248-248S384.967 8 248 8m114.952 168.66c-3.732 39.215-19.881 134.378-28.1 178.3-3.476 18.584-10.322 24.816-16.948 25.425-14.4 1.326-25.338-9.517-39.287-18.661-21.827-14.308-34.158-23.215-55.346-37.177-24.485-16.135-8.612-25 5.342-39.5 3.652-3.793 67.107-61.51 68.335-66.746.153-.655.3-3.1-1.154-4.384s-3.59-.849-5.135-.5q-3.283.746-104.608 69.142-14.845 10.194-26.894 9.934c-8.855-.191-25.888-5.006-38.551-9.123-15.531-5.048-27.875-7.717-26.8-16.291q.84-6.7 18.45-13.7 108.446-47.248 144.628-62.3c68.872-28.647 83.183-33.623 92.511-33.789 2.052-.034 6.639.474 9.61 2.885a10.45 10.45 0 0 1 3.53 6.716 43.8 43.8 0 0 1 .417 9.769"/></svg><span class="hx:sr-only">Telegram</span>
           </a><a
-  title="Sponsor this project"
+  title="Support this project"
   href="/docs/donate"
   
   class="hx:text-sm hx:contrast-more:text-gray-700 hx:contrast-more:dark:text-gray-100 hx:relative hx:-ml-2 hx:hidden hx:whitespace-nowrap hx:p-2 hx:md:inline-flex hx:items-center hx:gap-1 hx:text-gray-600 hx:hover:text-gray-800 hx:dark:text-gray-400 hx:dark:hover:text-gray-200 donation-nav-button"
-><span class="hx:inline-flex hx:items-center"><svg height="1em" class="hx:inline-block" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M640-440 474-602q-31-30-52.5-66.5T400-748q0-55 38.5-93.5T532-880q32 0 60 13.5t48 36.5q20-23 48-36.5t60-13.5q55 0 93.5 38.5T880-748q0 43-21 79.5T807-602L640-440Zm0-112 109-107q19-19 35-40.5t16-48.5q0-22-15-37t-37-15q-14 0-26.5 5.5T700-778l-60 72-60-72q-9-11-21.5-16.5T532-800q-22 0-37 15t-15 37q0 27 16 48.5t35 40.5l109 107ZM280-220l278 76 238-74q-5-9-14.5-15.5T760-240H558q-27 0-43-2t-33-8l-93-31 22-78 81 27q17 5 40 8t68 4q0-11-6.5-21T578-354l-234-86h-64v220ZM40-80v-440h304q7 0 14 1.5t13 3.5l235 87q33 12 53.5 42t20.5 66h80q50 0 85 33t35 87v40L560-60l-280-78v58H40Zm80-80h80v-280h-80v280Zm520-546Z"/></svg></span><span class="hx:text-center">Sponsor this project</span>
+><span class="hx:inline-flex hx:items-center"><svg height="1em" class="hx:inline-block" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M640-440 474-602q-31-30-52.5-66.5T400-748q0-55 38.5-93.5T532-880q32 0 60 13.5t48 36.5q20-23 48-36.5t60-13.5q55 0 93.5 38.5T880-748q0 43-21 79.5T807-602L640-440Zm0-112 109-107q19-19 35-40.5t16-48.5q0-22-15-37t-37-15q-14 0-26.5 5.5T700-778l-60 72-60-72q-9-11-21.5-16.5T532-800q-22 0-37 15t-15 37q0 27 16 48.5t35 40.5l109 107ZM280-220l278 76 238-74q-5-9-14.5-15.5T760-240H558q-27 0-43-2t-33-8l-93-31 22-78 81 27q17 5 40 8t68 4q0-11-6.5-21T578-354l-234-86h-64v220ZM40-80v-440h304q7 0 14 1.5t13 3.5l235 87q33 12 53.5 42t20.5 66h80q50 0 85 33t35 87v40L560-60l-280-78v58H40Zm80-80h80v-280h-80v280Zm520-546Z"/></svg></span><span class="hx:text-center">Support this project</span>
 </a><button type="button" aria-label="Menu" aria-expanded="false" class="hextra-hamburger-menu hx:cursor-pointer hx:-mr-2 hx:rounded-sm hx:p-2 hx:active:bg-gray-400/20 hx:md:hidden hx:hextra-focus-visible-inset"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
   </nav>
 </div>
@@ -447,6 +415,18 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Multi-WAN Load Balancing</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -499,6 +479,18 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
               
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
     <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Changelog</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
       hx:hextra-focus-visible-inset
         hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
@@ -546,7 +538,7 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
       href="/docs/donate/"
       
     >
-      <span class="hx:min-w-0 [word-break:break-word]">Sponsor this project</span>
+      <span class="hx:min-w-0 [word-break:break-word]">Support this project</span>
     </a>
   </div></li>
     </ul>
@@ -737,6 +729,18 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Multi-WAN Load Balancing</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -781,6 +785,17 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Changelog</span>
     </a>
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -962,11 +977,15 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#retry-configuration">Retry Configuration
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#load-balancing-strategy-balance">Load balancing (strategy: &#34;balance&#34;)
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#circuit-breaker-configuration">Circuit Breaker Configuration
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#retries-retry">Retries (retry)
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#excluding-an-unstable-link-circuit_breaker">Excluding an unstable link (circuit_breaker)
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1057,11 +1076,11 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
           </div>
           
           <p>Outbounds tell keen-pbr where matching traffic should go.</p>
-<p>Every outbound <code>tag</code> must match <code>^[a-z][a-z0-9_]*$</code> and be at most 24 characters.</p>
+<p>An outbound <code>tag</code> uses lowercase Latin letters, digits and <code>_</code>, starts with a letter, and is at most 24 characters long (<code>^[a-z][a-z0-9_]*$</code>).</p>
 <p>Most users only need:</p>
 <ul>
 <li>one <code>interface</code> outbound for the VPN connection</li>
-<li>one <code>interface</code> outbound for the normal connection, often <code>wan</code></li>
+<li>one <code>table</code> outbound with <code>table: 254</code> (the system&rsquo;s main routing table) for the normal connection, often <code>wan</code></li>
 <li>optionally one <code>urltest</code> outbound if they want automatic failover between several connections</li>
 </ul>
 <p>If you are not sure, start with <code>interface</code> outbounds and come back to the others later.</p>
@@ -1078,10 +1097,9 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;gateway6&#34;</span><span class="p">:</span> <span class="s2">&#34;2001:db8::1&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;interface&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;table&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;wan&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;interface&#34;</span><span class="p">:</span> <span class="s2">&#34;eth0&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;gateway&#34;</span><span class="p">:</span> <span class="s2">&#34;192.168.1.1&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;table&#34;</span><span class="p">:</span> <span class="mi">254</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">]</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1141,9 +1159,8 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
 			</tr>
 	</tbody>
 </table>
-<p>If neither <code>gateway</code> nor <code>gateway6</code> is set, keen-pbr creates both IPv4 and IPv6 default routes for the interface outbound.</p>
-<p>If only one gateway is set, keen-pbr creates a routed default for that address family and an <code>unreachable</code> default for the other family so marked traffic cannot leak outside the outbound table.</p>
-<p>If both <code>gateway</code> and <code>gateway6</code> are set, keen-pbr creates distinct IPv4 and IPv6 default routes.</p>
+<p>For tunnels such as <code>tun0</code> or <code>wg0</code>, a gateway is usually not needed: without <code>gateway</code> and <code>gateway6</code>, both IPv4 and IPv6 traffic is sent straight into the interface. Set a gateway when the next hop has to be named, for example a second WAN behind the ISP&rsquo;s router.</p>
+<p>If you set only one of them, traffic of the other IP version for this outbound is blocked rather than leaking past the VPN.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1169,8 +1186,8 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
 </div>
 </div>
 <h2><code>table</code><span class="hx:absolute hx:-mt-20" id="table"></span>
-    <a href="#table" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use this only if another service on the system already created a separate routing table for you and you want keen-pbr to reuse it.</p>
-<p>To find existing table IDs before choosing one, inspect the current policy routing state and routes. To see table name mappings, check <code>/etc/iproute2/rt_tables</code>:</p>
+    <a href="#table" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Sends traffic through an existing routing table: usually <code>254</code>, the system&rsquo;s main table (the normal internet connection), or a table another service has created.</p>
+<p>To see which tables exist and their names, run:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ip rule show
@@ -1286,8 +1303,25 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
 </div>
 </div>
 <h2><code>ignore</code><span class="hx:absolute hx:-mt-20" id="ignore"></span>
-    <a href="#ignore" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Passes traffic through without any routing modification. Use this to explicitly exclude traffic from other rules.</p>
-<p>When a route rule resolves to an <code>ignore</code> outbound, keen-pbr installs a matching firewall pass-through verdict for that traffic. This stops further keen-pbr rule processing without setting a mark or dropping the packet. No routing table or <code>ip rule</code> is created for that match, so the packet follows the system&rsquo;s normal routing. Since route rules are evaluated top to bottom and the first match wins, <code>ignore</code> is most useful for exception rules placed before broader catch-all rules.</p>
+    <a href="#ignore" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Leaves traffic alone: keen-pbr does not touch it, and it follows the router&rsquo;s normal routing as if keen-pbr were not there.</p>
+<p>Use it for exceptions. Rules are checked from top to bottom and the first match wins, so put the <code>ignore</code> rule above a broader one. For example, the whole <code>streaming</code> list goes through the VPN except addresses from the <code>streaming_direct</code> list (<code>direct</code> is the <code>ignore</code> outbound from the example below):</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="s2">&#34;rules&#34;</span><span class="err">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span> <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;streaming_direct&#34;</span><span class="p">],</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;direct&#34;</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span> <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;streaming&#34;</span><span class="p">],</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">]</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
 <table>
 	<thead>
 			<tr>
@@ -1334,14 +1368,8 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
 </div>
 </div>
 <h2><code>urltest</code><span class="hx:absolute hx:-mt-20" id="urltest"></span>
-    <a href="#urltest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use this when you have several candidate outbounds and want keen-pbr to automatically pick the best available one.</p>
-<p>Firewall rules keep the <code>urltest</code> outbound&rsquo;s stable mark. Its policy rule points
-at the selected child&rsquo;s routing table, including an existing table used by a
-<code>table</code> outbound; firewall rules are not rebuilt on selection changes.</p>
-<p>keen-pbr always appends terminal IPv4 and IPv6 <code>unreachable</code> default routes to
-the generated <code>urltest</code> fallback table. This table is selected when no child is
-usable, while a terminal policy rule prevents a selected child table from
-falling through to normal routing.</p>
+    <a href="#urltest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use this when you have several links (for example two VPNs and your normal internet) and want keen-pbr to pick a working one automatically. keen-pbr periodically opens <code>url</code> through each link and measures the response time.</p>
+<p>If no link works, traffic for this outbound is blocked rather than leaking through your normal internet connection around the VPN.</p>
 <table>
 	<thead>
 			<tr>
@@ -1374,183 +1402,54 @@ falling through to normal routing.</p>
 					<td><code>interval_ms</code></td>
 					<td>integer</td>
 					<td>no (default: <code>180000</code>)</td>
-					<td>Interval between probes in milliseconds</td>
+					<td>Interval between checks in milliseconds</td>
 			</tr>
 			<tr>
 					<td><code>probe_timeout_ms</code></td>
 					<td>integer</td>
 					<td>no (default: <code>5000</code>)</td>
-					<td>Timeout for each individual probe attempt in milliseconds</td>
+					<td>Timeout for one check in milliseconds</td>
 			</tr>
 			<tr>
 					<td><code>tolerance_ms</code></td>
 					<td>integer</td>
 					<td>no (default: <code>100</code>)</td>
-					<td>Latency tolerance in ms; prevent outbound switching if the latency difference between the current and new best outbound is less than this tolerance</td>
+					<td>Do not switch to another link if it is faster than the current one by less than this many milliseconds</td>
+			</tr>
+			<tr>
+					<td><code>strategy</code></td>
+					<td>string</td>
+					<td>no (default: <code>&quot;priority&quot;</code>)</td>
+					<td><code>&quot;priority&quot;</code>: all traffic goes through the single fastest link. <code>&quot;balance&quot;</code>: new connections are spread across the working links of the first working group in proportion to <code>weight</code> (not available on Keenetic)</td>
+			</tr>
+			<tr>
+					<td><code>conntrack_on_switch</code></td>
+					<td>string</td>
+					<td>no (default: <code>&quot;preserve&quot;</code>)</td>
+					<td>What to do with open connections when moving to a faster link: <code>&quot;preserve&quot;</code> keeps them on the old link, <code>&quot;delete&quot;</code> deletes their 
+  <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
+ entries so they reconnect. See <a href="/docs/configuration/advanced/#failover">Failover</a></td>
 			</tr>
 			<tr>
 					<td><code>outbound_groups</code></td>
 					<td>array</td>
 					<td>yes</td>
-					<td>Ordered list of outbound groups (see below)</td>
+					<td>Ordered list of link groups (see below)</td>
 			</tr>
 			<tr>
 					<td><code>retry</code></td>
 					<td>object</td>
 					<td>no</td>
-					<td>Retry configuration (see below)</td>
+					<td>Check retries (see below)</td>
 			</tr>
 			<tr>
 					<td><code>circuit_breaker</code></td>
 					<td>object</td>
 					<td>no</td>
-					<td>Circuit breaker configuration (see below)</td>
+					<td>Temporary exclusion of an unstable link (see below)</td>
 			</tr>
 	</tbody>
 </table>
-<h3>Outbound Groups<span class="hx:absolute hx:-mt-20" id="outbound-groups"></span>
-    <a href="#outbound-groups" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Groups are checked in order. Within the first healthy group, outbounds are selected by the lowest latency. If all outbounds in a group are unhealthy, the next group is evaluated. This lets you define more complex priority rules. For example, you can prefer one of two slower outbounds first, and if both are unavailable, fall back to another outbound that is faster but more expensive.</p>
-<table>
-	<thead>
-			<tr>
-					<th>Field</th>
-					<th>Type</th>
-					<th>Required</th>
-					<th>Description</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>outbounds</code></td>
-					<td>array of string</td>
-					<td>yes</td>
-					<td>Ordered list of outbound tags to try</td>
-			</tr>
-	</tbody>
-</table>
-<h3>Retry Configuration<span class="hx:absolute hx:-mt-20" id="retry-configuration"></span>
-    <a href="#retry-configuration" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><table>
-	<thead>
-			<tr>
-					<th>Field</th>
-					<th>Type</th>
-					<th>Required</th>
-					<th>Description</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>attempts</code></td>
-					<td>integer</td>
-					<td>no (default: <code>3</code>)</td>
-					<td>Number of probe attempts before marking outbound as failed</td>
-			</tr>
-			<tr>
-					<td><code>interval_ms</code></td>
-					<td>integer</td>
-					<td>no (default: <code>1000</code>)</td>
-					<td>Delay between retry attempts in milliseconds</td>
-			</tr>
-	</tbody>
-</table>
-<h3>Circuit Breaker Configuration<span class="hx:absolute hx:-mt-20" id="circuit-breaker-configuration"></span>
-    <a href="#circuit-breaker-configuration" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><table>
-	<thead>
-			<tr>
-					<th>Field</th>
-					<th>Type</th>
-					<th>Required</th>
-					<th>Description</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>failure_threshold</code></td>
-					<td>integer</td>
-					<td>no (default: <code>5</code>)</td>
-					<td>Consecutive failures before opening the circuit</td>
-			</tr>
-			<tr>
-					<td><code>success_threshold</code></td>
-					<td>integer</td>
-					<td>no (default: <code>2</code>)</td>
-					<td>Consecutive successes in half-open state to close the circuit</td>
-			</tr>
-			<tr>
-					<td><code>timeout_ms</code></td>
-					<td>integer</td>
-					<td>no (default: <code>30000</code>)</td>
-					<td>Time before transitioning from open to half-open state</td>
-			</tr>
-			<tr>
-					<td><code>half_open_max_requests</code></td>
-					<td>integer</td>
-					<td>no (default: <code>1</code>)</td>
-					<td>Max probe requests allowed in half-open state</td>
-			</tr>
-	</tbody>
-</table>
-<p><strong>Circuit breaker states:</strong></p>
-<ul>
-<li><code>closed</code> — healthy, traffic passes through normally</li>
-<li><code>open</code> — failed, traffic blocked during cooldown period</li>
-<li><code>half_open</code> — testing recovery with limited probe requests</li>
-</ul>
-<h2><code>icmptest</code><span class="hx:absolute hx:-mt-20" id="icmptest"></span>
-    <a href="#icmptest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><code>icmptest</code> selects candidates like <code>urltest</code>, but sends ICMP Echo packets through
-each candidate&rsquo;s fwmark. Every candidate needs one explicit literal IPv4 or IPv6
-destination in its group entry.</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;icmptest&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;auto_ping&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;interval_ms&#34;</span><span class="p">:</span> <span class="mi">60000</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;count&#34;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;max_failed&#34;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;packet_interval_ms&#34;</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;probe_timeout_ms&#34;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;max_rtt_ms&#34;</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;tolerance_ms&#34;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;outbound_groups&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">    <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;candidates&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">,</span> <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;1.1.1.1&#34;</span> <span class="p">},</span>
-</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;wan&#34;</span><span class="p">,</span> <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;9.9.9.9&#34;</span> <span class="p">}</span>
-</span></span><span class="line"><span class="cl">      <span class="p">]</span>
-</span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">  <span class="p">]</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>The legacy <code>outbound_groups[].outbounds</code> plus top-level <code>probes</code> form is accepted
-and migrated in memory when the configuration is loaded. The canonical nested
-form is written on the next explicit configuration save; startup does not rewrite
-the file automatically. Mixing legacy and canonical fields is rejected.</p>
-<p>Attempts are sequential. After one reply or timeout is fully processed, the
-daemon waits <code>packet_interval_ms</code> before sending the next request. Therefore the
-worst case for one candidate is
-<code>count * probe_timeout_ms + (count - 1) * packet_interval_ms</code>. The configured
-<code>interval_ms</code> must cover all candidates plus a 25% reserve.</p>
-<p>Replies are matched by target address, ICMP type, identifier, and sequence.
-Unrelated or late replies are ignored until the current attempt&rsquo;s deadline. A
-matched reply over <code>max_rtt_ms</code> counts as failed, but remains visible in runtime
-packet statistics.</p>
-<p>The server limits a run to 1–10 packets per candidate, 1–16 unique candidates,
-160 packets total, and a worst-case sweep of 10 minutes. The pause must be
-100–1000 ms, the reply timeout 100–5000 ms, and the sweep interval between one
-second and 24 hours. Datagram ICMP sockets require the daemon account to be
-allowed by the platform&rsquo;s ping-socket policy (or have the corresponding network
-capability).</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1563,8 +1462,8 @@ capability).</p>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;probe_timeout_ms&#34;</span><span class="p">:</span> <span class="mi">5000</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;tolerance_ms&#34;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;outbound_groups&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbounds&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;vpn1&#34;</span><span class="p">,</span> <span class="s2">&#34;vpn2&#34;</span><span class="p">]</span> <span class="p">},</span>
-</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbounds&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;wan&#34;</span><span class="p">]</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;members&#34;</span><span class="p">:</span> <span class="p">[{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn1&#34;</span> <span class="p">},</span> <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn2&#34;</span> <span class="p">}]</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;members&#34;</span><span class="p">:</span> <span class="p">[{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;wan&#34;</span> <span class="p">}]</span> <span class="p">}</span>
 </span></span><span class="line"><span class="cl">      <span class="p">],</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;retry&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;attempts&#34;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
@@ -1590,6 +1489,251 @@ capability).</p>
   </button>
 </div>
 </div>
+<h3>Outbound Groups<span class="hx:absolute hx:-mt-20" id="outbound-groups"></span>
+    <a href="#outbound-groups" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><code>outbound_groups</code> is a list of groups in priority order. keen-pbr uses the first group that has at least one working link. If no link in a group works, the next group is used.</p>
+<table>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>members</code></td>
+					<td>array of object</td>
+					<td>yes</td>
+					<td>Links in this group (see below)</td>
+			</tr>
+	</tbody>
+</table>
+<p>Each link in a group:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>outbound</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td>Outbound tag (<code>interface</code>, <code>table</code> or <code>blackhole</code>)</td>
+			</tr>
+			<tr>
+					<td><code>weight</code></td>
+					<td>integer 1-100</td>
+					<td>no (default: <code>1</code>)</td>
+					<td>Share of new connections with <code>strategy: &quot;balance&quot;</code>; ignored by <code>priority</code>. Links with weights 7 and 3 get 70% and 30% of new connections while both work</td>
+			</tr>
+	</tbody>
+</table>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="s2">&#34;outbound_groups&#34;</span><span class="err">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span> <span class="nt">&#34;members&#34;</span><span class="p">:</span> <span class="p">[</span> <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;wan1&#34;</span><span class="p">,</span> <span class="nt">&#34;weight&#34;</span><span class="p">:</span> <span class="mi">7</span> <span class="p">},</span> <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;wan2&#34;</span><span class="p">,</span> <span class="nt">&#34;weight&#34;</span><span class="p">:</span> <span class="mi">3</span> <span class="p">}</span> <span class="p">]</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span> <span class="nt">&#34;members&#34;</span><span class="p">:</span> <span class="p">[</span> <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;backup&#34;</span> <span class="p">}</span> <span class="p">]</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">]</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
+  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+
+  <div class="hx:w-full hx:min-w-0 hx:leading-7">
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">The older group format (<code>outbounds: [&quot;a&quot;, &quot;b&quot;]</code> with a group-level <code>weight</code> as its priority) is still supported. On the first start keen-pbr rewrites <code>config.json</code> in the new format and keeps the old file next to it as <code>config.json.bak-pre-members</code>. Comments from the old file are not carried over. Old and new fields cannot be mixed in one group.</div>
+  </div>
+</div>
+
+<h3>Load balancing (<code>strategy: &quot;balance&quot;</code>)<span class="hx:absolute hx:-mt-20" id="load-balancing-strategy-balance"></span>
+    <a href="#load-balancing-strategy-balance" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>A link is chosen per new connection, not per request: the whole connection, including HTTP/2 and 
+  <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr>
+, stays on one link. <code>tolerance_ms</code> and <code>conntrack_on_switch</code> are not used with balancing. When a link stops working, 
+  <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
+ entries of its connections are deleted, and new connections are spread across the remaining links.</p>
+<p>With nftables, connections are split exactly by weight. With iptables, a link is picked at random with the right probability, so with only a few connections the shares can differ noticeably from the weights; with many connections they even out. iptables needs the <code>xt_statistic</code> kernel module; if it is missing, keen-pbr reports it when applying the configuration. Balancing is not available with <code>--use-raw-prerouting</code>.</p>
+<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
+  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+
+  <div class="hx:w-full hx:min-w-0 hx:leading-7">
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Balancing across several WANs needs
+<abbr title="Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&#39;s WAN address.">NAT</abbr>
+on every uplink, loose <code>rp_filter</code>, and an
+<abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
+range that other software does not use. See <a href="/docs/configuration/multi-wan/">Multi-WAN Load Balancing</a> for a complete Debian/iptables setup.</div>
+  </div>
+</div>
+
+<h3>Retries (<code>retry</code>)<span class="hx:absolute hx:-mt-20" id="retries-retry"></span>
+    <a href="#retries-retry" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><table>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>attempts</code></td>
+					<td>integer</td>
+					<td>no (default: <code>3</code>)</td>
+					<td>How many times to retry a check before treating the link as down</td>
+			</tr>
+			<tr>
+					<td><code>interval_ms</code></td>
+					<td>integer</td>
+					<td>no (default: <code>1000</code>)</td>
+					<td>Pause between attempts in milliseconds</td>
+			</tr>
+	</tbody>
+</table>
+<h3>Excluding an unstable link (<code>circuit_breaker</code>)<span class="hx:absolute hx:-mt-20" id="excluding-an-unstable-link-circuit_breaker"></span>
+    <a href="#excluding-an-unstable-link-circuit_breaker" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>If a link fails several checks in a row, keen-pbr stops using it for a while. This keeps traffic from bouncing back and forth while a link keeps going up and down.</p>
+<table>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>failure_threshold</code></td>
+					<td>integer</td>
+					<td>no (default: <code>5</code>)</td>
+					<td>Failed checks in a row needed to exclude the link</td>
+			</tr>
+			<tr>
+					<td><code>timeout_ms</code></td>
+					<td>integer</td>
+					<td>no (default: <code>30000</code>)</td>
+					<td>After how many milliseconds to try the excluded link again</td>
+			</tr>
+			<tr>
+					<td><code>success_threshold</code></td>
+					<td>integer</td>
+					<td>no (default: <code>2</code>)</td>
+					<td>Successful checks in a row needed to bring the link back</td>
+			</tr>
+			<tr>
+					<td><code>half_open_max_requests</code></td>
+					<td>integer</td>
+					<td>no (default: <code>1</code>)</td>
+					<td>How many checks may run at once while an excluded link is being rechecked</td>
+			</tr>
+	</tbody>
+</table>
+<p>An excluded link is shown as <strong>Unavailable</strong> on the <strong>Outbounds</strong> page of the web UI and as <code>unavailable</code> in <code>GET /api/runtime/outbounds</code>.</p>
+<h2><code>icmptest</code><span class="hx:absolute hx:-mt-20" id="icmptest"></span>
+    <a href="#icmptest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Same as <code>urltest</code>, but links are checked with ping (
+  <abbr title="Service protocol for network diagnostics. ping uses ICMP Echo.">ICMP</abbr>
+ Echo) instead of an HTTP request. For every link in a group, set <code>target</code>: the IP address to ping through that link.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;icmptest&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;auto_ping&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;interval_ms&#34;</span><span class="p">:</span> <span class="mi">60000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;count&#34;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;max_failed&#34;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;packet_interval_ms&#34;</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;probe_timeout_ms&#34;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;max_rtt_ms&#34;</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;tolerance_ms&#34;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;outbound_groups&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;members&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">,</span> <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;1.1.1.1&#34;</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;wan&#34;</span><span class="p">,</span> <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;9.9.9.9&#34;</span><span class="p">,</span> <span class="nt">&#34;weight&#34;</span><span class="p">:</span> <span class="mi">3</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">      <span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<table>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>interval_ms</code></td>
+					<td>integer</td>
+					<td>no (default: <code>60000</code>)</td>
+					<td>Interval between checks, from 1 second to 24 hours</td>
+			</tr>
+			<tr>
+					<td><code>count</code></td>
+					<td>integer</td>
+					<td>no (default: <code>3</code>)</td>
+					<td>Pings sent through each link per check, 1 to 10</td>
+			</tr>
+			<tr>
+					<td><code>max_failed</code></td>
+					<td>integer</td>
+					<td>no (default: <code>0</code>)</td>
+					<td>How many of the <code>count</code> pings may be lost while the link still counts as working</td>
+			</tr>
+			<tr>
+					<td><code>packet_interval_ms</code></td>
+					<td>integer</td>
+					<td>no (default: <code>200</code>)</td>
+					<td>Pause between pings, 100 to 1000 ms</td>
+			</tr>
+			<tr>
+					<td><code>probe_timeout_ms</code></td>
+					<td>integer</td>
+					<td>no (default: <code>1000</code>)</td>
+					<td>How long to wait for one ping reply, 100 to 5000 ms</td>
+			</tr>
+			<tr>
+					<td><code>max_rtt_ms</code></td>
+					<td>integer</td>
+					<td>no (default: <code>500</code>)</td>
+					<td>A slower reply counts as lost. Must not exceed <code>probe_timeout_ms</code></td>
+			</tr>
+			<tr>
+					<td><code>outbound_groups[].members[].target</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td>IPv4 or IPv6 address to ping through this link</td>
+			</tr>
+	</tbody>
+</table>
+<p><code>tolerance_ms</code>, <code>strategy</code>, <code>conntrack_on_switch</code>, groups and weights work the same as in <code>urltest</code>.</p>
+<p>Pings are sent one after another, so checking all links takes time. <code>interval_ms</code> must exceed that time by at least 25%; otherwise keen-pbr rejects the configuration and tells you the minimum allowed value. Groups may contain at most 16 links in total.</p>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

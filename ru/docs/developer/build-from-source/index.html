@@ -11,7 +11,7 @@
 <title>Сборка из исходного кода – keen-pbr</title>
   <meta name="description" content="Эта страница для разработчиков и мейнтейнеров пакетов, которые хотят собрать keen-pbr из исходного кода.
 Предварительные требования Требование Версия C&#43;&#43; компилятор Поддержка C&#43;&#43;17 (GCC 8.4&#43;, Clang 9&#43;) CMake 3.14&#43; Make любой pkg-config любой Docker (для кросс-компиляции) любой Зависимости Зависимости объединены как git-подмодули или разрешаются из системных пакетов во время сборки CMake.
-Библиотека Назначение libcurl Загрузка удалённых списков nlohmann_json JSON-парсинг libnl Коммуникация через сокеты Netlink (маршрутизация/правила) libunwind Обязательная build-time зависимость для backend разворачивания стека в crash diagnostics; по умолчанию линкуется статически, если доступен libunwind.a fmt C&#43;&#43;17 formatting polyfill cpptrace Вендорная библиотека crash diagnostics cpp-httplib Встроенный HTTP API сервер Сборка Makefile оборачивает все шаги сборки:" /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/developer/build-from-source/" itemprop="url" />
+Библиотека Назначение libcurl Загрузка удалённых списков nlohmann_json JSON-парсинг libnl Коммуникация через сокеты Netlink (маршрутизация/правила) libresolv Разрешение DNS-имён libunwind В сборках Debian по умолчанию используется для разворачивания стека при обработке сигналов. Сборки OpenWrt и Keenetic переходят на диагностику только по регистрам, если библиотека недоступна; параметр KEEN_PBR_USE_LIBUNWIND управляет попыткой найти её через CMake. fmt C&#43;&#43;17 formatting polyfill cpptrace Библиотека в составе репозитория для диагностики падений cpp-httplib Встроенный HTTP API сервер при WITH_API=ON Сборка Makefile оборачивает все шаги сборки:" /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/developer/build-from-source/" itemprop="url" />
 
 <meta property="og:title" content="Сборка из исходного кода">
 <meta
@@ -73,8 +73,12 @@
 					Коммуникация через сокеты Netlink (маршрутизация/правила)
 			
 			
+					libresolv
+					Разрешение DNS-имён
+			
+			
 					libunwind
-					Обязательная build-time зависимость для backend разворачивания стека в crash diagnostics; по умолчанию линкуется статически, если доступен libunwind.a
+					В сборках Debian по умолчанию используется для разворачивания стека при обработке сигналов. Сборки OpenWrt и Keenetic переходят на диагностику только по регистрам, если библиотека недоступна; параметр KEEN_PBR_USE_LIBUNWIND управляет попыткой найти её через CMake.
 			
 			
 					fmt
@@ -82,11 +86,11 @@
 			
 			
 					cpptrace
-					Вендорная библиотека crash diagnostics
+					Библиотека в составе репозитория для диагностики падений
 			
 			
 					cpp-httplib
-					Встроенный HTTP API сервер
+					Встроенный HTTP API сервер при WITH_API=ON
 			
 	
 
@@ -107,13 +111,13 @@
 	<meta itemprop="name" content="Сборка из исходного кода">
 	<meta itemprop="description" content="Эта страница для разработчиков и мейнтейнеров пакетов, которые хотят собрать keen-pbr из исходного кода.
 Предварительные требования Требование Версия C&#43;&#43; компилятор Поддержка C&#43;&#43;17 (GCC 8.4&#43;, Clang 9&#43;) CMake 3.14&#43; Make любой pkg-config любой Docker (для кросс-компиляции) любой Зависимости Зависимости объединены как git-подмодули или разрешаются из системных пакетов во время сборки CMake.
-Библиотека Назначение libcurl Загрузка удалённых списков nlohmann_json JSON-парсинг libnl Коммуникация через сокеты Netlink (маршрутизация/правила) libunwind Обязательная build-time зависимость для backend разворачивания стека в crash diagnostics; по умолчанию линкуется статически, если доступен libunwind.a fmt C&#43;&#43;17 formatting polyfill cpptrace Вендорная библиотека crash diagnostics cpp-httplib Встроенный HTTP API сервер Сборка Makefile оборачивает все шаги сборки:">
-	<meta itemprop="wordCount" content="586">
+Библиотека Назначение libcurl Загрузка удалённых списков nlohmann_json JSON-парсинг libnl Коммуникация через сокеты Netlink (маршрутизация/правила) libresolv Разрешение DNS-имён libunwind В сборках Debian по умолчанию используется для разворачивания стека при обработке сигналов. Сборки OpenWrt и Keenetic переходят на диагностику только по регистрам, если библиотека недоступна; параметр KEEN_PBR_USE_LIBUNWIND управляет попыткой найти её через CMake. fmt C&#43;&#43;17 formatting polyfill cpptrace Библиотека в составе репозитория для диагностики падений cpp-httplib Встроенный HTTP API сервер при WITH_API=ON Сборка Makefile оборачивает все шаги сборки:">
+	<meta itemprop="wordCount" content="631">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Сборка из исходного кода">
 	<meta name="twitter:description" content="Эта страница для разработчиков и мейнтейнеров пакетов, которые хотят собрать keen-pbr из исходного кода.
 Предварительные требования Требование Версия C&#43;&#43; компилятор Поддержка C&#43;&#43;17 (GCC 8.4&#43;, Clang 9&#43;) CMake 3.14&#43; Make любой pkg-config любой Docker (для кросс-компиляции) любой Зависимости Зависимости объединены как git-подмодули или разрешаются из системных пакетов во время сборки CMake.
-Библиотека Назначение libcurl Загрузка удалённых списков nlohmann_json JSON-парсинг libnl Коммуникация через сокеты Netlink (маршрутизация/правила) libunwind Обязательная build-time зависимость для backend разворачивания стека в crash diagnostics; по умолчанию линкуется статически, если доступен libunwind.a fmt C&#43;&#43;17 formatting polyfill cpptrace Вендорная библиотека crash diagnostics cpp-httplib Встроенный HTTP API сервер Сборка Makefile оборачивает все шаги сборки:">
+Библиотека Назначение libcurl Загрузка удалённых списков nlohmann_json JSON-парсинг libnl Коммуникация через сокеты Netlink (маршрутизация/правила) libresolv Разрешение DNS-имён libunwind В сборках Debian по умолчанию используется для разворачивания стека при обработке сигналов. Сборки OpenWrt и Keenetic переходят на диагностику только по регистрам, если библиотека недоступна; параметр KEEN_PBR_USE_LIBUNWIND управляет попыткой найти её через CMake. fmt C&#43;&#43;17 formatting polyfill cpptrace Библиотека в составе репозитория для диагностики падений cpp-httplib Встроенный HTTP API сервер при WITH_API=ON Сборка Makefile оборачивает все шаги сборки:">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -426,6 +430,18 @@
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -473,6 +489,18 @@
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div>
               
@@ -761,6 +789,18 @@
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -805,6 +845,17 @@
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div></li>
             <li class="open"><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -1131,8 +1182,12 @@
 					<td>Коммуникация через сокеты Netlink (маршрутизация/правила)</td>
 			</tr>
 			<tr>
+					<td>libresolv</td>
+					<td>Разрешение DNS-имён</td>
+			</tr>
+			<tr>
 					<td>libunwind</td>
-					<td>Обязательная build-time зависимость для backend разворачивания стека в crash diagnostics; по умолчанию линкуется статически, если доступен <code>libunwind.a</code></td>
+					<td>В сборках Debian по умолчанию используется для разворачивания стека при обработке сигналов. Сборки OpenWrt и Keenetic переходят на диагностику только по регистрам, если библиотека недоступна; параметр <code>KEEN_PBR_USE_LIBUNWIND</code> управляет попыткой найти её через CMake.</td>
 			</tr>
 			<tr>
 					<td>fmt</td>
@@ -1140,11 +1195,11 @@
 			</tr>
 			<tr>
 					<td>cpptrace</td>
-					<td>Вендорная библиотека crash diagnostics</td>
+					<td>Библиотека в составе репозитория для диагностики падений</td>
 			</tr>
 			<tr>
 					<td>cpp-httplib</td>
-					<td>Встроенный HTTP API сервер</td>
+					<td>Встроенный HTTP API сервер при <code>WITH_API=ON</code></td>
 			</tr>
 	</tbody>
 </table>
@@ -1178,8 +1233,8 @@
 <p>Пошаговые цели также доступны:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make setup    <span class="c1"># cmake -S . -B cmake-build</span>
-</span></span><span class="line"><span class="cl">make build    <span class="c1"># cmake --build cmake-build</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make setup    <span class="c1"># cmake -S . -B cmake-build-gcc</span>
+</span></span><span class="line"><span class="cl">make build    <span class="c1"># cmake --build cmake-build-gcc</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1191,7 +1246,8 @@
   </button>
 </div>
 </div>
-<p>Бинарный файл производится в <code>cmake-build/keen-pbr</code>.</p>
+<p>Бинарный файл создаётся в <code>cmake-build-gcc/keen-pbr</code> (<code>cmake-build-clang</code>
+используется целями Clang).</p>
 <p>Запустите <code>make help</code>, чтобы увидеть все доступные цели сборки и упаковки.</p>
 <h2>Опции сборки<span class="hx:absolute hx:-mt-20" id="опции-сборки"></span>
     <a href="#%d0%be%d0%bf%d1%86%d0%b8%d0%b8-%d1%81%d0%b1%d0%be%d1%80%d0%ba%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Передавайте опции во время конфигурации <code>cmake</code>:</p>
@@ -1210,16 +1266,16 @@
 					<td>Собирать со встроенным HTTP API сервером</td>
 			</tr>
 			<tr>
-					<td><code>KEEN_PBR_STATIC_LIBUNWIND</code></td>
+					<td><code>KEEN_PBR_USE_LIBUNWIND</code></td>
 					<td><code>ON</code></td>
-					<td>Предпочитать статическую линковку <code>libunwind</code>; установите <code>OFF</code>, чтобы принудительно использовать shared library</td>
+					<td>Пытаться найти и использовать <code>libunwind</code> для диагностики сбоев. Сборки Debian требуют её при включённом параметре; OpenWrt и Keenetic могут использовать диагностику только по регистрам, если библиотека отсутствует или параметр выключен.</td>
 			</tr>
 	</tbody>
 </table>
 <p>Пример:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">cmake -S . -B cmake-build -DWITH_API<span class="o">=</span>OFF</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">cmake -S . -B cmake-build-gcc -DWITH_API<span class="o">=</span>OFF</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1295,12 +1351,14 @@ noble (24.04) использует пакеты Debian bookworm, а Ubuntu resol
 <li>собирает фронтенд с <code>bun</code> для полного пакета</li>
 <li>компилирует нативные бинарники с путями установки Debian под <code>/etc/keen-pbr</code> и <code>/usr/share/keen-pbr/frontend</code></li>
 <li>устанавливает <code>systemd</code> юнит в <code>/lib/systemd/system/keen-pbr.service</code></li>
-<li>не автовключает и не автозапускает сервис во время установки пакета</li>
+<li>при установке пакета включает и запускает сервис</li>
 </ul>
 <h2>Сборка пакетов для роутеров<span class="hx:absolute hx:-mt-20" id="сборка-пакетов-для-роутеров"></span>
     <a href="#%d1%81%d0%b1%d0%be%d1%80%d0%ba%d0%b0-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d0%be%d0%b2-%d0%b4%d0%bb%d1%8f-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%be%d0%b2" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Для целей роутеров используйте поддерживаемые Docker-ом цели сборки пакетов из корневого <code>Makefile</code>. Они отражают рабочие процессы GitHub Actions и записывают нормализованные артефакты в <code>build/packages/</code>.</p>
 <h3>Entware (для роутеров Keenetic и Netcraze)<span class="hx:absolute hx:-mt-20" id="entware-для-роутеров-keenetic-и-netcraze"></span>
-    <a href="#entware-%d0%b4%d0%bb%d1%8f-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%be%d0%b2-keenetic-%d0%b8-netcraze" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Соберите пакет Entware:</p>
+    <a href="#entware-%d0%b4%d0%bb%d1%8f-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%be%d0%b2-keenetic-%d0%b8-netcraze" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Соберите пакет 
+  <abbr title="Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.">Entware</abbr>
+:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make keenetic-packages <span class="nv">KEENETIC_CONFIG</span><span class="o">=</span>mipsel-3.4 <span class="nv">KEENETIC_VERSION</span><span class="o">=</span>current</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">

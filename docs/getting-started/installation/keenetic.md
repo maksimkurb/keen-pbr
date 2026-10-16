@@ -1,12 +1,12 @@
 # Keenetic / NetCraze
 
-keen-pbr can be installed on Keenetic / NetCraze routers via Entware's `opkg` package manager.
+keen-pbr can be installed on Keenetic / NetCraze routers via {{< term "Entware" >}}'s `opkg` package manager.
 
 {{% steps %}}
 
 ### Install Entware on the router
 
-First, ensure that Entware is installed on your router. Please consult the official router manual for [Keenetic](https://support.keenetic.com/?lang=en) or [NetCraze](https://support.netcraze.ru/?lang=en):
+First, ensure that {{< term "Entware" >}} is installed on your router. Please consult the official router manual for [Keenetic](https://support.keenetic.com/?lang=en) or [NetCraze](https://support.netcraze.ru/?lang=en):
 
 1. Find your router's manual.
 2. In the search field, search for "Installing the Entware repository on a USB drive".
@@ -25,7 +25,7 @@ Open your router's configuration page, navigate to **Management** -> **System se
 
 ### Configure DoH/DoT on the router
 
-It is recommended to set up DoH/DoT DNS servers on your router to protect yourself from DNS spoofing attacks.
+It is recommended to set up {{< term "DoH" >}}/DoT DNS servers on your router to protect yourself from DNS spoofing attacks.
 
 Consult the official Keenetic documentation on how to do it: [DoH and DoT proxy servers for DNS requests encryption](https://support.keenetic.com/titan/kn-1811/en/25049.html).
 
@@ -36,7 +36,7 @@ Consult the official Keenetic documentation on how to do it: [DoH and DoT proxy 
 2. Select "**Keenetic / NetCraze**" in the OS selector on the left, choose the "**current**" version, and select the architecture that matches your router.
     - TIP: You can run `opkg print-architecture` in an SSH session to see your router's architecture.
 3. Follow the instructions on the repository page carefully.
-4. When you run the `opkg install keen-pbr` command, the installation script will prompt you to confirm whether you want to replace your `dnsmasq` file. If you are not sure, press <kbd>y</kbd> and then <kbd>Enter</kbd>.
+4. Run the `opkg install keen-pbr` command.
     - Example install command:
       ```bash {filename="bash"}
       opkg install keen-pbr
@@ -57,64 +57,50 @@ Example:
 
 If the service is **alive**, continue to the next step.
 
-### Enable `dns-override`
-
-After installing `keen-pbr`, you have to enable `dns-override` so that all DNS requests from LAN clients are forwarded to Entware:
-
-1. Open http://my.keenetic.net/a (if this link does not open, open `http://<router-ip>/a` instead)
-2. Run the commands `opkg dns-override` and then `system configuration save`
-3. Reboot the router. **_This is very important_: without a reboot, the option will not become active.**
-
 ### Configure the service
 
-After you reboot the router, you can open http://my.keenetic.net:12121 to configure keen-pbr (if you installed the full version; the headless version does not provide a Web UI).
+Open http://my.keenetic.net:12121 to configure keen-pbr (if you installed the full version; the headless version does not provide a Web UI).
 
 You can also configure keen-pbr manually by modifying the configuration file: `/opt/etc/keen-pbr/config.json`.
 
 ### Choose RAW or mangle PREROUTING
 
-This choice is specific to Keenetic / NetCraze. Keenetic can periodically rebuild
-its `mangle` table, for example after a DHCP lease renewal. The normal mangle
-integration is then briefly absent until keen-pbr reapplies it. RAW is independent
-of that rebuild, but runs before Keenetic's **Connection Policies** > **Policy
-Bindings** rules. The platform's iptables replacement behaviour is also discussed in the
-[Keenetic Community forum](https://forum.keenetic.ru/topic/20631-keenetic-ndms-%D0%BE%D1%87%D0%B8%D1%89%D0%B0%D0%B5%D1%82-iptables-%D0%B2%D0%BE-%D0%B2%D1%80%D0%B5%D0%BC%D1%8F-%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA%D0%B0-%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B/).
+This choice exists only on Keenetic / NetCraze. keen-pbr sets {{< term "fwmark" >}} in one of two firewall tables:
+
+- **{{< term "mangle" >}}**: Keenetic rebuilds this table from time to time (for example after a DHCP lease renewal), and keen-pbr's rules are briefly missing until keen-pbr restores them;
+- **raw**: Keenetic does not touch it, but rules from **Connection Policies** > **Policy Bindings** run later and overwrite keen-pbr's fwmark.
+
+See also the [Keenetic Community forum thread](https://forum.keenetic.ru/topic/20631-keenetic-ndms-%D0%BE%D1%87%D0%B8%D1%89%D0%B0%D0%B5%D1%82-iptables-%D0%B2%D0%BE-%D0%B2%D1%80%D0%B5%D0%BC%D1%8F-%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA%D0%B0-%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B/) about Keenetic rebuilding iptables.
 
 | Mode | Benefit | Trade-off |
 |---|---|---|
-| **RAW** (default when available) | PBR remains active across a Keenetic mangle rebuild. Long-running, sensitive flows such as gaming sessions avoid rebuild-related breaks, and a kill switch has fewer opportunities for packets to leak through the ordinary route. | After keen-pbr sets its `fwmark` in RAW, Keenetic's **Connection Policies** > **Policy Bindings** rules overwrite it. RAW mode therefore works only for devices assigned the **Default policy**. |
-| **mangle** | keen-pbr runs after Keenetic's Connection Policy marks, so it can override routing for devices with a non-default policy. | When Keenetic rebuilds its routing table (usually about every five minutes), keen-pbr rules disappear briefly. A few packets can use the ordinary route before keen-pbr restores them, disrupting a gaming session or another sensitive flow. |
+| **RAW** (default when available) | PBR remains active across a Keenetic mangle rebuild. Long-running, sensitive flows such as gaming sessions avoid rebuild-related breaks, and packets have fewer chances to bypass the VPN. | After keen-pbr sets its `fwmark` in RAW, Keenetic's **Connection Policies** > **Policy Bindings** rules overwrite it. RAW mode therefore works only for devices assigned the **Default policy**. |
+| **mangle** | keen-pbr runs after Keenetic sets its own fwmarks for Connection Policy, so it can override routing for devices with a non-default policy. | When Keenetic rebuilds its `mangle` table (usually about every five minutes), keen-pbr rules disappear briefly. A few packets can use the ordinary route before keen-pbr restores them, disrupting a gaming session or another sensitive flow. |
 
 {{< callout type="info" >}}
 For the most predictable Keenetic setup, do not assign **Connection Policies** to devices in Keenetic. Instead, create the equivalent per-device [keen-pbr route rules]({{< relref "/docs/configuration/route-rules" >}}) using the `src_addr` (**Source address**) field. This keeps routing policy in keen-pbr and avoids conflicts with Keenetic policy bindings.
 {{< /callout >}}
 
-The package default is `auto`: it probes IPv4 and IPv6 independently, using RAW
-for each supported family and mangle for the other. Locally generated traffic
-always remains in mangle OUTPUT. `enable`, `ipv4-only`, and `ipv6-only` are
-available when a family must be forced; forced capability failures stop startup.
+By default keen-pbr checks separately for IPv4 and IPv6 whether RAW is available, and uses it if so; otherwise mangle. The system log shows the selected mode after the service starts:
 
-To see which mode was selected, restart the service and look for these messages
-in the device system log:
+```text
+IPv4 raw PREROUTING available
+WARNING: IPv6 raw PREROUTING unavailable: ...
+```
 
-Messages identify IPv4 and IPv6 capability resolution and the resulting daemon
-flags (`--use-raw-prerouting` and `--use-raw6-prerouting`).
-
-To always use mangle, edit `/opt/etc/keen-pbr/defaults`:
+To always use mangle, add this line to `/opt/etc/keen-pbr/defaults`:
 
 ```sh
 KEEN_PBR_RAW_PREROUTING="disable"
 ```
 
-Then restart the service:
+and restart the service:
 
 ```sh
 /opt/etc/init.d/S80keen-pbr restart
 ```
 
-Set `KEEN_PBR_RAW_PREROUTING="enable"` to require RAW for every enabled family;
-use `ipv4-only` or `ipv6-only` to force one family. The service fails to start
-instead of falling back to mangle if a forced capability is unavailable.
+The other values of this variable are described in [CLI]({{< relref "/docs/cli#--use-raw-prerouting" >}}).
 
 Basic commands:
 
@@ -123,7 +109,6 @@ Basic commands:
 | Start service | `/opt/etc/init.d/S80keen-pbr start` |
 | Restart service | `/opt/etc/init.d/S80keen-pbr restart` |
 | Check if **keen-pbr** alive | `/opt/etc/init.d/S80keen-pbr status` |
-| Check if **dnsmasq** alive | `/opt/etc/init.d/S56dnsmasq status` |
 
 {{< callout type="info" >}}
 If you do not plan to use the keen-pbr Web UI or API, consider installing the `keen-pbr-headless` package.
@@ -136,4 +121,51 @@ Go to the [Quick Start]({{< relref "/docs/getting-started/quick-start" >}}) page
 
 
 {{% /steps %}}
+
+## Separate DNS servers for lists (dnsmasq) {#dnsmasq}
+
+keen-pbr does not need dnsmasq for routing. Install it only if you want to send the domains of some lists to separate DNS servers, or set your own default DNS servers. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}).
+
+### Install dnsmasq {#dnsmasq-install}
+
+1. Install the package over SSH. Entware has only `dnsmasq-full`; the name `dnsmasq` resolves to it:
+   ```bash {filename="bash"}
+   opkg install dnsmasq-full
+   ```
+2. To apply the recommended dnsmasq settings, run this over SSH:
+   ```bash {filename="bash"}
+   /opt/usr/lib/keen-pbr/dnsmasq-hook.sh install-recommended-config
+   ```
+   It replaces `/opt/etc/dnsmasq.conf` and saves the previous file as `/opt/etc/dnsmasq.conf.backup-keenpbr`. `my.keenetic.net` keeps resolving.
+3. Open http://my.keenetic.net/a (if the link does not open, use `http://<router-ip>/a`) and run:
+   ```
+   opkg dns-override
+   system configuration save
+   ```
+   Run these commands only after dnsmasq is installed. Without dnsmasq, `dns-override` leaves the LAN without DNS.
+4. Reboot the router. **This is required:** without a reboot LAN clients keep using the built-in DNS proxy, and dnsmasq does not get their queries.
+5. In the Web UI, open **General** > **Local DNS server management** and turn on **Manage dnsmasq configuration**. The DNS servers and DNS rules pages become available.
+
+### Return to how it was {#dnsmasq-rollback}
+
+Do the steps in this order, so the LAN keeps DNS all the time:
+
+1. In the Web UI, turn off **Manage dnsmasq configuration** (**General** > **Local DNS server management**) and apply the config. dnsmasq keeps running and uses the servers from `/opt/etc/keen-pbr/dnsmasq-fallback.conf`, so DNS keeps working. If dnsmasq has servers of its own, these are added to them; clear the file to avoid that.
+2. In the web CLI (http://my.keenetic.net/a) run:
+   ```
+   no opkg dns-override
+   system configuration save
+   ```
+3. Reboot the router. **This is required.**
+4. Remove the package:
+   ```bash {filename="bash"}
+   opkg remove dnsmasq-full
+   ```
+
+To keep dnsmasq with its previous settings after `install-recommended-config`, put the saved file back instead of removing the package:
+
+```bash {filename="bash"}
+cp /opt/etc/dnsmasq.conf.backup-keenpbr /opt/etc/dnsmasq.conf
+/opt/etc/init.d/S56dnsmasq restart
+```
 

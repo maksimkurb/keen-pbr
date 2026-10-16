@@ -4,7 +4,7 @@ This guide helps you finish a first working setup that sends selected sites thro
 
 If you installed the full package, the Web UI is the easiest place to start. If you installed `keen-pbr-headless` or prefer editing files directly, use the JSON / CLI tab.
 
-To complete your minimal installation you will need to configure the following things:
+A minimal setup takes four steps:
 
 ```mermaid
 
@@ -14,12 +14,10 @@ graph LR;
     A["1. Add outbounds"]
     B["`2. Add lists
 (optional)`"]
-    C["3. Configure DNS servers"]
-    D["4. Add routing rules"]
+    C["3. Add routing rules"]
 
     A==>B;
     B==>C;
-    C==>D;
 ```
 
 {{< tabs >}}
@@ -71,26 +69,13 @@ Go to **Outbounds** and create these two entries:
 
 This example uses the `main` Linux routing table as the fallback path, so `default` should point to routing table `254`.
 
-### Add the DNS servers
-
-Go to **DNS Servers** and create these entries:
-
-1. Create a DNS server named `vpn_dns` with the following options:
-    - `address = <your_vpn_dns_server_ip>`
-    - `outbound = vpn` if you want DNS queries for this server to go through the VPN
-
-2. Create another DNS server named `default_dns` with the following options:
-    - `address = <your_regular_dns_server_ip>`
-
 ### Create a test list
 
 Go to **Lists** and create a list such as `my_sites` with type `Domains / IPs`, then add a test domain like `ifconfig.co`.
 
-### Add routing and DNS rules
+### Add a routing rule
 
-1. Go to **Routing rules** and route `my_sites` through the `vpn` outbound.
-2. Go to **DNS Rules** and send `my_sites` to your VPN DNS server.
-3. Set the primary DNS server to the `default_dns`.
+Go to **Routing rules** and route `my_sites` through the `vpn` outbound.
 
 ### Verification
 
@@ -99,7 +84,7 @@ Go to **Lists** and create a list such as `my_sites` with type `Domains / IPs`, 
     - For Windows PC, open Command Prompt and run `ipconfig /flushdns`.
     - For Linux PC, open Terminal and run `sudo resolvectl flush-caches`.
     - For mobile devices just reconnect to your WiFi.
-3. Open a website from your list (`ipconfig.co`) and check that IP is differs from the other "my IP" website (e.g. `wtfismyip.com`)
+3. Open a website from your list (`ifconfig.co`) and check that it shows a different IP than an ordinary "my IP" website (e.g. `wtfismyip.com`)
 
 {{% /steps %}}
 
@@ -126,6 +111,7 @@ Example minimal config:
 
 ```json {filename="config.json"}
 {
+  "version": "3.4.0",
   // Outbounds is where your traffic can go
   "outbounds": [
     {
@@ -138,12 +124,23 @@ Example minimal config:
       "tag": "out",
       "type": "table",  // "table" outbound can route your traffic to the iproute kernel table
       "table": 254      // kernel routing table named "main" has the ID 254. See /etc/iproute2/rt_tables file for more info.
+    },
+    {
+      "tag": "direct_local",
+      "type": "ignore"  // prevents local and special networks from being routed into tunnels
     }
   ],
   "lists": {
+    "local_networks": { // default list that prevents local traffic from tunneling
+      "ip_cidrs": [
+        "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8",
+        "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16",
+        "224.0.0.0/4", "240.0.0.0/4", "::1/128", "fc00::/7", "fe80::/10", "ff00::/8"
+      ]
+    },
     "my_sites": {   // list with inline domains
       "domains": ["ifconfig.co"],
-      "ttl_ms": 3600000 // for how long resolved IP should be added into routing ipsets after dnsmasq resolved it, in milliseconds
+      "ttl_ms": 3600000 // for how long resolved IP should be added into routing ipsets after it was seen in a DNS response, in milliseconds
     },
     "always_out": { // list with inline IPs
       "ip_cidrs": ["120.131.22.11"]
@@ -156,33 +153,12 @@ Example minimal config:
       "file": "/etc/keen-pbr/local.lst"
     }
   },
-  "dns": {
-    "system_resolver": {
-      "address": "127.0.0.1"
-    },
-    "servers": [
-      // DoH/DoT is not supported by keen-pbr.
-      // Install dnscrypt-proxy2, AdGuardHome or other resolvers for DoH
-      {
-        "tag": "vpn_dns",
-        "address": "10.8.0.1",
-        "detour": "vpn"
-      },
-      {
-        "tag": "default_dns",
-        "address": "1.1.1.1"
-      }
-    ],
-    "rules": [
-      { // All domains from list "my_sites" will be resolved through vpn_dns DNS server
-        "list": ["my_sites"],
-        "server": "vpn_dns"
-      }
-    ],
-    "fallback": ["default_dns"] // Default upstream DNS servers
-  },
   "route": {
     "rules": [
+      { // Default rule: keep local and special networks local, never tunnel them
+        "list": ["local_networks"],
+        "outbound": "direct_local"
+      },
       { // All IPs and domains from list "my_sites" will be routed to the "vpn" outbound
         "list": ["my_sites"],
         "outbound": "vpn"
@@ -211,7 +187,6 @@ What this example does:
 - Adds a list called `my_sites` with `ifconfig.co`
 - Adds a list called `always_out` with `120.131.22.11`
 - Adds lists called `my_remote_list` and `my_local_file_list` that are not used in any rules, but listed here just for example
-- Sends DNS lookups for `my_sites` through `vpn_dns`
 - Sends traffic for all domains from `my_sites` through `vpn`
 - Sends traffic for all IPs from `always_out` through `out`
 

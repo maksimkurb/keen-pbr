@@ -9,28 +9,30 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Troubleshooting – keen-pbr</title>
-  <meta name="description" content="Start with logs and service status, then move to DNS, firewall, routing tables, and interfaces. In keen-pbr 3.x the daemon actively writes failure reasons to the system log, so logs are usually faster than guessing from symptoms.
-Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Check that the keen-pbr and dnsmasq services are running. If keen-pbr crashes during startup, run it manually in foreground mode to see more logs: keen-pbr --log-level verbose service. Check DNS: the user device must use the router DNS, and dnsmasq must answer locally. Check the firewall: keen-pbr rules must be present in KeenPbrTable. Check policy routing: the fwmark must point to the expected routing table. Check interfaces and VPN tunnels. If the problem remains, check remote lists, urltest, rule filters, and low-level routing conflicts. System Log This is the first place to look. Search for keen-pbr, dnsmasq, and the [E] / [W] levels: keen-pbr uses those prefixes for errors and warnings. If libraries for iptables / nftables are missing, an interface is not found, the API port is busy, or JSON is broken, the reason is usually written here." /><link rel="canonical" href="https://keen-pbr.fyi/docs/troubleshooting/" itemprop="url" />
+  <meta name="description" content="Start with logs and service status, then move to DNS, firewall, routing tables, and interfaces. In keen-pbr 3.x the daemon writes failure reasons to the system log, so logs are usually faster than guessing from symptoms.
+Quick Diagnostic Order Check the system log for keen-pbr errors. Check that the keen-pbr services are running. If keen-pbr crashes during startup, run it manually in the terminal to see more logs: keen-pbr --log-level verbose service. Check DNS: the user device must use the router DNS; the configured resolver must answer locally. Check the firewall: keen-pbr rules must be present in KeenPbrTable. Check policy routing : the fwmark must point to the expected routing table. Check interfaces and VPN tunnels. If the problem remains, check remote lists, urltest, rule filters, and low-level routing conflicts. System Log This is the first place to look. Search for keen-pbr and the [E] / [W] levels: keen-pbr uses those prefixes for errors and warnings. If libraries for iptables / nftables are missing, an interface is not found, the API port is busy, or JSON is broken, the reason is usually written here." /><link rel="canonical" href="https://keen-pbr.fyi/docs/troubleshooting/" itemprop="url" />
 
 <meta property="og:title" content="Troubleshooting">
 <meta
   property="og:description"
   content="
     
-      Start with logs and service status, then move to DNS, firewall, routing tables, and interfaces. In keen-pbr 3.x the daemon actively writes failure reasons to the system log, so logs are usually faster than guessing from symptoms.
+      Start with logs and service status, then move to DNS, firewall, routing tables, and interfaces. In keen-pbr 3.x the daemon writes failure reasons to the system log, so logs are usually faster than guessing from symptoms.
 Quick Diagnostic Order
     
-Check the system log for keen-pbr and dnsmasq errors.
-Check that the keen-pbr and dnsmasq services are running.
-If keen-pbr crashes during startup, run it manually in foreground mode to see more logs: keen-pbr --log-level verbose service.
-Check DNS: the user device must use the router DNS, and dnsmasq must answer locally.
+Check the system log for keen-pbr errors.
+Check that the keen-pbr services are running.
+If keen-pbr crashes during startup, run it manually in the terminal to see more logs: keen-pbr --log-level verbose service.
+Check DNS: the user device must use the router DNS; the configured resolver must answer locally.
 Check the firewall: keen-pbr rules must be present in KeenPbrTable.
-Check policy routing: the fwmark must point to the expected routing table.
+Check 
+  policy routing
+: the fwmark must point to the expected routing table.
 Check interfaces and VPN tunnels.
 If the problem remains, check remote lists, urltest, rule filters, and low-level routing conflicts.
 
 System Log
-    This is the first place to look. Search for keen-pbr, dnsmasq, and the [E] / [W] levels: keen-pbr uses those prefixes for errors and warnings. If libraries for iptables / nftables are missing, an interface is not found, the API port is busy, or JSON is broken, the reason is usually written here.
+    This is the first place to look. Search for keen-pbr and the [E] / [W] levels: keen-pbr uses those prefixes for errors and warnings. If libraries for iptables / nftables are missing, an interface is not found, the API port is busy, or JSON is broken, the reason is usually written here.
     
   ">
 <meta
@@ -44,13 +46,13 @@ System Log
 
 
 	<meta itemprop="name" content="Troubleshooting">
-	<meta itemprop="description" content="Start with logs and service status, then move to DNS, firewall, routing tables, and interfaces. In keen-pbr 3.x the daemon actively writes failure reasons to the system log, so logs are usually faster than guessing from symptoms.
-Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Check that the keen-pbr and dnsmasq services are running. If keen-pbr crashes during startup, run it manually in foreground mode to see more logs: keen-pbr --log-level verbose service. Check DNS: the user device must use the router DNS, and dnsmasq must answer locally. Check the firewall: keen-pbr rules must be present in KeenPbrTable. Check policy routing: the fwmark must point to the expected routing table. Check interfaces and VPN tunnels. If the problem remains, check remote lists, urltest, rule filters, and low-level routing conflicts. System Log This is the first place to look. Search for keen-pbr, dnsmasq, and the [E] / [W] levels: keen-pbr uses those prefixes for errors and warnings. If libraries for iptables / nftables are missing, an interface is not found, the API port is busy, or JSON is broken, the reason is usually written here.">
-	<meta itemprop="wordCount" content="2181">
+	<meta itemprop="description" content="Start with logs and service status, then move to DNS, firewall, routing tables, and interfaces. In keen-pbr 3.x the daemon writes failure reasons to the system log, so logs are usually faster than guessing from symptoms.
+Quick Diagnostic Order Check the system log for keen-pbr errors. Check that the keen-pbr services are running. If keen-pbr crashes during startup, run it manually in the terminal to see more logs: keen-pbr --log-level verbose service. Check DNS: the user device must use the router DNS; the configured resolver must answer locally. Check the firewall: keen-pbr rules must be present in KeenPbrTable. Check policy routing : the fwmark must point to the expected routing table. Check interfaces and VPN tunnels. If the problem remains, check remote lists, urltest, rule filters, and low-level routing conflicts. System Log This is the first place to look. Search for keen-pbr and the [E] / [W] levels: keen-pbr uses those prefixes for errors and warnings. If libraries for iptables / nftables are missing, an interface is not found, the API port is busy, or JSON is broken, the reason is usually written here.">
+	<meta itemprop="wordCount" content="2707">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Troubleshooting">
-	<meta name="twitter:description" content="Start with logs and service status, then move to DNS, firewall, routing tables, and interfaces. In keen-pbr 3.x the daemon actively writes failure reasons to the system log, so logs are usually faster than guessing from symptoms.
-Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Check that the keen-pbr and dnsmasq services are running. If keen-pbr crashes during startup, run it manually in foreground mode to see more logs: keen-pbr --log-level verbose service. Check DNS: the user device must use the router DNS, and dnsmasq must answer locally. Check the firewall: keen-pbr rules must be present in KeenPbrTable. Check policy routing: the fwmark must point to the expected routing table. Check interfaces and VPN tunnels. If the problem remains, check remote lists, urltest, rule filters, and low-level routing conflicts. System Log This is the first place to look. Search for keen-pbr, dnsmasq, and the [E] / [W] levels: keen-pbr uses those prefixes for errors and warnings. If libraries for iptables / nftables are missing, an interface is not found, the API port is busy, or JSON is broken, the reason is usually written here.">
+	<meta name="twitter:description" content="Start with logs and service status, then move to DNS, firewall, routing tables, and interfaces. In keen-pbr 3.x the daemon writes failure reasons to the system log, so logs are usually faster than guessing from symptoms.
+Quick Diagnostic Order Check the system log for keen-pbr errors. Check that the keen-pbr services are running. If keen-pbr crashes during startup, run it manually in the terminal to see more logs: keen-pbr --log-level verbose service. Check DNS: the user device must use the router DNS; the configured resolver must answer locally. Check the firewall: keen-pbr rules must be present in KeenPbrTable. Check policy routing : the fwmark must point to the expected routing table. Check interfaces and VPN tunnels. If the problem remains, check remote lists, urltest, rule filters, and low-level routing conflicts. System Log This is the first place to look. Search for keen-pbr and the [E] / [W] levels: keen-pbr uses those prefixes for errors and warnings. If libraries for iptables / nftables are missing, an interface is not found, the API port is busy, or JSON is broken, the reason is usually written here.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -120,11 +122,11 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
           </a>
           <a class="hx:p-2 hx:text-current" target="_blank" rel="noreferrer" href="https://t.me/keen_pbr" title="Telegram"><svg height=24 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><path fill="currentColor" d="M248 8C111.033 8 0 119.033 0 256s111.033 248 248 248 248-111.033 248-248S384.967 8 248 8m114.952 168.66c-3.732 39.215-19.881 134.378-28.1 178.3-3.476 18.584-10.322 24.816-16.948 25.425-14.4 1.326-25.338-9.517-39.287-18.661-21.827-14.308-34.158-23.215-55.346-37.177-24.485-16.135-8.612-25 5.342-39.5 3.652-3.793 67.107-61.51 68.335-66.746.153-.655.3-3.1-1.154-4.384s-3.59-.849-5.135-.5q-3.283.746-104.608 69.142-14.845 10.194-26.894 9.934c-8.855-.191-25.888-5.006-38.551-9.123-15.531-5.048-27.875-7.717-26.8-16.291q.84-6.7 18.45-13.7 108.446-47.248 144.628-62.3c68.872-28.647 83.183-33.623 92.511-33.789 2.052-.034 6.639.474 9.61 2.885a10.45 10.45 0 0 1 3.53 6.716 43.8 43.8 0 0 1 .417 9.769"/></svg><span class="hx:sr-only">Telegram</span>
           </a><a
-  title="Sponsor this project"
+  title="Support this project"
   href="/docs/donate"
   
   class="hx:text-sm hx:contrast-more:text-gray-700 hx:contrast-more:dark:text-gray-100 hx:relative hx:-ml-2 hx:hidden hx:whitespace-nowrap hx:p-2 hx:md:inline-flex hx:items-center hx:gap-1 hx:text-gray-600 hx:hover:text-gray-800 hx:dark:text-gray-400 hx:dark:hover:text-gray-200 donation-nav-button"
-><span class="hx:inline-flex hx:items-center"><svg height="1em" class="hx:inline-block" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M640-440 474-602q-31-30-52.5-66.5T400-748q0-55 38.5-93.5T532-880q32 0 60 13.5t48 36.5q20-23 48-36.5t60-13.5q55 0 93.5 38.5T880-748q0 43-21 79.5T807-602L640-440Zm0-112 109-107q19-19 35-40.5t16-48.5q0-22-15-37t-37-15q-14 0-26.5 5.5T700-778l-60 72-60-72q-9-11-21.5-16.5T532-800q-22 0-37 15t-15 37q0 27 16 48.5t35 40.5l109 107ZM280-220l278 76 238-74q-5-9-14.5-15.5T760-240H558q-27 0-43-2t-33-8l-93-31 22-78 81 27q17 5 40 8t68 4q0-11-6.5-21T578-354l-234-86h-64v220ZM40-80v-440h304q7 0 14 1.5t13 3.5l235 87q33 12 53.5 42t20.5 66h80q50 0 85 33t35 87v40L560-60l-280-78v58H40Zm80-80h80v-280h-80v280Zm520-546Z"/></svg></span><span class="hx:text-center">Sponsor this project</span>
+><span class="hx:inline-flex hx:items-center"><svg height="1em" class="hx:inline-block" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M640-440 474-602q-31-30-52.5-66.5T400-748q0-55 38.5-93.5T532-880q32 0 60 13.5t48 36.5q20-23 48-36.5t60-13.5q55 0 93.5 38.5T880-748q0 43-21 79.5T807-602L640-440Zm0-112 109-107q19-19 35-40.5t16-48.5q0-22-15-37t-37-15q-14 0-26.5 5.5T700-778l-60 72-60-72q-9-11-21.5-16.5T532-800q-22 0-37 15t-15 37q0 27 16 48.5t35 40.5l109 107ZM280-220l278 76 238-74q-5-9-14.5-15.5T760-240H558q-27 0-43-2t-33-8l-93-31 22-78 81 27q17 5 40 8t68 4q0-11-6.5-21T578-354l-234-86h-64v220ZM40-80v-440h304q7 0 14 1.5t13 3.5l235 87q33 12 53.5 42t20.5 66h80q50 0 85 33t35 87v40L560-60l-280-78v58H40Zm80-80h80v-280h-80v280Zm520-546Z"/></svg></span><span class="hx:text-center">Support this project</span>
 </a><button type="button" aria-label="Menu" aria-expanded="false" class="hextra-hamburger-menu hx:cursor-pointer hx:-mr-2 hx:rounded-sm hx:p-2 hx:active:bg-gray-400/20 hx:md:hidden hx:hextra-focus-visible-inset"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
   </nav>
 </div>
@@ -363,6 +365,18 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Multi-WAN Load Balancing</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -439,9 +453,9 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
             </li>
           <li>
               <a
-                href="#dns-and-dnsmasq"
+                href="#dns-interception"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >DNS and dnsmasq</a>
+              >DNS interception</a>
             </li>
           <li>
               <a
@@ -457,6 +471,12 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
             </li>
           <li>
               <a
+                href="#per-list-dns-servers-do-not-work"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >Per-list DNS servers do not work</a>
+            </li>
+          <li>
+              <a
                 href="#firewall-and-keenpbrtable"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >Firewall and KeenPbrTable</a>
@@ -469,7 +489,7 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
             </li>
           <li>
               <a
-                href="#routing-breaks-when-tailscale-is-enabled"
+                href="#tailscale"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >Routing Breaks When Tailscale Is Enabled</a>
             </li>
@@ -489,13 +509,13 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
               <a
                 href="#urltest-always-shows-degraded"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >urltest Always Shows Degraded</a>
+              >urltest always shows Degraded</a>
             </li>
           <li>
               <a
-                href="#portaddress-filter-rules-not-matching"
+                href="#rules-with-port-or-address-filters-do-not-work"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Port/Address Filter Rules Not Matching</a>
+              >Rules with port or address filters do not work</a>
             </li>
           <li>
               <a
@@ -505,6 +525,18 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
             </li>
           </ul>
   
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Changelog</span>
+    </a>
+  </div>
               
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
     <a
@@ -555,7 +587,7 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
       href="/docs/donate/"
       
     >
-      <span class="hx:min-w-0 [word-break:break-word]">Sponsor this project</span>
+      <span class="hx:min-w-0 [word-break:break-word]">Support this project</span>
     </a>
   </div></li>
     </ul>
@@ -746,6 +778,18 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Multi-WAN Load Balancing</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -790,6 +834,17 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Changelog</span>
     </a>
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -955,7 +1010,7 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-and-dnsmasq">DNS and dnsmasq
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-interception">DNS interception
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -963,11 +1018,11 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#check-dnsmasq-on-the-router-or-server">Check dnsmasq on the Router or Server
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#check-the-router-resolver">Check the Router Resolver
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#check-the-generated-resolver-config">Check the Generated Resolver Config
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#measuring-dns-interception-loss">Measuring DNS interception loss
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -976,6 +1031,10 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#websites-are-not-opening-dns_probe_finished_bad_config">Websites Are Not Opening: DNS_PROBE_FINISHED_BAD_CONFIG
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#per-list-dns-servers-do-not-work">Per-list DNS servers do not work
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -991,7 +1050,7 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#routing-breaks-when-tailscale-is-enabled">Routing Breaks When Tailscale Is Enabled
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#tailscale">Routing Breaks When Tailscale Is Enabled
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1003,11 +1062,11 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#urltest-always-shows-degraded">urltest Always Shows Degraded
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#urltest-always-shows-degraded">urltest always shows Degraded
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#portaddress-filter-rules-not-matching">Port/Address Filter Rules Not Matching
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#rules-with-port-or-address-filters-do-not-work">Rules with port or address filters do not work
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1094,32 +1153,34 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
     </div>
           </div>
           
-          <p>Start with logs and service status, then move to DNS, firewall, routing tables, and interfaces. In <code>keen-pbr</code> 3.x the daemon actively writes failure reasons to the system log, so logs are usually faster than guessing from symptoms.</p>
+          <p>Start with logs and service status, then move to DNS, firewall, routing tables, and interfaces. In <code>keen-pbr</code> 3.x the daemon writes failure reasons to the system log, so logs are usually faster than guessing from symptoms.</p>
 <h2>Quick Diagnostic Order<span class="hx:absolute hx:-mt-20" id="quick-diagnostic-order"></span>
     <a href="#quick-diagnostic-order" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><ol>
-<li>Check the system log for <code>keen-pbr</code> and <code>dnsmasq</code> errors.</li>
-<li>Check that the <code>keen-pbr</code> and <code>dnsmasq</code> services are running.</li>
-<li>If <code>keen-pbr</code> crashes during startup, run it manually in foreground mode to see more logs: <code>keen-pbr --log-level verbose service</code>.</li>
-<li>Check DNS: the user device must use the router DNS, and <code>dnsmasq</code> must answer locally.</li>
+<li>Check the system log for <code>keen-pbr</code> errors.</li>
+<li>Check that the <code>keen-pbr</code> services are running.</li>
+<li>If <code>keen-pbr</code> crashes during startup, run it manually in the terminal to see more logs: <code>keen-pbr --log-level verbose service</code>.</li>
+<li>Check DNS: the user device must use the router DNS; the configured resolver must answer locally.</li>
 <li>Check the firewall: <code>keen-pbr</code> rules must be present in <code>KeenPbrTable</code>.</li>
-<li>Check policy routing: the <code>fwmark</code> must point to the expected routing table.</li>
+<li>Check 
+  <abbr title="Routing that chooses a routing table by rules (ip rule) instead of only by destination address, for example by fwmark.">policy routing</abbr>
+: the <code>fwmark</code> must point to the expected routing table.</li>
 <li>Check interfaces and VPN tunnels.</li>
 <li>If the problem remains, check remote lists, <code>urltest</code>, rule filters, and low-level routing conflicts.</li>
 </ol>
 <h2>System Log<span class="hx:absolute hx:-mt-20" id="system-log"></span>
-    <a href="#system-log" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>This is the first place to look. Search for <code>keen-pbr</code>, <code>dnsmasq</code>, and the <code>[E]</code> / <code>[W]</code> levels: <code>keen-pbr</code> uses those prefixes for errors and warnings. If libraries for <code>iptables</code> / <code>nftables</code> are missing, an interface is not found, the API port is busy, or JSON is broken, the reason is usually written here.</p>
+    <a href="#system-log" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>This is the first place to look. Search for <code>keen-pbr</code> and the <code>[E]</code> / <code>[W]</code> levels: <code>keen-pbr</code> uses those prefixes for errors and warnings. If libraries for <code>iptables</code> / <code>nftables</code> are missing, an interface is not found, the API port is busy, or JSON is broken, the reason is usually written here.</p>
 
 
 
 
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-00-0" role="tab" type="button" aria-controls="tabs-panel-tabs-00-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-00-1" role="tab" type="button" aria-controls="tabs-panel-tabs-00-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-00-2" role="tab" type="button" aria-controls="tabs-panel-tabs-00-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-0" role="tab" type="button" aria-controls="tabs-panel-tabs-01-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-1" role="tab" type="button" aria-controls="tabs-panel-tabs-01-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-2" role="tab" type="button" aria-controls="tabs-panel-tabs-01-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
 </div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-00-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-00-0" aria-hidden="false" tabindex="0" data-state="selected"><p>In the Keenetic Web UI, open <strong>Diagnostics</strong> -&gt; <strong>System log</strong>.</p>
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-0" aria-hidden="false" tabindex="0" data-state="selected"><p>In the Keenetic Web UI, open <strong>Diagnostics</strong> -&gt; <strong>System log</strong>.</p>
 <p>From the console, read the log like this:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ndmc -c <span class="s2">&#34;show log once&#34;</span> <span class="p">|</span> grep -E <span class="s1">&#39;keen-pbr|dnsmasq|\[E\]|\[W\]|error|warn|warning&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ndmc -c <span class="s2">&#34;show log once&#34;</span> <span class="p">|</span> grep -E <span class="s1">&#39;keen-pbr|\[E\]|\[W\]|error|warn|warning&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1131,9 +1192,9 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-00-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-00-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">logread <span class="p">|</span> grep -E <span class="s1">&#39;keen-pbr|dnsmasq|\[E\]|\[W\]|error|warn|warning&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">logread <span class="p">|</span> grep -E <span class="s1">&#39;keen-pbr|\[E\]|\[W\]|error|warn|warning&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1145,9 +1206,9 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-00-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-00-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">journalctl -u keen-pbr -u dnsmasq</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">journalctl -u keen-pbr</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1162,7 +1223,7 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
 <p>If you only need the current boot:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">journalctl -u keen-pbr -u dnsmasq -b</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">journalctl -u keen-pbr -b</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1182,9 +1243,9 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
 
 
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-0" role="tab" type="button" aria-controls="tabs-panel-tabs-01-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-1" role="tab" type="button" aria-controls="tabs-panel-tabs-01-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-2" role="tab" type="button" aria-controls="tabs-panel-tabs-01-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-0" role="tab" type="button" aria-controls="tabs-panel-tabs-02-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-1" role="tab" type="button" aria-controls="tabs-panel-tabs-02-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-2" role="tab" type="button" aria-controls="tabs-panel-tabs-02-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
 </div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-0" aria-hidden="false" tabindex="0" data-state="selected"><ol>
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-0" aria-hidden="false" tabindex="0" data-state="selected"><ol>
 <li>Confirm that the config exists:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1233,26 +1294,10 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
 </div>
 </div>
 </li>
-<li>Check <code>dnsmasq</code> status:
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">/opt/etc/init.d/S56dnsmasq status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-</li>
 <li>Read the system log:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ndmc -c <span class="s2">&#34;show log once&#34;</span> <span class="p">|</span> grep -E <span class="s1">&#39;keen-pbr|dnsmasq|\[E\]|\[W\]|error|warn|warning&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ndmc -c <span class="s2">&#34;show log once&#34;</span> <span class="p">|</span> grep -E <span class="s1">&#39;keen-pbr|\[E\]|\[W\]|error|warn|warning&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1266,7 +1311,7 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
 </div>
 </li>
 </ol>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-1" aria-hidden="true"><ol>
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-1" aria-hidden="true"><ol>
 <li>Confirm that the config exists:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1315,26 +1360,10 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
 </div>
 </div>
 </li>
-<li>Check <code>dnsmasq</code> status:
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">service dnsmasq status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-</li>
 <li>Read the system log:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">logread <span class="p">|</span> grep -E <span class="s1">&#39;keen-pbr|dnsmasq|\[E\]|\[W\]|error|warn|warning&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">logread <span class="p">|</span> grep -E <span class="s1">&#39;keen-pbr|\[E\]|\[W\]|error|warn|warning&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1348,7 +1377,7 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
 </div>
 </li>
 </ol>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-01-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-01-2" aria-hidden="true"><ol>
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-2" aria-hidden="true"><ol>
 <li>Confirm that the config exists:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1397,26 +1426,10 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
 </div>
 </div>
 </li>
-<li>Check <code>dnsmasq</code> status:
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">systemctl status dnsmasq</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-</li>
 <li>Read the system log:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">journalctl -u keen-pbr -u dnsmasq -b</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">journalctl -u keen-pbr -b</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1432,15 +1445,15 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
 </ol>
 </div></div>
 
-<p>If <code>keen-pbr</code> does not stay running, stop the managed service and run the daemon manually in foreground mode with verbose logs. The error will appear directly in the console.</p>
+<p>If <code>keen-pbr</code> does not stay running, stop the service and run keen-pbr manually in the terminal with verbose logs. The error will appear directly in the console.</p>
 
 
 
 
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-0" role="tab" type="button" aria-controls="tabs-panel-tabs-02-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-1" role="tab" type="button" aria-controls="tabs-panel-tabs-02-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-02-2" role="tab" type="button" aria-controls="tabs-panel-tabs-02-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-03-0" role="tab" type="button" aria-controls="tabs-panel-tabs-03-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-03-1" role="tab" type="button" aria-controls="tabs-panel-tabs-03-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-03-2" role="tab" type="button" aria-controls="tabs-panel-tabs-03-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
 </div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-03-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-03-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">/opt/etc/init.d/S80keen-pbr stop
 </span></span><span class="line"><span class="cl">keen-pbr --log-level verbose service</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1455,7 +1468,7 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-03-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-03-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">service keen-pbr stop
 </span></span><span class="line"><span class="cl">keen-pbr --log-level verbose service</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1470,7 +1483,7 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-02-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-02-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-03-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-03-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">systemctl stop keen-pbr
 </span></span><span class="line"><span class="cl">keen-pbr --log-level verbose service</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1487,7 +1500,7 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
 </div>
 </div></div>
 
-<p>Normally the foreground command does not return a prompt while the daemon is running. If it exits immediately, the last error in the output is usually the cause.</p>
+<p>While keen-pbr is running, the command does not return to the shell prompt; this is normal. If it exits immediately, the last error in the output is usually the cause.</p>
 <details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
   <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
     <strong class="hx:text-lg">Advanced checks</strong>
@@ -1552,8 +1565,8 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
     <a href="#sites-are-not-going-through-the-vpn" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><ol>
 <li>Make sure the user device is using the router DNS.
 <ul>
-<li>Open <code>http://&lt;router-ip&gt;:12121/</code> and look at the DNS Check widget. It should say &ldquo;DNS request from the browser reached dnsmasq&rdquo;.</li>
-<li>Alternatively, run this from your PC: <code>nslookup check.keen.pbr</code>. It should return <code>127.0.0.88</code>.</li>
+<li>Open <code>http://&lt;router-ip&gt;:12121/</code> and look at the DNS Check widget. The marker request should reach the router resolver and return <code>127.0.0.88</code>.</li>
+<li>Alternatively, run this from your PC: <code>nslookup check.keen-pbr.fyi</code>. It should return <code>127.0.0.88</code>.</li>
 </ul>
 </li>
 <li>Run a routing test:
@@ -1582,13 +1595,13 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
 <li>Make sure the VPN interface is actually up and passing traffic.</li>
 </ol>
 <p>If the expected and actual outbounds differ, continue through the DNS, firewall, and routing sections below.</p>
-<h2>DNS and dnsmasq<span class="hx:absolute hx:-mt-20" id="dns-and-dnsmasq"></span>
-    <a href="#dns-and-dnsmasq" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>DNS must pass the whole chain: the client uses the router DNS, <code>dnsmasq</code> is running, the generated <code>keen-pbr</code> config is included, domains are placed into <code>ipset</code> or <code>nftset</code>, and ordinary domains go to <code>dns.fallback</code>.</p>
+<h2>DNS interception<span class="hx:absolute hx:-mt-20" id="dns-interception"></span>
+    <a href="#dns-interception" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Domain routing does not need any particular resolver: keen-pbr reads DNS replies passing through the router itself and writes the addresses to list sets. Check <code>/api/health/service</code> (<code>intercept</code>) for the interception state and the reasons it may be turned off.</p>
 <h3>Check DNS From the User Device<span class="hx:absolute hx:-mt-20" id="check-dns-from-the-user-device"></span>
     <a href="#check-dns-from-the-user-device" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Open <code>http://&lt;router-ip&gt;:12121/</code> and check DNS Check. If Web UI is unavailable, run this from the client device:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nslookup check.keen.pbr</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nslookup check.keen-pbr.fyi</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1600,19 +1613,17 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
   </button>
 </div>
 </div>
-<p>Expected response: <code>127.0.0.88</code>. If there is no response, the device is not using the router DNS or <code>dnsmasq</code> is not answering.</p>
-<h3>Check dnsmasq on the Router or Server<span class="hx:absolute hx:-mt-20" id="check-dnsmasq-on-the-router-or-server"></span>
-    <a href="#check-dnsmasq-on-the-router-or-server" class="subheading-anchor" aria-label="Permalink for this section"></a></h3>
+<p>Expected response: <code>127.0.0.88</code>. The domain also has a real public address, so the answer tells you what happened:</p>
+<ul>
+<li><code>127.0.0.88</code>: the request went through the router and keen-pbr saw it.</li>
+<li>Any other address: DNS works, but bypasses the router (for example, the browser or OS uses its own secure DNS), or DNS interception is unavailable.</li>
+<li>No answer or an error: the device has no working DNS, or the router resolver is not answering.</li>
+</ul>
+<h3>Check the Router Resolver<span class="hx:absolute hx:-mt-20" id="check-the-router-resolver"></span>
+    <a href="#check-the-router-resolver" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>keen-pbr works with whatever resolver the router uses. Check that it answers locally:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-
-
-<div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-04-0" role="tab" type="button" aria-controls="tabs-panel-tabs-04-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-04-1" role="tab" type="button" aria-controls="tabs-panel-tabs-04-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-04-2" role="tab" type="button" aria-controls="tabs-panel-tabs-04-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
-</div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-04-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-04-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">/opt/etc/init.d/S56dnsmasq status
-</span></span><span class="line"><span class="cl">nslookup google.com 127.0.0.1</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nslookup google.com 127.0.0.1</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1624,7 +1635,10 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
   </button>
 </div>
 </div>
-<p>If client DNS requests do not reach Entware <code>dnsmasq</code>, check the Keenetic-only setting:</p>
+<p>If you see <code>Connection refused</code>, your resolver is not running or is not listening on <code>127.0.0.1:53</code>. Check its own service and log (for example 
+  <abbr title="A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.">Entware</abbr>
+ <code>dnsmasq</code> on Keenetic, <code>dnsmasq</code> on OpenWrt or Debian, or the built-in Keenetic DNS proxy).</p>
+<p>On Keenetic, if client DNS requests do not reach Entware <code>dnsmasq</code>, check the Keenetic-only setting:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opkg dns-override</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1654,155 +1668,20 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-04-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-04-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">service dnsmasq status
-</span></span><span class="line"><span class="cl">nslookup google.com 127.0.0.1</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Domain-based routing needs <code>dnsmasq-full</code>. If logs contain errors about unsupported <code>ipset</code> / <code>nftset</code>, check the installed package:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opkg list-installed <span class="p">|</span> grep dnsmasq</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div></div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-04-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-04-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">systemctl status dnsmasq
-</span></span><span class="line"><span class="cl">nslookup google.com 127.0.0.1</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>If <code>systemctl</code> is not available, use:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">service dnsmasq status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div></div></div>
-
-<p>Expected result: <code>nslookup &lt;domain&gt; 127.0.0.1</code> returns IP addresses. If you see <code>Connection refused</code>, <code>dnsmasq</code> is not running or is not listening on <code>127.0.0.1:53</code>.</p>
-<h3>Check the Generated Resolver Config<span class="hx:absolute hx:-mt-20" id="check-the-generated-resolver-config"></span>
-    <a href="#check-the-generated-resolver-config" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Choose the backend used on your system.</p>
-
-
-
-<div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="iptables / ipset,nftables / nftset"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-05-0" role="tab" type="button" aria-controls="tabs-panel-tabs-05-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>iptables / ipset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-05-1" role="tab" type="button" aria-controls="tabs-panel-tabs-05-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>nftables / nftset</span></span></button></div>
-</div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-05-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-05-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr generate-resolver-config dnsmasq-ipset</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Expected output contains directives like <code>ipset=/example.com/&lt;set&gt;</code>.</p></div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-05-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-05-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr generate-resolver-config dnsmasq-nftset</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Expected output contains directives like <code>nftset=/example.com/...</code>.</p></div></div>
-
-<p>The command should not exit with an error. If it says the remote list cache is missing, run:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr download</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
 <details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
   <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
-    <strong class="hx:text-lg">If DNS rules do not work</strong>
+    <strong class="hx:text-lg">After upgrading from an older keen-pbr</strong>
   </summary>
   <div class="hx:p-2 hx:overflow-hidden">
-    <ol>
-<li>Make sure the list name in <code>dns.rules</code> exactly matches the list name in <code>lists</code>.</li>
-<li>Make sure the DNS rule points to the correct DNS server tag.</li>
-<li>If the DNS server uses <code>detour</code>, make sure the selected outbound works.</li>
-<li>Make sure the <code>dnsmasq</code> config includes the generated config through <code>conf-file=</code> or <code>conf-script=</code>.</li>
-<li>Restart <code>keen-pbr</code> and <code>dnsmasq</code>, then check logs again.</li>
-</ol>
+    Older keen-pbr versions always configured dnsmasq, and management stays on after the upgrade; see <a href="/docs/changelog/#upgrading-from-33x">Upgrading from 3.3.x</a>. If dnsmasq refuses to start after you removed keen-pbr by hand, check that no <code>conf-script=...keen-pbr...</code> line is left in its configuration.
   </div>
 </details>
-<h2>Websites Are Not Opening: <code>DNS_PROBE_FINISHED_NXDOMAIN</code> / <code>ERR_NAME_NOT_RESOLVED</code><span class="hx:absolute hx:-mt-20" id="websites-are-not-opening-dns_probe_finished_nxdomain--err_name_not_resolved"></span>
-    <a href="#websites-are-not-opening-dns_probe_finished_nxdomain--err_name_not_resolved" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><ol>
-<li>Make sure <code>dns.fallback</code> is configured and points to at least one working DNS server tag.</li>
-<li>Make sure the fallback DNS server is reachable from the router or server. If that DNS server uses <code>detour</code>, check the selected outbound.</li>
-<li>Make sure the user device is using the router DNS.</li>
-<li>Restart <code>keen-pbr</code> after changing DNS configuration.</li>
-</ol>
-<p>Example:</p>
+<h3>Measuring DNS interception loss<span class="hx:absolute hx:-mt-20" id="measuring-dns-interception-loss"></span>
+    <a href="#measuring-dns-interception-loss" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>If the first connection to a freshly opened site sometimes goes around the VPN, check how often keen-pbr fails to write the address before the DNS reply reaches the device. The <code>scripts/dns-bench.py</code> script does this (only Python 3 is needed). Run it from a computer on your LAN or from the router itself:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;default_dns&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;1.1.1.1&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;fallback&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;default_dns&#34;</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">  <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">python3 scripts/dns-bench.py --api http://192.168.1.1:12121 --password <span class="s1">&#39;admin-password&#39;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">  --rates 50,200,1000 --count <span class="m">1000</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1814,25 +1693,79 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
   </button>
 </div>
 </div>
-<p>Without <code>dns.fallback</code>, domains that do not match any <code>dns.rules</code> entry may fail to resolve.</p>
-<h2>Websites Are Not Opening: <code>DNS_PROBE_FINISHED_BAD_CONFIG</code><span class="hx:absolute hx:-mt-20" id="websites-are-not-opening-dns_probe_finished_bad_config"></span>
-    <a href="#websites-are-not-opening-dns_probe_finished_bad_config" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>This usually means <code>dnsmasq</code> is not running or failed to apply its configuration.</p>
+<p>The script queries random names like <code>a1b2c3d4-198-18-7-9.nip.io</code>. They point to the test range <code>198.18.0.0/15</code>, so real traffic is not affected. For keen-pbr to handle them, add a list and a rule to the configuration (if they are missing, the script tells you what to add):</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="s2">&#34;lists&#34;</span><span class="err">:</span> <span class="p">{</span> <span class="nt">&#34;dns_bench&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;domains&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;nip.io&#34;</span><span class="p">]</span> <span class="p">}</span> <span class="p">}</span><span class="err">,</span>
+</span></span><span class="line"><span class="cl"><span class="s2">&#34;route&#34;</span><span class="err">:</span> <span class="p">{</span> <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span> <span class="p">{</span> <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;dns_bench&#34;</span><span class="p">],</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;&lt;any outbound tag&gt;&#34;</span> <span class="p">}</span> <span class="p">]</span> <span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>The public <code>nip.io</code> service may rate-limit queries; this shows up as <code>client-timeout</code> in the report.</p>
+<p>Main results in the report:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Result</th>
+					<th>Meaning</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>held-ok</code></td>
+					<td>All good: the address was written before the reply reached the device</td>
+			</tr>
+			<tr>
+					<td><code>hold-timeout</code></td>
+					<td>keen-pbr did not make it within <code>intercept.dns.hold_timeout_ms</code>: the reply went out first and the address was written slightly later. The first packets may have bypassed the VPN</td>
+			</tr>
+			<tr>
+					<td><code>set-error</code></td>
+					<td>The address could not be written to the set; check the keen-pbr log</td>
+			</tr>
+			<tr>
+					<td><code>bypass</code></td>
+					<td>The reply did not pass through keen-pbr: the name is not in any list, or the queue overflowed</td>
+			</tr>
+			<tr>
+					<td><code>not-in-set</code>, <code>wrong-set</code></td>
+					<td>After the run the address is missing from the set, or is in another outbound&rsquo;s set</td>
+			</tr>
+			<tr>
+					<td><code>client-timeout</code></td>
+					<td>The device got no reply</td>
+			</tr>
+	</tbody>
+</table>
+<p>Many <code>hold-timeout</code> results mean the router lacks CPU to write addresses in time: try increasing <code>intercept.dns.hold_timeout_ms</code>. <code>python3 scripts/dns-bench.py --help</code> describes every option.</p>
+<h2>Websites Are Not Opening: <code>DNS_PROBE_FINISHED_NXDOMAIN</code> / <code>ERR_NAME_NOT_RESOLVED</code><span class="hx:absolute hx:-mt-20" id="websites-are-not-opening-dns_probe_finished_nxdomain--err_name_not_resolved"></span>
+    <a href="#websites-are-not-opening-dns_probe_finished_nxdomain--err_name_not_resolved" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>keen-pbr does not resolve names for clients, so check the resolver the clients use.</p>
 <ol>
-<li>Check <code>dnsmasq</code> logs.</li>
-<li>Check <code>dnsmasq</code> status.</li>
-<li>If you recently changed DNS settings, restart <code>keen-pbr</code> and <code>dnsmasq</code>.</li>
+<li>Make sure the user device is using the router DNS.</li>
+<li>Make sure the router resolver has working upstream servers and can reach them.</li>
+<li>Test it from the router: <code>nslookup google.com 127.0.0.1</code>.</li>
+<li>If a <code>dns.servers</code> entry uses <code>detour</code>, check the selected outbound.</li>
 </ol>
+<h2>Websites Are Not Opening: <code>DNS_PROBE_FINISHED_BAD_CONFIG</code><span class="hx:absolute hx:-mt-20" id="websites-are-not-opening-dns_probe_finished_bad_config"></span>
+    <a href="#websites-are-not-opening-dns_probe_finished_bad_config" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>This usually means the resolver is not running or failed to apply its configuration. Check the resolver service and log on your platform (for example 
+  <abbr title="A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.">Entware</abbr>
+ <code>dnsmasq</code> on Keenetic, <code>dnsmasq</code> on OpenWrt and Debian), and the interception state (<code>intercept</code>) in <code>/api/health/service</code>.</p>
+<h2>Per-list DNS servers do not work<span class="hx:absolute hx:-mt-20" id="per-list-dns-servers-do-not-work"></span>
+    <a href="#per-list-dns-servers-do-not-work" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>When <code>dns.resolver_integration: &quot;dnsmasq&quot;</code> is enabled, domains from specific lists should be resolved through a chosen DNS server. If this is not happening:</p>
+<ol>
+<li>
+<p><strong>Check the dnsmasq state in <code>/api/health/service</code>:</strong></p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-
-
-
-<div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="Keenetic / NetCraze,OpenWrt,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-07-0" role="tab" type="button" aria-controls="tabs-panel-tabs-07-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / NetCraze</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-07-1" role="tab" type="button" aria-controls="tabs-panel-tabs-07-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-07-2" role="tab" type="button" aria-controls="tabs-panel-tabs-07-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
-</div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-07-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-07-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ndmc -c <span class="s2">&#34;show log once&#34;</span> <span class="p">|</span> grep dnsmasq
-</span></span><span class="line"><span class="cl">/opt/etc/init.d/S56dnsmasq status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/health/service <span class="p">|</span> jq .dnsmasq</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1844,10 +1777,13 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-07-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-07-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<p>Expected: <code>&quot;state&quot;: &quot;ok&quot;</code>, <code>&quot;rules&quot;</code> shows the count, <code>&quot;domains&quot;</code> shows domain entries. If <code>state</code> is <code>error</code>, check <code>last_error</code>.</p>
+</li>
+<li>
+<p><strong>Verify the generated dnsmasq config:</strong></p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">logread <span class="p">|</span> grep dnsmasq
-</span></span><span class="line"><span class="cl">service dnsmasq status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr generate-resolver-config dnsmasq</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1859,10 +1795,53 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-07-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-07-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<p>Expected: domain-to-server mappings, <code>fallback</code> servers, and 
+  <abbr title="An attack in which a public domain resolves to a private address. dnsmasq can block such answers.">DNS rebinding</abbr>
+ protection exceptions. If the output holds only a <code>management is switched off</code> comment and <code>server=</code> lines, check that <code>resolver_integration: &quot;dnsmasq&quot;</code> is set and at least one rule is configured.</p>
+</li>
+<li>
+<p><strong>Check the dnsmasq drop-in file:</strong></p>
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">journalctl -u dnsmasq -b
-</span></span><span class="line"><span class="cl">systemctl status dnsmasq</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+   
+   
+   
+   <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="OpenWrt,Keenetic / Entware,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-09-0" role="tab" type="button" aria-controls="tabs-panel-tabs-09-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>OpenWrt</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-09-1" role="tab" type="button" aria-controls="tabs-panel-tabs-09-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Keenetic / Entware</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-09-2" role="tab" type="button" aria-controls="tabs-panel-tabs-09-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
+</div>
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-09-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-09-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">cat /tmp/dnsmasq.d/keen-pbr.conf
+</span></span><span class="line"><span class="cl"><span class="c1"># or in a dnsmasq-specific confdir:</span>
+</span></span><span class="line"><span class="cl">cat /tmp/dnsmasq.*/keen-pbr.conf</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-09-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-09-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">grep -A <span class="m">5</span> <span class="s2">&#34;BEGIN keen-pbr&#34;</span> /opt/etc/dnsmasq.conf</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-09-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-09-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">grep -A <span class="m">3</span> <span class="s2">&#34;BEGIN keen-pbr&#34;</span> /etc/dnsmasq.conf
+</span></span><span class="line"><span class="cl">cat /etc/keen-pbr/dnsmasq.d/keen-pbr.conf</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1876,9 +1855,95 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
 </div>
 </div></div>
 
+<p>Expected: a <code>conf-script=keen-pbr generate-resolver-config dnsmasq</code> line.</p>
+</li>
+<li>
+<p><strong>Check that dnsmasq really loaded the keen-pbr config:</strong></p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nslookup -type<span class="o">=</span>txt config-hash.keen.pbr 127.0.0.1</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Expected: a TXT answer <code>&lt;hash&gt;|&lt;boottime_ms&gt;|&lt;unix_ts&gt;</code>; the hash must match <code>config_hash</code> from step 1. No answer means dnsmasq did not load the keen-pbr config (for example, the 
+  <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr>
+ is in a directory dnsmasq does not read, or dnsmasq was not restarted).</p>
+</li>
+<li>
+<p><strong>Verify dnsmasq is actually the resolver clients use:</strong></p>
+<ul>
+<li>On Keenetic, check if ndnproxy or dnsmasq is the LAN resolver:
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opkg dns-override</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+</li>
+<li>Test from a client:
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nslookup example.com</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Check the DNS server&rsquo;s <code>detour</code>:</strong>
+If the server has <code>&quot;detour&quot;: &quot;vpn&quot;</code>, verify the VPN interface is up and reachable:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/runtime/outbounds <span class="p">|</span> jq <span class="s1">&#39;.[] | select(.tag == &#34;vpn&#34;)&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Expected: <code>&quot;state&quot;: &quot;alive&quot;</code>.</p>
+</li>
+<li>
+<p><strong>Verify domains are in the right list:</strong></p>
+<ul>
+<li>Open the Web UI at <code>http://&lt;router-ip&gt;:12121/</code> and check DNS rules.</li>
+<li>Confirm the domains you want are actually in the list.</li>
+</ul>
+</li>
+</ol>
 <h2>Firewall and <code>KeenPbrTable</code><span class="hx:absolute hx:-mt-20" id="firewall-and-keenpbrtable"></span>
     <a href="#firewall-and-keenpbrtable" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>If DNS works and the domain resolves, but traffic still bypasses the VPN, check the firewall. <code>keen-pbr</code> creates an isolated chain or table named <code>KeenPbrTable</code>; traffic must enter it, match configured lists, and receive the correct <code>fwmark</code>.</p>
-<p>First run the general self-check:</p>
+<p>First run the built-in check:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1893,16 +1958,16 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
   </button>
 </div>
 </div>
-<p>Look for firewall checks with <code>missing</code>, <code>mismatch</code>, or <code>ERROR</code> status.</p>
+<p>Look for firewall checks with <code>MISSING</code>, <code>MISMATCH</code>, or <code>ERROR</code> status.</p>
 <h3>Check Firewall Rules<span class="hx:absolute hx:-mt-20" id="check-firewall-rules"></span>
     <a href="#check-firewall-rules" class="subheading-anchor" aria-label="Permalink for this section"></a></h3>
 
 
 
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="iptables / ipset,nftables / nftset,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-08-0" role="tab" type="button" aria-controls="tabs-panel-tabs-08-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>iptables / ipset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-08-1" role="tab" type="button" aria-controls="tabs-panel-tabs-08-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>nftables / nftset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-08-2" role="tab" type="button" aria-controls="tabs-panel-tabs-08-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="iptables / ipset,nftables / nftset,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-11-0" role="tab" type="button" aria-controls="tabs-panel-tabs-11-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>iptables / ipset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-11-1" role="tab" type="button" aria-controls="tabs-panel-tabs-11-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>nftables / nftset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-11-2" role="tab" type="button" aria-controls="tabs-panel-tabs-11-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
 </div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-08-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-08-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-11-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-11-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">iptables-save <span class="p">|</span> grep KeenPbrTable
 </span></span><span class="line"><span class="cl">ip6tables-save <span class="p">|</span> grep KeenPbrTable</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1917,7 +1982,9 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
   </button>
 </div>
 </div>
-<p>Expected result: there is a jump from <code>PREROUTING</code> to <code>KeenPbrTable</code> and packet marking rules. Example of a healthy rule:</p>
+<p>Expected result: there is a jump from <code>PREROUTING</code> to <code>KeenPbrTable</code> and rules that set a
+<abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
+(<code>MARK</code>). Example of a healthy rule:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">-A KeenPbrTable -m set --match-set &lt;set&gt; dst -j MARK --set-xmark &lt;mark&gt;/&lt;mask&gt;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
@@ -1949,7 +2016,7 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
 </div>
 </div>
 <p>Expected response for a match: the IP is in the specified set.</p>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-08-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-08-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-11-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-11-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nft -t list ruleset</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -1979,7 +2046,7 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
 </div>
 </div>
 <p>Expected result: there is an <code>inet KeenPbrTable</code> table, a <code>prerouting</code> hook, rules matching sets, and a <code>meta mark set ...</code> action.</p>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-08-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-08-2" aria-hidden="true"><p>The backend depends on how firewall is installed on your system. Check both variants or the one mentioned in <code>keen-pbr</code> logs.</p>
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-11-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-11-2" aria-hidden="true"><p>The backend depends on how firewall is installed on your system. Check both variants or the one mentioned in <code>keen-pbr</code> logs.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">iptables-save <span class="p">|</span> grep KeenPbrTable
@@ -1999,7 +2066,11 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
 
 <p>If <code>KeenPbrTable</code> is missing, return to <code>keen-pbr</code> logs: the cause is usually an unavailable backend, permissions, missing packages, or a configuration error.</p>
 <h2>Routing Tables and <code>fwmark</code><span class="hx:absolute hx:-mt-20" id="routing-tables-and-fwmark"></span>
-    <a href="#routing-tables-and-fwmark" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>If the firewall marks packets but the site loads forever or opens through the ISP, check policy routing. The OS must see the <code>fwmark</code>, apply an <code>ip rule</code>, and send the packet to the routing table for the expected outbound.</p>
+    <a href="#routing-tables-and-fwmark" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>If the firewall sets a 
+  <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
+ on packets but the site loads forever or opens through the ISP, check 
+  <abbr title="Routing that chooses a routing table by rules (ip rule) instead of only by destination address, for example by fwmark.">policy routing</abbr>
+. The OS must see the <code>fwmark</code>, apply an <code>ip rule</code>, and send the packet to the routing table for the expected outbound.</p>
 <ol>
 <li>
 <p>Check the state expected by <code>keen-pbr</code>:</p>
@@ -2017,7 +2088,7 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
   </button>
 </div>
 </div>
-<p>Look for lines with <code>missing</code>, <code>mismatch</code>, or <code>ERROR</code> status.</p>
+<p>Look for lines with <code>MISSING</code>, <code>MISMATCH</code>, or <code>ERROR</code> status.</p>
 </li>
 <li>
 <p>Check a specific domain or IP:</p>
@@ -2035,10 +2106,10 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
   </button>
 </div>
 </div>
-<p>Expected result: expected and actual outbound match.</p>
+<p>Expected result: the expected and actual outbounds match.</p>
 </li>
 <li>
-<p>Check policy rules:</p>
+<p>Check the <code>ip rule</code> entries:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ip rule show</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2075,11 +2146,20 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
 </li>
 </ol>
 <p>If the table is empty, the interface is not found, or the rule points to the wrong place, check the outbound name, interface name, and <code>fwmark</code> / <code>iproute.table_start</code> conflicts.</p>
-<h2>Routing Breaks When Tailscale Is Enabled<span class="hx:absolute hx:-mt-20" id="routing-breaks-when-tailscale-is-enabled"></span>
-    <a href="#routing-breaks-when-tailscale-is-enabled" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Tailscale reserves <code>0x00FF0000</code>, which overlaps the default keen-pbr mask, and
-restores the connection mark by replacing the entire packet mark. Moving
-keen-pbr to another mark range does not prevent Tailscale from erasing it.</p>
-<p>Disable Tailscale&rsquo;s netfilter integration:</p>
+<h2>Routing Breaks When Tailscale Is Enabled<span class="hx:absolute hx:-mt-20" id="tailscale"></span>
+    <a href="#tailscale" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Tailscale reserves <code>0x00FF0000</code>, which overlaps the default keen-pbr mask, and
+restores the 
+  <abbr title="Connection mark: a mark stored on a conntrack entry. keen-pbr copies the fwmark into it so every packet of a connection follows the same route.">connmark</abbr>
+ from 
+  <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
+ by overwriting the whole 
+  <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
+ of the
+packet. Moving keen-pbr to another fwmark range does not prevent Tailscale
+from erasing it.</p>
+<p>Disable Tailscale&rsquo;s 
+  <abbr title="The packet filtering framework in the Linux kernel. iptables and nftables are its user-space tools.">netfilter</abbr>
+ integration:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">tailscale <span class="nb">set</span> --netfilter-mode<span class="o">=</span>off</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2094,10 +2174,14 @@ keen-pbr to another mark range does not prevent Tailscale from erasing it.</p>
   </button>
 </div>
 </div>
-<p>Firewall and NAT rules must then be managed separately, especially when
+<p>Firewall and 
+  <abbr title="Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&#39;s WAN address.">NAT</abbr>
+ rules must then be managed separately, especially when
 Tailscale operates as a subnet router or exit node.</p>
 <h2>Interfaces and VPN Tunnels<span class="hx:absolute hx:-mt-20" id="interfaces-and-vpn-tunnels"></span>
-    <a href="#interfaces-and-vpn-tunnels" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>If DNS, firewall, and policy routing look correct, check that the interface itself exists, is up, and can send traffic.</p>
+    <a href="#interfaces-and-vpn-tunnels" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>If DNS, firewall, and 
+  <abbr title="Routing that chooses a routing table by rules (ip rule) instead of only by destination address, for example by fwmark.">policy routing</abbr>
+ look correct, check that the interface itself exists, is up, and can send traffic.</p>
 <ol>
 <li>Open <code>http://&lt;router-ip&gt;:12121/</code> and check runtime state for outbounds and interfaces.</li>
 <li>Get the interface list through the REST API:
@@ -2154,14 +2238,14 @@ Tailscale operates as a subnet router or exit node.</p>
 <p>Expected result: <code>curl</code> returns the external VPN IP. If the command hangs or exits with an error, the problem is below <code>keen-pbr</code>: the tunnel is down, there is no route, the gateway is unreachable, or outbound traffic is blocked.</p>
 <details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
   <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
-    <strong class="hx:text-lg">If you use urltest or fallback</strong>
+    <strong class="hx:text-lg">If you use urltest or icmptest</strong>
   </summary>
   <div class="hx:p-2 hx:overflow-hidden">
     <ol>
-<li>Check that child outbounds have correct interfaces or tables.</li>
-<li>Check <code>GET /api/health/service</code> and runtime outbound state in Web UI.</li>
-<li>If the circuit breaker is <code>&quot;open&quot;</code>, wait for <code>circuit_breaker.timeout_ms</code> to expire or fix the unavailable child outbound.</li>
-<li>If the backup interface does not activate, first check each child outbound separately with <code>curl --interface</code>.</li>
+<li>Check that the links (the outbounds listed in <code>outbound_groups</code>) have correct interfaces or tables.</li>
+<li>Check link states on the <strong>Outbounds</strong> page of the web UI or in <code>GET /api/runtime/outbounds</code>.</li>
+<li>If a link is shown as <code>unavailable</code>, keen-pbr has excluded it after failed checks. Wait for <code>circuit_breaker.timeout_ms</code> or fix the link.</li>
+<li>If the backup link does not take over, first check each link separately with <code>curl --interface</code>.</li>
 </ol>
   </div>
 </details>
@@ -2186,6 +2270,7 @@ Tailscale operates as a subnet router or exit node.</p>
 <li>If the list still does not update, check whether the URL is reachable from the same system.</li>
 <li>If the list should be downloaded through VPN, check <code>lists[].detour</code> and the corresponding outbound.</li>
 <li>If automatic refresh is used, check <code>lists_autoupdate.cron</code>.</li>
+<li>If the list failed on the first start, the daemon retries it in the background (after 10 seconds, 30 seconds, 2 minutes, then every 5 minutes) until it succeeds. With per-list DNS servers, dnsmasq is configured at startup before the first download. If the list host&rsquo;s domain should be resolved through a per-list DNS server, put that domain in an inline list, a file list, or an already cached list; otherwise the first attempt uses the normal DNS.</li>
 <li>After an error, read <code>keen-pbr</code> logs again.</li>
 </ol>
 <details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
@@ -2210,18 +2295,17 @@ Tailscale operates as a subnet router or exit node.</p>
 <p>If your config sets a different <code>daemon.pid_file</code>, use that path. Also confirm that <code>daemon.cache_dir</code> is writable.</p>
   </div>
 </details>
-<h2><code>urltest</code> Always Shows Degraded<span class="hx:absolute hx:-mt-20" id="urltest-always-shows-degraded"></span>
+<h2><code>urltest</code> always shows Degraded<span class="hx:absolute hx:-mt-20" id="urltest-always-shows-degraded"></span>
     <a href="#urltest-always-shows-degraded" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><ol>
-<li>Make sure the test <code>url</code> is reachable and returns a good HTTP response, such as <code>200 OK</code> or <code>204 No Content</code>.</li>
-<li>For custom probes, HTTP URLs are strongly recommended over HTTPS. HTTPS probes can be unstable because of expired certificates, incomplete trust chains, or TLS limitations on the router. For <code>urltest</code>, the final <code>2xx</code> HTTP status is considered successful.</li>
-<li>Recommended default URL: <code>https://www.gstatic.com/generate_204</code>.</li>
-<li>Make sure child outbounds work separately.</li>
+<li>Make sure the test <code>url</code> is reachable and returns a <code>2xx</code> status, such as <code>200 OK</code> or <code>204 No Content</code>. The default URL is <code>https://www.gstatic.com/generate_204</code>.</li>
+<li>If HTTPS checks fail on the router (wrong system time, outdated CA certificates, TLS limitations), try an HTTP URL instead, for example <code>http://www.gstatic.com/generate_204</code>.</li>
+<li>Make sure each link works on its own.</li>
 <li>Check interfaces with <code>curl --interface &lt;interface_name&gt; https://ifconfig.co/json</code>.</li>
-<li>Wait for the next probe cycle, or temporarily lower <code>interval_ms</code> during diagnostics.</li>
-<li>Check <code>GET /api/health/service</code> for circuit breaker state. If a child outbound is <code>&quot;open&quot;</code>, wait for <code>circuit_breaker.timeout_ms</code>.</li>
+<li>Wait for the next check, or temporarily lower <code>interval_ms</code> during diagnostics.</li>
+<li>Check <code>GET /api/runtime/outbounds</code>. If a link is <code>unavailable</code>, keen-pbr has excluded it; wait for <code>circuit_breaker.timeout_ms</code>.</li>
 </ol>
-<h2>Port/Address Filter Rules Not Matching<span class="hx:absolute hx:-mt-20" id="portaddress-filter-rules-not-matching"></span>
-    <a href="#portaddress-filter-rules-not-matching" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200">
+<h2>Rules with port or address filters do not work<span class="hx:absolute hx:-mt-20" id="rules-with-port-or-address-filters-do-not-work"></span>
+    <a href="#rules-with-port-or-address-filters-do-not-work" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
@@ -2239,7 +2323,9 @@ Tailscale operates as a subnet router or exit node.</p>
 <li>Check <code>keen-pbr status</code> to see whether firewall rules were created for this rule.</li>
 </ul>
 <h2>Low-Level Routing Conflicts<span class="hx:absolute hx:-mt-20" id="low-level-routing-conflicts"></span>
-    <a href="#low-level-routing-conflicts" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>If you changed <code>fwmark</code> or <code>iproute</code>, or another tool manages policy routing on the same system, packets may be misrouted or dropped.</p>
+    <a href="#low-level-routing-conflicts" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>If you changed <code>fwmark</code> or <code>iproute</code>, or another tool manages 
+  <abbr title="Routing that chooses a routing table by rules (ip rule) instead of only by destination address, for example by fwmark.">policy routing</abbr>
+ on the same system, packets may be misrouted or dropped.</p>
 <p>Check for conflicts:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -2257,15 +2343,17 @@ Tailscale operates as a subnet router or exit node.</p>
   </button>
 </div>
 </div>
-<p>For firewall marks:</p>
+<p>For 
+  <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
+ rules in the firewall:</p>
 
 
 
 
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="iptables / ipset,nftables / nftset,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-12-0" role="tab" type="button" aria-controls="tabs-panel-tabs-12-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>iptables / ipset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-12-1" role="tab" type="button" aria-controls="tabs-panel-tabs-12-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>nftables / nftset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-12-2" role="tab" type="button" aria-controls="tabs-panel-tabs-12-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="iptables / ipset,nftables / nftset,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-25-0" role="tab" type="button" aria-controls="tabs-panel-tabs-25-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>iptables / ipset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-25-1" role="tab" type="button" aria-controls="tabs-panel-tabs-25-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>nftables / nftset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-25-2" role="tab" type="button" aria-controls="tabs-panel-tabs-25-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
 </div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-12-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-12-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-25-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-25-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">iptables-save <span class="p">|</span> grep -E <span class="s1">&#39;MARK|CONNMARK|KeenPbrTable&#39;</span>
 </span></span><span class="line"><span class="cl">ip6tables-save <span class="p">|</span> grep -E <span class="s1">&#39;MARK|CONNMARK|KeenPbrTable&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2280,7 +2368,7 @@ Tailscale operates as a subnet router or exit node.</p>
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-12-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-12-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-25-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-25-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nft -t list ruleset <span class="p">|</span> grep -E <span class="s1">&#39;mark|KeenPbrTable&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -2294,7 +2382,7 @@ Tailscale operates as a subnet router or exit node.</p>
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-12-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-12-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-25-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-25-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">iptables-save <span class="p">|</span> grep -E <span class="s1">&#39;MARK|CONNMARK|KeenPbrTable&#39;</span>
 </span></span><span class="line"><span class="cl">ip6tables-save <span class="p">|</span> grep -E <span class="s1">&#39;MARK|CONNMARK|KeenPbrTable&#39;</span>
@@ -2332,14 +2420,18 @@ Tailscale operates as a subnet router or exit node.</p>
   </button>
 </div>
 </div>
-<p>The <code>mask</code> must consist of one or more adjacent hex nibbles set to <code>F</code> and be aligned to a nibble boundary. Use hex strings such as <code>&quot;0x00FF0000&quot;</code> and <code>&quot;0x00020000&quot;</code>.</p>
+<p><code>mask</code> must be a run of hex <code>F</code> digits. Use hex strings such as <code>&quot;0x00FF0000&quot;</code> and <code>&quot;0x00020000&quot;</code>.</p>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a
         href="/docs/faq/"
         title="FAQ"
         class="hx:flex hx:max-w-[50%] hx:items-center hx:gap-1 hx:py-4 hx:text-base hx:font-medium hx:text-gray-600 hx:transition-colors [word-break:break-word] hx:hover:text-primary-600 hx:dark:text-gray-300 hx:md:text-lg hx:ltr:pr-4 hx:rtl:pl-4"
-      ><svg class="hx:inline hx:h-5 hx:shrink-0 hx:ltr:rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>FAQ</a></div>
+      ><svg class="hx:inline hx:h-5 hx:shrink-0 hx:ltr:rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>FAQ</a><a
+        href="/docs/changelog/"
+        title="Changelog"
+        class="hx:flex hx:max-w-[50%] hx:items-center hx:gap-1 hx:py-4 hx:text-base hx:font-medium hx:text-gray-600 hx:transition-colors [word-break:break-word] hx:hover:text-primary-600 hx:dark:text-gray-300 hx:md:text-lg hx:ltr:ml-auto hx:ltr:pl-4 hx:ltr:text-right hx:rtl:mr-auto hx:rtl:pr-4 hx:rtl:text-left"
+      >Changelog<svg class="hx:inline hx:h-5 hx:shrink-0 hx:rtl:-rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></a></div>
       </main>
     </article>
   </div>

@@ -9,20 +9,20 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Списки – keen-pbr</title>
-  <meta name="description" content="Списки — это группы сайтов или диапазонов IP, которые вы хотите, чтобы keen-pbr сопоставлял.
+  <meta name="description" content="Списки — это группы сайтов или диапазонов IP, трафик к которым keen-pbr будет направлять по вашим правилам.
 Ключ lists — это объект, где каждый ключ — это имя списка, а значение — конфигурация списка.
-Имена списков должны соответствовать ^[a-z][a-z0-9_]*$ и быть не более 24 символов.
+Имя списка: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
 Большинство пользователей начинают с простого списка доменов:
-config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Поля Поле Тип Обязательно Описание url string нет URL удалённого файла списка для загрузки и кэширования domains array of string нет Встроенные DNS-совместимые доменные паттерны (поддерживает начальный *.) ip_cidrs array of string нет Встроенные IP-адреса или диапазоны CIDR file string нет Путь к локальному файлу списка ttl_ms integer нет (по умолчанию: 0) Как долго разрешённые IP должны храниться в кэше для списков на основе доменов. Большинство пользователей могут оставить это значение 0. Встроенные списки, локальные файлы и списки по URL используют одинаковый синтаксис доменов. Начальный *. и одна завершающая корневая точка удаляются, поэтому *.google.com передаётся в dnsmasq как google.com. В служебных DNS-метках разрешены символы подчёркивания; пробелы, разделители директив, некорректные маски и метки в файлах пропускаются, а во встроенной конфигурации отклоняются." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/lists/" itemprop="url" />
+config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Поля Поле Тип Обязательно Описание url string нет URL удалённого файла списка для загрузки и кэширования domains array of string нет Домены прямо в конфиге. *. в начале писать не обязательно ip_cidrs array of string нет IP-адреса и подсети ( CIDR ) прямо в конфиге file string нет Путь к локальному файлу списка ttl_ms integer нет (по умолчанию: 0) Сколько минимум хранить IP-адреса доменов этого списка, в миллисекундах. Если не задано или меньше 1000, используется intercept.min_ttl_ms. Если TTL в DNS-ответе больше, адрес хранится дольше, но не больше intercept.max_ttl_ms Домены записываются одинаково во всех источниках. *.google.com и google.com означают одно и то же. Некорректные домены в файлах и списках по URL пропускаются, а в domains — приводят к ошибке конфигурации." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/lists/" itemprop="url" />
 
 <meta property="og:title" content="Списки">
 <meta
   property="og:description"
   content="
     
-      Списки — это группы сайтов или диапазонов IP, которые вы хотите, чтобы keen-pbr сопоставлял.
+      Списки — это группы сайтов или диапазонов IP, трафик к которым keen-pbr будет направлять по вашим правилам.
 Ключ lists — это объект, где каждый ключ — это имя списка, а значение — конфигурация списка.
-Имена списков должны соответствовать ^[a-z][a-z0-9_]*$ и быть не более 24 символов.
+Имя списка: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
 Большинство пользователей начинают с простого списка доменов:
 
 
@@ -60,13 +60,15 @@ config.json{
 					domains
 					array of string
 					нет
-					Встроенные DNS-совместимые доменные паттерны (поддерживает начальный *.)
+					Домены прямо в конфиге. *. в начале писать не обязательно
 			
 			
 					ip_cidrs
 					array of string
 					нет
-					Встроенные IP-адреса или диапазоны CIDR
+					IP-адреса и подсети (
+  CIDR
+) прямо в конфиге
 			
 			
 					file
@@ -78,15 +80,13 @@ config.json{
 					ttl_ms
 					integer
 					нет (по умолчанию: 0)
-					Как долго разрешённые IP должны храниться в кэше для списков на основе доменов. Большинство пользователей могут оставить это значение 0.
+					Сколько минимум хранить IP-адреса доменов этого списка, в миллисекундах. Если не задано или меньше 1000, используется intercept.min_ttl_ms. Если 
+  TTL
+ в DNS-ответе больше, адрес хранится дольше, но не больше intercept.max_ttl_ms
 			
 	
 
-Встроенные списки, локальные файлы и списки по URL используют одинаковый синтаксис
-доменов. Начальный *. и одна завершающая корневая точка удаляются, поэтому
-*.google.com передаётся в dnsmasq как google.com. В служебных DNS-метках разрешены
-символы подчёркивания; пробелы, разделители директив, некорректные маски и метки в
-файлах пропускаются, а во встроенной конфигурации отклоняются.
+Домены записываются одинаково во всех источниках. *.google.com и google.com означают одно и то же. Некорректные домены в файлах и списках по URL пропускаются, а в domains — приводят к ошибке конфигурации.
     
   ">
 <meta
@@ -100,19 +100,19 @@ config.json{
 
 
 	<meta itemprop="name" content="Списки">
-	<meta itemprop="description" content="Списки — это группы сайтов или диапазонов IP, которые вы хотите, чтобы keen-pbr сопоставлял.
+	<meta itemprop="description" content="Списки — это группы сайтов или диапазонов IP, трафик к которым keen-pbr будет направлять по вашим правилам.
 Ключ lists — это объект, где каждый ключ — это имя списка, а значение — конфигурация списка.
-Имена списков должны соответствовать ^[a-z][a-z0-9_]*$ и быть не более 24 символов.
+Имя списка: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
 Большинство пользователей начинают с простого списка доменов:
-config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Поля Поле Тип Обязательно Описание url string нет URL удалённого файла списка для загрузки и кэширования domains array of string нет Встроенные DNS-совместимые доменные паттерны (поддерживает начальный *.) ip_cidrs array of string нет Встроенные IP-адреса или диапазоны CIDR file string нет Путь к локальному файлу списка ttl_ms integer нет (по умолчанию: 0) Как долго разрешённые IP должны храниться в кэше для списков на основе доменов. Большинство пользователей могут оставить это значение 0. Встроенные списки, локальные файлы и списки по URL используют одинаковый синтаксис доменов. Начальный *. и одна завершающая корневая точка удаляются, поэтому *.google.com передаётся в dnsmasq как google.com. В служебных DNS-метках разрешены символы подчёркивания; пробелы, разделители директив, некорректные маски и метки в файлах пропускаются, а во встроенной конфигурации отклоняются.">
-	<meta itemprop="wordCount" content="541">
+config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Поля Поле Тип Обязательно Описание url string нет URL удалённого файла списка для загрузки и кэширования domains array of string нет Домены прямо в конфиге. *. в начале писать не обязательно ip_cidrs array of string нет IP-адреса и подсети ( CIDR ) прямо в конфиге file string нет Путь к локальному файлу списка ttl_ms integer нет (по умолчанию: 0) Сколько минимум хранить IP-адреса доменов этого списка, в миллисекундах. Если не задано или меньше 1000, используется intercept.min_ttl_ms. Если TTL в DNS-ответе больше, адрес хранится дольше, но не больше intercept.max_ttl_ms Домены записываются одинаково во всех источниках. *.google.com и google.com означают одно и то же. Некорректные домены в файлах и списках по URL пропускаются, а в domains — приводят к ошибке конфигурации.">
+	<meta itemprop="wordCount" content="540">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Списки">
-	<meta name="twitter:description" content="Списки — это группы сайтов или диапазонов IP, которые вы хотите, чтобы keen-pbr сопоставлял.
+	<meta name="twitter:description" content="Списки — это группы сайтов или диапазонов IP, трафик к которым keen-pbr будет направлять по вашим правилам.
 Ключ lists — это объект, где каждый ключ — это имя списка, а значение — конфигурация списка.
-Имена списков должны соответствовать ^[a-z][a-z0-9_]*$ и быть не более 24 символов.
+Имя списка: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
 Большинство пользователей начинают с простого списка доменов:
-config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Поля Поле Тип Обязательно Описание url string нет URL удалённого файла списка для загрузки и кэширования domains array of string нет Встроенные DNS-совместимые доменные паттерны (поддерживает начальный *.) ip_cidrs array of string нет Встроенные IP-адреса или диапазоны CIDR file string нет Путь к локальному файлу списка ttl_ms integer нет (по умолчанию: 0) Как долго разрешённые IP должны храниться в кэше для списков на основе доменов. Большинство пользователей могут оставить это значение 0. Встроенные списки, локальные файлы и списки по URL используют одинаковый синтаксис доменов. Начальный *. и одна завершающая корневая точка удаляются, поэтому *.google.com передаётся в dnsmasq как google.com. В служебных DNS-метках разрешены символы подчёркивания; пробелы, разделители директив, некорректные маски и метки в файлах пропускаются, а во встроенной конфигурации отклоняются.">
+config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Поля Поле Тип Обязательно Описание url string нет URL удалённого файла списка для загрузки и кэширования domains array of string нет Домены прямо в конфиге. *. в начале писать не обязательно ip_cidrs array of string нет IP-адреса и подсети ( CIDR ) прямо в конфиге file string нет Путь к локальному файлу списка ttl_ms integer нет (по умолчанию: 0) Сколько минимум хранить IP-адреса доменов этого списка, в миллисекундах. Если не задано или меньше 1000, используется intercept.min_ttl_ms. Если TTL в DNS-ответе больше, адрес хранится дольше, но не больше intercept.max_ttl_ms Домены записываются одинаково во всех источниках. *.google.com и google.com означают одно и то же. Некорректные домены в файлах и списках по URL пропускаются, а в domains — приводят к ошибке конфигурации.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -446,6 +446,18 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -493,6 +505,18 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div>
               
@@ -736,6 +760,18 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -780,6 +816,17 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -1039,9 +1086,9 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
     </div>
           </div>
           
-          <p>Списки — это группы сайтов или диапазонов IP, которые вы хотите, чтобы keen-pbr сопоставлял.</p>
+          <p>Списки — это группы сайтов или диапазонов IP, трафик к которым keen-pbr будет направлять по вашим правилам.</p>
 <p>Ключ <code>lists</code> — это объект, где каждый ключ — это имя списка, а значение — конфигурация списка.</p>
-<p>Имена списков должны соответствовать <code>^[a-z][a-z0-9_]*$</code> и быть не более 24 символов.</p>
+<p>Имя списка: строчные латинские буквы, цифры и <code>_</code>, начинается с буквы, не длиннее 24 символов (<code>^[a-z][a-z0-9_]*$</code>).</p>
 <p>Большинство пользователей начинают с простого списка доменов:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1084,13 +1131,15 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
 					<td><code>domains</code></td>
 					<td>array of string</td>
 					<td>нет</td>
-					<td>Встроенные DNS-совместимые доменные паттерны (поддерживает начальный <code>*.</code>)</td>
+					<td>Домены прямо в конфиге. <code>*.</code> в начале писать не обязательно</td>
 			</tr>
 			<tr>
 					<td><code>ip_cidrs</code></td>
 					<td>array of string</td>
 					<td>нет</td>
-					<td>Встроенные IP-адреса или диапазоны CIDR</td>
+					<td>IP-адреса и подсети (
+  <abbr title="Запись подсети: адрес и длина префикса, например 192.168.1.0/24.">CIDR</abbr>
+) прямо в конфиге</td>
 			</tr>
 			<tr>
 					<td><code>file</code></td>
@@ -1102,20 +1151,15 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
 					<td><code>ttl_ms</code></td>
 					<td>integer</td>
 					<td>нет (по умолчанию: <code>0</code>)</td>
-					<td>Как долго разрешённые IP должны храниться в кэше для списков на основе доменов. Большинство пользователей могут оставить это значение <code>0</code>.</td>
+					<td>Сколько минимум хранить IP-адреса доменов этого списка, в миллисекундах. Если не задано или меньше 1000, используется <code>intercept.min_ttl_ms</code>. Если 
+  <abbr title="Сколько секунд DNS-ответ можно хранить в кэше.">TTL</abbr>
+ в DNS-ответе больше, адрес хранится дольше, но не больше <code>intercept.max_ttl_ms</code></td>
 			</tr>
 	</tbody>
 </table>
-<p>Встроенные списки, локальные файлы и списки по URL используют одинаковый синтаксис
-доменов. Начальный <code>*.</code> и одна завершающая корневая точка удаляются, поэтому
-<code>*.google.com</code> передаётся в dnsmasq как <code>google.com</code>. В служебных DNS-метках разрешены
-символы подчёркивания; пробелы, разделители директив, некорректные маски и метки в
-файлах пропускаются, а во встроенной конфигурации отклоняются.</p>
-<p>URL удалённых списков и все перенаправления должны использовать HTTP или HTTPS.
-Приватные и локальные HTTP(S)-адреса остаются разрешёнными для списков внутри роутера.</p>
-<p>Локальные источники должны быть обычными файлами, а не символическими ссылками,
-устройствами или FIFO. Для локальных и кэшированных файлов действует ограничение
-<code>daemon.max_file_size_bytes</code> (по умолчанию 8 МиБ), а длина строки ограничена 4096 байтами.</p>
+<p>Домены записываются одинаково во всех источниках. <code>*.google.com</code> и <code>google.com</code> означают одно и то же. Некорректные домены в файлах и списках по URL пропускаются, а в <code>domains</code> — приводят к ошибке конфигурации.</p>
+<p>Списки по URL скачиваются только по HTTP или HTTPS, в том числе с адресов в локальной сети.</p>
+<p>Локальный файл должен быть обычным файлом (не символической ссылкой). Размер файла ограничен <code>daemon.max_file_size_bytes</code> (по умолчанию 8 МиБ), длина строки — 4096 байтами.</p>
 <p>Должен быть предоставлен хотя бы один из <code>url</code>, <code>domains</code>, <code>ip_cidrs</code> или <code>file</code>.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
@@ -1127,14 +1171,13 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
 
 <details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
   <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
-    <strong class="hx:text-lg">Под капотом: как сопоставляются списки доменов</strong>
+    <strong class="hx:text-lg">Под капотом: откуда берутся IP-адреса доменов</strong>
   </summary>
   <div class="hx:p-2 hx:overflow-hidden">
-    <p>Каждый список поддерживается статическими и динамическими наборами IP.</p>
-<ul>
-<li>Статические записи из <code>ip_cidrs</code>, <code>file</code> и <code>url</code> загружаются немедленно.</li>
-<li>Записи доменов добавляются позже, когда dnsmasq их разрешает.</li>
-<li>Если <code>ttl_ms</code> установлен, эти разрешённые IP для доменов автоматически истекают после этого времени.</li>
+    <ul>
+<li>IP-адреса и подсети из <code>ip_cidrs</code>, <code>file</code> и <code>url</code> загружаются сразу при запуске.</li>
+<li>IP-адреса доменов keen-pbr узнаёт позже, когда устройство в сети обращается к сайту (из DNS-ответа или из самого соединения).</li>
+<li>IP-адрес домена хранится столько, сколько указано в DNS-ответе, но не меньше <code>ttl_ms</code> списка и в пределах <code>intercept.min_ttl_ms</code>–<code>intercept.max_ttl_ms</code>. Это не связано с тем, как часто обновляются списки по URL.</li>
 </ul>
   </div>
 </details>
@@ -1142,10 +1185,12 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
     <a href="#%d1%84%d0%be%d1%80%d0%bc%d0%b0%d1%82-%d1%84%d0%b0%d0%b9%d0%bb%d0%b0-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Независимо от того, загружается ли из <code>url</code> или <code>file</code>, keen-pbr ожидает одну запись на строку:</p>
 <ul>
 <li>IPv4-адрес: <code>93.184.216.34</code></li>
-<li>IPv4 CIDR: <code>10.0.0.0/8</code></li>
+<li>IPv4 
+  <abbr title="Запись подсети: адрес и длина префикса, например 192.168.1.0/24.">CIDR</abbr>
+: <code>10.0.0.0/8</code></li>
 <li>IPv6-адрес: <code>2606:2800:220:1:248:1893:25c8:1946</code></li>
 <li>IPv6 CIDR: <code>2001:db8::/32</code></li>
-<li>Домен: <code>example.com</code> — сопоставляет домен и все его поддомены (семантика dnsmasq <code>server=/example.com/</code>)
+<li>Домен: <code>example.com</code> — подходит сам домен и все его поддомены
 <ul>
 <li>Домен с wildcard: <code>*.example.org</code> эквивалентен <code>example.org</code>, поэтому <strong>нет необходимости</strong> добавлять <code>*.</code> перед доменом. Для совместимости префикс <code>*.</code> автоматически удаляется</li>
 </ul>
@@ -1205,7 +1250,7 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
   </button>
 </div>
 </div>
-<p>Обе записи сопоставляют домен и все его поддомены. Написание <code>*.example.com</code> эквивалентно <code>example.com</code> — префикс <code>*.</code> автоматически удаляется keen-pbr.</p>
+<p>Обе записи подходят для домена и всех его поддоменов. Написание <code>*.example.com</code> эквивалентно <code>example.com</code> — префикс <code>*.</code> автоматически удаляется keen-pbr.</p>
 <h3>Встроенный список IP<span class="hx:absolute hx:-mt-20" id="встроенный-список-ip"></span>
     <a href="#%d0%b2%d1%81%d1%82%d1%80%d0%be%d0%b5%d0%bd%d0%bd%d1%8b%d0%b9-%d1%81%d0%bf%d0%b8%d1%81%d0%be%d0%ba-ip" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1253,7 +1298,7 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
   </button>
 </div>
 </div>
-<p>Все четыре источника объединяются в один список. <code>ttl_ms: 86400000</code> устанавливает 24-часовой TTL для разрешённых IPs dnsmasq в стабильном динамическом наборе (<code>kpbr4d_combined</code> / <code>kpbr6d_combined</code>). Статические IP из <code>ip_cidrs</code> и кэшированного URL/файла загружаются в активный A/B-набор iptables (<code>kpbr4s_combined</code> или <code>kpbr4S_combined</code>) либо стабильный набор nftables (<code>kpbr4_combined</code>) и никогда не истекают автоматически.</p>
+<p>Все четыре источника объединяются в один список. <code>ttl_ms: 86400000</code> означает, что IP-адреса доменов из этого списка хранятся не меньше 24 часов. IP-адреса из <code>ip_cidrs</code>, файла и URL хранятся, пока не изменится сам список.</p>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

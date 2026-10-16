@@ -65,7 +65,7 @@ Generate a verifier interactively:
 	<meta itemprop="description" content="This page documents the built-in HTTP REST API.
 The REST API is available when:
 Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;device_name&#34;: &#34;Home router&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=2048,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:">
-	<meta itemprop="wordCount" content="1167">
+	<meta itemprop="wordCount" content="2631">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
 	<meta name="twitter:description" content="This page documents the built-in HTTP REST API.
@@ -140,11 +140,11 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
           </a>
           <a class="hx:p-2 hx:text-current" target="_blank" rel="noreferrer" href="https://t.me/keen_pbr" title="Telegram"><svg height=24 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><path fill="currentColor" d="M248 8C111.033 8 0 119.033 0 256s111.033 248 248 248 248-111.033 248-248S384.967 8 248 8m114.952 168.66c-3.732 39.215-19.881 134.378-28.1 178.3-3.476 18.584-10.322 24.816-16.948 25.425-14.4 1.326-25.338-9.517-39.287-18.661-21.827-14.308-34.158-23.215-55.346-37.177-24.485-16.135-8.612-25 5.342-39.5 3.652-3.793 67.107-61.51 68.335-66.746.153-.655.3-3.1-1.154-4.384s-3.59-.849-5.135-.5q-3.283.746-104.608 69.142-14.845 10.194-26.894 9.934c-8.855-.191-25.888-5.006-38.551-9.123-15.531-5.048-27.875-7.717-26.8-16.291q.84-6.7 18.45-13.7 108.446-47.248 144.628-62.3c68.872-28.647 83.183-33.623 92.511-33.789 2.052-.034 6.639.474 9.61 2.885a10.45 10.45 0 0 1 3.53 6.716 43.8 43.8 0 0 1 .417 9.769"/></svg><span class="hx:sr-only">Telegram</span>
           </a><a
-  title="Sponsor this project"
+  title="Support this project"
   href="/docs/donate"
   
   class="hx:text-sm hx:contrast-more:text-gray-700 hx:contrast-more:dark:text-gray-100 hx:relative hx:-ml-2 hx:hidden hx:whitespace-nowrap hx:p-2 hx:md:inline-flex hx:items-center hx:gap-1 hx:text-gray-600 hx:hover:text-gray-800 hx:dark:text-gray-400 hx:dark:hover:text-gray-200 donation-nav-button"
-><span class="hx:inline-flex hx:items-center"><svg height="1em" class="hx:inline-block" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M640-440 474-602q-31-30-52.5-66.5T400-748q0-55 38.5-93.5T532-880q32 0 60 13.5t48 36.5q20-23 48-36.5t60-13.5q55 0 93.5 38.5T880-748q0 43-21 79.5T807-602L640-440Zm0-112 109-107q19-19 35-40.5t16-48.5q0-22-15-37t-37-15q-14 0-26.5 5.5T700-778l-60 72-60-72q-9-11-21.5-16.5T532-800q-22 0-37 15t-15 37q0 27 16 48.5t35 40.5l109 107ZM280-220l278 76 238-74q-5-9-14.5-15.5T760-240H558q-27 0-43-2t-33-8l-93-31 22-78 81 27q17 5 40 8t68 4q0-11-6.5-21T578-354l-234-86h-64v220ZM40-80v-440h304q7 0 14 1.5t13 3.5l235 87q33 12 53.5 42t20.5 66h80q50 0 85 33t35 87v40L560-60l-280-78v58H40Zm80-80h80v-280h-80v280Zm520-546Z"/></svg></span><span class="hx:text-center">Sponsor this project</span>
+><span class="hx:inline-flex hx:items-center"><svg height="1em" class="hx:inline-block" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M640-440 474-602q-31-30-52.5-66.5T400-748q0-55 38.5-93.5T532-880q32 0 60 13.5t48 36.5q20-23 48-36.5t60-13.5q55 0 93.5 38.5T880-748q0 43-21 79.5T807-602L640-440Zm0-112 109-107q19-19 35-40.5t16-48.5q0-22-15-37t-37-15q-14 0-26.5 5.5T700-778l-60 72-60-72q-9-11-21.5-16.5T532-800q-22 0-37 15t-15 37q0 27 16 48.5t35 40.5l109 107ZM280-220l278 76 238-74q-5-9-14.5-15.5T760-240H558q-27 0-43-2t-33-8l-93-31 22-78 81 27q17 5 40 8t68 4q0-11-6.5-21T578-354l-234-86h-64v220ZM40-80v-440h304q7 0 14 1.5t13 3.5l235 87q33 12 53.5 42t20.5 66h80q50 0 85 33t35 87v40L560-60l-280-78v58H40Zm80-80h80v-280h-80v280Zm520-546Z"/></svg></span><span class="hx:text-center">Support this project</span>
 </a><button type="button" aria-label="Menu" aria-expanded="false" class="hextra-hamburger-menu hx:cursor-pointer hx:-mr-2 hx:rounded-sm hx:p-2 hx:active:bg-gray-400/20 hx:md:hidden hx:hextra-focus-visible-inset"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
   </nav>
 </div>
@@ -383,6 +383,18 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Multi-WAN Load Balancing</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -420,6 +432,12 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
                 href="#get-apihealthservice"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >GET /api/health/service</a>
+            </li>
+          <li>
+              <a
+                href="#get-metrics"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >GET /metrics</a>
             </li>
           <li>
               <a
@@ -498,6 +516,18 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
               
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
     <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Changelog</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
       hx:hextra-focus-visible-inset
         hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
@@ -545,7 +575,7 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
       href="/docs/donate/"
       
     >
-      <span class="hx:min-w-0 [word-break:break-word]">Sponsor this project</span>
+      <span class="hx:min-w-0 [word-break:break-word]">Support this project</span>
     </a>
   </div></li>
     </ul>
@@ -736,6 +766,18 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Multi-WAN Load Balancing</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -780,6 +822,17 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Changelog</span>
     </a>
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -941,6 +994,34 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#get-metrics">GET /metrics
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#process-and-configuration">Process and configuration
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#errors">Errors
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#probes-urltest--icmptest">Probes (urltest / icmptest)
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-8 hx:rtl:pr-8 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#omitted-series">Omitted series
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#interception">Interception
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#grafana-dashboard-and-alerts">Grafana dashboard and alerts
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#post-apilistsrefresh">POST /api/lists/refresh
         </a>
       </li>
@@ -985,7 +1066,7 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#response-3">Response
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#accepted-response-202">Accepted response (202)
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -997,7 +1078,7 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#response-4">Response
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#response-3">Response
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1005,7 +1086,7 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#response-5">Response
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#response-4">Response
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1013,7 +1094,7 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#response-6">Response
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#response-5">Response
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1166,8 +1247,7 @@ and CORS changes made through the WebUI are persisted and take effect
 immediately, without applying a pending routing configuration draft.</p>
 <p><code>device_name</code> is optional and may be empty. When set, the WebUI uses it in the
 browser page title and beneath the keen-pbr logo to distinguish devices.</p>
-<p>Password verifiers use Monocypher&rsquo;s Argon2id implementation. Verifiers from
-older PBKDF2-based releases are not accepted and must be regenerated.
+<p>The password is stored as an Argon2id hash. Hashes from older keen-pbr versions do not work: if the password was set in an older version, set it again.
 The config API never returns or accepts the stored verifier. The WebUI reads
 only <code>GET /api/auth/password</code> state and sends a new clear-text password only to
 the write-only <code>POST /api/auth/settings</code> operation; hashing happens in the daemon.</p>
@@ -1180,9 +1260,68 @@ When enabled, exact configured origins and Chrome/Firefox extension origins are
 allowed. Since passwords are sent to the API during login or Basic auth, use a
 trusted network or an HTTPS reverse proxy.</p>
 <p>By default, the API listens on <code>0.0.0.0:12121</code>. All endpoints are served at the configured <code>api.listen</code> address.</p>
+<p>The <a href="https://github.com/maksimkurb/keen-pbr/blob/main/docs/openapi.yaml"target="_blank" rel="noopener">OpenAPI document</a> is the complete request and response schema. The main routes are:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Route</th>
+					<th>Purpose</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>GET /api/health/service</code></td>
+					<td>Service, config draft, lifecycle operation, and rollback status.</td>
+			</tr>
+			<tr>
+					<td><code>POST /api/service/start</code>, <code>/stop</code>, <code>/restart</code></td>
+					<td>Start, stop, or restart routing asynchronously.</td>
+			</tr>
+			<tr>
+					<td><code>GET /api/config</code>, <code>POST /api/config</code></td>
+					<td>Read or stage a validated config draft.</td>
+			</tr>
+			<tr>
+					<td><code>POST /api/config/discard</code>, <code>/save</code>, <code>/rollback</code></td>
+					<td>Discard a draft, persist/apply it, or explicitly roll back a failed apply.</td>
+			</tr>
+			<tr>
+					<td><code>GET /api/status/events</code></td>
+					<td>Server-Sent Events for service, outbound, interface, and health issue, and routing health, authentication status, and config changes (<code>snapshot</code>, <code>service</code>, <code>outbounds</code>, <code>interfaces</code>, <code>issues</code>, <code>routing</code>, <code>auth</code>, <code>config</code>). The <code>config</code> event only carries a revision that changes with the active config, the draft, or the list refresh state; read the data with <code>GET /api/config</code>. The REST endpoints, including <code>GET /api/health/issues</code>, <code>GET /api/health/routing</code>, and <code>GET /api/auth/status</code>, stay available.</td>
+			</tr>
+			<tr>
+					<td><code>GET /api/runtime/outbounds</code>, <code>/api/runtime/interfaces</code></td>
+					<td>Current outbound health and system interface inventory.</td>
+			</tr>
+			<tr>
+					<td><code>GET /api/health/routing</code>, <code>POST /api/routing/test</code></td>
+					<td>Cached routing/firewall health and a per-target routing diagnostic.</td>
+			</tr>
+			<tr>
+					<td><code>POST /api/lists/refresh</code></td>
+					<td>Refresh one or all remote URL lists.</td>
+			</tr>
+			<tr>
+					<td><code>GET /api/dns/test</code></td>
+					<td>Stream DNS and L7 interception events or run the Web UI DNS marker check.</td>
+			</tr>
+			<tr>
+					<td><code>GET /api/diagnostics/command-failure</code></td>
+					<td>Read the recent command failure log.</td>
+			</tr>
+			<tr>
+					<td><code>GET /metrics</code></td>
+					<td>Prometheus text metrics.</td>
+			</tr>
+			<tr>
+					<td><code>/api/auth/status</code>, <code>/api/auth/login</code>, <code>/api/auth/logout</code>, <code>/api/auth/password</code>, <code>/api/auth/settings</code></td>
+					<td>Authentication status and session/password management.</td>
+			</tr>
+	</tbody>
+</table>
 <hr>
 <h2>GET /api/health/service<span class="hx:absolute hx:-mt-20" id="get-apihealthservice"></span>
-    <a href="#get-apihealthservice" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns the running daemon version, routing runtime status, and resolver configuration summary.</p>
+    <a href="#get-apihealthservice" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns the running daemon version and routing runtime status.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/health/service</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1202,10 +1341,15 @@ trusted network or an HTTPS reverse proxy.</p>
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;version&#34;</span><span class="p">:</span> <span class="s2">&#34;3.0.0&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;build&#34;</span><span class="p">:</span> <span class="s2">&#34;20261010120000&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;running&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;resolver_config_hash&#34;</span><span class="p">:</span> <span class="s2">&#34;a3f7c1d9e2b84560abcdef1234567890&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;resolver_config_hash_actual&#34;</span><span class="p">:</span> <span class="s2">&#34;a3f7c1d9e2b84560abcdef1234567890&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;config_is_draft&#34;</span><span class="p">:</span> <span class="kc">false</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;runtime_state&#34;</span><span class="p">:</span> <span class="s2">&#34;running&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;runtime_state_reason&#34;</span><span class="p">:</span> <span class="s2">&#34;config apply complete&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;os_type&#34;</span><span class="p">:</span> <span class="s2">&#34;debian&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;os_version&#34;</span><span class="p">:</span> <span class="s2">&#34;12&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;build_variant&#34;</span><span class="p">:</span> <span class="s2">&#34;generic&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;config_is_draft&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;rollback_available&#34;</span><span class="p">:</span> <span class="kc">false</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1218,8 +1362,394 @@ trusted network or an HTTPS reverse proxy.</p>
   </button>
 </div>
 </div>
-<p><code>resolver_config_hash</code> is an MD5 hex digest of the expected domain-to-ipset mapping derived from the current config. <code>resolver_config_hash_actual</code> reflects the hash of the config that was last applied to the running system resolver. When these two values differ, the dnsmasq config may be out of date.</p>
+<p>When interception is configured, the same response includes an <code>intercept</code>
+object. It reports <code>dns_hold_active</code> and <code>l7_active</code> independently, capability
+flags (<code>nfqueue</code>, <code>nflog</code>, <code>connbytes</code>), and counters for DNS parsing/holds,
+partial TCP, L7 packets, set updates, 
+  <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
+ cleanup, and 
+  <abbr title="A netfilter mechanism that passes packets to a user-space program and waits for its verdict. keen-pbr uses it to hold DNS replies briefly.">NFQUEUE</abbr>
+/NFLOG
+overruns. A missing NFQUEUE capability does not imply that L7 is unavailable,
+and vice versa.</p>
 <p>For live outbound runtime state (health, latency, circuit breaker) use <code>GET /api/runtime/outbounds</code>.</p>
+<h2>GET /metrics<span class="hx:absolute hx:-mt-20" id="get-metrics"></span>
+    <a href="#get-metrics" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns Prometheus text format 0.0.4. It uses the same authentication as the API,
+including when authentication is enabled; scrape it with Basic auth or the
+current Bearer token. It may return <code>503</code> if the metrics provider is unavailable:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -u admin:password http://127.0.0.1:12121/metrics</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>All durations are floating-point <strong>seconds</strong>. A series that is not meaningful is
+<strong>omitted</strong> instead of being exported as <code>0</code> (see &ldquo;Omitted series&rdquo; below).
+Every family has <code># HELP</code> and <code># TYPE</code> exactly once; families without samples
+are not printed.</p>
+<h3>Process and configuration<span class="hx:absolute hx:-mt-20" id="process-and-configuration"></span>
+    <a href="#process-and-configuration" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><table>
+	<thead>
+			<tr>
+					<th>Metric</th>
+					<th>Type</th>
+					<th>Labels</th>
+					<th>Meaning</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>keen_pbr_build_info</code></td>
+					<td>gauge</td>
+					<td><code>version</code>, <code>commit</code>, <code>firewall_backend</code></td>
+					<td>Always <code>1</code>; build identity.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_process_start_time_seconds</code></td>
+					<td>gauge</td>
+					<td>-</td>
+					<td>Unix start time; uptime is <code>time() - keen_pbr_process_start_time_seconds</code>.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_active_rules</code></td>
+					<td>gauge</td>
+					<td>-</td>
+					<td>Realized firewall rules.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_config_reload_last_success_timestamp_seconds</code></td>
+					<td>gauge</td>
+					<td>-</td>
+					<td>Unix time the runtime last finished applying a configuration (startup counts). Omitted until the first one.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_config_reload_errors_total</code></td>
+					<td>counter</td>
+					<td>-</td>
+					<td>Failed config reloads and applies (parse, validation, prepare or apply failures).</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_list_last_update_timestamp_seconds</code></td>
+					<td>gauge</td>
+					<td><code>list</code></td>
+					<td>Unix time of the last successful check of a remote (URL) list, whether or not its content changed. In-memory: omitted until a refresh succeeded in this process.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_list_update_errors_total</code></td>
+					<td>counter</td>
+					<td><code>list</code></td>
+					<td>Failed refresh attempts of a remote list.</td>
+			</tr>
+	</tbody>
+</table>
+<h3>Errors<span class="hx:absolute hx:-mt-20" id="errors"></span>
+    <a href="#errors" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><code>keen_pbr_errors_total{subsystem}</code> is a single counter family; all values are
+always present (zeros included): <code>firewall_apply</code> (failed firewall applies),
+<code>netlink</code> (route / policy-rule operations), <code>set_write</code> (dynamic set writes),
+<code>conntrack</code> (cleanup errors), <code>dns_parse</code>, <code>dns_tcp_partial</code> (DNS-over-TCP
+messages not fully reassembled) and <code>dns_late_write</code> (failed deferred DNS
+writes).</p>
+<h3>Probes (urltest / icmptest)<span class="hx:absolute hx:-mt-20" id="probes-urltest--icmptest"></span>
+    <a href="#probes-urltest--icmptest" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Labelled with the child <code>outbound</code>, test group <code>test_outbound</code>, <code>interface</code> and
+<code>type</code> (<code>urltest</code> or <code>icmptest</code>).</p>
+<table>
+	<thead>
+			<tr>
+					<th>Metric</th>
+					<th>Type</th>
+					<th>Meaning</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>keen_pbr_probe_attempts_total</code></td>
+					<td>counter</td>
+					<td>Accepted probe results.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_probe_successes_total</code></td>
+					<td>counter</td>
+					<td>Successful probe results.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_probe_packets_sent_total</code></td>
+					<td>counter</td>
+					<td>
+  <abbr title="Service protocol for network diagnostics. ping uses ICMP Echo.">ICMP</abbr>
+ echo requests sent. <code>type=&quot;icmptest&quot;</code> only.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_probe_packets_received_total</code></td>
+					<td>counter</td>
+					<td>ICMP echo replies received. <code>type=&quot;icmptest&quot;</code> only.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_probe_up</code></td>
+					<td>gauge</td>
+					<td><code>1</code> if the last probe succeeded, <code>0</code> if it failed.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_probe_last_success_timestamp_seconds</code></td>
+					<td>gauge</td>
+					<td>Unix time of the last successful probe.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_probe_latency_seconds</code></td>
+					<td>gauge</td>
+					<td>Latency of the last successful probe: ICMP is the mean of the received replies, URL is the request time. Sub-millisecond precision.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_probe_latency_min_seconds</code>, <code>keen_pbr_probe_latency_max_seconds</code></td>
+					<td>gauge</td>
+					<td>Fastest and slowest reply of the last successful ICMP probe. <code>type=&quot;icmptest&quot;</code> only.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_urltest_selected</code></td>
+					<td>gauge</td>
+					<td>Labels <code>group</code>, <code>outbound</code>: <code>1</code> for the group&rsquo;s currently selected outbound, <code>0</code> for the other members.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_urltest_selection_changes_total</code></td>
+					<td>counter</td>
+					<td>Label <code>group</code>: selection changes since the group was registered (a config apply registers it again, which resets the counter).</td>
+			</tr>
+	</tbody>
+</table>
+<h4>Omitted series<span class="hx:absolute hx:-mt-20" id="omitted-series"></span>
+    <a href="#omitted-series" class="subheading-anchor" aria-label="Permalink for this section"></a></h4><ul>
+<li><code>probe_up</code> is omitted before the first probe of an outbound completed.</li>
+<li><code>probe_latency_seconds</code>, <code>probe_latency_min_seconds</code> and
+<code>probe_latency_max_seconds</code> are omitted when the <strong>last</strong> probe failed or no
+probe completed yet. In Grafana this shows up as a gap, never as a <code>0</code>.</li>
+<li><code>probe_last_success_timestamp_seconds</code> is omitted until the first success.</li>
+<li><code>list_last_update_timestamp_seconds</code> and
+<code>config_reload_last_success_timestamp_seconds</code> are omitted until the first success.</li>
+</ul>
+<h3>Interception<span class="hx:absolute hx:-mt-20" id="interception"></span>
+    <a href="#interception" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>All of these are updated on the DNS / L7 packet paths with a single relaxed
+atomic increment on a pre-allocated counter; labels are fixed array slots that
+are only rendered when <code>/metrics</code> is scraped.</p>
+<table>
+	<thead>
+			<tr>
+					<th>Metric</th>
+					<th>Type</th>
+					<th>Labels</th>
+					<th>Meaning</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>keen_pbr_intercept_packets_total</code></td>
+					<td>counter</td>
+					<td><code>path</code> = <code>dns</code>, <code>l7</code></td>
+					<td>Packets inspected.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_intercept_matches_total</code></td>
+					<td>counter</td>
+					<td><code>path</code> = <code>dns</code>, <code>l7</code></td>
+					<td>Packets that matched a configured domain list.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_hold_duration_seconds</code></td>
+					<td>histogram</td>
+					<td>-</td>
+					<td>Time a DNS answer was held before its verdict.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_queue_wait_duration_seconds</code></td>
+					<td>histogram</td>
+					<td>-</td>
+					<td>Time a DNS packet waited in the receive queue.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_hold_timeouts_total</code></td>
+					<td>counter</td>
+					<td><code>cause</code> = <code>batch_budget</code>, <code>admission_blocked</code>, <code>own_write_slow</code>, <code>late_batch_full</code>, <code>other</code></td>
+					<td>Holds that reached their deadline.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_late_writes_total</code></td>
+					<td>counter</td>
+					<td>-</td>
+					<td>DNS writes completed after the packet was released.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_queue_overruns_total</code></td>
+					<td>counter</td>
+					<td><code>queue</code> = <code>nfqueue</code>, <code>nflog</code></td>
+					<td>Kernel queue receive overruns.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_set_write_duration_seconds</code></td>
+					<td>histogram</td>
+					<td><code>path</code> = <code>dns</code>, <code>late_dns</code>, <code>l7</code></td>
+					<td>Dynamic set write time. Buckets (seconds): 0.0001, 0.00025, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, +Inf.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_set_writes_total</code></td>
+					<td>counter</td>
+					<td><code>kind</code> = <code>add</code>, <code>refresh</code></td>
+					<td>Elements added (upserted) or timeout-refreshed.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_set_refresh_total</code></td>
+					<td>counter</td>
+					<td><code>result</code> = <code>skipped</code>, <code>deferred</code>, <code>dropped</code></td>
+					<td>Cached-element refresh outcomes. <code>dropped</code> means the refresh queue was full.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_set_cache_lookups_total</code></td>
+					<td>counter</td>
+					<td><code>result</code> = <code>hit</code>, <code>miss</code></td>
+					<td>Set cache lookups; a hit avoids a write before the verdict.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_set_cache_entries</code></td>
+					<td>gauge</td>
+					<td>-</td>
+					<td>Remembered dynamic set elements.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_conntrack_requests_total</code></td>
+					<td>counter</td>
+					<td>-</td>
+					<td>Conntrack cleanup requests.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_conntrack_deleted_total</code></td>
+					<td>counter</td>
+					<td>-</td>
+					<td>Conntrack entries deleted.</td>
+			</tr>
+	</tbody>
+</table>
+<p>The &ldquo;slow write&rdquo; share is derived from the <code>le=&quot;0.025&quot;</code> bucket of
+<code>keen_pbr_set_write_duration_seconds</code> (writes slower than 25 ms).</p>
+<p>Not exported: per-outbound routed bytes/packets and per-set element counts.
+Both would need the firewall counters or a 
+  <abbr title="The Linux kernel interface programs use to read and change routes, rules, sets and other network settings.">netlink</abbr>
+ set dump to be read on every
+scrape (through a subprocess or a kernel dump, with a different mechanism per
+firewall backend), which is deliberately kept out of the daemon.</p>
+<p>Prometheus scrape configuration:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">scrape_configs</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="nt">job_name</span><span class="p">:</span><span class="w"> </span><span class="l">keen-pbr</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">metrics_path</span><span class="p">:</span><span class="w"> </span><span class="l">/metrics</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">scrape_interval</span><span class="p">:</span><span class="w"> </span><span class="l">15s</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">static_configs</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&#34;router.example:12121&#34;</span><span class="p">]</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">basic_auth</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span><span class="nt">username</span><span class="p">:</span><span class="w"> </span><span class="l">admin</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span><span class="nt">password_file</span><span class="p">:</span><span class="w"> </span><span class="l">/etc/prometheus/keen-pbr-password</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Example queries:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-promql" data-lang="promql"><span class="line"><span class="cl"><span class="c1"># ICMP packet loss over 15 minutes, in percent (no data when nothing was sent)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="mi">100</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nv">clamp</span><span class="o">(</span><span class="mi">1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="kr">increase</span><span class="o">(</span><span class="nv">keen_pbr_probe_packets_received_total</span><span class="p">[</span><span class="s">15m</span><span class="p">]</span><span class="o">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="o">/</span><span class="w"> </span><span class="o">(</span><span class="kr">increase</span><span class="o">(</span><span class="nv">keen_pbr_probe_packets_sent_total</span><span class="p">[</span><span class="s">15m</span><span class="p">]</span><span class="o">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="o">)</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="o">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="c1"># Probe success rate over 15 minutes</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="mi">100</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="kr">increase</span><span class="o">(</span><span class="nv">keen_pbr_probe_successes_total</span><span class="p">[</span><span class="s">15m</span><span class="p">]</span><span class="o">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="o">/</span><span class="w"> </span><span class="o">(</span><span class="kr">increase</span><span class="o">(</span><span class="nv">keen_pbr_probe_attempts_total</span><span class="p">[</span><span class="s">15m</span><span class="p">]</span><span class="o">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="o">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="c1"># Average and 95th percentile latency per outbound over 1 hour (seconds)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="kr">avg_over_time</span><span class="o">(</span><span class="nv">keen_pbr_probe_latency_seconds</span><span class="p">[</span><span class="s">1h</span><span class="p">]</span><span class="o">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="kr">quantile_over_time</span><span class="o">(</span><span class="mf">0.95</span><span class="p">,</span><span class="w"> </span><span class="nv">keen_pbr_probe_latency_seconds</span><span class="p">[</span><span class="s">1h</span><span class="p">]</span><span class="o">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="c1"># DNS hold time p99 (seconds)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="kr">histogram_quantile</span><span class="o">(</span><span class="mf">0.99</span><span class="p">,</span><span class="w"> </span><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">le</span><span class="o">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">keen_pbr_dns_hold_duration_seconds_bucket</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)))</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="c1"># Share of set writes slower than 25 ms, per path</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="mi">1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">path</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">keen_pbr_set_write_duration_seconds_bucket</span><span class="p">{</span><span class="nl">le</span><span class="o">=</span><span class="p">&#34;</span><span class="s">0.025</span><span class="p">&#34;}[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="o">/</span><span class="w"> </span><span class="o">(</span><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">path</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">keen_pbr_set_write_duration_seconds_count</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="o">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="c1"># Errors in the last hour by subsystem</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">subsystem</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="kr">increase</span><span class="o">(</span><span class="nv">keen_pbr_errors_total</span><span class="p">[</span><span class="s">1h</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<h3>Grafana dashboard and alerts<span class="hx:absolute hx:-mt-20" id="grafana-dashboard-and-alerts"></span>
+    <a href="#grafana-dashboard-and-alerts" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Import <a href="https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json"target="_blank" rel="noopener">keen-pbr-dashboard.json</a>
+into Grafana (Dashboards - New - Import). It expects a Prometheus data source
+with UID <code>prometheus</code>, and has <code>job</code> and <code>outbound</code> variables, a 30 s refresh,
+and the rows Status, Outbounds, DNS interception, Sets &amp; lists and Errors. Use a
+scrape interval of 30 s or less: the bar panels compute <code>increase()</code> over
+one-minute windows.</p>
+<p>Example alerting rules:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">groups</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l">keen-pbr</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">rules</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">alert</span><span class="p">:</span><span class="w"> </span><span class="l">KeenPbrDown</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">expr</span><span class="p">:</span><span class="w"> </span><span class="l">up{job=&#34;keen-pbr&#34;} == 0</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">for</span><span class="p">:</span><span class="w"> </span><span class="l">2m</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">alert</span><span class="p">:</span><span class="w"> </span><span class="l">KeenPbrOutboundDown</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">expr</span><span class="p">:</span><span class="w"> </span><span class="l">keen_pbr_probe_up == 0</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">for</span><span class="p">:</span><span class="w"> </span><span class="l">5m</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">annotations</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">          </span><span class="nt">summary</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;{{ $labels.outbound }} probe is failing ({{ $labels.test_outbound }})&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">alert</span><span class="p">:</span><span class="w"> </span><span class="l">KeenPbrProbeStale</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="c"># Probes stopped completing (probe interval must be well below 30m).</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">expr</span><span class="p">:</span><span class="w"> </span><span class="l">increase(keen_pbr_probe_attempts_total[30m]) == 0</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">for</span><span class="p">:</span><span class="w"> </span><span class="l">10m</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">alert</span><span class="p">:</span><span class="w"> </span><span class="l">KeenPbrErrors</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">expr</span><span class="p">:</span><span class="w"> </span><span class="l">sum by (subsystem) (increase(keen_pbr_errors_total[10m])) &gt; 0</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">for</span><span class="p">:</span><span class="w"> </span><span class="l">5m</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">alert</span><span class="p">:</span><span class="w"> </span><span class="l">KeenPbrDnsHoldSlow</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="c"># 0.03 s is the default hold deadline (intercept hold_timeout_ms: 30).</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">expr</span><span class="p">:</span><span class="w"> </span><span class="p">&gt;</span><span class="sd">
+</span></span></span><span class="line"><span class="cl"><span class="sd">          histogram_quantile(0.99, sum by (le)
+</span></span></span><span class="line"><span class="cl"><span class="sd">            (rate(keen_pbr_dns_hold_duration_seconds_bucket[5m]))) &gt; 0.03</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">for</span><span class="p">:</span><span class="w"> </span><span class="l">10m</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">alert</span><span class="p">:</span><span class="w"> </span><span class="l">KeenPbrQueueOverruns</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">expr</span><span class="p">:</span><span class="w"> </span><span class="l">sum by (queue) (increase(keen_pbr_queue_overruns_total[10m])) &gt; 0</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">alert</span><span class="p">:</span><span class="w"> </span><span class="l">KeenPbrListStale</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">expr</span><span class="p">:</span><span class="w"> </span><span class="l">time() - keen_pbr_list_last_update_timestamp_seconds &gt; 86400</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">for</span><span class="p">:</span><span class="w"> </span><span class="l">30m</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
 <hr>
 <h2>POST /api/lists/refresh<span class="hx:absolute hx:-mt-20" id="post-apilistsrefresh"></span>
     <a href="#post-apilistsrefresh" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Refreshes remote URL-backed lists from the active daemon config.</p>
@@ -1334,7 +1864,7 @@ trusted network or an HTTPS reverse proxy.</p>
 </div>
 <hr>
 <h2>GET /api/config<span class="hx:absolute hx:-mt-20" id="get-apiconfig"></span>
-    <a href="#get-apiconfig" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns the current configuration and a flag indicating whether a staged in-memory draft exists.</p>
+    <a href="#get-apiconfig" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns the visible configuration and a flag indicating whether a staged in-memory draft exists. The <code>api</code> security settings are intentionally omitted. The response also includes per-list refresh state.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/config</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1355,12 +1885,12 @@ trusted network or an HTTPS reverse proxy.</p>
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;config&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;daemon&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;pid_file&#34;</span><span class="p">:</span> <span class="s2">&#34;/var/run/keen-pbr.pid&#34;</span><span class="p">,</span> <span class="nt">&#34;cache_dir&#34;</span><span class="p">:</span> <span class="s2">&#34;/var/cache/keen-pbr&#34;</span> <span class="p">},</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;api&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span> <span class="nt">&#34;listen&#34;</span><span class="p">:</span> <span class="s2">&#34;127.0.0.1:12121&#34;</span> <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;outbounds&#34;</span><span class="p">:</span> <span class="p">[],</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;lists&#34;</span><span class="p">:</span> <span class="p">{},</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">},</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;is_draft&#34;</span><span class="p">:</span> <span class="kc">false</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;is_draft&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;list_refresh_state&#34;</span><span class="p">:</span> <span class="p">{}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1394,6 +1924,7 @@ trusted network or an HTTPS reverse proxy.</p>
 <hr>
 <h2>POST /api/config<span class="hx:absolute hx:-mt-20" id="post-apiconfig"></span>
     <a href="#post-apiconfig" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Validates the provided JSON body as a config file and stages it in memory. The config is <strong>not</strong> written to disk and the routing runtime is <strong>not</strong> changed. Use <code>POST /api/config/save</code> to persist and apply the staged draft.</p>
+<p>The <code>api</code> field in the submitted body is ignored; the daemon keeps the security settings already in effect.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://127.0.0.1:12121/api/config <span class="se">\
@@ -1434,7 +1965,7 @@ trusted network or an HTTPS reverse proxy.</p>
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;error&#34;</span><span class="p">:</span> <span class="s2">&#34;Validation failed&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;validation_errors&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="nt">&#34;path&#34;</span><span class="p">:</span> <span class="s2">&#34;outbounds.vpn.interface&#34;</span><span class="p">,</span> <span class="nt">&#34;message&#34;</span><span class="p">:</span> <span class="s2">&#34;interface is required&#34;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="nt">&#34;path&#34;</span><span class="p">:</span> <span class="s2">&#34;outbounds[0].interface&#34;</span><span class="p">,</span> <span class="nt">&#34;message&#34;</span><span class="p">:</span> <span class="s2">&#34;interface is required&#34;</span> <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">]</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
@@ -1450,7 +1981,7 @@ trusted network or an HTTPS reverse proxy.</p>
 </div>
 <hr>
 <h2>POST /api/config/save<span class="hx:absolute hx:-mt-20" id="post-apiconfigsave"></span>
-    <a href="#post-apiconfigsave" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Persists the staged config to disk, then applies it to the routing runtime.</p>
+    <a href="#post-apiconfigsave" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Accepts an asynchronous operation that persists the staged config to disk and then reconciles the routing runtime. HTTP <code>202</code> confirms acceptance only; it does not mean the runtime apply has completed.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://127.0.0.1:12121/api/config/save</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1465,15 +1996,12 @@ trusted network or an HTTPS reverse proxy.</p>
   </button>
 </div>
 </div>
-<h3>Response<span class="hx:absolute hx:-mt-20" id="response-3"></span>
-    <a href="#response-3" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Accepted response (202)<span class="hx:absolute hx:-mt-20" id="accepted-response-202"></span>
+    <a href="#accepted-response-202" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;message&#34;</span><span class="p">:</span> <span class="s2">&#34;Config saved and applied&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;saved&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;applied&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;rolled_back&#34;</span><span class="p">:</span> <span class="kc">false</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;operation_id&#34;</span><span class="p">:</span> <span class="s2">&#34;op-123&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;accepted&#34;</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1490,10 +2018,7 @@ trusted network or an HTTPS reverse proxy.</p>
     <a href="#error-response-400--no-staged-config" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;error&#34;</span><span class="p">:</span> <span class="s2">&#34;No staged config to save&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;saved&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;applied&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;rolled_back&#34;</span><span class="p">:</span> <span class="kc">false</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;error&#34;</span><span class="p">:</span> <span class="s2">&#34;No staged config to save&#34;</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1506,6 +2031,7 @@ trusted network or an HTTPS reverse proxy.</p>
   </button>
 </div>
 </div>
+<p>After acceptance, inspect <code>GET /api/health/service</code> and its <code>lifecycle_operation</code> field, or subscribe to <code>/api/status/events</code>, until the operation reaches a terminal state. Persistence happens before runtime reconciliation. If reconciliation fails after the file was committed, the daemon reports a broken runtime and sets <code>rollback_available</code>; it does not automatically restore the prior file or runtime. <code>POST /api/config/rollback</code> explicitly restores the retained previous config and reconciles it. On success the runtime becomes active and the staged revision is cleared. <code>POST /api/config/discard</code> only discards an unsaved in-memory draft; it does not change the file or runtime.</p>
 <hr>
 <h2>GET /api/runtime/outbounds<span class="hx:absolute hx:-mt-20" id="get-apiruntimeoutbounds"></span>
     <a href="#get-apiruntimeoutbounds" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns the daemon&rsquo;s current outbound runtime state: live urltest selection, interface reachability, and circuit breaker status.</p>
@@ -1523,8 +2049,8 @@ trusted network or an HTTPS reverse proxy.</p>
   </button>
 </div>
 </div>
-<h3>Response<span class="hx:absolute hx:-mt-20" id="response-4"></span>
-    <a href="#response-4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Response<span class="hx:absolute hx:-mt-20" id="response-3"></span>
+    <a href="#response-3" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;outbounds&#34;</span><span class="p">:</span> <span class="p">[</span>
@@ -1562,7 +2088,7 @@ trusted network or an HTTPS reverse proxy.</p>
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://127.0.0.1:12121/api/routing/test <span class="se">\
 </span></span></span><span class="line"><span class="cl">  -H <span class="s2">&#34;Content-Type: application/json&#34;</span> <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -d <span class="s1">&#39;{&#34;target&#34;: &#34;example.com&#34;}&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+</span></span></span><span class="line"><span class="cl">  -d <span class="s1">&#39;{&#34;target&#34;: &#34;example.com&#34;, &#34;proto&#34;: &#34;tcp&#34;, &#34;dest_port&#34;: 443}&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1574,8 +2100,13 @@ trusted network or an HTTPS reverse proxy.</p>
   </button>
 </div>
 </div>
-<h3>Response<span class="hx:absolute hx:-mt-20" id="response-5"></span>
-    <a href="#response-5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<p>The optional packet fields (<code>proto</code>: <code>tcp</code>, <code>udp</code>, or <code>other</code>; <code>dest_port</code>,
+<code>src_addr</code>, <code>src_port</code>, and <code>dscp</code>) let you test rules that filter by port,
+address, or 
+  <abbr title="A 6-bit field in the IP header used to mark traffic classes for QoS.">DSCP</abbr>
+. Without them, only list membership of the target is checked.</p>
+<h3>Response<span class="hx:absolute hx:-mt-20" id="response-4"></span>
+    <a href="#response-4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;example.com&#34;</span><span class="p">,</span>
@@ -1604,7 +2135,7 @@ trusted network or an HTTPS reverse proxy.</p>
 </div>
 <hr>
 <h2>GET /api/health/routing<span class="hx:absolute hx:-mt-20" id="get-apihealthrouting"></span>
-    <a href="#get-apihealthrouting" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Verifies the live kernel routing and firewall state against the expected configuration. Checks that the firewall chain exists, all rules are present, route tables are populated, and policy rules are in place.</p>
+    <a href="#get-apihealthrouting" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns the daemon&rsquo;s cached canonical report of kernel routing and firewall state. A cold or stale snapshot triggers an off-loop refresh and may temporarily report a pending/degraded result; each request does not synchronously inspect the kernel.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/health/routing</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1619,21 +2150,22 @@ trusted network or an HTTPS reverse proxy.</p>
   </button>
 </div>
 </div>
-<h3>Response<span class="hx:absolute hx:-mt-20" id="response-6"></span>
-    <a href="#response-6" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Response<span class="hx:absolute hx:-mt-20" id="response-5"></span>
+    <a href="#response-5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;overall&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;firewall_backend&#34;</span><span class="p">:</span> <span class="s2">&#34;nftables&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;firewall_backend&#34;</span><span class="p">:</span> <span class="s2">&#34;iptables&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;firewall&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;chain_present&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;prerouting_hook_present&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;detail&#34;</span><span class="p">:</span> <span class="s2">&#34;chain keen-pbr found in table mangle&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;verification_state&#34;</span><span class="p">:</span> <span class="s2">&#34;verified&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;detail&#34;</span><span class="p">:</span> <span class="s2">&#34;chain KeenPbrTable found in table mangle&#34;</span>
 </span></span><span class="line"><span class="cl">  <span class="p">},</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;firewall_rules&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;set_name&#34;</span><span class="p">:</span> <span class="s2">&#34;keen-pbr-my_domains&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;action&#34;</span><span class="p">:</span> <span class="s2">&#34;MARK&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;set_name&#34;</span><span class="p">:</span> <span class="s2">&#34;&lt;direct&gt;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;action&#34;</span><span class="p">:</span> <span class="s2">&#34;mark&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;expected_fwmark&#34;</span><span class="p">:</span> <span class="s2">&#34;0x00010000&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;actual_fwmark&#34;</span><span class="p">:</span> <span class="s2">&#34;0x00010000&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span>
@@ -1707,10 +2239,22 @@ trusted network or an HTTPS reverse proxy.</p>
 </div>
 <hr>
 <h2>GET /api/dns/test<span class="hx:absolute hx:-mt-20" id="get-apidnstest"></span>
-    <a href="#get-apidnstest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Streams DNS queries observed by the built-in <code>dns.dns_test_server</code> listener as Server-Sent Events. Each event payload is a JSON object. The connection receives a <code>HELLO</code> event immediately, then one <code>DNS</code> event per queried name while the connection is open.</p>
+    <a href="#get-apidnstest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Streams the daemon&rsquo;s traffic interception events as Server-Sent Events. Each
+connection receives <code>HELLO</code> first. The default <code>show=keen-pbr</code> view delivers
+only marker events and closes after the matching marker; <code>show=all</code> (or the
+compatibility alias <code>show=full</code>) stays open and delivers DNS, TLS 
+  <abbr title="The site name a client sends unencrypted at the start of a TLS connection.">SNI</abbr>
+, HTTP
+Host, 
+  <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr>
+ Initial, and marker observations, including domains that did not
+match a configured list. Pass <code>domain=&lt;generated marker&gt;</code> with the default view to keep unrelated checks from closing it.</p>
+<p><code>show=all</code> exposes the traffic of every client, so it requires API
+authentication to be enabled. Without it the endpoint answers <code>403</code>; the
+default marker view stays available.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -N http://127.0.0.1:12121/api/dns/test</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -N -u admin:password <span class="s1">&#39;http://127.0.0.1:12121/api/dns/test?show=all&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1727,9 +2271,7 @@ trusted network or an HTTPS reverse proxy.</p>
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">data: {&#34;type&#34;:&#34;HELLO&#34;}
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">data: {&#34;type&#34;:&#34;DNS&#34;,&#34;domain&#34;:&#34;example.com&#34;,&#34;source_ip&#34;:&#34;192.168.1.10&#34;,&#34;ecs&#34;:&#34;203.0.113.0/24&#34;}
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">data: {&#34;type&#34;:&#34;DNS&#34;,&#34;domain&#34;:&#34;connectivity-check.local&#34;,&#34;source_ip&#34;:&#34;192.168.1.11&#34;,&#34;ecs&#34;:null}</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+</span></span><span class="line"><span class="cl">data: {&#34;type&#34;:&#34;INTERCEPT&#34;,&#34;seq&#34;:42,&#34;ts_ms&#34;:1712345678123,&#34;source&#34;:&#34;dns&#34;,&#34;client_ip&#34;:&#34;192.168.1.10&#34;,&#34;domain&#34;:&#34;example.com&#34;,&#34;lists&#34;:[&#34;streaming&#34;],&#34;ips&#34;:[&#34;203.0.113.7&#34;],&#34;added&#34;:1,&#34;refreshed&#34;:0,&#34;errors&#34;:0,&#34;hold_us&#34;:180,&#34;timed_out&#34;:false}</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"

@@ -21,10 +21,11 @@ Dependencies are bundled as git submodules or resolved from system packages duri
 | libcurl | Downloading remote lists |
 | nlohmann_json | JSON parsing |
 | libnl | Netlink socket communication (routing/rules) |
-| libunwind | Required build-time stack unwinding backend for crash diagnostics; linked statically by default when `libunwind.a` is available |
+| libresolv | DNS resolution |
+| libunwind | Debian builds use it for signal-context stack unwinding by default. OpenWrt and Keenetic builds use register-only crash diagnostics if it is unavailable; `KEEN_PBR_USE_LIBUNWIND` controls whether CMake attempts to find it. |
 | fmt | C++17 formatting polyfill |
 | cpptrace | Vendored crash diagnostics library |
-| cpp-httplib | Embedded HTTP API server |
+| cpp-httplib | Embedded HTTP API server when `WITH_API=ON` |
 
 ## Build
 
@@ -48,11 +49,12 @@ make clean
 Step-by-step targets are also available:
 
 ```bash {filename="bash"}
-make setup    # cmake -S . -B cmake-build
-make build    # cmake --build cmake-build
+make setup    # cmake -S . -B cmake-build-gcc
+make build    # cmake --build cmake-build-gcc
 ```
 
-The binary is produced at `cmake-build/keen-pbr`.
+The binary is produced at `cmake-build-gcc/keen-pbr` (`cmake-build-clang` is
+used by the Clang targets).
 
 Run `make help` to see all available build and packaging targets.
 
@@ -63,12 +65,12 @@ Pass options during `cmake` configure:
 | Option | Default | Description |
 |---|---|---|
 | `WITH_API` | `ON` | Build with embedded HTTP API server |
-| `KEEN_PBR_STATIC_LIBUNWIND` | `ON` | Prefer linking `libunwind` statically; set to `OFF` to force the shared library |
+| `KEEN_PBR_USE_LIBUNWIND` | `ON` | Attempt to find and use `libunwind` for crash diagnostics. Debian builds require it when enabled; OpenWrt and Keenetic can fall back to register-only diagnostics when it is missing or disabled. |
 
 Example:
 
 ```bash {filename="bash"}
-cmake -S . -B cmake-build -DWITH_API=OFF
+cmake -S . -B cmake-build-gcc -DWITH_API=OFF
 ```
 
 ## Debian / Ubuntu Packages
@@ -111,7 +113,7 @@ The Debian packaging flow:
 - builds the frontend with `bun` for the full package
 - compiles dedicated native binaries with Debian install paths under `/etc/keen-pbr` and `/usr/share/keen-pbr/frontend`
 - installs a `systemd` unit at `/lib/systemd/system/keen-pbr.service`
-- does not auto-enable or auto-start the service during package installation
+- enables and starts the service on package installation
 
 ## Router Package Builds
 
@@ -119,7 +121,7 @@ For router targets, use the Docker-backed package build targets from the root `M
 
 ### Entware (for Keenetic and Netcraze routers)
 
-Build an Entware package:
+Build an {{< term "Entware" >}} package:
 
 ```bash {filename="bash"}
 make keenetic-packages KEENETIC_CONFIG=mipsel-3.4 KEENETIC_VERSION=current

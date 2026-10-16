@@ -9,36 +9,36 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Использование CLI keen-pbr – keen-pbr</title>
-  <meta name="description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.
-Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Путь к JSON файлу конфигурации --log-level &lt;lvl&gt; Уровень логов: error, warn, info, verbose, debug --no-api Отключить REST API во время выполнения --use-raw-prerouting Использовать raw PREROUTING для пересылаемого IPv4 (только iptables) --use-raw6-prerouting Использовать raw PREROUTING для пересылаемого IPv6 (только iptables) --version Показать версию и выйти --help Показать эту справку и выйти Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/cli/" itemprop="url" />
+  <meta name="description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и проверять решения маршрутизации.
+Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download test-routing &lt;ip-or-domain&gt; [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...] dnsmasq detect [--json] dnsmasq remove &lt;selector&gt; Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/cli/" itemprop="url" />
 
 <meta property="og:title" content="Использование CLI keen-pbr">
 <meta
   property="og:description"
   content="
     
-      keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.
+      keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и проверять решения маршрутизации.
 Использование
     
 
 Usage: keen-pbr [options] &lt;command&gt;
 
 Options:
-  --config &lt;path&gt;    Путь к JSON файлу конфигурации
-  --log-level &lt;lvl&gt;  Уровень логов: error, warn, info, verbose, debug
-  --no-api           Отключить REST API во время выполнения
-  --use-raw-prerouting  Использовать raw PREROUTING для пересылаемого IPv4 (только iptables)
-  --use-raw6-prerouting Использовать raw PREROUTING для пересылаемого IPv6 (только iptables)
-  --version         Показать версию и выйти
-  --help            Показать эту справку и выйти
+  --config &lt;path&gt;    Path to JSON config file
+  --log-level &lt;lvl&gt;  Log level: error, warn, info, verbose, debug
+  --no-api           Disable REST API at runtime
+  --use-raw-prerouting  Use raw PREROUTING for IPv4 forwarded traffic (iptables only)
+  --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only)
+  --version          Show version and exit
+  --help             Show this help and exit
 
 Commands:
   service
   status
   download
-  generate-resolver-config &lt;res&gt;
-  resolver-config-hash
-  test-routing &lt;ip-or-domain&gt;
+  test-routing &lt;ip-or-domain&gt; [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...]
+  dnsmasq detect [--json]
+  dnsmasq remove &lt;selector&gt;
   
     
 
@@ -59,13 +59,13 @@ Commands:
 
 
 	<meta itemprop="name" content="Использование CLI keen-pbr">
-	<meta itemprop="description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.
-Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Путь к JSON файлу конфигурации --log-level &lt;lvl&gt; Уровень логов: error, warn, info, verbose, debug --no-api Отключить REST API во время выполнения --use-raw-prerouting Использовать raw PREROUTING для пересылаемого IPv4 (только iptables) --use-raw6-prerouting Использовать raw PREROUTING для пересылаемого IPv6 (только iptables) --version Показать версию и выйти --help Показать эту справку и выйти Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze.">
-	<meta itemprop="wordCount" content="657">
+	<meta itemprop="description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и проверять решения маршрутизации.
+Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download test-routing &lt;ip-or-domain&gt; [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...] dnsmasq detect [--json] dnsmasq remove &lt;selector&gt; Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze.">
+	<meta itemprop="wordCount" content="1220">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Использование CLI keen-pbr">
-	<meta name="twitter:description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.
-Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Путь к JSON файлу конфигурации --log-level &lt;lvl&gt; Уровень логов: error, warn, info, verbose, debug --no-api Отключить REST API во время выполнения --use-raw-prerouting Использовать raw PREROUTING для пересылаемого IPv4 (только iptables) --use-raw6-prerouting Использовать raw PREROUTING для пересылаемого IPv6 (только iptables) --version Показать версию и выйти --help Показать эту справку и выйти Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze.">
+	<meta name="twitter:description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и проверять решения маршрутизации.
+Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download test-routing &lt;ip-or-domain&gt; [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...] dnsmasq detect [--json] dnsmasq remove &lt;selector&gt; Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -378,6 +378,18 @@ Commands:
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col open"><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="true">
@@ -458,6 +470,18 @@ Commands:
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div>
               
@@ -701,6 +725,18 @@ Commands:
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div></li>
             <li class="open"><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="true">
@@ -745,6 +781,17 @@ Commands:
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -910,6 +957,14 @@ Commands:
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#generate-resolver-config-dnsmasq">generate-resolver-config dnsmasq
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dnsmasq-detect-and-remove">dnsmasq detect и remove
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%81%d0%b8%d0%b3%d0%bd%d0%b0%d0%bb%d1%8b">Сигналы
         </a>
       </li>
@@ -997,28 +1052,28 @@ Commands:
     </div>
           </div>
           
-          <p><code>keen-pbr</code> умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.</p>
+          <p><code>keen-pbr</code> умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и проверять решения маршрутизации.</p>
 <h2>Использование<span class="hx:absolute hx:-mt-20" id="использование"></span>
     <a href="#%d0%b8%d1%81%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d0%be%d0%b2%d0%b0%d0%bd%d0%b8%d0%b5" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">Usage: keen-pbr [options] &lt;command&gt;
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">Options:
-</span></span><span class="line"><span class="cl">  --config &lt;path&gt;    Путь к JSON файлу конфигурации
-</span></span><span class="line"><span class="cl">  --log-level &lt;lvl&gt;  Уровень логов: error, warn, info, verbose, debug
-</span></span><span class="line"><span class="cl">  --no-api           Отключить REST API во время выполнения
-</span></span><span class="line"><span class="cl">  --use-raw-prerouting  Использовать raw PREROUTING для пересылаемого IPv4 (только iptables)
-</span></span><span class="line"><span class="cl">  --use-raw6-prerouting Использовать raw PREROUTING для пересылаемого IPv6 (только iptables)
-</span></span><span class="line"><span class="cl">  --version         Показать версию и выйти
-</span></span><span class="line"><span class="cl">  --help            Показать эту справку и выйти
+</span></span><span class="line"><span class="cl">  --config &lt;path&gt;    Path to JSON config file
+</span></span><span class="line"><span class="cl">  --log-level &lt;lvl&gt;  Log level: error, warn, info, verbose, debug
+</span></span><span class="line"><span class="cl">  --no-api           Disable REST API at runtime
+</span></span><span class="line"><span class="cl">  --use-raw-prerouting  Use raw PREROUTING for IPv4 forwarded traffic (iptables only)
+</span></span><span class="line"><span class="cl">  --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only)
+</span></span><span class="line"><span class="cl">  --version          Show version and exit
+</span></span><span class="line"><span class="cl">  --help             Show this help and exit
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">Commands:
 </span></span><span class="line"><span class="cl">  service
 </span></span><span class="line"><span class="cl">  status
 </span></span><span class="line"><span class="cl">  download
-</span></span><span class="line"><span class="cl">  generate-resolver-config &lt;res&gt;
-</span></span><span class="line"><span class="cl">  resolver-config-hash
-</span></span><span class="line"><span class="cl">  test-routing &lt;ip-or-domain&gt;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+</span></span><span class="line"><span class="cl">  test-routing &lt;ip-or-domain&gt; [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...]
+</span></span><span class="line"><span class="cl">  dnsmasq detect [--json]
+</span></span><span class="line"><span class="cl">  dnsmasq remove &lt;selector&gt;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1050,7 +1105,7 @@ Commands:
 			</tr>
 			<tr>
 					<td><code>--log-target &lt;target&gt;</code></td>
-					<td>Назначение логов: <code>stderr</code>, <code>syslog</code> или <code>both</code>. По умолчанию используется <code>syslog</code> для <code>service</code> и <code>stderr</code> для интерактивных команд.</td>
+					<td>Назначение логов: <code>stderr</code>, <code>syslog</code> или <code>both</code>. По умолчанию для всех команд используется <code>both</code>. Пакетные сервисные файлы (systemd, OpenWrt procd, init-скрипт Keenetic) передают <code>--log-target syslog</code>, чтобы логи не дублировались, когда stdout/stderr дополнительно перехватываются системой инициализации.</td>
 			</tr>
 			<tr>
 					<td><code>--no-api</code></td>
@@ -1058,7 +1113,9 @@ Commands:
 			</tr>
 			<tr>
 					<td><code>--use-raw-prerouting</code></td>
-					<td>Использовать raw PREROUTING для классификации пересылаемого IPv4-трафика; доступно только с iptables.</td>
+					<td>Использовать raw 
+  <abbr title="Точка в firewall, через которую проходят входящие пакеты до выбора маршрута. Здесь keen-pbr ставит fwmark.">PREROUTING</abbr>
+ для классификации пересылаемого IPv4-трафика; доступно только с iptables.</td>
 			</tr>
 			<tr>
 					<td><code>--use-raw6-prerouting</code></td>
@@ -1075,35 +1132,36 @@ Commands:
 	</tbody>
 </table>
 <h3><code>--use-raw-prerouting</code><span class="hx:absolute hx:-mt-20" id="--use-raw-prerouting"></span>
-    <a href="#--use-raw-prerouting" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Этот флаг переносит классификацию только пересылаемого IPv4-трафика из <code>mangle PREROUTING</code> в <code>raw PREROUTING</code>. Локально сгенерированный трафик остаётся в
-<code>mangle OUTPUT</code>, а IPv6 настраивается независимо флагом
-<code>--use-raw6-prerouting</code>.</p>
-<p>На Keenetic / NetCraze init-скрипт независимо проверяет и при
-необходимости загружает <code>iptable_raw.ko</code> и <code>ip6table_raw.ko</code>. По умолчанию
-<code>KEEN_PBR_RAW_PREROUTING=&quot;auto&quot;</code>: каждая семья использует RAW только после
-успешной проверки, иначе для неё используется mangle. Чтобы всегда
-использовать mangle, добавьте в <code>/opt/etc/keen-pbr/defaults</code>:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl"><span class="nv">KEEN_PBR_RAW_PREROUTING</span><span class="o">=</span><span class="s2">&#34;disable&#34;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Затем перезапустите сервис. Значение <code>auto</code> проверяет IPv4 и IPv6 независимо:
-доступное семейство использует RAW, недоступное — mangle. Значения <code>enable</code>,
-<code>ipv4-only</code> и <code>ipv6-only</code> требуют RAW для соответствующего семейства и не
-допускают переход на mangle при ошибке проверки. RAW работает до conntrack и
-намеренно не использует CONNMARK. Сравнение последствий для Keenetic приведено в
-<a href="/ru/docs/getting-started/installation/keenetic/">инструкции по установке Keenetic / NetCraze</a>.</p>
-<p>Проверить обе возможности RAW можно так:</p>
+    <a href="#--use-raw-prerouting" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Флаг нужен в основном на Keenetic / NetCraze, где прошивка время от времени пересобирает таблицу <code>mangle</code> и правила keen-pbr ненадолго пропадают. С этим флагом keen-pbr ставит правила для транзитного IPv4-трафика в таблицу <code>raw</code>, которую прошивка не трогает. Для IPv6 есть отдельный флаг <code>--use-raw6-prerouting</code>. Трафик самого роутера всегда обрабатывается в <code>mangle OUTPUT</code>.</p>
+<p>На Keenetic / NetCraze флаги выставляет скрипт запуска. Режим задаётся переменной <code>KEEN_PBR_RAW_PREROUTING</code> в <code>/opt/etc/keen-pbr/defaults</code>:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Значение</th>
+					<th>Что делает</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>auto</code> (по умолчанию)</td>
+					<td>Для IPv4 и IPv6 отдельно проверяет, работает ли <code>raw</code>, и использует его, если работает, иначе <code>mangle</code></td>
+			</tr>
+			<tr>
+					<td><code>disable</code></td>
+					<td>Всегда использовать <code>mangle</code></td>
+			</tr>
+			<tr>
+					<td><code>enable</code></td>
+					<td>Требовать <code>raw</code> для IPv4 и IPv6. Если <code>raw</code> недоступен, сервис не запустится</td>
+			</tr>
+			<tr>
+					<td><code>ipv4-only</code>, <code>ipv6-only</code></td>
+					<td>Требовать <code>raw</code> только для одного семейства адресов</td>
+			</tr>
+	</tbody>
+</table>
+<p>После изменения перезапустите сервис. Чем отличаются режимы на практике, описано в <a href="/ru/docs/getting-started/installation/keenetic/">инструкции по установке Keenetic / NetCraze</a>.</p>
+<p>Проверить, доступен ли <code>raw</code>:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl">ls -l <span class="s2">&#34;/lib/modules/</span><span class="k">$(</span>uname -r<span class="k">)</span><span class="s2">/iptable_raw.ko&#34;</span>
@@ -1138,26 +1196,136 @@ Commands:
 			</tr>
 			<tr>
 					<td><code>status</code></td>
-					<td>Показать состояние маршрутизации, таблиц маршрутизации, правил и верификации firewall, затем выйти.</td>
+					<td>Показать состояние службы, outbound&rsquo;ов, маршрутизации, firewall и проверок ядра, затем список проблем, как на главной странице веб-интерфейса, и выйти. Код выхода 1, если какая-то проверка не прошла или есть проблема уровня «ошибка».</td>
 			</tr>
 			<tr>
 					<td><code>download</code></td>
 					<td>Загрузить все списки с URL в кэш, затем выйти.</td>
 			</tr>
 			<tr>
-					<td><code>generate-resolver-config &lt;res&gt;</code></td>
-					<td>Вывести сгенерированную конфигурацию резолвера в stdout. Поддерживаемые резолверы: <code>dnsmasq-ipset</code>, <code>dnsmasq-nftset</code>.</td>
+					<td><code>generate-resolver-config dnsmasq</code></td>
+					<td>Вывести в stdout конфигурацию dnsmasq для отдельных DNS-серверов списков.</td>
 			</tr>
 			<tr>
-					<td><code>resolver-config-hash</code></td>
-					<td>Вывести MD5-хеш сгенерированного сопоставления домен-ipset, затем выйти.</td>
+					<td><code>dnsmasq detect [--json]</code></td>
+					<td>Показать экземпляры dnsmasq, их DNS-адреса и экземпляр, который использует keen-pbr.</td>
 			</tr>
 			<tr>
-					<td><code>test-routing &lt;ip-or-domain&gt;</code></td>
-					<td>Сравнить ожидаемую и фактическую маршрутизацию для данного IP или домена.</td>
+					<td><code>dnsmasq remove &lt;selector&gt;</code></td>
+					<td>Перезапустить один экземпляр dnsmasq без конфигурации keen-pbr.</td>
+			</tr>
+			<tr>
+					<td><code>test-routing &lt;ip-or-domain&gt; [параметры пакета]</code></td>
+					<td>Сравнить ожидаемую и фактическую маршрутизацию для данного IP или домена. Проверку выполняет служба, так же как проверку маршрутизации в веб-интерфейсе.</td>
 			</tr>
 	</tbody>
 </table>
+<h3><code>generate-resolver-config dnsmasq</code><span class="hx:absolute hx:-mt-20" id="generate-resolver-config-dnsmasq"></span>
+    <a href="#generate-resolver-config-dnsmasq" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Когда включена <code>dns.resolver_integration: &quot;dnsmasq&quot;</code>, эта команда выводит сгенерированную конфигурацию dnsmasq в stdout. В ней соответствия «домен → сервер», исключения защиты от 
+  <abbr title="Атака, при которой публичный домен указывает на адрес в локальной сети. dnsmasq умеет блокировать такие ответы.">DNS rebinding</abbr>
+ и резервные (<code>fallback</code>) серверы.</p>
+<p><strong>Использование:</strong></p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr generate-resolver-config dnsmasq</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p><strong>Вывод:</strong> Директивы конфигурации dnsmasq.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl"># Generated by keen-pbr - do not edit manually
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">address=/use-application-dns.net/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">server=192.168.1.1
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"># List: ai_services
+</span></span><span class="line"><span class="cl">server=/openai.com/www.openai.com/.../1.1.1.1
+</span></span><span class="line"><span class="cl">rebind-domain-ok=/openai.com/www.openai.com/...</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p><strong>Поведение:</strong></p>
+<ul>
+<li>Всегда завершается с кодом 0, даже при ошибках; ошибки выводятся в виде строк комментариев <code># keen-pbr: ...</code>.</li>
+<li>Когда <code>resolver_integration: &quot;none&quot;</code> (по умолчанию) или конфиг не читается, в выводе только строки <code>server=</code> из <code>dnsmasq-fallback.conf</code>; динамические наборы заполняются перехватом.</li>
+<li>При <code>&quot;dnsmasq&quot;</code> и без серверов <code>fallback</code> эти строки <code>server=</code> добавляются в вывод.</li>
+<li>dnsmasq читает конфиг через эту команду (см. <code>conf-script=keen-pbr generate-resolver-config dnsmasq</code> в 
+  <abbr title="Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.">drop-in</abbr>
+).</li>
+</ul>
+<h3><code>dnsmasq detect</code> и <code>remove</code><span class="hx:absolute hx:-mt-20" id="dnsmasq-detect-and-remove"></span>
+    <a href="#dnsmasq-detect-and-remove" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Просмотр и очистка интеграции с dnsmasq без демона. Ни одной из команд не нужен управляющий сокет.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr dnsmasq detect <span class="o">[</span>--json<span class="o">]</span>
+</span></span><span class="line"><span class="cl">keen-pbr dnsmasq remove &lt;selector&gt;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p><strong><code>detect</code></strong> выводит все экземпляры dnsmasq, о которых сообщает hook-скрипт платформы: запущен ли, DNS-адрес и чем он подтверждён, слушающие сокеты, установлен ли 
+  <abbr title="Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.">drop-in</abbr>
+ keen-pbr и какую конфигурацию загрузил dnsmasq, а также проблемы. В последней строке указано, какой экземпляр выбрал keen-pbr и как (<code>explicit</code>, <code>adopted</code> или <code>automatic</code>), либо почему выбрать не удалось.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">dnsmasq hook: /usr/lib/keen-pbr/dnsmasq-hook.sh (platform openwrt, binary /usr/sbin/dnsmasq)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  uci:cfg01411c  [selected: adopted]
+</span></span><span class="line"><span class="cl">    running:     yes (pid 1842)
+</span></span><span class="line"><span class="cl">    enabled:     yes
+</span></span><span class="line"><span class="cl">    endpoint:    127.0.0.1:53 (stamp_verified)
+</span></span><span class="line"><span class="cl">    listeners:   udp+tcp 0.0.0.0:53, udp+tcp [::]:53
+</span></span><span class="line"><span class="cl">    keen-pbr:    installed, loaded hash 3f2a9c0e1b7d4a55c6e8f0a1b2c3d4e5
+</span></span><span class="line"><span class="cl">    conf-dir:    /tmp/dnsmasq.cfg01411c.d (included)
+</span></span><span class="line"><span class="cl">    problem:     none
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Selection: uci:cfg01411c (adopted)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<ul>
+<li><code>--json</code> печатает те же данные одним JSON-объектом (<code>selected</code>, <code>selection</code>, <code>error_code</code>, <code>message</code>, <code>warnings</code>, <code>instances[]</code>).</li>
+<li>Код возврата <code>0</code>, если экземпляр выбран и проблем нет, иначе <code>1</code>.</li>
+<li>Если выбор неоднозначен, в конце выводится подсказка задать <code>dns.dnsmasq_instance</code>.</li>
+</ul>
+<p><strong><code>remove &lt;selector&gt;</code></strong> перезапускает один экземпляр, чтобы он перестал использовать конфигурацию keen-pbr; на OpenWrt ещё возвращает убранный список серверов. Команда нужна, если после отключения интеграции <code>detect</code> показывает экземпляр, который всё ещё работает с конфигурацией keen-pbr.</p>
+<ul>
+<li>Нужны права root. Код возврата <code>64</code>, если селектор не указан или некорректен.</li>
+<li>Если интеграция для этого экземпляра всё ещё включена, команда напечатает примечание: демон может снова применить свою конфигурацию к dnsmasq при следующей синхронизации. Сначала отключите интеграцию.</li>
+</ul>
 <h2>Сигналы<span class="hx:absolute hx:-mt-20" id="сигналы"></span>
     <a href="#%d1%81%d0%b8%d0%b3%d0%bd%d0%b0%d0%bb%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Когда <code>keen-pbr</code> работает как управляемый сервис (демон), им также можно управлять через Unix-сигналы:</p>
 <table>
@@ -1217,23 +1385,44 @@ Commands:
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">keen-pbr status - config: /etc/keen-pbr/config.json
+</span></span><span class="line"><span class="cl">Service: running (runtime running: startup complete) - keen-pbr 3.4.0 (build 20261012064940)
 </span></span><span class="line"><span class="cl">Firewall backend: nftables
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">Outbounds:
 </span></span><span class="line"><span class="cl">  corp_vpn [interface] iface=corp_vpn fwmark=0x00010000 table=402
+</span></span><span class="line"><span class="cl">    state ........................................................... HEALTHY
 </span></span><span class="line"><span class="cl">    route   table=402 default dev corp_vpn ............................... OK
 </span></span><span class="line"><span class="cl">    rule    0x00010000/0x00ff0000 -&gt; table=402 pri=402 ........... OK [v4+v6]
-</span></span><span class="line"><span class="cl">  auto_vpn [urltest] fwmark=0x00060000 table=407
-</span></span><span class="line"><span class="cl">    route   table=407 default dev corp_vpn ............................... OK
-</span></span><span class="line"><span class="cl">    rule    0x00060000/0x00ff0000 -&gt; table=407 pri=407 ........... OK [v4+v6]
+</span></span><span class="line"><span class="cl">  auto_vpn [urltest] fwmark=0x00060000 table=402
+</span></span><span class="line"><span class="cl">    state ........................................................... HEALTHY
+</span></span><span class="line"><span class="cl">    member  corp_vpn (corp_vpn) 41 ms ................................ ACTIVE
+</span></span><span class="line"><span class="cl">    member  backup_vpn (wg1) ....................................... DEGRADED
+</span></span><span class="line"><span class="cl">      probe failed: timeout
+</span></span><span class="line"><span class="cl">    route   table=402 default dev corp_vpn ............................... OK
+</span></span><span class="line"><span class="cl">    rule    0x00060000/0x00ff0000 -&gt; table=402 pri=407 ........... OK [v4+v6]
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">Firewall:
 </span></span><span class="line"><span class="cl">  chain   KeenPbrTable / prerouting hook ............................... OK
-</span></span><span class="line"><span class="cl">    rule    kpbr4_generic -&gt; MARK 0x00010000 ........................ MISSING
-</span></span><span class="line"><span class="cl">     правило не найдено в цепочке prerouting nftables
+</span></span><span class="line"><span class="cl">  rule    kpbr4_generic -&gt; MARK 0x00010000 ........................ MISSING
+</span></span><span class="line"><span class="cl">    rule not found in nftables prerouting chain
+</span></span><span class="line"><span class="cl">  rule    kpbr4_auto -&gt; MARK 0x00060000 selected=corp_vpn .............. OK
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">Overall: DEGRADED (2 проверки не пройдено)
-</span></span><span class="line"><span class="cl">Статус: OK / MISSING / MISMATCH / ERROR</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+</span></span><span class="line"><span class="cl">Kernel 6.12.94:
+</span></span><span class="line"><span class="cl">  capability nfqueue ................................................... OK
+</span></span><span class="line"><span class="cl">  probe      set_write ................................................. OK
+</span></span><span class="line"><span class="cl">  probe      conntrack ................................................. OK
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Interception: running, DNS hold active, L7 active
+</span></span><span class="line"><span class="cl">dnsmasq: ok, alive, 127.0.0.1:53 (uci:cfg01411c), 3 rules, 16 domains
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Issues:
+</span></span><span class="line"><span class="cl">  ERROR  Firewall rules do not match: 1
+</span></span><span class="line"><span class="cl">         kpbr4_generic: rule not found in nftables prerouting chain
+</span></span><span class="line"><span class="cl">  WARN   auto_vpn: failing members: 1
+</span></span><span class="line"><span class="cl">         backup_vpn · degraded · probe failed: timeout
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Overall: DEGRADED (1 check(s) failed, 1 error(s), 1 warning(s))
+</span></span><span class="line"><span class="cl">Status values: OK / MISSING / MISMATCH / ERROR</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1266,76 +1455,6 @@ Commands:
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">[google] Not modified (304)
 </span></span><span class="line"><span class="cl">[internal.site] Skipped (no URL)
 </span></span><span class="line"><span class="cl">[generic] Skipped (no URL)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Сгенерировать конфигурацию резолвера:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr generate-resolver-config dnsmasq-ipset</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Пример вывода:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl"># Generated by keen-pbr (dnsmasq-ipset) - do not edit manually
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">address=/use-application-dns.net/
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">rebind-domain-ok=keen.pbr
-</span></span><span class="line"><span class="cl">server=/check.keen.pbr/127.0.0.88#53
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">server=10.100.100.100
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"># List: google
-</span></span><span class="line"><span class="cl">ipset=/google.com/www.google.com/.../kpbr4d_google,kpbr6d_google</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Вывести хеш конфигурации резолвера:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr resolver-config-hash</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Пример вывода:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">6aa71fa9012013b242460b9d1e173d82</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1383,6 +1502,52 @@ Commands:
   </button>
 </div>
 </div>
+<p>По умолчанию проверяется только попадание в списки. Чтобы учесть и правила с портами, протоколом, адресом источника или DSCP, опишите пакет:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Флаг</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>--proto &lt;tcp|udp|other&gt;</code></td>
+					<td>Протокол пакета.</td>
+			</tr>
+			<tr>
+					<td><code>--src-addr &lt;ip&gt;</code></td>
+					<td>Адрес клиента, который отправляет пакет.</td>
+			</tr>
+			<tr>
+					<td><code>--src-port &lt;port&gt;</code></td>
+					<td>Порт источника.</td>
+			</tr>
+			<tr>
+					<td><code>--dest-port &lt;port&gt;</code></td>
+					<td>Порт назначения.</td>
+			</tr>
+			<tr>
+					<td><code>--dscp &lt;0-63&gt;</code></td>
+					<td>Значение DSCP. Без <code>--dscp</code> пакет считается с DSCP 0.</td>
+			</tr>
+	</tbody>
+</table>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr test-routing google.com --proto tcp --dest-port <span class="m">443</span> --src-addr 192.168.1.10</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Если правило зависит от поля, которое вы не указали (например, <code>src_addr</code>), для этого IP будет <code>(unknown)</code>.</p>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

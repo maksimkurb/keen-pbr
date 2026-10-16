@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>FAQ – keen-pbr</title>
-  <meta name="description" content="What firewall backend will be used? keen-pbr auto-detects the firewall backend at startup. It uses nftables if available, and falls back to iptables/ipset on older kernels.
+  <meta name="description" content="What firewall backend will be used? With daemon.firewall_backend: &#34;auto&#34; (the default), keen-pbr uses nftables if the nft command is installed, and iptables/ipset otherwise.
 How do I reload lists without restarting the service? Use SIGHUP:
 bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-downloads all remote lists and re-applies firewall and routing rules." /><link rel="canonical" href="https://keen-pbr.fyi/docs/faq/" itemprop="url" />
 
@@ -19,7 +19,7 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-do
   content="
     
       What firewall backend will be used?
-    keen-pbr auto-detects the firewall backend at startup. It uses nftables if available, and falls back to iptables/ipset on older kernels.
+    With daemon.firewall_backend: &quot;auto&quot; (the default), keen-pbr uses nftables if the nft command is installed, and iptables/ipset otherwise.
 How do I reload lists without restarting the service?
     Use SIGHUP:
 
@@ -45,13 +45,13 @@ This triggers a full reload: it re-downloads all remote lists and re-applies fir
 
 
 	<meta itemprop="name" content="FAQ">
-	<meta itemprop="description" content="What firewall backend will be used? keen-pbr auto-detects the firewall backend at startup. It uses nftables if available, and falls back to iptables/ipset on older kernels.
+	<meta itemprop="description" content="What firewall backend will be used? With daemon.firewall_backend: &#34;auto&#34; (the default), keen-pbr uses nftables if the nft command is installed, and iptables/ipset otherwise.
 How do I reload lists without restarting the service? Use SIGHUP:
 bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-downloads all remote lists and re-applies firewall and routing rules.">
-	<meta itemprop="wordCount" content="429">
+	<meta itemprop="wordCount" content="461">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="FAQ">
-	<meta name="twitter:description" content="What firewall backend will be used? keen-pbr auto-detects the firewall backend at startup. It uses nftables if available, and falls back to iptables/ipset on older kernels.
+	<meta name="twitter:description" content="What firewall backend will be used? With daemon.firewall_backend: &#34;auto&#34; (the default), keen-pbr uses nftables if the nft command is installed, and iptables/ipset otherwise.
 How do I reload lists without restarting the service? Use SIGHUP:
 bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-downloads all remote lists and re-applies firewall and routing rules.">
 
@@ -123,11 +123,11 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-do
           </a>
           <a class="hx:p-2 hx:text-current" target="_blank" rel="noreferrer" href="https://t.me/keen_pbr" title="Telegram"><svg height=24 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><path fill="currentColor" d="M248 8C111.033 8 0 119.033 0 256s111.033 248 248 248 248-111.033 248-248S384.967 8 248 8m114.952 168.66c-3.732 39.215-19.881 134.378-28.1 178.3-3.476 18.584-10.322 24.816-16.948 25.425-14.4 1.326-25.338-9.517-39.287-18.661-21.827-14.308-34.158-23.215-55.346-37.177-24.485-16.135-8.612-25 5.342-39.5 3.652-3.793 67.107-61.51 68.335-66.746.153-.655.3-3.1-1.154-4.384s-3.59-.849-5.135-.5q-3.283.746-104.608 69.142-14.845 10.194-26.894 9.934c-8.855-.191-25.888-5.006-38.551-9.123-15.531-5.048-27.875-7.717-26.8-16.291q.84-6.7 18.45-13.7 108.446-47.248 144.628-62.3c68.872-28.647 83.183-33.623 92.511-33.789 2.052-.034 6.639.474 9.61 2.885a10.45 10.45 0 0 1 3.53 6.716 43.8 43.8 0 0 1 .417 9.769"/></svg><span class="hx:sr-only">Telegram</span>
           </a><a
-  title="Sponsor this project"
+  title="Support this project"
   href="/docs/donate"
   
   class="hx:text-sm hx:contrast-more:text-gray-700 hx:contrast-more:dark:text-gray-100 hx:relative hx:-ml-2 hx:hidden hx:whitespace-nowrap hx:p-2 hx:md:inline-flex hx:items-center hx:gap-1 hx:text-gray-600 hx:hover:text-gray-800 hx:dark:text-gray-400 hx:dark:hover:text-gray-200 donation-nav-button"
-><span class="hx:inline-flex hx:items-center"><svg height="1em" class="hx:inline-block" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M640-440 474-602q-31-30-52.5-66.5T400-748q0-55 38.5-93.5T532-880q32 0 60 13.5t48 36.5q20-23 48-36.5t60-13.5q55 0 93.5 38.5T880-748q0 43-21 79.5T807-602L640-440Zm0-112 109-107q19-19 35-40.5t16-48.5q0-22-15-37t-37-15q-14 0-26.5 5.5T700-778l-60 72-60-72q-9-11-21.5-16.5T532-800q-22 0-37 15t-15 37q0 27 16 48.5t35 40.5l109 107ZM280-220l278 76 238-74q-5-9-14.5-15.5T760-240H558q-27 0-43-2t-33-8l-93-31 22-78 81 27q17 5 40 8t68 4q0-11-6.5-21T578-354l-234-86h-64v220ZM40-80v-440h304q7 0 14 1.5t13 3.5l235 87q33 12 53.5 42t20.5 66h80q50 0 85 33t35 87v40L560-60l-280-78v58H40Zm80-80h80v-280h-80v280Zm520-546Z"/></svg></span><span class="hx:text-center">Sponsor this project</span>
+><span class="hx:inline-flex hx:items-center"><svg height="1em" class="hx:inline-block" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M640-440 474-602q-31-30-52.5-66.5T400-748q0-55 38.5-93.5T532-880q32 0 60 13.5t48 36.5q20-23 48-36.5t60-13.5q55 0 93.5 38.5T880-748q0 43-21 79.5T807-602L640-440Zm0-112 109-107q19-19 35-40.5t16-48.5q0-22-15-37t-37-15q-14 0-26.5 5.5T700-778l-60 72-60-72q-9-11-21.5-16.5T532-800q-22 0-37 15t-15 37q0 27 16 48.5t35 40.5l109 107ZM280-220l278 76 238-74q-5-9-14.5-15.5T760-240H558q-27 0-43-2t-33-8l-93-31 22-78 81 27q17 5 40 8t68 4q0-11-6.5-21T578-354l-234-86h-64v220ZM40-80v-440h304q7 0 14 1.5t13 3.5l235 87q33 12 53.5 42t20.5 66h80q50 0 85 33t35 87v40L560-60l-280-78v58H40Zm80-80h80v-280h-80v280Zm520-546Z"/></svg></span><span class="hx:text-center">Support this project</span>
 </a><button type="button" aria-label="Menu" aria-expanded="false" class="hextra-hamburger-menu hx:cursor-pointer hx:-mr-2 hx:rounded-sm hx:p-2 hx:active:bg-gray-400/20 hx:md:hidden hx:hextra-focus-visible-inset"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
   </nav>
 </div>
@@ -366,6 +366,18 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-do
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Multi-WAN Load Balancing</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -424,9 +436,9 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-do
             </li>
           <li>
               <a
-                href="#how-does-the-urltest-outbound-select-the-best-child"
+                href="#how-does-the-urltest-outbound-select-the-best-link"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >How does the urltest outbound select the best child?</a>
+              >How does the urltest outbound select the best link?</a>
             </li>
           <li>
               <a
@@ -464,6 +476,18 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-do
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Changelog</span>
     </a>
   </div>
               
@@ -516,7 +540,7 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-do
       href="/docs/donate/"
       
     >
-      <span class="hx:min-w-0 [word-break:break-word]">Sponsor this project</span>
+      <span class="hx:min-w-0 [word-break:break-word]">Support this project</span>
     </a>
   </div></li>
     </ul>
@@ -707,6 +731,18 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-do
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Multi-WAN Load Balancing</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -751,6 +787,17 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-do
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Changelog</span>
     </a>
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -912,7 +959,7 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-do
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#how-does-the-urltest-outbound-select-the-best-child">How does the urltest outbound select the best child?
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#how-does-the-urltest-outbound-select-the-best-link">How does the urltest outbound select the best link?
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1012,7 +1059,7 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-do
           </div>
           
           <h2>What firewall backend will be used?<span class="hx:absolute hx:-mt-20" id="what-firewall-backend-will-be-used"></span>
-    <a href="#what-firewall-backend-will-be-used" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>keen-pbr auto-detects the firewall backend at startup. It uses nftables if available, and falls back to iptables/ipset on older kernels.</p>
+    <a href="#what-firewall-backend-will-be-used" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>With <code>daemon.firewall_backend: &quot;auto&quot;</code> (the default), keen-pbr uses nftables if the <code>nft</code> command is installed, and iptables/ipset otherwise.</p>
 <h2>How do I reload lists without restarting the service?<span class="hx:absolute hx:-mt-20" id="how-do-i-reload-lists-without-restarting-the-service"></span>
     <a href="#how-do-i-reload-lists-without-restarting-the-service" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use <code>SIGHUP</code>:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1039,10 +1086,10 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-do
 </div>
 
 <h2>What happens if a remote list URL is unreachable at startup?<span class="hx:absolute hx:-mt-20" id="what-happens-if-a-remote-list-url-is-unreachable-at-startup"></span>
-    <a href="#what-happens-if-a-remote-list-url-is-unreachable-at-startup" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>keen-pbr uses the cached copy from <code>daemon.cache_dir</code> if available. If no cache exists and the URL is unreachable, the remote source contributes no entries for this run. For a URL-only list, that means the list is effectively empty and no matching set or firewall rule is created.</p>
-<h2>How does the urltest outbound select the best child?<span class="hx:absolute hx:-mt-20" id="how-does-the-urltest-outbound-select-the-best-child"></span>
-    <a href="#how-does-the-urltest-outbound-select-the-best-child" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>On each probe interval, keen-pbr sends an HTTP request to the configured <code>url</code> from each child outbound and measures the round-trip latency. The child with the lowest latency is selected. Children within <code>tolerance_ms</code> of the best are considered equivalent and selected by weight.</p>
-<p>The circuit breaker prevents flapping: after <code>failure_threshold</code> consecutive failures, the circuit opens and that child is bypassed during the <code>timeout_ms</code> cooldown. After cooldown, it enters half-open state and gets limited probe attempts to recover.</p>
+    <a href="#what-happens-if-a-remote-list-url-is-unreachable-at-startup" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>keen-pbr uses the cached copy from <code>daemon.cache_dir</code> if available. If there is no cache either, a list that has only <code>url</code> stays empty until a download succeeds; keen-pbr keeps retrying in the background.</p>
+<h2>How does the urltest outbound select the best link?<span class="hx:absolute hx:-mt-20" id="how-does-the-urltest-outbound-select-the-best-link"></span>
+    <a href="#how-does-the-urltest-outbound-select-the-best-link" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Every <code>interval_ms</code>, keen-pbr sends an HTTP request to the configured <code>url</code> through each link and measures the round-trip latency. With <code>strategy: &quot;priority&quot;</code>, the link with the lowest latency is selected. If the new best link is faster than the current one by less than <code>tolerance_ms</code>, keen-pbr does not switch. Links are checked group by group: the next group in <code>outbound_groups</code> is used only when no link in the previous one works.</p>
+<p>If a link fails <code>failure_threshold</code> checks in a row, keen-pbr stops using it for <code>timeout_ms</code>, then tries it again with a few checks. This keeps traffic from bouncing between links while one of them is unstable.</p>
 <h2>Can I route DNS queries through a VPN?<span class="hx:absolute hx:-mt-20" id="can-i-route-dns-queries-through-a-vpn"></span>
     <a href="#can-i-route-dns-queries-through-a-vpn" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Yes. Use the <code>detour</code> field in <code>dns.servers</code> to bind DNS queries for that server to a specific outbound:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1072,7 +1119,9 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-do
 <ul>
 <li>IPv4 address: <code>93.184.216.34</code></li>
 <li>IPv6 address: <code>2606:2800:220:1:248:1893:25c8:1946</code></li>
-<li>CIDR: <code>10.0.0.0/8</code></li>
+<li>
+  <abbr title="Subnet notation: an address and prefix length, for example 192.168.1.0/24.">CIDR</abbr>
+: <code>10.0.0.0/8</code></li>
 <li>Domain: <code>example.com</code> (automatically includes all sub-domains)
 <ul>
 <li>entries like <code>*.example.com</code> are also supported and handled the same way as <code>example.com</code></li>
@@ -1082,10 +1131,10 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-do
 <li>Empty lines are ignored</li>
 </ul>
 <h2>How do I verify routing is correctly applied?<span class="hx:absolute hx:-mt-20" id="how-do-i-verify-routing-is-correctly-applied"></span>
-    <a href="#how-do-i-verify-routing-is-correctly-applied" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use the routing health endpoint:</p>
+    <a href="#how-do-i-verify-routing-is-correctly-applied" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Run:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/health/routing</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1097,7 +1146,7 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-do
   </button>
 </div>
 </div>
-<p>This checks the live kernel state (firewall chain, firewall rules, routing tables, policy rules) against the expected configuration and reports <code>ok</code>, <code>missing</code>, or <code>mismatch</code> for each element.</p>
+<p>keen-pbr compares the firewall rules, routing tables and <code>ip rule</code> entries in the kernel with what it expects and marks each item <code>OK</code>, <code>MISSING</code> or <code>MISMATCH</code>. The same check is on the status page of the web UI and in <code>GET /api/health/routing</code>. To check a specific site, use <code>keen-pbr test-routing &lt;domain-or-ip&gt;</code>.</p>
 <h2>Can I combine multiple sources in one list?<span class="hx:absolute hx:-mt-20" id="can-i-combine-multiple-sources-in-one-list"></span>
     <a href="#can-i-combine-multiple-sources-in-one-list" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Yes. <code>url</code>, <code>domains</code>, <code>ip_cidrs</code>, and <code>file</code> can all be set in the same list entry and are merged:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1127,7 +1176,7 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) This triggers a full reload: it re-do
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">In the WebUI combining is supported only for <code>ip_cidrs</code> + <code>domains</code>. Combining them with <code>url</code> or with <code>file</code> is not supported in WebUI and discouraged; thus it can be forbidden in the future to prevent mis-understanding.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">The web UI can combine only <code>ip_cidrs</code> and <code>domains</code>. Combining them with <code>url</code> or <code>file</code> is not supported in the web UI and is not recommended; it may be disallowed in a future version.</div>
   </div>
 </div>
 

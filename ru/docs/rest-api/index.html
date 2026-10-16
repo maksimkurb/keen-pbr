@@ -65,7 +65,7 @@ config.json{
 	<meta itemprop="description" content="Эта страница описывает встроенный HTTP REST API.
 REST API доступен, если:
 Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;device_name&#34;: &#34;Домашний роутер&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=2048,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Интерактивно сгенерировать хеш пароля:">
-	<meta itemprop="wordCount" content="1086">
+	<meta itemprop="wordCount" content="2358">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
 	<meta name="twitter:description" content="Эта страница описывает встроенный HTTP REST API.
@@ -383,6 +383,18 @@ REST API доступен, если:
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -420,6 +432,12 @@ REST API доступен, если:
                 href="#get-apihealthservice"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >GET /api/health/service</a>
+            </li>
+          <li>
+              <a
+                href="#get-metrics"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >GET /metrics</a>
             </li>
           <li>
               <a
@@ -493,6 +511,18 @@ REST API доступен, если:
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div>
               
@@ -736,6 +766,18 @@ REST API доступен, если:
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -780,6 +822,17 @@ REST API доступен, если:
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -941,6 +994,34 @@ REST API доступен, если:
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#get-metrics">GET /metrics
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d1%80%d0%be%d1%86%d0%b5%d1%81%d1%81-%d0%b8-%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f">Процесс и конфигурация
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%88%d0%b8%d0%b1%d0%ba%d0%b8">Ошибки
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d1%80%d0%be%d0%b1%d1%8b-urltest--icmptest">Пробы (urltest / icmptest)
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-8 hx:rtl:pr-8 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%ba%d0%be%d0%b3%d0%b4%d0%b0-%d1%81%d0%b5%d1%80%d0%b8%d0%b8-%d0%bd%d0%b5-%d0%bf%d1%83%d0%b1%d0%bb%d0%b8%d0%ba%d1%83%d1%8e%d1%82%d1%81%d1%8f">Когда серии не публикуются
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#interception">Interception
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b4%d0%b0%d1%88%d0%b1%d0%be%d1%80%d0%b4-grafana-%d0%b8-%d0%b0%d0%bb%d0%b5%d1%80%d1%82%d1%8b">Дашборд Grafana и алерты
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#post-apilistsrefresh">POST /api/lists/refresh
         </a>
       </li>
@@ -985,7 +1066,7 @@ REST API доступен, если:
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-3">Ответ
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d1%80%d0%b8%d0%bd%d1%8f%d1%82%d0%b0%d1%8f-%d0%be%d0%bf%d0%b5%d1%80%d0%b0%d1%86%d0%b8%d1%8f-202">Принятая операция (202)
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -997,7 +1078,7 @@ REST API доступен, если:
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-4">Ответ
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-3">Ответ
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1005,7 +1086,7 @@ REST API доступен, если:
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-5">Ответ
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-4">Ответ
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1013,7 +1094,7 @@ REST API доступен, если:
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-6">Ответ
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-5">Ответ
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1160,15 +1241,14 @@ REST API доступен, если:
 </div>
 <p>Чтобы включить аутентификацию и сразу записать новый хеш в выбранный
 <code>config.json</code>, выполните <code>keen-pbr --config /path/to/config.json hash-password --update</code>.
-Команда атомарно обновит файл и напомнит о необходимости перезапуска службы,
+Команда атомарно обновит файл и напомнит о необходимости перезапуска сервиса,
 поскольку она изменяет файл вне работающего демона. Изменения аутентификации и
 CORS, сделанные через веб-интерфейс, сохраняются и вступают в силу сразу, без
 применения отложенного черновика конфигурации маршрутизации.</p>
 <p>Параметр <code>device_name</code> необязателен и может быть пустым. Если он задан,
 веб-интерфейс использует его в заголовке страницы браузера и под логотипом
 keen-pbr, чтобы различать устройства.</p>
-<p>Для хеширования пароля используется реализация Argon2id из Monocypher. Хеши
-PBKDF2 из предыдущих версий не поддерживаются — их необходимо создать заново.
+<p>Пароль хранится в виде хеша Argon2id. Хеши из старых версий keen-pbr не подходят: если пароль задавался в старой версии, задайте его заново.
 API конфигурации никогда не возвращает и не принимает сохранённый хеш. Веб-интерфейс
 получает только состояние через <code>GET /api/auth/password</code>, а новый пароль в открытом
 виде отправляет только в <code>POST /api/auth/settings</code>; хеширование выполняет демон.</p>
@@ -1182,9 +1262,68 @@ API конфигурации никогда не возвращает и не п
 Chrome и Firefox. При входе и Basic-аутентификации пароль передаётся API,
 поэтому используйте доверенную сеть или HTTPS reverse proxy.</p>
 <p>По умолчанию API прослушивает <code>0.0.0.0:12121</code>. Все эндпоинты обслуживаются на настроенном адресе <code>api.listen</code>.</p>
+<p>Полная схема запросов и ответов находится в <a href="https://github.com/maksimkurb/keen-pbr/blob/main/docs/openapi.yaml"target="_blank" rel="noopener">OpenAPI-документе</a>. Основные маршруты:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Маршрут</th>
+					<th>Назначение</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>GET /api/health/service</code></td>
+					<td>Состояние сервиса, черновика конфигурации, операции жизненного цикла и отката.</td>
+			</tr>
+			<tr>
+					<td><code>POST /api/service/start</code>, <code>/stop</code>, <code>/restart</code></td>
+					<td>Асинхронный запуск, остановка или перезапуск маршрутизации.</td>
+			</tr>
+			<tr>
+					<td><code>GET /api/config</code>, <code>POST /api/config</code></td>
+					<td>Чтение или подготовка проверенного черновика конфигурации.</td>
+			</tr>
+			<tr>
+					<td><code>POST /api/config/discard</code>, <code>/save</code>, <code>/rollback</code></td>
+					<td>Отмена черновика, сохранение и применение либо явный откат неудачного применения.</td>
+			</tr>
+			<tr>
+					<td><code>GET /api/status/events</code></td>
+					<td>Поток Server-Sent Events о состоянии сервиса, outbounds, интерфейсов, проблем и диагностики маршрутизации состояния аутентификации и изменений конфигурации (<code>snapshot</code>, <code>service</code>, <code>outbounds</code>, <code>interfaces</code>, <code>issues</code>, <code>routing</code>, <code>auth</code>, <code>config</code>). Событие <code>config</code> несёт только ревизию, которая меняется вместе с активной конфигурацией, черновиком или состоянием обновления списков; данные читаются через <code>GET /api/config</code>. REST-эндпоинты, включая <code>GET /api/health/issues</code>, <code>GET /api/health/routing</code> и <code>GET /api/auth/status</code>, остаются доступны.</td>
+			</tr>
+			<tr>
+					<td><code>GET /api/runtime/outbounds</code>, <code>/api/runtime/interfaces</code></td>
+					<td>Текущее состояние outbounds и список системных интерфейсов.</td>
+			</tr>
+			<tr>
+					<td><code>GET /api/health/routing</code>, <code>POST /api/routing/test</code></td>
+					<td>Кэшированная диагностика маршрутизации/firewall и проверка маршрута для цели.</td>
+			</tr>
+			<tr>
+					<td><code>POST /api/lists/refresh</code></td>
+					<td>Обновление одного или всех удалённых списков URL.</td>
+			</tr>
+			<tr>
+					<td><code>GET /api/dns/test</code></td>
+					<td>Поток событий перехвата DNS/L7 или проверка DNS-маркера веб-интерфейса.</td>
+			</tr>
+			<tr>
+					<td><code>GET /api/diagnostics/command-failure</code></td>
+					<td>Чтение недавнего журнала ошибок команд.</td>
+			</tr>
+			<tr>
+					<td><code>GET /metrics</code></td>
+					<td>Метрики Prometheus в текстовом формате.</td>
+			</tr>
+			<tr>
+					<td><code>/api/auth/status</code>, <code>/api/auth/login</code>, <code>/api/auth/logout</code>, <code>/api/auth/password</code>, <code>/api/auth/settings</code></td>
+					<td>Состояние аутентификации и управление сессией/паролем.</td>
+			</tr>
+	</tbody>
+</table>
 <hr>
 <h2>GET /api/health/service<span class="hx:absolute hx:-mt-20" id="get-apihealthservice"></span>
-    <a href="#get-apihealthservice" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает версию запущенного демона, состояние среды выполнения маршрутизации и сводку по конфигурации резолвера.</p>
+    <a href="#get-apihealthservice" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает версию запущенного демона и состояние среды выполнения маршрутизации.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/health/service</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1204,10 +1343,15 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;version&#34;</span><span class="p">:</span> <span class="s2">&#34;3.0.0&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;build&#34;</span><span class="p">:</span> <span class="s2">&#34;20261010120000&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;running&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;resolver_config_hash&#34;</span><span class="p">:</span> <span class="s2">&#34;a3f7c1d9e2b84560abcdef1234567890&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;resolver_config_hash_actual&#34;</span><span class="p">:</span> <span class="s2">&#34;a3f7c1d9e2b84560abcdef1234567890&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;config_is_draft&#34;</span><span class="p">:</span> <span class="kc">false</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;runtime_state&#34;</span><span class="p">:</span> <span class="s2">&#34;running&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;runtime_state_reason&#34;</span><span class="p">:</span> <span class="s2">&#34;config apply complete&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;os_type&#34;</span><span class="p">:</span> <span class="s2">&#34;debian&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;os_version&#34;</span><span class="p">:</span> <span class="s2">&#34;12&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;build_variant&#34;</span><span class="p">:</span> <span class="s2">&#34;generic&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;config_is_draft&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;rollback_available&#34;</span><span class="p">:</span> <span class="kc">false</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1220,8 +1364,391 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
   </button>
 </div>
 </div>
-<p><code>resolver_config_hash</code> — это MD5-хеш ожидаемого сопоставления домен-ipset, полученного из текущей конфигурации. <code>resolver_config_hash_actual</code> отражает хеш конфигурации, которая была последний раз применена к работающему системному резолверу. Когда эти два значения различаются, конфигурация dnsmasq может быть устаревшей.</p>
+<p>При включённом перехвате этот ответ также содержит объект <code>intercept</code>. В нём
+раздельно указаны <code>dns_hold_active</code> и <code>l7_active</code>, возможности
+(<code>nfqueue</code>, <code>nflog</code>, <code>connbytes</code>) и счётчики DNS-разбора/hold, частичных TCP,
+L7-пакетов, обновлений наборов, очистки 
+  <abbr title="Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).">conntrack</abbr>
+ и переполнений 
+  <abbr title="Механизм netfilter, который передаёт пакеты программе и ждёт её решения. keen-pbr так ненадолго задерживает DNS-ответы.">NFQUEUE</abbr>
+/NFLOG.
+Недоступность NFQUEUE не означает недоступность L7 и наоборот.</p>
 <p>Для текущего состояния outbounds во время выполнения (здоровье, задержка, circuit breaker) используйте <code>GET /api/runtime/outbounds</code>.</p>
+<h2>GET /metrics<span class="hx:absolute hx:-mt-20" id="get-metrics"></span>
+    <a href="#get-metrics" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает текстовый формат Prometheus 0.0.4. Эндпоинт использует ту же
+аутентификацию, что и API. При недоступности поставщика метрик возможен ответ
+<code>503</code>:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -u admin:password http://127.0.0.1:12121/metrics</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Все длительности — числа с плавающей точкой в <strong>секундах</strong>. Серия, не имеющая
+смысла, <strong>не публикуется</strong> (а не выводится как <code>0</code>). <code># HELP</code> и <code># TYPE</code>
+выводятся один раз на семейство, пустые семейства не печатаются.</p>
+<h3>Процесс и конфигурация<span class="hx:absolute hx:-mt-20" id="процесс-и-конфигурация"></span>
+    <a href="#%d0%bf%d1%80%d0%be%d1%86%d0%b5%d1%81%d1%81-%d0%b8-%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><table>
+	<thead>
+			<tr>
+					<th>Метрика</th>
+					<th>Тип</th>
+					<th>Метки</th>
+					<th>Смысл</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>keen_pbr_build_info</code></td>
+					<td>gauge</td>
+					<td><code>version</code>, <code>commit</code>, <code>firewall_backend</code></td>
+					<td>Всегда <code>1</code>; сведения о сборке.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_process_start_time_seconds</code></td>
+					<td>gauge</td>
+					<td>-</td>
+					<td>Unix-время старта; uptime: <code>time() - keen_pbr_process_start_time_seconds</code>.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_active_rules</code></td>
+					<td>gauge</td>
+					<td>-</td>
+					<td>Применённые правила firewall.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_config_reload_last_success_timestamp_seconds</code></td>
+					<td>gauge</td>
+					<td>-</td>
+					<td>Unix-время, когда рантайм последний раз завершил применение конфигурации (старт тоже считается). До первого применения не публикуется.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_config_reload_errors_total</code></td>
+					<td>counter</td>
+					<td>-</td>
+					<td>Неудачные перезагрузки и применения конфигурации.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_list_last_update_timestamp_seconds</code></td>
+					<td>gauge</td>
+					<td><code>list</code></td>
+					<td>Unix-время последней успешной проверки удалённого списка (независимо от изменения содержимого). Хранится в памяти: до первого успешного обновления в этом процессе не публикуется.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_list_update_errors_total</code></td>
+					<td>counter</td>
+					<td><code>list</code></td>
+					<td>Неудачные обновления удалённого списка.</td>
+			</tr>
+	</tbody>
+</table>
+<h3>Ошибки<span class="hx:absolute hx:-mt-20" id="ошибки"></span>
+    <a href="#%d0%be%d1%88%d0%b8%d0%b1%d0%ba%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p><code>keen_pbr_errors_total{subsystem}</code> — одно семейство счётчиков, все значения
+выводятся всегда (включая нули): <code>firewall_apply</code>, <code>netlink</code>, <code>set_write</code>
+(запись в динамические наборы), <code>conntrack</code>, <code>dns_parse</code>, <code>dns_tcp_partial</code>
+(не полностью собранные DNS-сообщения по TCP) и <code>dns_late_write</code> (неудачные
+отложенные DNS-записи).</p>
+<h3>Пробы (urltest / icmptest)<span class="hx:absolute hx:-mt-20" id="пробы-urltest--icmptest"></span>
+    <a href="#%d0%bf%d1%80%d0%be%d0%b1%d1%8b-urltest--icmptest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Метки: <code>outbound</code> (дочерний), <code>test_outbound</code> (группа), <code>interface</code>, <code>type</code>
+(<code>urltest</code> или <code>icmptest</code>).</p>
+<table>
+	<thead>
+			<tr>
+					<th>Метрика</th>
+					<th>Тип</th>
+					<th>Смысл</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>keen_pbr_probe_attempts_total</code></td>
+					<td>counter</td>
+					<td>Принятые результаты проб.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_probe_successes_total</code></td>
+					<td>counter</td>
+					<td>Успешные результаты проб.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_probe_packets_sent_total</code></td>
+					<td>counter</td>
+					<td>Отправленные 
+  <abbr title="Служебный протокол для диагностики сети. ping использует ICMP Echo.">ICMP</abbr>
+ echo-запросы. Только <code>type=&quot;icmptest&quot;</code>.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_probe_packets_received_total</code></td>
+					<td>counter</td>
+					<td>Полученные ICMP echo-ответы. Только <code>type=&quot;icmptest&quot;</code>.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_probe_up</code></td>
+					<td>gauge</td>
+					<td><code>1</code> — последняя проверка успешна, <code>0</code> — неуспешна.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_probe_last_success_timestamp_seconds</code></td>
+					<td>gauge</td>
+					<td>Unix-время последней успешной проверки.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_probe_latency_seconds</code></td>
+					<td>gauge</td>
+					<td>Задержка последней успешной проверки: для ICMP — среднее по полученным ответам, для URL — время запроса. Точность лучше миллисекунды.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_probe_latency_min_seconds</code>, <code>keen_pbr_probe_latency_max_seconds</code></td>
+					<td>gauge</td>
+					<td>Самый быстрый и самый медленный ответ последней успешной ICMP-проверки. Только <code>type=&quot;icmptest&quot;</code>.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_urltest_selected</code></td>
+					<td>gauge</td>
+					<td>Метки <code>group</code>, <code>outbound</code>: <code>1</code> у выбранного сейчас outbound группы, <code>0</code> у остальных.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_urltest_selection_changes_total</code></td>
+					<td>counter</td>
+					<td>Метка <code>group</code>: число смен выбора с момента регистрации группы (применение конфигурации регистрирует её заново и сбрасывает счётчик).</td>
+			</tr>
+	</tbody>
+</table>
+<h4>Когда серии не публикуются<span class="hx:absolute hx:-mt-20" id="когда-серии-не-публикуются"></span>
+    <a href="#%d0%ba%d0%be%d0%b3%d0%b4%d0%b0-%d1%81%d0%b5%d1%80%d0%b8%d0%b8-%d0%bd%d0%b5-%d0%bf%d1%83%d0%b1%d0%bb%d0%b8%d0%ba%d1%83%d1%8e%d1%82%d1%81%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h4><ul>
+<li><code>probe_up</code> — пока не завершилась первая проверка.</li>
+<li><code>probe_latency_seconds</code>, <code>probe_latency_min_seconds</code>, <code>probe_latency_max_seconds</code> —
+если <strong>последняя</strong> проверка неуспешна или проверок ещё не было. В Grafana это разрыв
+линии, а не <code>0</code>.</li>
+<li><code>probe_last_success_timestamp_seconds</code> — до первой успешной проверки.</li>
+<li><code>list_last_update_timestamp_seconds</code> и
+<code>config_reload_last_success_timestamp_seconds</code> — до первого успеха.</li>
+</ul>
+<h3>Interception<span class="hx:absolute hx:-mt-20" id="interception"></span>
+    <a href="#interception" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Счётчики обновляются на путях DNS/L7 одним relaxed-атомарным инкрементом
+заранее выделенного счётчика; значения меток — фиксированные слоты массива и
+превращаются в текст только при запросе <code>/metrics</code>.</p>
+<table>
+	<thead>
+			<tr>
+					<th>Метрика</th>
+					<th>Тип</th>
+					<th>Метки</th>
+					<th>Смысл</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>keen_pbr_intercept_packets_total</code></td>
+					<td>counter</td>
+					<td><code>path</code> = <code>dns</code>, <code>l7</code></td>
+					<td>Проверенные пакеты.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_intercept_matches_total</code></td>
+					<td>counter</td>
+					<td><code>path</code> = <code>dns</code>, <code>l7</code></td>
+					<td>Пакеты, совпавшие с доменами списков.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_hold_duration_seconds</code></td>
+					<td>histogram</td>
+					<td>-</td>
+					<td>Время удержания DNS-ответа до вердикта.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_queue_wait_duration_seconds</code></td>
+					<td>histogram</td>
+					<td>-</td>
+					<td>Ожидание DNS-пакета в очереди приёма.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_hold_timeouts_total</code></td>
+					<td>counter</td>
+					<td><code>cause</code> = <code>batch_budget</code>, <code>admission_blocked</code>, <code>own_write_slow</code>, <code>late_batch_full</code>, <code>other</code></td>
+					<td>Удержания, дошедшие до дедлайна.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_late_writes_total</code></td>
+					<td>counter</td>
+					<td>-</td>
+					<td>DNS-записи, завершённые после отпускания пакета.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_queue_overruns_total</code></td>
+					<td>counter</td>
+					<td><code>queue</code> = <code>nfqueue</code>, <code>nflog</code></td>
+					<td>Переполнения очередей ядра.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_set_write_duration_seconds</code></td>
+					<td>histogram</td>
+					<td><code>path</code> = <code>dns</code>, <code>late_dns</code>, <code>l7</code></td>
+					<td>Время записи в динамический набор. Границы (с): 0.0001, 0.00025, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, +Inf.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_set_writes_total</code></td>
+					<td>counter</td>
+					<td><code>kind</code> = <code>add</code>, <code>refresh</code></td>
+					<td>Добавленные или обновлённые по таймауту элементы.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_set_refresh_total</code></td>
+					<td>counter</td>
+					<td><code>result</code> = <code>skipped</code>, <code>deferred</code>, <code>dropped</code></td>
+					<td>Исходы обновления кэшированных элементов; <code>dropped</code> — очередь была заполнена.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_set_cache_lookups_total</code></td>
+					<td>counter</td>
+					<td><code>result</code> = <code>hit</code>, <code>miss</code></td>
+					<td>Обращения к кэшу наборов; попадание избавляет от записи до вердикта.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_set_cache_entries</code></td>
+					<td>gauge</td>
+					<td>-</td>
+					<td>Запомненные элементы динамических наборов.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_conntrack_requests_total</code></td>
+					<td>counter</td>
+					<td>-</td>
+					<td>Запросы очистки 
+  <abbr title="Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).">conntrack</abbr>
+.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_conntrack_deleted_total</code></td>
+					<td>counter</td>
+					<td>-</td>
+					<td>Удалённые записи conntrack.</td>
+			</tr>
+	</tbody>
+</table>
+<p>Доля «медленных» записей вычисляется по bucket <code>le=&quot;0.025&quot;</code> метрики
+<code>keen_pbr_set_write_duration_seconds</code> (записи дольше 25 мс).</p>
+<p>Не экспортируются: байты/пакеты по outbound и число элементов в наборах.
+Для обоих пришлось бы читать счётчики firewall или netlink-дамп наборов при
+каждом scrape (через подпроцесс или дамп ядра, по-разному для каждого бэкенда
+firewall); демон намеренно этого не делает.</p>
+<p>Конфигурация Prometheus:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">scrape_configs</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="nt">job_name</span><span class="p">:</span><span class="w"> </span><span class="l">keen-pbr</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">metrics_path</span><span class="p">:</span><span class="w"> </span><span class="l">/metrics</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">scrape_interval</span><span class="p">:</span><span class="w"> </span><span class="l">15s</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">static_configs</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&#34;router.example:12121&#34;</span><span class="p">]</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">basic_auth</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span><span class="nt">username</span><span class="p">:</span><span class="w"> </span><span class="l">admin</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span><span class="nt">password_file</span><span class="p">:</span><span class="w"> </span><span class="l">/etc/prometheus/keen-pbr-password</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Примеры запросов PromQL:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-promql" data-lang="promql"><span class="line"><span class="cl"><span class="c1"># Потери ICMP за 15 минут, % (нет данных, если пакеты не отправлялись)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="mi">100</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nv">clamp</span><span class="o">(</span><span class="mi">1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="kr">increase</span><span class="o">(</span><span class="nv">keen_pbr_probe_packets_received_total</span><span class="p">[</span><span class="s">15m</span><span class="p">]</span><span class="o">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="o">/</span><span class="w"> </span><span class="o">(</span><span class="kr">increase</span><span class="o">(</span><span class="nv">keen_pbr_probe_packets_sent_total</span><span class="p">[</span><span class="s">15m</span><span class="p">]</span><span class="o">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="o">)</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="o">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="c1"># Доля успешных проб за 15 минут</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="mi">100</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="kr">increase</span><span class="o">(</span><span class="nv">keen_pbr_probe_successes_total</span><span class="p">[</span><span class="s">15m</span><span class="p">]</span><span class="o">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="o">/</span><span class="w"> </span><span class="o">(</span><span class="kr">increase</span><span class="o">(</span><span class="nv">keen_pbr_probe_attempts_total</span><span class="p">[</span><span class="s">15m</span><span class="p">]</span><span class="o">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="o">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="c1"># Средняя и 95-я перцентиль задержки за час (секунды)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="kr">avg_over_time</span><span class="o">(</span><span class="nv">keen_pbr_probe_latency_seconds</span><span class="p">[</span><span class="s">1h</span><span class="p">]</span><span class="o">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="kr">quantile_over_time</span><span class="o">(</span><span class="mf">0.95</span><span class="p">,</span><span class="w"> </span><span class="nv">keen_pbr_probe_latency_seconds</span><span class="p">[</span><span class="s">1h</span><span class="p">]</span><span class="o">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="c1"># p99 времени удержания DNS (секунды)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="kr">histogram_quantile</span><span class="o">(</span><span class="mf">0.99</span><span class="p">,</span><span class="w"> </span><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">le</span><span class="o">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">keen_pbr_dns_hold_duration_seconds_bucket</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">)))</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="c1"># Доля записей в наборы дольше 25 мс по путям</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="mi">1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">path</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">keen_pbr_set_write_duration_seconds_bucket</span><span class="p">{</span><span class="nl">le</span><span class="o">=</span><span class="p">&#34;</span><span class="s">0.025</span><span class="p">&#34;}[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="o">/</span><span class="w"> </span><span class="o">(</span><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">path</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">keen_pbr_set_write_duration_seconds_count</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="o">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="c1"># Ошибки за час по подсистемам</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">subsystem</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="kr">increase</span><span class="o">(</span><span class="nv">keen_pbr_errors_total</span><span class="p">[</span><span class="s">1h</span><span class="p">]</span><span class="o">))</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<h3>Дашборд Grafana и алерты<span class="hx:absolute hx:-mt-20" id="дашборд-grafana-и-алерты"></span>
+    <a href="#%d0%b4%d0%b0%d1%88%d0%b1%d0%be%d1%80%d0%b4-grafana-%d0%b8-%d0%b0%d0%bb%d0%b5%d1%80%d1%82%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Импортируйте <a href="https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json"target="_blank" rel="noopener">keen-pbr-dashboard.json</a>
+в Grafana (Dashboards - New - Import). Нужен источник данных Prometheus с UID
+<code>prometheus</code>; в дашборде переменные <code>job</code> и <code>outbound</code>, обновление каждые 30 с
+и разделы Status, Outbounds, DNS interception, Sets &amp; lists и Errors. Интервал
+scrape должен быть не больше 30 с: столбчатые панели считают <code>increase()</code> по
+окнам в одну минуту.</p>
+<p>Пример правил алертов:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">groups</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l">keen-pbr</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">rules</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">alert</span><span class="p">:</span><span class="w"> </span><span class="l">KeenPbrDown</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">expr</span><span class="p">:</span><span class="w"> </span><span class="l">up{job=&#34;keen-pbr&#34;} == 0</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">for</span><span class="p">:</span><span class="w"> </span><span class="l">2m</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">alert</span><span class="p">:</span><span class="w"> </span><span class="l">KeenPbrOutboundDown</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">expr</span><span class="p">:</span><span class="w"> </span><span class="l">keen_pbr_probe_up == 0</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">for</span><span class="p">:</span><span class="w"> </span><span class="l">5m</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">annotations</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">          </span><span class="nt">summary</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Проверка {{ $labels.outbound }} неуспешна ({{ $labels.test_outbound }})&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">alert</span><span class="p">:</span><span class="w"> </span><span class="l">KeenPbrProbeStale</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="c"># Пробы перестали завершаться (интервал проб должен быть заметно меньше 30м).</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">expr</span><span class="p">:</span><span class="w"> </span><span class="l">increase(keen_pbr_probe_attempts_total[30m]) == 0</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">for</span><span class="p">:</span><span class="w"> </span><span class="l">10m</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">alert</span><span class="p">:</span><span class="w"> </span><span class="l">KeenPbrErrors</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">expr</span><span class="p">:</span><span class="w"> </span><span class="l">sum by (subsystem) (increase(keen_pbr_errors_total[10m])) &gt; 0</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">for</span><span class="p">:</span><span class="w"> </span><span class="l">5m</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">alert</span><span class="p">:</span><span class="w"> </span><span class="l">KeenPbrDnsHoldSlow</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="c"># 0.03 с — дедлайн удержания по умолчанию (intercept hold_timeout_ms: 30).</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">expr</span><span class="p">:</span><span class="w"> </span><span class="p">&gt;</span><span class="sd">
+</span></span></span><span class="line"><span class="cl"><span class="sd">          histogram_quantile(0.99, sum by (le)
+</span></span></span><span class="line"><span class="cl"><span class="sd">            (rate(keen_pbr_dns_hold_duration_seconds_bucket[5m]))) &gt; 0.03</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">for</span><span class="p">:</span><span class="w"> </span><span class="l">10m</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">alert</span><span class="p">:</span><span class="w"> </span><span class="l">KeenPbrQueueOverruns</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">expr</span><span class="p">:</span><span class="w"> </span><span class="l">sum by (queue) (increase(keen_pbr_queue_overruns_total[10m])) &gt; 0</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">alert</span><span class="p">:</span><span class="w"> </span><span class="l">KeenPbrListStale</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">expr</span><span class="p">:</span><span class="w"> </span><span class="l">time() - keen_pbr_list_last_update_timestamp_seconds &gt; 86400</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">for</span><span class="p">:</span><span class="w"> </span><span class="l">30m</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
 <hr>
 <h2>POST /api/lists/refresh<span class="hx:absolute hx:-mt-20" id="post-apilistsrefresh"></span>
     <a href="#post-apilistsrefresh" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Обновляет списки с удалёнными URL из активной конфигурации демона.</p>
@@ -1336,7 +1863,7 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 </div>
 <hr>
 <h2>GET /api/config<span class="hx:absolute hx:-mt-20" id="get-apiconfig"></span>
-    <a href="#get-apiconfig" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает текущую конфигурацию и флаг, указывающий, существует ли отложенный черновик в памяти.</p>
+    <a href="#get-apiconfig" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает видимую конфигурацию и флаг наличия подготовленного черновика в памяти. Секретные настройки <code>api</code> намеренно опущены. Ответ также содержит состояние обновления списков.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/config</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1357,12 +1884,12 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;config&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;daemon&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;pid_file&#34;</span><span class="p">:</span> <span class="s2">&#34;/var/run/keen-pbr.pid&#34;</span><span class="p">,</span> <span class="nt">&#34;cache_dir&#34;</span><span class="p">:</span> <span class="s2">&#34;/var/cache/keen-pbr&#34;</span> <span class="p">},</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;api&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span> <span class="nt">&#34;listen&#34;</span><span class="p">:</span> <span class="s2">&#34;127.0.0.1:12121&#34;</span> <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;outbounds&#34;</span><span class="p">:</span> <span class="p">[],</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;lists&#34;</span><span class="p">:</span> <span class="p">{},</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">},</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;is_draft&#34;</span><span class="p">:</span> <span class="kc">false</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;is_draft&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;list_refresh_state&#34;</span><span class="p">:</span> <span class="p">{}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1396,6 +1923,7 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 <hr>
 <h2>POST /api/config<span class="hx:absolute hx:-mt-20" id="post-apiconfig"></span>
     <a href="#post-apiconfig" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Проверяет предоставленное JSON-тело как файл конфигурации и откладывает его в память. Конфигурация <strong>НЕ</strong> записывается на диск и среда выполнения маршрутизации <strong>НЕ</strong> изменяется. Используйте <code>POST /api/config/save</code> для сохранения и применения отложенного черновика.</p>
+<p>Поле <code>api</code> в запросе игнорируется: демон сохраняет действующие настройки безопасности.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://127.0.0.1:12121/api/config <span class="se">\
@@ -1436,7 +1964,7 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;error&#34;</span><span class="p">:</span> <span class="s2">&#34;Validation failed&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;validation_errors&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="nt">&#34;path&#34;</span><span class="p">:</span> <span class="s2">&#34;outbounds.vpn.interface&#34;</span><span class="p">,</span> <span class="nt">&#34;message&#34;</span><span class="p">:</span> <span class="s2">&#34;interface is required&#34;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="nt">&#34;path&#34;</span><span class="p">:</span> <span class="s2">&#34;outbounds[0].interface&#34;</span><span class="p">,</span> <span class="nt">&#34;message&#34;</span><span class="p">:</span> <span class="s2">&#34;interface is required&#34;</span> <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">]</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
@@ -1452,7 +1980,7 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 </div>
 <hr>
 <h2>POST /api/config/save<span class="hx:absolute hx:-mt-20" id="post-apiconfigsave"></span>
-    <a href="#post-apiconfigsave" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Сохраняет отложенную конфигурацию на диск, затем применяет её к среде выполнения маршрутизации.</p>
+    <a href="#post-apiconfigsave" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Принимает асинхронную операцию, которая сохраняет отложенную конфигурацию на диск, а затем согласует среду выполнения маршрутизации. HTTP <code>202</code> подтверждает только принятие операции, но не её завершение.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://127.0.0.1:12121/api/config/save</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1467,15 +1995,12 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
   </button>
 </div>
 </div>
-<h3>Ответ<span class="hx:absolute hx:-mt-20" id="ответ-3"></span>
-    <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-3" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Принятая операция (202)<span class="hx:absolute hx:-mt-20" id="принятая-операция-202"></span>
+    <a href="#%d0%bf%d1%80%d0%b8%d0%bd%d1%8f%d1%82%d0%b0%d1%8f-%d0%be%d0%bf%d0%b5%d1%80%d0%b0%d1%86%d0%b8%d1%8f-202" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;message&#34;</span><span class="p">:</span> <span class="s2">&#34;Config saved and applied&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;saved&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;applied&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;rolled_back&#34;</span><span class="p">:</span> <span class="kc">false</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;operation_id&#34;</span><span class="p">:</span> <span class="s2">&#34;op-123&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;accepted&#34;</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1492,10 +2017,7 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
     <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-%d0%be%d0%b1-%d0%be%d1%88%d0%b8%d0%b1%d0%ba%d0%b5-400--%d0%bd%d0%b5%d1%82-%d0%be%d1%82%d0%bb%d0%be%d0%b6%d0%b5%d0%bd%d0%bd%d0%be%d0%b9-%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;error&#34;</span><span class="p">:</span> <span class="s2">&#34;No staged config to save&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;saved&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;applied&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;rolled_back&#34;</span><span class="p">:</span> <span class="kc">false</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;error&#34;</span><span class="p">:</span> <span class="s2">&#34;No staged config to save&#34;</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1508,6 +2030,7 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
   </button>
 </div>
 </div>
+<p>После принятия операции проверяйте <code>lifecycle_operation</code> в <code>GET /api/health/service</code> или подпишитесь на <code>/api/status/events</code>, пока операция не завершится. Конфигурация сохраняется до согласования runtime. Если согласование завершается ошибкой после сохранения файла, демон сообщает о неисправном runtime и устанавливает <code>rollback_available</code>; прежний файл и runtime автоматически не восстанавливаются. <code>POST /api/config/rollback</code> явно восстанавливает сохранённую копию прежней конфигурации и согласует её с runtime. При успехе runtime становится активным, а соответствующий черновик удаляется. <code>POST /api/config/discard</code> только отменяет несохранённый черновик в памяти и не меняет файл или runtime.</p>
 <hr>
 <h2>GET /api/runtime/outbounds<span class="hx:absolute hx:-mt-20" id="get-apiruntimeoutbounds"></span>
     <a href="#get-apiruntimeoutbounds" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает текущее состояние outbounds демона во время выполнения: живой выбор urltest, достижимость интерфейса и статус circuit breaker.</p>
@@ -1525,8 +2048,8 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
   </button>
 </div>
 </div>
-<h3>Ответ<span class="hx:absolute hx:-mt-20" id="ответ-4"></span>
-    <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-4" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Ответ<span class="hx:absolute hx:-mt-20" id="ответ-3"></span>
+    <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-3" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;outbounds&#34;</span><span class="p">:</span> <span class="p">[</span>
@@ -1564,7 +2087,7 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://127.0.0.1:12121/api/routing/test <span class="se">\
 </span></span></span><span class="line"><span class="cl">  -H <span class="s2">&#34;Content-Type: application/json&#34;</span> <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -d <span class="err">&#39;</span><span class="o">{</span><span class="s2">&#34;target&#34;</span>: <span class="s2">&#34;example.com&#34;</span><span class="o">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+</span></span></span><span class="line"><span class="cl">  -d <span class="s1">&#39;{&#34;target&#34;: &#34;example.com&#34;, &#34;proto&#34;: &#34;tcp&#34;, &#34;dest_port&#34;: 443}&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1576,8 +2099,13 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
   </button>
 </div>
 </div>
-<h3>Ответ<span class="hx:absolute hx:-mt-20" id="ответ-5"></span>
-    <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-5" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<p>Необязательные поля пакета (<code>proto</code> — <code>tcp</code>, <code>udp</code> или <code>other</code>, <code>dest_port</code>,
+<code>src_addr</code>, <code>src_port</code> и <code>dscp</code>) нужны, чтобы проверить правила с фильтрами по
+портам, адресам и 
+  <abbr title="6-битное поле в IP-заголовке, которым помечают класс трафика для QoS.">DSCP</abbr>
+. Без них проверяется только попадание цели в списки.</p>
+<h3>Ответ<span class="hx:absolute hx:-mt-20" id="ответ-4"></span>
+    <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-4" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;example.com&#34;</span><span class="p">,</span>
@@ -1606,7 +2134,7 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 </div>
 <hr>
 <h2>GET /api/health/routing<span class="hx:absolute hx:-mt-20" id="get-apihealthrouting"></span>
-    <a href="#get-apihealthrouting" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Проверяет текущее состояние маршрутизации и firewall ядра против ожидаемой конфигурации: проверяет, что цепочка firewall существует, все правила на месте, ip table заполнены и ip rule установлены.</p>
+    <a href="#get-apihealthrouting" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает кэшированный канонический отчёт о состоянии маршрутизации и firewall ядра. При холодном или устаревшем снимке обновление запускается вне event loop, поэтому временно может отображаться ожидающий или деградированный результат; каждый запрос не выполняет синхронную проверку ядра.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/health/routing</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1621,21 +2149,22 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
   </button>
 </div>
 </div>
-<h3>Ответ<span class="hx:absolute hx:-mt-20" id="ответ-6"></span>
-    <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-6" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Ответ<span class="hx:absolute hx:-mt-20" id="ответ-5"></span>
+    <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-5" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;overall&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;firewall_backend&#34;</span><span class="p">:</span> <span class="s2">&#34;nftables&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;firewall_backend&#34;</span><span class="p">:</span> <span class="s2">&#34;iptables&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;firewall&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;chain_present&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;prerouting_hook_present&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;detail&#34;</span><span class="p">:</span> <span class="s2">&#34;chain keen-pbr found in table mangle&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;verification_state&#34;</span><span class="p">:</span> <span class="s2">&#34;verified&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;detail&#34;</span><span class="p">:</span> <span class="s2">&#34;chain KeenPbrTable found in table mangle&#34;</span>
 </span></span><span class="line"><span class="cl">  <span class="p">},</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;firewall_rules&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;set_name&#34;</span><span class="p">:</span> <span class="s2">&#34;keen-pbr-my_domains&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;action&#34;</span><span class="p">:</span> <span class="s2">&#34;MARK&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;set_name&#34;</span><span class="p">:</span> <span class="s2">&#34;&lt;direct&gt;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;action&#34;</span><span class="p">:</span> <span class="s2">&#34;mark&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;expected_fwmark&#34;</span><span class="p">:</span> <span class="s2">&#34;0x00010000&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;actual_fwmark&#34;</span><span class="p">:</span> <span class="s2">&#34;0x00010000&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span>
@@ -1709,10 +2238,23 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 </div>
 <hr>
 <h2>GET /api/dns/test<span class="hx:absolute hx:-mt-20" id="get-apidnstest"></span>
-    <a href="#get-apidnstest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Транслирует DNS-запросы, наблюдаемые встроенным listener <code>dns.dns_test_server</code> как Server-Sent Events. Каждый event-пayload — это JSON-объект. Соединение получает event <code>HELLO</code> немедленно, затем по одному event <code>DNS</code> на запрошенное имя, пока соединение открыто.</p>
+    <a href="#get-apidnstest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Транслирует события перехвата как Server-Sent Events. Соединение получает
+<code>HELLO</code>. По умолчанию <code>show=keen-pbr</code> выдаёт только marker-события и закрывается
+после подходящего marker; <code>show=all</code> (или совместимый псевдоним <code>show=full</code>)
+остаётся открытым и выдаёт наблюдения DNS, TLS 
+  <abbr title="Имя сайта, которое клиент передаёт в открытом виде в начале TLS-соединения.">SNI</abbr>
+, HTTP Host, 
+  <abbr title="Транспортный протокол поверх UDP, на нём работает HTTP/3.">QUIC</abbr>
+ Initial и
+marker, включая домены без совпадения со списками. Параметр
+<code>domain=&lt;сгенерированный marker&gt;</code> в представлении по умолчанию изолирует
+проверки друг от друга.</p>
+<p><code>show=all</code> показывает трафик всех клиентов, поэтому работает только при
+включённой авторизации API. Без неё эндпоинт отвечает <code>403</code>; представление
+по умолчанию с marker-событиями остаётся доступным.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -N http://127.0.0.1:12121/api/dns/test</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -N -u admin:password <span class="s1">&#39;http://127.0.0.1:12121/api/dns/test?show=all&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1729,9 +2271,7 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">data: {&#34;type&#34;:&#34;HELLO&#34;}
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">data: {&#34;type&#34;:&#34;DNS&#34;,&#34;domain&#34;:&#34;example.com&#34;,&#34;source_ip&#34;:&#34;192.168.1.10&#34;,&#34;ecs&#34;:&#34;203.0.113.0/24&#34;}
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">data: {&#34;type&#34;:&#34;DNS&#34;,&#34;domain&#34;:&#34;connectivity-check.local&#34;,&#34;source_ip&#34;:&#34;192.168.1.11&#34;,&#34;ecs&#34;:null}</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+</span></span><span class="line"><span class="cl">data: {&#34;type&#34;:&#34;INTERCEPT&#34;,&#34;seq&#34;:42,&#34;ts_ms&#34;:1712345678123,&#34;source&#34;:&#34;dns&#34;,&#34;client_ip&#34;:&#34;192.168.1.10&#34;,&#34;domain&#34;:&#34;example.com&#34;,&#34;lists&#34;:[&#34;streaming&#34;],&#34;ips&#34;:[&#34;203.0.113.7&#34;],&#34;added&#34;:1,&#34;refreshed&#34;:0,&#34;errors&#34;:0,&#34;hold_us&#34;:180,&#34;timed_out&#34;:false}</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"

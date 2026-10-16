@@ -9,81 +9,17 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>DNS – keen-pbr</title>
-  <meta name="description" content="Настройки DNS используйте, если хотите, чтобы домены из списка разрешались через определённый DNS-сервер — как правило, тот же VPN, который пропускает соответствующий трафик.
-При установке пакета на роутере keen-pbr обычно сам заботится об интеграции с dnsmasq. Большинству пользователей достаточно задать:
-system_resolver (оставьте значения по умолчанию) servers rules fallback Конфигурация config.json{ &#34;dns&#34;: { &#34;system_resolver&#34;: { &#34;type&#34;: &#34;dnsmasq-nftset&#34;, &#34;address&#34;: &#34;127.0.0.1&#34; }, &#34;servers&#34;: [...], &#34;rules&#34;: [...], &#34;fallback&#34;: [&#34;google_dns&#34;, &#34;quad9&#34;] } } Поле Тип Описание system_resolver object Как keen-pbr обновляет dnsmasq в системе servers array Определения DNS-серверов rules array Правила сопоставления списков DNS-серверам fallback array of string Упорядоченные теги DNS-серверов для запросов, которые не соответствуют никакому правилу dns_test_server object Опциональный встроенный DNS-пробник для расширенного устранения неполадок System Resolver dns.system_resolver сообщает keen-pbr, как проверять состояние dnsmasq после изменений конфигурации." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/dns/" itemprop="url" />
+  <meta name="description" content="Маршрутизация по доменам работает и без настроек DNS: keen-pbr сам читает DNS-ответы и TLS/HTTP/QUIC-трафик и заполняет наборы ваших списков (см. DNS-перехват). Резолвер для этого настраивать не нужно: dnsmasq, DNS-прокси Keenetic, unbound и любой другой работают так, как вы их настроили.
+Нужен ли dnsmasq? Для маршрутизации нет. Перехват работает с любым резолвером: DNS-прокси Keenetic, unbound, dnsmasq или другим. Если провайдер подменяет DNS-ответы, обычно хватает DoH/DoT на роутере." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/dns/" itemprop="url" />
 
 <meta property="og:title" content="DNS">
 <meta
   property="og:description"
   content="
     
-      Настройки DNS используйте, если хотите, чтобы домены из списка разрешались через определённый DNS-сервер — как правило, тот же VPN, который пропускает соответствующий трафик.
-При установке пакета на роутере keen-pbr обычно сам заботится об интеграции с dnsmasq. Большинству пользователей достаточно задать:
-
-system_resolver (оставьте значения по умолчанию)
-servers
-rules
-fallback
-
-Конфигурация
-    
-
-config.json{
-  &#34;dns&#34;: {
-    &#34;system_resolver&#34;: {
-      &#34;type&#34;: &#34;dnsmasq-nftset&#34;,
-      &#34;address&#34;: &#34;127.0.0.1&#34;
-    },
-    &#34;servers&#34;: [...],
-    &#34;rules&#34;: [...],
-    &#34;fallback&#34;: [&#34;google_dns&#34;, &#34;quad9&#34;]
-  }
-}
-  
-    
-
-  
-
-
-
-	
-			
-					Поле
-					Тип
-					Описание
-			
-	
-	
-			
-					system_resolver
-					object
-					Как keen-pbr обновляет dnsmasq в системе
-			
-			
-					servers
-					array
-					Определения DNS-серверов
-			
-			
-					rules
-					array
-					Правила сопоставления списков DNS-серверам
-			
-			
-					fallback
-					array of string
-					Упорядоченные теги DNS-серверов для запросов, которые не соответствуют никакому правилу
-			
-			
-					dns_test_server
-					object
-					Опциональный встроенный DNS-пробник для расширенного устранения неполадок
-			
-	
-
-System Resolver
-    dns.system_resolver сообщает keen-pbr, как проверять состояние dnsmasq после изменений конфигурации.
+      Маршрутизация по доменам работает и без настроек DNS: keen-pbr сам читает DNS-ответы и TLS/HTTP/QUIC-трафик и заполняет наборы ваших списков (см. DNS-перехват). Резолвер для этого настраивать не нужно: dnsmasq, DNS-прокси Keenetic, unbound и любой другой работают так, как вы их настроили.
+Нужен ли dnsmasq?
+    Для маршрутизации нет. Перехват работает с любым резолвером: DNS-прокси Keenetic, unbound, dnsmasq или другим. Если провайдер подменяет DNS-ответы, обычно хватает DoH/DoT на роутере.
     
   ">
 <meta
@@ -97,15 +33,13 @@ System Resolver
 
 
 	<meta itemprop="name" content="DNS">
-	<meta itemprop="description" content="Настройки DNS используйте, если хотите, чтобы домены из списка разрешались через определённый DNS-сервер — как правило, тот же VPN, который пропускает соответствующий трафик.
-При установке пакета на роутере keen-pbr обычно сам заботится об интеграции с dnsmasq. Большинству пользователей достаточно задать:
-system_resolver (оставьте значения по умолчанию) servers rules fallback Конфигурация config.json{ &#34;dns&#34;: { &#34;system_resolver&#34;: { &#34;type&#34;: &#34;dnsmasq-nftset&#34;, &#34;address&#34;: &#34;127.0.0.1&#34; }, &#34;servers&#34;: [...], &#34;rules&#34;: [...], &#34;fallback&#34;: [&#34;google_dns&#34;, &#34;quad9&#34;] } } Поле Тип Описание system_resolver object Как keen-pbr обновляет dnsmasq в системе servers array Определения DNS-серверов rules array Правила сопоставления списков DNS-серверам fallback array of string Упорядоченные теги DNS-серверов для запросов, которые не соответствуют никакому правилу dns_test_server object Опциональный встроенный DNS-пробник для расширенного устранения неполадок System Resolver dns.system_resolver сообщает keen-pbr, как проверять состояние dnsmasq после изменений конфигурации.">
-	<meta itemprop="wordCount" content="752">
+	<meta itemprop="description" content="Маршрутизация по доменам работает и без настроек DNS: keen-pbr сам читает DNS-ответы и TLS/HTTP/QUIC-трафик и заполняет наборы ваших списков (см. DNS-перехват). Резолвер для этого настраивать не нужно: dnsmasq, DNS-прокси Keenetic, unbound и любой другой работают так, как вы их настроили.
+Нужен ли dnsmasq? Для маршрутизации нет. Перехват работает с любым резолвером: DNS-прокси Keenetic, unbound, dnsmasq или другим. Если провайдер подменяет DNS-ответы, обычно хватает DoH/DoT на роутере.">
+	<meta itemprop="wordCount" content="2420">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="DNS">
-	<meta name="twitter:description" content="Настройки DNS используйте, если хотите, чтобы домены из списка разрешались через определённый DNS-сервер — как правило, тот же VPN, который пропускает соответствующий трафик.
-При установке пакета на роутере keen-pbr обычно сам заботится об интеграции с dnsmasq. Большинству пользователей достаточно задать:
-system_resolver (оставьте значения по умолчанию) servers rules fallback Конфигурация config.json{ &#34;dns&#34;: { &#34;system_resolver&#34;: { &#34;type&#34;: &#34;dnsmasq-nftset&#34;, &#34;address&#34;: &#34;127.0.0.1&#34; }, &#34;servers&#34;: [...], &#34;rules&#34;: [...], &#34;fallback&#34;: [&#34;google_dns&#34;, &#34;quad9&#34;] } } Поле Тип Описание system_resolver object Как keen-pbr обновляет dnsmasq в системе servers array Определения DNS-серверов rules array Правила сопоставления списков DNS-серверам fallback array of string Упорядоченные теги DNS-серверов для запросов, которые не соответствуют никакому правилу dns_test_server object Опциональный встроенный DNS-пробник для расширенного устранения неполадок System Resolver dns.system_resolver сообщает keen-pbr, как проверять состояние dnsmasq после изменений конфигурации.">
+	<meta name="twitter:description" content="Маршрутизация по доменам работает и без настроек DNS: keen-pbr сам читает DNS-ответы и TLS/HTTP/QUIC-трафик и заполняет наборы ваших списков (см. DNS-перехват). Резолвер для этого настраивать не нужно: dnsmasq, DNS-прокси Keenetic, unbound и любой другой работают так, как вы их настроили.
+Нужен ли dnsmasq? Для маршрутизации нет. Перехват работает с любым резолвером: DNS-прокси Keenetic, unbound, dnsmasq или другим. Если провайдер подменяет DNS-ответы, обычно хватает DoH/DoT на роутере.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -396,39 +330,33 @@ system_resolver (оставьте значения по умолчанию) serv
   
     <ul class='hx:flex hx:flex-col hx:gap-1 hx:relative hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:dark:before:bg-neutral-800 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:pr-3 hx:rtl:before:right-0 hx:ltr:ml-3 hx:rtl:mr-3'><li>
               <a
+                href="#do-i-need-dnsmasq"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >Нужен ли dnsmasq?</a>
+            </li>
+          <li>
+              <a
                 href="#%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >Конфигурация</a>
             </li>
           <li>
               <a
-                href="#system-resolver"
+                href="#per-list-dns-servers-dnsmasq"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >System Resolver</a>
+              >Отдельные DNS-серверы для списков (dnsmasq)</a>
             </li>
           <li>
               <a
-                href="#dns-test-server"
+                href="#dns-%d0%bf%d0%b5%d1%80%d0%b5%d1%85%d0%b2%d0%b0%d1%82"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >DNS Test Server</a>
+              >DNS-перехват</a>
             </li>
           <li>
               <a
                 href="#dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80%d1%8b"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >DNS-серверы</a>
-            </li>
-          <li>
-              <a
-                href="#dns-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0"
-                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >DNS-правила</a>
-            </li>
-          <li>
-              <a
-                href="#%d0%b8%d0%bd%d1%82%d0%b5%d0%b3%d1%80%d0%b0%d1%86%d0%b8%d1%8f-%d1%81-dnsmasq"
-                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Интеграция с dnsmasq</a>
             </li>
           <li>
               <a
@@ -460,6 +388,18 @@ system_resolver (оставьте значения по умолчанию) serv
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Полный пример конфигурации</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
     </a>
   </div>
               
@@ -510,6 +450,18 @@ system_resolver (оставьте значения по умолчанию) serv
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div>
               
@@ -753,6 +705,18 @@ system_resolver (оставьте значения по умолчанию) serv
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -797,6 +761,17 @@ system_resolver (оставьте значения по умолчанию) serv
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -946,15 +921,63 @@ system_resolver (оставьте значения по умолчанию) serv
 <nav class="hextra-toc hx:order-last hx:hidden hx:w-64 hx:shrink-0 hx:xl:block hx:print:hidden hx:px-4" aria-label="Содержание">
     <div class="hextra-scrollbar hx:sticky hx:top-16 hx:overflow-y-auto hx:pr-4 hx:pt-6 hx:text-sm [hyphens:auto] hx:max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] hx:ltr:-mr-4 hx:rtl:-ml-4"><p class="hx:mb-4 hx:font-semibold hx:tracking-tight">На этой странице</p><ul>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#do-i-need-dnsmasq">Нужен ли dnsmasq?
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f">Конфигурация
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#system-resolver">System Resolver
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#per-list-dns-servers-dnsmasq">Отдельные DNS-серверы для списков (dnsmasq)
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-test-server">DNS Test Server
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80-%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d0%b8">Пример конфигурации
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%81%d0%bf%d1%80%d0%b0%d0%b2%d0%be%d1%87%d0%bd%d0%b8%d0%ba-%d0%bf%d0%be%d0%bb%d0%b5%d0%b9">Справочник полей
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%ba%d0%b0-%d0%bf%d0%be-%d0%bf%d0%bb%d0%b0%d1%82%d1%84%d0%be%d1%80%d0%bc%d0%b0%d0%bc">Установка по платформам
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b2%d1%8b%d0%b1%d0%be%d1%80-%d1%8d%d0%ba%d0%b7%d0%b5%d0%bc%d0%bf%d0%bb%d1%8f%d1%80%d0%b0-dnsmasq">Выбор экземпляра dnsmasq
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-8 hx:rtl:pr-8 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d0%bf%d1%80%d0%b5%d0%b4%d0%b5%d0%bb%d0%b5%d0%bd%d0%b8%d0%b5-dns-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%b0">Определение DNS-адреса
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-8 hx:rtl:pr-8 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b8-%d0%bf%d0%b5%d1%80%d0%b5%d0%b4-%d0%ba%d0%b0%d0%b6%d0%b4%d1%8b%d0%bc-%d0%bf%d0%b5%d1%80%d0%b5%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%be%d0%bc">Проверки перед каждым перезапуском
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-8 hx:rtl:pr-8 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%88%d0%b8%d0%b1%d0%ba%d0%b8">Ошибки
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82">Как это работает
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d1%80%d0%b8-%d0%be%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%ba%d0%b5-%d0%be%d1%82%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d0%b8-%d0%b8%d0%bb%d0%b8-%d1%83%d0%b4%d0%b0%d0%bb%d0%b5%d0%bd%d0%b8%d0%b8">При остановке, отключении или удалении
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%80%d0%b5%d1%88%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bf%d1%80%d0%be%d0%b1%d0%bb%d0%b5%d0%bc">Решение проблем
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-%d0%bf%d0%b5%d1%80%d0%b5%d1%85%d0%b2%d0%b0%d1%82">DNS-перехват
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%82%d1%80%d0%b5%d0%b1%d0%be%d0%b2%d0%b0%d0%bd%d0%b8%d1%8f-%d0%ba-%d1%8f%d0%b4%d1%80%d1%83">Требования к ядру
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -967,14 +990,6 @@ system_resolver (оставьте значения по умолчанию) serv
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%ba%d0%b0%d0%ba-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82-detour">Как работает detour
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0">DNS-правила
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b8%d0%bd%d1%82%d0%b5%d0%b3%d1%80%d0%b0%d1%86%d0%b8%d1%8f-%d1%81-dnsmasq">Интеграция с dnsmasq
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1064,26 +1079,26 @@ system_resolver (оставьте значения по умолчанию) serv
     </div>
           </div>
           
-          <p>Настройки DNS используйте, если хотите, чтобы домены из списка разрешались через определённый DNS-сервер — как правило, тот же VPN, который пропускает соответствующий трафик.</p>
-<p>При установке пакета на роутере keen-pbr обычно сам заботится об интеграции с dnsmasq. Большинству пользователей достаточно задать:</p>
+          <p>Маршрутизация по доменам работает и без настроек DNS: keen-pbr сам читает DNS-ответы и TLS/HTTP/QUIC-трафик и заполняет наборы ваших списков (см. <a href="#dns-%d0%bf%d0%b5%d1%80%d0%b5%d1%85%d0%b2%d0%b0%d1%82">DNS-перехват</a>). Резолвер для этого настраивать не нужно: dnsmasq, DNS-прокси Keenetic, unbound и любой другой работают так, как вы их настроили.</p>
+<h2>Нужен ли dnsmasq?<span class="hx:absolute hx:-mt-20" id="do-i-need-dnsmasq"></span>
+    <a href="#do-i-need-dnsmasq" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><strong>Для маршрутизации нет.</strong> Перехват работает с любым резолвером: DNS-прокси Keenetic, unbound, dnsmasq или другим. Если провайдер подменяет DNS-ответы, обычно хватает DoH/DoT на роутере.</p>
+<p><strong>Да, если вам нужны:</strong></p>
 <ul>
-<li><code>system_resolver</code> (оставьте значения по умолчанию)</li>
-<li><code>servers</code></li>
-<li><code>rules</code></li>
-<li><code>fallback</code></li>
+<li>отдельные DNS-серверы для доменов некоторых списков, например CDN, который должен отвечать для региона вашего VPN, или домены, которые резолвятся только внутри VPN;</li>
+<li>свои DNS-серверы по умолчанию (<code>fallback</code>), которыми управляет keen-pbr.</li>
+</ul>
+<p>И то и другое работает только через dnsmasq. Установка и откат по платформам: <a href="/ru/docs/getting-started/installation/keenetic/#dnsmasq">Keenetic</a>, <a href="/ru/docs/getting-started/installation/openwrt/#dnsmasq">OpenWrt</a>, <a href="/ru/docs/getting-started/installation/debian/#dnsmasq">Debian</a>. В веб-интерфейсе переключатель называется <strong>Общее</strong> &gt; <strong>Управление локальным DNS-сервером</strong> &gt; <strong>Управлять конфигурацией dnsmasq</strong>.</p>
+<p>Настройки на этой странице нужны в двух случаях:</p>
+<ul>
+<li>задать DNS-серверы и указать, через какой outbound к ним обращаться (<code>detour</code>);</li>
+<li>разрешать домены из выбранных списков через отдельный DNS-сервер, обычно доступный через тот же VPN. Только для этого keen-pbr управляет dnsmasq, и только если вы это включили.</li>
 </ul>
 <h2>Конфигурация<span class="hx:absolute hx:-mt-20" id="конфигурация"></span>
     <a href="#%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;system_resolver&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;dnsmasq-nftset&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;127.0.0.1&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="p">},</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span><span class="err">...</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span><span class="err">...</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;fallback&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;google_dns&#34;</span><span class="p">,</span> <span class="s2">&#34;quad9&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span><span class="err">...</span><span class="p">]</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -1102,99 +1117,72 @@ system_resolver (оставьте значения по умолчанию) serv
 			<tr>
 					<th>Поле</th>
 					<th>Тип</th>
+					<th>Обязательное</th>
 					<th>Описание</th>
 			</tr>
 	</thead>
 	<tbody>
 			<tr>
-					<td><code>system_resolver</code></td>
-					<td>object</td>
-					<td>Как keen-pbr обновляет dnsmasq в системе</td>
-			</tr>
-			<tr>
 					<td><code>servers</code></td>
 					<td>array</td>
+					<td>нет</td>
 					<td>Определения DNS-серверов</td>
+			</tr>
+			<tr>
+					<td><code>resolver_integration</code></td>
+					<td>string</td>
+					<td>нет</td>
+					<td><code>&quot;none&quot;</code> (по умолчанию) или <code>&quot;dnsmasq&quot;</code>. В веб-интерфейсе: <strong>Управлять конфигурацией dnsmasq</strong>. Конфиги от 3.3.x (без поля <code>version</code>) остаются на <code>&quot;dnsmasq&quot;</code>.</td>
+			</tr>
+			<tr>
+					<td><code>dnsmasq_instance</code></td>
+					<td>string</td>
+					<td>нет</td>
+					<td>Селектор управляемого экземпляра dnsmasq: <code>uci:&lt;секция&gt;</code> (OpenWrt), <code>entware:default</code> (Keenetic), <code>systemd:&lt;юнит&gt;.service</code> (Debian). Пусто или не задано: автоматический выбор; нужен только если найдено несколько экземпляров.</td>
 			</tr>
 			<tr>
 					<td><code>rules</code></td>
 					<td>array</td>
-					<td>Правила сопоставления списков DNS-серверам</td>
+					<td>нет</td>
+					<td>Правила маршрутизации списков на DNS-серверы (активны только при <code>resolver_integration: &quot;dnsmasq&quot;</code>).</td>
 			</tr>
 			<tr>
 					<td><code>fallback</code></td>
 					<td>array of string</td>
-					<td>Упорядоченные теги DNS-серверов для запросов, которые не соответствуют никакому правилу</td>
+					<td>нет</td>
+					<td>Теги upstream DNS-серверов для запросов, не совпавших с правилом (активны только при <code>resolver_integration: &quot;dnsmasq&quot;</code>).</td>
 			</tr>
 			<tr>
 					<td><code>dns_test_server</code></td>
 					<td>object</td>
-					<td>Опциональный встроенный DNS-пробник для расширенного устранения неполадок</td>
-			</tr>
-	</tbody>
-</table>
-<h2>System Resolver<span class="hx:absolute hx:-mt-20" id="system-resolver"></span>
-    <a href="#system-resolver" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><code>dns.system_resolver</code> сообщает keen-pbr, как проверять состояние dnsmasq после изменений конфигурации.</p>
-<p>При обычной установке пакета на роутер вам обычно не следует изменять эти настройки.</p>
-<table>
-	<thead>
-			<tr>
-					<th>Поле</th>
-					<th>Тип</th>
-					<th>Обязательно</th>
-					<th>Описание</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>type</code></td>
-					<td>string</td>
-					<td>да</td>
-					<td>Тип интеграции резолвера: <code>dnsmasq-ipset</code> или <code>dnsmasq-nftset</code></td>
-			</tr>
-			<tr>
-					<td><code>address</code></td>
-					<td>string</td>
-					<td>да</td>
-					<td>Адрес резолвера, используемый для интеграции и проверок состояния через TXT, например <code>&quot;127.0.0.1&quot;</code> или <code>&quot;127.0.0.1:5353&quot;</code></td>
-			</tr>
-	</tbody>
-</table>
-<h2>DNS Test Server<span class="hx:absolute hx:-mt-20" id="dns-test-server"></span>
-    <a href="#dns-test-server" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><code>dns.dns_test_server</code> опционален. Он mainly полезен при устранении неполадок с DNS, когда вы хотите, чтобы keen-pbr предоставил простой тестовый DNS-listener.</p>
-<table>
-	<thead>
-			<tr>
-					<th>Поле</th>
-					<th>Тип</th>
-					<th>Обязательно</th>
-					<th>Описание</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>listen</code></td>
-					<td>string</td>
-					<td>да</td>
-					<td>IPv4-адрес прослушивания в форме <code>host:port</code>, например <code>&quot;127.0.0.88:53&quot;</code></td>
-			</tr>
-			<tr>
-					<td><code>answer_ipv4</code></td>
-					<td>string</td>
 					<td>нет</td>
-					<td>IPv4-адрес, возвращаемый в ответе DNS-пробника (<code>nslookup check.keen.pbr</code>). По умолчанию — хост-часть из <code>listen</code>.</td>
+					<td>Устаревшее поле, принимается, но игнорируется; используйте <code>intercept.dns.marker</code></td>
 			</tr>
 	</tbody>
 </table>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h2>Отдельные DNS-серверы для списков (dnsmasq)<span class="hx:absolute hx:-mt-20" id="per-list-dns-servers-dnsmasq"></span>
+    <a href="#per-list-dns-servers-dnsmasq" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Когда <code>resolver_integration</code> равен <code>&quot;dnsmasq&quot;</code>, keen-pbr настраивает dnsmasq так, чтобы домены из выбранных списков разрешались через указанные DNS-серверы. Это нужно, когда CDN должна отдавать адреса для региона вашего VPN или когда разным сервисам нужны разные DNS-серверы.</p>
+<p><strong>Пример</strong>: домены AI-сервисов разрешаются через DNS-сервер за VPN. Тогда CDN отдаёт адреса для страны выхода VPN, и сервис не видит, что вы заходите из другой страны (иначе аккаунт могут заблокировать).</p>
+<h3>Пример конфигурации<span class="hx:absolute hx:-mt-20" id="пример-конфигурации"></span>
+    <a href="#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80-%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;dns_test_server&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;listen&#34;</span><span class="p">:</span> <span class="s2">&#34;127.0.0.88:53&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;resolver_integration&#34;</span><span class="p">:</span> <span class="s2">&#34;dnsmasq&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span><span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span><span class="p">,</span> <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;1.1.1.1&#34;</span><span class="p">,</span> <span class="nt">&#34;detour&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span><span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;isp_dns&#34;</span><span class="p">,</span> <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;192.168.1.1&#34;</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;ai_services&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;server&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;allow_domain_rebinding&#34;</span><span class="p">:</span> <span class="kc">false</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;fallback&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;isp_dns&#34;</span><span class="p">]</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1206,10 +1194,385 @@ system_resolver (оставьте значения по умолчанию) serv
   </button>
 </div>
 </div>
-<p>Когда HTTP API включён, вы можете проверить, работает ли ваш DNS, через веб-интерфейс.</p>
+<h3>Справочник полей<span class="hx:absolute hx:-mt-20" id="справочник-полей"></span>
+    <a href="#%d1%81%d0%bf%d1%80%d0%b0%d0%b2%d0%be%d1%87%d0%bd%d0%b8%d0%ba-%d0%bf%d0%be%d0%bb%d0%b5%d0%b9" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><table>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательное</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>resolver_integration</code></td>
+					<td>string</td>
+					<td>да</td>
+					<td>Установите <code>&quot;dnsmasq&quot;</code> для включения интеграции</td>
+			</tr>
+			<tr>
+					<td><code>servers</code></td>
+					<td>array</td>
+					<td>да</td>
+					<td>Определения DNS-серверов (каждый имеет <code>tag</code>, опциональные <code>address</code> и <code>detour</code>)</td>
+			</tr>
+			<tr>
+					<td><code>rules</code></td>
+					<td>array</td>
+					<td>нет</td>
+					<td>Массив правил маршрутизации; каждое правило связывает списки с DNS-сервером</td>
+			</tr>
+			<tr>
+					<td><code>fallback</code></td>
+					<td>array</td>
+					<td>нет</td>
+					<td>Теги серверов для использования, когда никакое правило не совпадает; если не указано, используются upstream-серверы из resolv.conf</td>
+			</tr>
+	</tbody>
+</table>
+<p><strong>DNS-правило</strong> (элемент <code>rules[]</code>):</p>
+<table>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>По умолчанию</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>enabled</code></td>
+					<td>bool</td>
+					<td>true</td>
+					<td>Включено ли это правило</td>
+			</tr>
+			<tr>
+					<td><code>list</code></td>
+					<td>array of string</td>
+					<td>обязательно</td>
+					<td>Имена списков, домены которых должны использовать этот DNS-сервер</td>
+			</tr>
+			<tr>
+					<td><code>server</code></td>
+					<td>string</td>
+					<td>обязательно</td>
+					<td>Тег DNS-сервера для доменов в этих списках</td>
+			</tr>
+			<tr>
+					<td><code>allow_domain_rebinding</code></td>
+					<td>bool</td>
+					<td>false</td>
+					<td>Разрешить приватные IP-адреса (RFC1918) в ответах → <code>rebind-domain-ok</code> в dnsmasq</td>
+			</tr>
+	</tbody>
+</table>
+<p><strong>Несколько DNS-серверов для одного списка.</strong> Добавьте для этого списка по правилу на каждый сервер. Домены списка получат серверы всех включённых правил в порядке правил. dnsmasq опрашивает их все, затем пользуется тем, который ответил первым, и переключается на другой, если тот перестал отвечать. Rebinding разрешён, если его разрешает хотя бы одно из этих правил.</p>
+<p>dnsmasq хранит отдельную запись (около 200 байт) для каждой пары «домен — сервер». Каждый дополнительный сервер добавляет столько же памяти на каждый домен списка: два сервера для списка из 10 000 доменов займут около 4 МБ вместо 2 МБ.</p>
+<h3>Установка по платформам<span class="hx:absolute hx:-mt-20" id="установка-по-платформам"></span>
+    <a href="#%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%ba%d0%b0-%d0%bf%d0%be-%d0%bf%d0%bb%d0%b0%d1%82%d1%84%d0%be%d1%80%d0%bc%d0%b0%d0%bc" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>keen-pbr не устанавливает dnsmasq; поставьте его сами, если нужна эта функция. Пошаговая установка и откат есть на страницах установки: <a href="/ru/docs/getting-started/installation/keenetic/#dnsmasq">Keenetic</a>, <a href="/ru/docs/getting-started/installation/openwrt/#dnsmasq">OpenWrt</a>, <a href="/ru/docs/getting-started/installation/debian/#dnsmasq">Debian</a>. Что keen-pbr меняет на каждой платформе:</p>
+<p><strong>OpenWrt</strong>: установите <code>dnsmasq</code>. keen-pbr добавляет в секцию dnsmasq в <code>/etc/config/dhcp</code> три записи <code>addnmount</code>, чтобы dnsmasq из своей песочницы мог запустить keen-pbr. Пока управление включено и основные DNS-серверы заданы, keen-pbr убирает из <code>/etc/config/dhcp</code> серверы без домена, серверы для отдельных доменов остаются. Когда вы выключите управление или очистите основные серверы, убранные серверы вернутся. Записи <code>addnmount</code> исчезнут при удалении пакета.</p>
+<p><strong>Keenetic (Entware)</strong>: установите <code>dnsmasq-full</code> (заменяет встроенный ndnproxy как LAN-резолвер).
+При первом включении управления keen-pbr добавляет в <code>/opt/etc/dnsmasq.conf</code> помеченный блок с одной строкой <code>conf-script</code>. Тот же блок добавляет <code>install-recommended-config</code>. Если dnsmasq не установлен, страница состояния покажет ошибку.</p>
+<p><strong>Debian</strong>: установите <code>dnsmasq</code>. При первом включении управления keen-pbr добавляет в <code>/etc/dnsmasq.conf</code> помеченный блок. <code>install-recommended-config</code> добавляет такой же блок. Если dnsmasq не установлен, страница статуса покажет ошибку.</p>
+<p>На Keenetic и Debian есть команда <code>install-recommended-config</code> (см. страницы установки). Она заменяет основной конфиг dnsmasq рекомендуемым, сохраняет прежний файл рядом и перезапускает dnsmasq.</p>
+<h3>Выбор экземпляра dnsmasq<span class="hx:absolute hx:-mt-20" id="выбор-экземпляра-dnsmasq"></span>
+    <a href="#%d0%b2%d1%8b%d0%b1%d0%be%d1%80-%d1%8d%d0%ba%d0%b7%d0%b5%d0%bc%d0%bf%d0%bb%d1%8f%d1%80%d0%b0-dnsmasq" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>На роутере может работать несколько экземпляров dnsmasq (на OpenWrt по одному на каждую секцию <code>dnsmasq</code> в <code>/etc/config/dhcp</code>). keen-pbr управляет ровно одним из них и опознаёт его по <strong>селектору</strong>:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Платформа</th>
+					<th>Селектор</th>
+					<th>Пример</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>OpenWrt</td>
+					<td><code>uci:&lt;секция&gt;</code> (имя из <code>uci show dhcp</code>)</td>
+					<td><code>uci:cfg01411c</code>, <code>uci:guest</code></td>
+			</tr>
+			<tr>
+					<td>Keenetic (
+  <abbr title="Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.">Entware</abbr>
+)</td>
+					<td><code>entware:default</code></td>
+					<td><code>entware:default</code></td>
+			</tr>
+			<tr>
+					<td>Debian</td>
+					<td><code>systemd:&lt;юнит&gt;.service</code></td>
+					<td><code>systemd:dnsmasq.service</code></td>
+			</tr>
+	</tbody>
+</table>
+<p>Экземпляр выбирается в таком порядке:</p>
+<ol>
+<li><strong>Явно</strong>: задан <code>dns.dnsmasq_instance</code>. Если такого экземпляра нет, keen-pbr сообщает <code>DNSMASQ_INSTANCE_NOT_FOUND</code> и ничего не меняет.</li>
+<li><strong>По установленному drop-in</strong>: поле пустое, а 
+  <abbr title="Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.">drop-in</abbr>
+ keen-pbr уже стоит ровно в одном экземпляре. Он и продолжает использоваться. Если drop-in найден в нескольких, выбор останавливается с ошибкой <code>DNSMASQ_INSTANCE_AMBIGUOUS</code>.</li>
+<li><strong>Автоматически</strong>: поле пустое, ничего не установлено, и ровно один включённый экземпляр обслуживает DNS (<code>port</code> не равен <code>0</code>). Если таких нет, результат <code>DNSMASQ_NO_DNS_INSTANCE</code>; если несколько, <code>DNSMASQ_INSTANCE_AMBIGUOUS</code>.</li>
+</ol>
+<p>Если выбор неоднозначен, keen-pbr не гадает: ничего не меняет и не трогает уже установленные drop-in. Посмотрите кандидатов командой <code>keen-pbr dnsmasq detect</code> и задайте <code>dns.dnsmasq_instance</code> в <code>config.json</code> или в настройках DNS в веб-интерфейсе. Если drop-in keen-pbr стоит ещё и в невыбранном экземпляре, <code>detect</code> и журнал покажут предупреждение с командой для его удаления (<code>keen-pbr dnsmasq remove &lt;селектор&gt;</code>).</p>
+<h4>Определение DNS-адреса<span class="hx:absolute hx:-mt-20" id="определение-dns-адреса"></span>
+    <a href="#%d0%be%d0%bf%d1%80%d0%b5%d0%b4%d0%b5%d0%bb%d0%b5%d0%bd%d0%b8%d0%b5-dns-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h4><p>keen-pbr сам находит адрес, на котором отвечает выбранный dnsmasq: читает конфигурацию, которую dnsmasq действительно загрузил, и проверяет адрес DNS-запросом. Если dnsmasq не обслуживает DNS (<code>port=0</code>, нет DNS-сокета или он работает в другом 
+  <abbr title="Изолированная копия сетевого стека Linux со своими интерфейсами, маршрутами и firewall.">network namespace</abbr>
+), keen-pbr сообщит об ошибке, а не подставит <code>127.0.0.1:53</code> наугад.</p>
+<h4>Проверки перед каждым перезапуском<span class="hx:absolute hx:-mt-20" id="проверки-перед-каждым-перезапуском"></span>
+    <a href="#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b8-%d0%bf%d0%b5%d1%80%d0%b5%d0%b4-%d0%ba%d0%b0%d0%b6%d0%b4%d1%8b%d0%bc-%d0%bf%d0%b5%d1%80%d0%b5%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%be%d0%bc" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h4><p>Перед перезапуском dnsmasq keen-pbr проверяет новые настройки командой <code>dnsmasq --test</code> на вашей текущей конфигурации dnsmasq вместе с 
+  <abbr title="Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.">drop-in</abbr>
+ keen-pbr. Ещё один раз он проверяет, что ваша сборка dnsmasq поддерживает <code>conf-script</code>.</p>
+<p>Если проверка не прошла, <strong>dnsmasq не перезапускается и работает со старыми настройками</strong>. Код ошибки и вывод dnsmasq видны в веб-интерфейсе и в <code>/api/health/service</code>; исправьте проблему и примените конфигурацию снова.</p>
+<p>Каждая проверка запускает генератор конфигурации, поэтому перед каждым применением в системном журнале появляется лишний блок <code>generate-resolver-config dnsmasq: pid ..., parent ... (dnsmasq)</code>. Так и должно быть.</p>
+<h4>Ошибки<span class="hx:absolute hx:-mt-20" id="ошибки"></span>
+    <a href="#%d0%be%d1%88%d0%b8%d0%b1%d0%ba%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h4><p>Код виден в <code>GET /api/health/service</code> (<code>error_code</code>) и в веб-интерфейсе. Во всех случаях ниже keen-pbr не перезапускает dnsmasq, если в таблице не сказано иное.</p>
+<table>
+	<thead>
+			<tr>
+					<th>Код</th>
+					<th>Значение</th>
+					<th>Что делать</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>DNSMASQ_NO_HOOK</code></td>
+					<td>В этой сборке нет hook-скрипта для dnsmasq.</td>
+					<td>Используйте пакет, собранный для вашей платформы.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_HOOK_FAILED</code></td>
+					<td>Вызов <code>inspect</code> у hook-скрипта завершился ошибкой или вывел нечитаемый ответ.</td>
+					<td>Запустите <code>keen-pbr dnsmasq detect</code>; проверьте, что hook-скрипт и keen-pbr одной версии.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_NOT_INSTALLED</code></td>
+					<td>dnsmasq не установлен.</td>
+					<td>Установите dnsmasq (см. выше) или, если он не нужен, выключите <strong>Управлять конфигурацией dnsmasq</strong> в веб-интерфейсе (<code>dns.resolver_integration: &quot;none&quot;</code>).</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_NO_DNS_INSTANCE</code></td>
+					<td>Нет включённого экземпляра с DNS.</td>
+					<td>Включите экземпляр с DNS или выключите <strong>Управлять конфигурацией dnsmasq</strong> в веб-интерфейсе (<code>dns.resolver_integration: &quot;none&quot;</code>).</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_INSTANCE_NOT_FOUND</code></td>
+					<td><code>dns.dnsmasq_instance</code> указывает на несуществующий экземпляр.</td>
+					<td>Исправьте селектор; допустимые покажет <code>keen-pbr dnsmasq detect</code>.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_INSTANCE_AMBIGUOUS</code></td>
+					<td>Подходит несколько экземпляров.</td>
+					<td>Задайте <code>dns.dnsmasq_instance</code>.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_NOT_RUNNING</code></td>
+					<td>Выбранный экземпляр не запущен.</td>
+					<td>Запустите dnsmasq сами. keen-pbr его не запускает и применит конфигурацию, как только dnsmasq снова заработает.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_DNS_DISABLED</code></td>
+					<td>У выбранного экземпляра <code>port=0</code>.</td>
+					<td>Выберите другой экземпляр или включите в этом DNS.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_OTHER_NETNS</code></td>
+					<td>dnsmasq работает в другом сетевом пространстве имён.</td>
+					<td>Не поддерживается; запустите dnsmasq в основном пространстве роутера.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_NO_DNS_LISTENER</code></td>
+					<td>Процесс запущен, но у него нет DNS-сокета.</td>
+					<td>Проверьте <code>listen-address</code>, <code>interface</code> и <code>port</code> в конфигурации dnsmasq.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_ENDPOINT_UNRESPONSIVE</code></td>
+					<td>Сокеты есть, но ни один не ответил на DNS-запрос.</td>
+					<td>Проверьте, что dnsmasq работает (<code>nslookup example.com 127.0.0.1</code>). Не перезапускается.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_DROPIN_NOT_LOADED</code></td>
+					<td>Работающий dnsmasq не читает каталог, куда ставится 
+  <abbr title="Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.">drop-in</abbr>
+ keen-pbr (или фильтр <code>conf-dir</code> отбрасывает имя файла).</td>
+					<td>Добавьте каталог в <code>conf-dir</code> этого экземпляра или ослабьте фильтр.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_FOREIGN_DROPIN</code></td>
+					<td>Файл drop-in существует, но его создал не keen-pbr.</td>
+					<td>Переместите или удалите файл; keen-pbr его никогда не перезаписывает.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_CONF_SCRIPT_UNSUPPORTED</code></td>
+					<td>Эта сборка dnsmasq не выполняет <code>conf-script</code>.</td>
+					<td>Установите сборку dnsmasq с поддержкой <code>conf-script</code> (на Keenetic это <code>dnsmasq-full</code>).</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_TEST_FAILED</code></td>
+					<td>Даже минимальная конфигурация не проходит <code>dnsmasq --test</code>.</td>
+					<td>Запустите <code>dnsmasq --test</code> вручную и исправьте то, что он покажет.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_PREFLIGHT_FAILED</code></td>
+					<td>Текущая конфигурация dnsmasq вместе с drop-in keen-pbr не проходит <code>--test</code>.</td>
+					<td>Прочитайте вывод dnsmasq в описании ошибки и исправьте конфигурацию. dnsmasq не затронут.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_APPLY_FAILED</code></td>
+					<td>Hook-скрипт не смог установить drop-in.</td>
+					<td>Смотрите вывод hook-скрипта в описании ошибки и системный журнал.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_CONFIG_NOT_LOADED</code></td>
+					<td>dnsmasq перезапущен, но новая конфигурация не появилась вовремя.</td>
+					<td>Проверьте журнал dnsmasq и примените конфигурацию ещё раз.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_STAMP_MISMATCH</code></td>
+					<td>dnsmasq работает с другой конфигурацией, чем ожидалось (например, его перезапустил кто-то другой).</td>
+					<td>keen-pbr чинит это сам в пределах, описанных ниже.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_REPAIR_PAUSED</code></td>
+					<td>Лимит автоматических исправлений исчерпан.</td>
+					<td>Выясните, почему dnsmasq теряет конфигурацию, затем примените конфигурацию или перезапустите keen-pbr.</td>
+			</tr>
+			<tr>
+					<td><code>DNSMASQ_PROBE_FAILED</code></td>
+					<td>Процесс жив, но перестал отвечать.</td>
+					<td>Проверьте dnsmasq. Он не перезапускается.</td>
+			</tr>
+	</tbody>
+</table>
+<h3>Как это работает<span class="hx:absolute hx:-mt-20" id="как-это-работает"></span>
+    <a href="#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>keen-pbr никогда не пишет сгенерированный конфиг dnsmasq на диск. В конфигурации dnsmasq есть одна строка 
+  <abbr title="Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.">drop-in</abbr>
+ (<code>conf-script=keen-pbr generate-resolver-config dnsmasq</code>). При каждом старте dnsmasq запускает эту команду и читает из её вывода правила для списков и основные DNS-серверы.</p>
+<ul>
+<li>Когда <strong>Управлять конфигурацией dnsmasq</strong> включено, dnsmasq перезапускается при изменении этого вывода (обновление списка, смена настроек или один раз после старта keen-pbr) и только после проверок из раздела <a href="#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b8-%d0%bf%d0%b5%d1%80%d0%b5%d0%b4-%d0%ba%d0%b0%d0%b6%d0%b4%d1%8b%d0%bc-%d0%bf%d0%b5%d1%80%d0%b5%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%be%d0%bc">Проверки перед каждым перезапуском</a>.</li>
+<li>Когда выключено, в выводе серверы из <code>dnsmasq-fallback.conf</code> (Keenetic: <code>/opt/etc/keen-pbr/</code>, Debian и OpenWrt: <code>/etc/keen-pbr/</code>). Они добавляются к собственным серверам dnsmasq. Чтобы этого не было, очистите файл. На OpenWrt он по умолчанию пустой.</li>
+<li>Когда включено, но основные DNS-серверы не заданы, dnsmasq тоже получает серверы из <code>dnsmasq-fallback.conf</code>.</li>
+</ul>
+<h3>При остановке, отключении или удалении<span class="hx:absolute hx:-mt-20" id="при-остановке-отключении-или-удалении"></span>
+    <a href="#%d0%bf%d1%80%d0%b8-%d0%be%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%ba%d0%b5-%d0%be%d1%82%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d0%b8-%d0%b8%d0%bb%d0%b8-%d1%83%d0%b4%d0%b0%d0%bb%d0%b5%d0%bd%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><ul>
+<li><strong>Остановка keen-pbr</strong>: dnsmasq не перезапускается. Отдельные DNS-серверы для списков продолжают работать, в том числе после перезапуска dnsmasq или роутера.</li>
+<li><strong>Отключение функции</strong> (<code>resolver_integration: &quot;none&quot;</code>): keen-pbr перезапускает dnsmasq, и тот переходит на серверы из <code>dnsmasq-fallback.conf</code>. На OpenWrt список серверов возвращается в <code>/etc/config/dhcp</code>. Если вы выключили управление, правя конфиг при остановленном keen-pbr, первый старт один раз перезапустит dnsmasq. См. <a href="/ru/docs/cli/#dnsmasq-detect-and-remove">команды <code>dnsmasq</code></a>.</li>
+<li><strong>dnsmasq не запущен</strong>: keen-pbr никогда не запускает остановленный dnsmasq. Если dnsmasq упал в системе без супервизора служб (
+  <abbr title="Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.">Entware</abbr>
+), запустите его вручную; keen-pbr применит свою конфигурацию заново, как только dnsmasq снова заработает.</li>
+<li><strong>dnsmasq потерял конфигурацию</strong> (перезапущен с другими настройками): keen-pbr перезапускает его не более 3 раз (сразу, затем через 5 и 10 минут), после чего автоматическое восстановление приостанавливается; <code>state</code> в <code>/api/health/service</code> показывает <code>reconciling</code> или <code>error</code> с причиной. Применение конфигурации или перезапуск keen-pbr включают его снова. Работающий dnsmasq, который не отвечает на проверку конфигурации, не перезапускается.</li>
+<li><strong>Удаление пакета</strong>: keen-pbr убирает свою запись из dnsmasq, возвращает список серверов на OpenWrt и перезапускает dnsmasq. Это работает, даже если сам keen-pbr сломан: скрипты удаления его не запускают. Если у dnsmasq не остаётся ни одного вышестоящего DNS-сервера (в конфиге <code>no-resolv</code> и нет своих строк <code>server=</code>), серверы из <code>dnsmasq-fallback.conf</code> остаются в блоке с пометкой <code>keen-pbr fallback upstream</code> в <code>/opt/etc/dnsmasq.conf</code> (Keenetic) или <code>/etc/dnsmasq.conf</code> (Debian). Замените их своими. Правила файрвола, оставшиеся после аварийно завершившегося keen-pbr, тоже удаляются.</li>
+</ul>
+<h3>Решение проблем<span class="hx:absolute hx:-mt-20" id="решение-проблем"></span>
+    <a href="#%d1%80%d0%b5%d1%88%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bf%d1%80%d0%be%d0%b1%d0%bb%d0%b5%d0%bc" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>См. <a href="/ru/docs/troubleshooting/#per-list-dns-servers-do-not-work">Не работают отдельные DNS-серверы для списков</a>.</p>
+<h2>DNS-перехват<span class="hx:absolute hx:-mt-20" id="dns-перехват"></span>
+    <a href="#dns-%d0%bf%d0%b5%d1%80%d0%b5%d1%85%d0%b2%d0%b0%d1%82" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Секция <code>intercept</code> включена по умолчанию. Она отвечает за то, как keen-pbr узнаёт IP-адреса доменов из ваших списков:</p>
+<ul>
+<li><strong>DNS</strong> — keen-pbr ненадолго задерживает DNS-ответ, проходящий через роутер, добавляет адреса из него в набор списка и только потом отдаёт ответ клиенту. Так первое же соединение к сайту идёт нужным маршрутом.</li>
+<li><strong>L7</strong> — keen-pbr читает имя сайта в начале TLS-, HTTP- и QUIC-соединений. Это помогает, когда устройство использует зашифрованный DNS.</li>
+</ul>
+<p>Менять эти настройки нужно, только если значения по умолчанию вам не подходят:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>По умолчанию</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>enabled</code></td>
+					<td>boolean</td>
+					<td><code>true</code></td>
+					<td>Включить перехват</td>
+			</tr>
+			<tr>
+					<td><code>min_ttl_ms</code> / <code>max_ttl_ms</code></td>
+					<td>integer</td>
+					<td><code>300000</code> / <code>86400000</code></td>
+					<td>Сколько хранить адрес в динамическом наборе: не меньше и не больше указанного, в миллисекундах (округляется до секунд). Внутри этих границ используется 
+  <abbr title="Сколько секунд DNS-ответ можно хранить в кэше.">TTL</abbr>
+ из DNS-ответа</td>
+			</tr>
+			<tr>
+					<td><code>dns.enabled</code></td>
+					<td>boolean</td>
+					<td><code>true</code></td>
+					<td>Читать DNS-ответы (UDP и TCP)</td>
+			</tr>
+			<tr>
+					<td><code>dns.queue_num</code></td>
+					<td>integer</td>
+					<td><code>9053</code></td>
+					<td>Номер очереди 
+  <abbr title="Механизм netfilter, который передаёт пакеты программе и ждёт её решения. keen-pbr так ненадолго задерживает DNS-ответы.">NFQUEUE</abbr>
+. Меняйте, только если он занят другой программой</td>
+			</tr>
+			<tr>
+					<td><code>dns.hold_timeout_ms</code></td>
+					<td>integer</td>
+					<td><code>30</code></td>
+					<td>Сколько ждать записи адресов, прежде чем отдать DNS-ответ клиенту. Если не успели, ответ уходит без ожидания</td>
+			</tr>
+			<tr>
+					<td><code>dns.marker</code></td>
+					<td>object</td>
+					<td><code>check.keen-pbr.fyi</code> / <code>127.0.0.88</code></td>
+					<td>Проверочный домен: если DNS клиента идёт через роутер, на него придёт ответ <code>127.0.0.88</code></td>
+			</tr>
+			<tr>
+					<td><code>l7.enabled</code></td>
+					<td>boolean</td>
+					<td><code>true</code></td>
+					<td>Читать имена сайтов в соединениях</td>
+			</tr>
+			<tr>
+					<td><code>l7.nflog_group</code></td>
+					<td>integer</td>
+					<td><code>9054</code></td>
+					<td>Номер группы 
+  <abbr title="Механизм netfilter, который отправляет программе копии пакетов, не задерживая их.">NFLOG</abbr>
+. Меняйте, только если он занят другой программой</td>
+			</tr>
+			<tr>
+					<td><code>l7.tls</code> / <code>http</code> / <code>quic</code></td>
+					<td>boolean</td>
+					<td><code>true</code></td>
+					<td>Какие протоколы читать</td>
+			</tr>
+	</tbody>
+</table>
+<p>Поле <code>dns.dns_test_server</code> из прошлых версий больше ни на что не влияет. Для проверки DNS используйте <code>nslookup check.keen-pbr.fyi</code> или виджет проверки DNS в веб-интерфейсе.</p>
+<h3>Требования к ядру<span class="hx:absolute hx:-mt-20" id="требования-к-ядру"></span>
+    <a href="#%d1%82%d1%80%d0%b5%d0%b1%d0%be%d0%b2%d0%b0%d0%bd%d0%b8%d1%8f-%d0%ba-%d1%8f%d0%b4%d1%80%d1%83" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Перехват работает на большинстве роутеров. Минимальные версии ядра Linux:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Бэкенд firewall</th>
+					<th>Перехват DNS</th>
+					<th>Перехват L7</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>iptables</td>
+					<td>3.8</td>
+					<td>2.6.39</td>
+			</tr>
+			<tr>
+					<td>nftables</td>
+					<td>4.1</td>
+					<td>4.5</td>
+			</tr>
+	</tbody>
+</table>
+<p>Производители роутеров иногда убирают части ядра, поэтому keen-pbr не полагается на номер версии, а при запуске сервиса проверяет, что всё нужное работает. Если чего-то не хватает, отключается только соответствующая часть перехвата, а остальной keen-pbr продолжает работать. Результат проверки виден на странице состояния в веб-интерфейсе и в <code>GET /api/health/service</code> (поле <code>intercept</code>). Проверка выполняется один раз при запуске: если вы доустановили модули ядра, перезапустите сервис.</p>
 <h2>DNS-серверы<span class="hx:absolute hx:-mt-20" id="dns-серверы"></span>
-    <a href="#dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Каждый сервер имеет тег, опциональный <code>type</code>, опциональный <code>address</code> и опциональный <code>detour</code>.
-Значения тега DNS-сервера должны соответствовать <code>^[a-z][a-z0-9_]*$</code>, быть не более 24 символов и должны быть уникальными.</p>
+    <a href="#dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><code>tag</code> сервера должен быть уникальным и подчиняется тем же правилам, что и теги outbound: строчные латинские буквы, цифры и <code>_</code>, начинается с буквы, не длиннее 24 символов.</p>
 <table>
 	<thead>
 			<tr>
@@ -1246,7 +1609,7 @@ system_resolver (оставьте значения по умолчанию) serv
 			</tr>
 	</tbody>
 </table>
-<p>Поле <code>detour</code> полезно, когда DNS-сервер должен быть доступен через конкретное соединение, обычно тот же VPN, который будет переносить соответствующий трафик.</p>
+<p><code>detour</code> нужен, когда DNS-сервер доступен только через определённое соединение, обычно через тот же VPN.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1285,123 +1648,22 @@ system_resolver (оставьте значения по умолчанию) serv
 </div>
 </div>
 <h3><code>type: keenetic</code> (встроенный DNS роутера через RCI)<span class="hx:absolute hx:-mt-20" id="type-keenetic-встроенный-dns-роутера-через-rci"></span>
-    <a href="#type-keenetic-%d0%b2%d1%81%d1%82%d1%80%d0%be%d0%b5%d0%bd%d0%bd%d1%8b%d0%b9-dns-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%b0-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-rci" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>На роутерах Keenetic, <code>type: &quot;keenetic&quot;</code> сообщает keen-pbr повторно использовать текущие встроенные настройки DNS роутера автоматически.</p>
+    <a href="#type-keenetic-%d0%b2%d1%81%d1%82%d1%80%d0%be%d0%b5%d0%bd%d0%bd%d1%8b%d0%b9-dns-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%b0-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-rci" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>На роутерах Keenetic <code>type: &quot;keenetic&quot;</code> берёт DNS-серверы из текущих настроек роутера.</p>
 <p>Правила и поведение:</p>
 <ul>
 <li>Разрешён максимум один элемент в <code>dns.servers</code> с <code>type: &quot;keenetic&quot;</code>.</li>
-<li>Для <code>type: &quot;keenetic&quot;</code> поле <code>address</code> не должно быть задано (адреса берутся из RCI).</li>
-<li>keen-pbr читает неспециализированные (unscoped) строки <code>dns_server = ...</code> из политики прокси <strong>System</strong>.</li>
-<li>Если есть неспециализированные зашифрованные апстримы (DoH/DoT), используются все такие серверы по порядку.</li>
-<li>Иначе используются все неспециализированные plaintext-апстримы по порядку.</li>
-<li>Записи <code>static_a</code> / <code>static_aaaa</code> из политики System также попадают в сгенерированную конфигурацию dnsmasq.</li>
+<li>Для <code>type: &quot;keenetic&quot;</code> поле <code>address</code> не должно быть задано (адреса берутся из 
+  <abbr title="Встроенный API настройки роутеров Keenetic.">RCI</abbr>
+).</li>
+<li>keen-pbr читает строки <code>dns_server = ...</code> без привязки к домену из политики прокси <strong>System</strong>.</li>
+<li>Если среди них есть зашифрованные серверы (
+  <abbr title="DNS over HTTPS — зашифрованный DNS. Роутер не может прочитать такие запросы.">DoH</abbr>
+/DoT), используются все такие серверы по порядку.</li>
+<li>Иначе по порядку используются все обычные (незашифрованные) серверы.</li>
 </ul>
 <h3>Как работает <code>detour</code><span class="hx:absolute hx:-mt-20" id="как-работает-detour"></span>
-    <a href="#%d0%ba%d0%b0%d0%ba-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82-detour" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Когда <code>detour</code> установлен, keen-pbr гарантирует, что DNS-запросы к этому серверу выходят через выбранный outbound; keen-pbr автоматически создаёт правило firewall для указанного IP и порта DNS. Это также может влиять на других клиентов в вашей сети, которые пытаются связаться с этим DNS-сервером напрямую.</p>
-<p>Например, если <code>vpn_dns</code> имеет <code>detour: &quot;vpn&quot;</code>, тогда DNS-запросы к <code>vpn_dns</code> также пойдут через <code>vpn</code>.</p>
-<h2>DNS-правила<span class="hx:absolute hx:-mt-20" id="dns-правила"></span>
-    <a href="#dns-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Правила сопоставляют имена списков тегу DNS-сервера. Домены из указанных списков разрешаются с использованием указанного сервера.</p>
-<table>
-	<thead>
-			<tr>
-					<th>Поле</th>
-					<th>Тип</th>
-					<th>Обязательно</th>
-					<th>Описание</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>enabled</code></td>
-					<td>boolean</td>
-					<td>нет</td>
-					<td>Активно ли это правило. <code>false</code> отключает его. <code>true</code>, отсутствует или <code>null</code> все означают включено.</td>
-			</tr>
-			<tr>
-					<td><code>list</code></td>
-					<td>array of string</td>
-					<td>да</td>
-					<td>Имена списков, домены которых должны разрешаться этим сервером</td>
-			</tr>
-			<tr>
-					<td><code>server</code></td>
-					<td>string</td>
-					<td>да</td>
-					<td>Тег DNS-сервера для использования для сопоставленных доменов</td>
-			</tr>
-	</tbody>
-</table>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_domains&#34;</span><span class="p">,</span> <span class="s2">&#34;remote_list&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;server&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">]</span>
-</span></span><span class="line"><span class="cl">  <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Если <code>enabled</code> отсутствует или установлен в <code>null</code>, DNS-правило всё равно обрабатывается как включённое.</p>
-<h2>Интеграция с dnsmasq<span class="hx:absolute hx:-mt-20" id="интеграция-с-dnsmasq"></span>
-    <a href="#%d0%b8%d0%bd%d1%82%d0%b5%d0%b3%d1%80%d0%b0%d1%86%d0%b8%d1%8f-%d1%81-dnsmasq" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>При установке пакета на роутер вам обычно не нужно настраивать dnsmasq вручную.</p>
-<details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
-  <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
-    <strong class="hx:text-lg">Ручная интеграция с dnsmasq (расширенная)</strong>
-  </summary>
-  <div class="hx:p-2 hx:overflow-hidden">
-    <p>keen-pbr предоставляет подкоманду <code>generate-resolver-config</code>, которая выводит конфигурацию dnsmasq в stdout.</p>
-<p>Поддерживаются два типа резолверов:</p>
-<table>
-	<thead>
-			<tr>
-					<th>Тип резолвера</th>
-					<th>Стиль директивы</th>
-					<th>Использовать с</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>dnsmasq-ipset</code></td>
-					<td><code>ipset=</code></td>
-					<td>бэкенд iptables/ipset</td>
-			</tr>
-			<tr>
-					<td><code>dnsmasq-nftset</code></td>
-					<td><code>nftset=</code></td>
-					<td>бэкенд nftables</td>
-			</tr>
-	</tbody>
-</table>
-<p>Пример интеграции с dnsmasq:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">conf-script=/usr/sbin/keen-pbr generate-resolver-config dnsmasq-nftset</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Перезапустите dnsmasq после добавления этой строки.</p>
-  </div>
-</details>
+    <a href="#%d0%ba%d0%b0%d0%ba-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82-detour" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>С <code>detour</code> DNS-запросы, которые сам роутер отправляет на этот сервер (например, от dnsmasq), идут через указанный outbound. Например, если у <code>vpn_dns</code> задан <code>detour: &quot;vpn&quot;</code>, роутер обращается к <code>vpn_dns</code> через <code>vpn</code>.</p>
+<p>Запросы, которые устройства в сети отправляют напрямую на тот же адрес, это не затрагивает: для них нужно обычное правило маршрутизации.</p>
 <h2>Полный пример<span class="hx:absolute hx:-mt-20" id="полный-пример"></span>
     <a href="#%d0%bf%d0%be%d0%bb%d0%bd%d1%8b%d0%b9-%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1421,14 +1683,7 @@ system_resolver (оставьте значения по умолчанию) serv
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google_dns_v6&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;[2001:4860:4860::8888]:53&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_domains&#34;</span><span class="p">,</span> <span class="s2">&#34;remote_list&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;server&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;fallback&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;google_dns&#34;</span><span class="p">,</span> <span class="s2">&#34;quad9&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -1442,14 +1697,6 @@ system_resolver (оставьте значения по умолчанию) serv
   </button>
 </div>
 </div>
-<details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
-  <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
-    <strong class="hx:text-lg">Под капотом: как работает маршрутизация на основе доменов</strong>
-  </summary>
-  <div class="hx:p-2 hx:overflow-hidden">
-    Когда домен в сопоставленном списке разрешается, dnsmasq добавляет полученный IP-адрес во внутренний набор, используемый keen-pbr. Трафик на этот IP затем может быть маршрутизирован через правильный outbound.
-  </div>
-</details>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

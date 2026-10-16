@@ -23,10 +23,14 @@
       <description>
         
         
-        &lt;p&gt;keen-pbr can be installed on Keenetic / NetCraze routers via Entware&amp;rsquo;s &lt;code&gt;opkg&lt;/code&gt; package manager.&lt;/p&gt;
+        &lt;p&gt;keen-pbr can be installed on Keenetic / NetCraze routers via 
+  &lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt;
+&amp;rsquo;s &lt;code&gt;opkg&lt;/code&gt; package manager.&lt;/p&gt;
 &lt;div class=&#34;hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]&#34;&gt;
 &lt;h3&gt;Install Entware on the router&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-entware-on-the-router&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#install-entware-on-the-router&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;First, ensure that Entware is installed on your router. Please consult the official router manual for &lt;a href=&#34;https://support.keenetic.com/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Keenetic&lt;/a&gt; or &lt;a href=&#34;https://support.netcraze.ru/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;NetCraze&lt;/a&gt;:&lt;/p&gt;
+    &lt;a href=&#34;#install-entware-on-the-router&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;First, ensure that
+&lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt;
+is installed on your router. Please consult the official router manual for &lt;a href=&#34;https://support.keenetic.com/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Keenetic&lt;/a&gt; or &lt;a href=&#34;https://support.netcraze.ru/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;NetCraze&lt;/a&gt;:&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;Find your router&amp;rsquo;s manual.&lt;/li&gt;
 &lt;li&gt;In the search field, search for &amp;ldquo;Installing the Entware repository on a USB drive&amp;rdquo;.&lt;/li&gt;
@@ -43,7 +47,9 @@
 &lt;li&gt;Utilities and services / &lt;strong&gt;DNS-over-HTTPS proxy&lt;/strong&gt; (optional, but highly recommended)&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3&gt;Configure DoH/DoT on the router&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;configure-dohdot-on-the-router&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#configure-dohdot-on-the-router&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;It is recommended to set up DoH/DoT DNS servers on your router to protect yourself from DNS spoofing attacks.&lt;/p&gt;
+    &lt;a href=&#34;#configure-dohdot-on-the-router&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;It is recommended to set up
+&lt;abbr title=&#34;DNS over HTTPS: encrypted DNS. The router cannot read these queries.&#34;&gt;DoH&lt;/abbr&gt;
+/DoT DNS servers on your router to protect yourself from DNS spoofing attacks.&lt;/p&gt;
 &lt;p&gt;Consult the official Keenetic documentation on how to do it: &lt;a href=&#34;https://support.keenetic.com/titan/kn-1811/en/25049.html&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;DoH and DoT proxy servers for DNS requests encryption&lt;/a&gt;.&lt;/p&gt;
 &lt;h3&gt;Install &lt;code&gt;keen-pbr&lt;/code&gt; from the repository&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-keen-pbr-from-the-repository&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#install-keen-pbr-from-the-repository&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ol&gt;
@@ -54,7 +60,7 @@
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;li&gt;Follow the instructions on the repository page carefully.&lt;/li&gt;
-&lt;li&gt;When you run the &lt;code&gt;opkg install keen-pbr&lt;/code&gt; command, the installation script will prompt you to confirm whether you want to replace your &lt;code&gt;dnsmasq&lt;/code&gt; file. If you are not sure, press &lt;kbd&gt;y&lt;/kbd&gt; and then &lt;kbd&gt;Enter&lt;/kbd&gt;.
+&lt;li&gt;Run the &lt;code&gt;opkg install keen-pbr&lt;/code&gt; command.
 &lt;ul&gt;
 &lt;li&gt;Example install command:
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
@@ -97,23 +103,20 @@
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;p&gt;If the service is &lt;strong&gt;alive&lt;/strong&gt;, continue to the next step.&lt;/p&gt;
-&lt;h3&gt;Enable &lt;code&gt;dns-override&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;enable-dns-override&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#enable-dns-override&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;After installing &lt;code&gt;keen-pbr&lt;/code&gt;, you have to enable &lt;code&gt;dns-override&lt;/code&gt; so that all DNS requests from LAN clients are forwarded to Entware:&lt;/p&gt;
-&lt;ol&gt;
-&lt;li&gt;Open &lt;a href=&#34;http://my.keenetic.net/a&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net/a&lt;/a&gt; (if this link does not open, open &lt;code&gt;http://&amp;lt;router-ip&amp;gt;/a&lt;/code&gt; instead)&lt;/li&gt;
-&lt;li&gt;Run the commands &lt;code&gt;opkg dns-override&lt;/code&gt; and then &lt;code&gt;system configuration save&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;Reboot the router. &lt;strong&gt;&lt;em&gt;This is very important&lt;/em&gt;: without a reboot, the option will not become active.&lt;/strong&gt;&lt;/li&gt;
-&lt;/ol&gt;
 &lt;h3&gt;Configure the service&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;configure-the-service&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#configure-the-service&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;After you reboot the router, you can open &lt;a href=&#34;http://my.keenetic.net:12121&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net:12121&lt;/a&gt; to configure keen-pbr (if you installed the full version; the headless version does not provide a Web UI).&lt;/p&gt;
+    &lt;a href=&#34;#configure-the-service&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open &lt;a href=&#34;http://my.keenetic.net:12121&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net:12121&lt;/a&gt; to configure keen-pbr (if you installed the full version; the headless version does not provide a Web UI).&lt;/p&gt;
 &lt;p&gt;You can also configure keen-pbr manually by modifying the configuration file: &lt;code&gt;/opt/etc/keen-pbr/config.json&lt;/code&gt;.&lt;/p&gt;
 &lt;h3&gt;Choose RAW or mangle PREROUTING&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;choose-raw-or-mangle-prerouting&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#choose-raw-or-mangle-prerouting&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;This choice is specific to Keenetic / NetCraze. Keenetic can periodically rebuild
-its &lt;code&gt;mangle&lt;/code&gt; table, for example after a DHCP lease renewal. The normal mangle
-integration is then briefly absent until keen-pbr reapplies it. RAW is independent
-of that rebuild, but runs before Keenetic&amp;rsquo;s &lt;strong&gt;Connection Policies&lt;/strong&gt; &amp;gt; &lt;strong&gt;Policy
-Bindings&lt;/strong&gt; rules. The platform&amp;rsquo;s iptables replacement behaviour is also discussed in the
-&lt;a href=&#34;https://forum.keenetic.ru/topic/20631-keenetic-ndms-%D0%BE%D1%87%D0%B8%D1%89%D0%B0%D0%B5%D1%82-iptables-%D0%B2%D0%BE-%D0%B2%D1%80%D0%B5%D0%BC%D1%8F-%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA%D0%B0-%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B/&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Keenetic Community forum&lt;/a&gt;.&lt;/p&gt;
+    &lt;a href=&#34;#choose-raw-or-mangle-prerouting&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;This choice exists only on Keenetic / NetCraze. keen-pbr sets
+&lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;
+in one of two firewall tables:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**
+&lt;abbr title=&#34;The iptables table for changing packet metadata, such as setting a fwmark, before routing.&#34;&gt;mangle&lt;/abbr&gt;
+**: Keenetic rebuilds this table from time to time (for example after a DHCP lease renewal), and keen-pbr&amp;rsquo;s rules are briefly missing until keen-pbr restores them;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;raw&lt;/strong&gt;: Keenetic does not touch it, but rules from &lt;strong&gt;Connection Policies&lt;/strong&gt; &amp;gt; &lt;strong&gt;Policy Bindings&lt;/strong&gt; run later and overwrite keen-pbr&amp;rsquo;s fwmark.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;See also the &lt;a href=&#34;https://forum.keenetic.ru/topic/20631-keenetic-ndms-%D0%BE%D1%87%D0%B8%D1%89%D0%B0%D0%B5%D1%82-iptables-%D0%B2%D0%BE-%D0%B2%D1%80%D0%B5%D0%BC%D1%8F-%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA%D0%B0-%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B/&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Keenetic Community forum thread&lt;/a&gt; about Keenetic rebuilding iptables.&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;
@@ -125,13 +128,13 @@ Bindings&lt;/strong&gt; rules. The platform&amp;rsquo;s iptables replacement beh
 	&lt;tbody&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;strong&gt;RAW&lt;/strong&gt; (default when available)&lt;/td&gt;
-					&lt;td&gt;PBR remains active across a Keenetic mangle rebuild. Long-running, sensitive flows such as gaming sessions avoid rebuild-related breaks, and a kill switch has fewer opportunities for packets to leak through the ordinary route.&lt;/td&gt;
+					&lt;td&gt;PBR remains active across a Keenetic mangle rebuild. Long-running, sensitive flows such as gaming sessions avoid rebuild-related breaks, and packets have fewer chances to bypass the VPN.&lt;/td&gt;
 					&lt;td&gt;After keen-pbr sets its &lt;code&gt;fwmark&lt;/code&gt; in RAW, Keenetic&amp;rsquo;s &lt;strong&gt;Connection Policies&lt;/strong&gt; &amp;gt; &lt;strong&gt;Policy Bindings&lt;/strong&gt; rules overwrite it. RAW mode therefore works only for devices assigned the &lt;strong&gt;Default policy&lt;/strong&gt;.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;strong&gt;mangle&lt;/strong&gt;&lt;/td&gt;
-					&lt;td&gt;keen-pbr runs after Keenetic&amp;rsquo;s Connection Policy marks, so it can override routing for devices with a non-default policy.&lt;/td&gt;
-					&lt;td&gt;When Keenetic rebuilds its routing table (usually about every five minutes), keen-pbr rules disappear briefly. A few packets can use the ordinary route before keen-pbr restores them, disrupting a gaming session or another sensitive flow.&lt;/td&gt;
+					&lt;td&gt;keen-pbr runs after Keenetic sets its own fwmarks for Connection Policy, so it can override routing for devices with a non-default policy.&lt;/td&gt;
+					&lt;td&gt;When Keenetic rebuilds its &lt;code&gt;mangle&lt;/code&gt; table (usually about every five minutes), keen-pbr rules disappear briefly. A few packets can use the ordinary route before keen-pbr restores them, disrupting a gaming session or another sensitive flow.&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
@@ -141,15 +144,23 @@ Bindings&lt;/strong&gt; rules. The platform&amp;rsquo;s iptables replacement beh
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;For the most predictable Keenetic setup, do not assign &lt;strong&gt;Connection Policies&lt;/strong&gt; to devices in Keenetic. Instead, create the equivalent per-device &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/route-rules/&#34;&gt;keen-pbr route rules&lt;/a&gt; using the &lt;code&gt;src_addr&lt;/code&gt; (&lt;strong&gt;Source address&lt;/strong&gt;) field. This keeps routing policy in keen-pbr and avoids conflicts with Keenetic policy bindings.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;The package default is &lt;code&gt;auto&lt;/code&gt;: it probes IPv4 and IPv6 independently, using RAW
-for each supported family and mangle for the other. Locally generated traffic
-always remains in mangle OUTPUT. &lt;code&gt;enable&lt;/code&gt;, &lt;code&gt;ipv4-only&lt;/code&gt;, and &lt;code&gt;ipv6-only&lt;/code&gt; are
-available when a family must be forced; forced capability failures stop startup.&lt;/p&gt;
-&lt;p&gt;To see which mode was selected, restart the service and look for these messages
-in the device system log:&lt;/p&gt;
-&lt;p&gt;Messages identify IPv4 and IPv6 capability resolution and the resulting daemon
-flags (&lt;code&gt;--use-raw-prerouting&lt;/code&gt; and &lt;code&gt;--use-raw6-prerouting&lt;/code&gt;).&lt;/p&gt;
-&lt;p&gt;To always use mangle, edit &lt;code&gt;/opt/etc/keen-pbr/defaults&lt;/code&gt;:&lt;/p&gt;
+&lt;p&gt;By default keen-pbr checks separately for IPv4 and IPv6 whether RAW is available, and uses it if so; otherwise mangle. The system log shows the selected mode after the service starts:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;IPv4 raw PREROUTING available
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;WARNING: IPv6 raw PREROUTING unavailable: ...&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;To always use mangle, add this line to &lt;code&gt;/opt/etc/keen-pbr/defaults&lt;/code&gt;:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;nv&#34;&gt;KEEN_PBR_RAW_PREROUTING&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;disable&amp;#34;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
@@ -164,7 +175,7 @@ flags (&lt;code&gt;--use-raw-prerouting&lt;/code&gt; and &lt;code&gt;--use-raw6-
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Then restart the service:&lt;/p&gt;
+&lt;p&gt;and restart the service:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr restart&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
@@ -179,9 +190,7 @@ flags (&lt;code&gt;--use-raw-prerouting&lt;/code&gt; and &lt;code&gt;--use-raw6-
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Set &lt;code&gt;KEEN_PBR_RAW_PREROUTING=&amp;quot;enable&amp;quot;&lt;/code&gt; to require RAW for every enabled family;
-use &lt;code&gt;ipv4-only&lt;/code&gt; or &lt;code&gt;ipv6-only&lt;/code&gt; to force one family. The service fails to start
-instead of falling back to mangle if a forced capability is unavailable.&lt;/p&gt;
+&lt;p&gt;The other values of this variable are described in &lt;a href=&#34;https://keen-pbr.fyi/docs/cli/#--use-raw-prerouting&#34;&gt;CLI&lt;/a&gt;.&lt;/p&gt;
 &lt;p&gt;Basic commands:&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
@@ -203,10 +212,6 @@ instead of falling back to mangle if a forced capability is unavailable.&lt;/p&g
 					&lt;td&gt;Check if &lt;strong&gt;keen-pbr&lt;/strong&gt; alive&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;/opt/etc/init.d/S80keen-pbr status&lt;/code&gt;&lt;/td&gt;
 			&lt;/tr&gt;
-			&lt;tr&gt;
-					&lt;td&gt;Check if &lt;strong&gt;dnsmasq&lt;/strong&gt; alive&lt;/td&gt;
-					&lt;td&gt;&lt;code&gt;/opt/etc/init.d/S56dnsmasq status&lt;/code&gt;&lt;/td&gt;
-			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
@@ -218,6 +223,117 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
 &lt;/div&gt;
 &lt;h3&gt;Next steps&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;next-steps&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#next-steps&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Go to the &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/quick-start/&#34;&gt;Quick Start&lt;/a&gt; page and use the &lt;strong&gt;Web UI&lt;/strong&gt; tab for the easiest initial setup. If you installed the &lt;code&gt;headless&lt;/code&gt; version, see the &lt;strong&gt;JSON / CLI&lt;/strong&gt; tab instead.&lt;/p&gt;
+&lt;/div&gt;
+&lt;h2&gt;Separate DNS servers for lists (dnsmasq)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dnsmasq&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#dnsmasq&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;keen-pbr does not need dnsmasq for routing. Install it only if you want to send the domains of some lists to separate DNS servers, or set your own default DNS servers. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#do-i-need-dnsmasq&#34;&gt;Do I need dnsmasq?&lt;/a&gt;.&lt;/p&gt;
+&lt;h3&gt;Install dnsmasq&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dnsmasq-install&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#dnsmasq-install&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;Install the package over SSH. Entware has only &lt;code&gt;dnsmasq-full&lt;/code&gt;; the name &lt;code&gt;dnsmasq&lt;/code&gt; resolves to it:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;opkg install dnsmasq-full&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;li&gt;To apply the recommended dnsmasq settings, run this over SSH:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/usr/lib/keen-pbr/dnsmasq-hook.sh install-recommended-config&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+It replaces &lt;code&gt;/opt/etc/dnsmasq.conf&lt;/code&gt; and saves the previous file as &lt;code&gt;/opt/etc/dnsmasq.conf.backup-keenpbr&lt;/code&gt;. &lt;code&gt;my.keenetic.net&lt;/code&gt; keeps resolving.&lt;/li&gt;
+&lt;li&gt;Open &lt;a href=&#34;http://my.keenetic.net/a&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net/a&lt;/a&gt; (if the link does not open, use &lt;code&gt;http://&amp;lt;router-ip&amp;gt;/a&lt;/code&gt;) and run:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;pre&gt;&lt;code&gt;opkg dns-override
+system configuration save&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+Run these commands only after dnsmasq is installed. Without dnsmasq, &lt;code&gt;dns-override&lt;/code&gt; leaves the LAN without DNS.&lt;/li&gt;
+&lt;li&gt;Reboot the router. &lt;strong&gt;This is required:&lt;/strong&gt; without a reboot LAN clients keep using the built-in DNS proxy, and dnsmasq does not get their queries.&lt;/li&gt;
+&lt;li&gt;In the Web UI, open &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Local DNS server management&lt;/strong&gt; and turn on &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt;. The DNS servers and DNS rules pages become available.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3&gt;Return to how it was&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dnsmasq-rollback&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#dnsmasq-rollback&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Do the steps in this order, so the LAN keeps DNS all the time:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;In the Web UI, turn off &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt; (&lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Local DNS server management&lt;/strong&gt;) and apply the config. dnsmasq keeps running and uses the servers from &lt;code&gt;/opt/etc/keen-pbr/dnsmasq-fallback.conf&lt;/code&gt;, so DNS keeps working. If dnsmasq has servers of its own, these are added to them; clear the file to avoid that.&lt;/li&gt;
+&lt;li&gt;In the web CLI (&lt;a href=&#34;http://my.keenetic.net/a&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net/a&lt;/a&gt;) run:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;pre&gt;&lt;code&gt;no opkg dns-override
+system configuration save&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;li&gt;Reboot the router. &lt;strong&gt;This is required.&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;Remove the package:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;opkg remove dnsmasq-full&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;To keep dnsmasq with its previous settings after &lt;code&gt;install-recommended-config&lt;/code&gt;, put the saved file back instead of removing the package:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;cp /opt/etc/dnsmasq.conf.backup-keenpbr /opt/etc/dnsmasq.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S56dnsmasq restart&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
 &lt;/div&gt;
 
       </description>
@@ -240,27 +356,6 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
 &lt;li&gt;OpenWrt 25.x and newer: &lt;code&gt;apk&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;OpenWrt 24.x and older: &lt;code&gt;opkg&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h3&gt;Replace &lt;code&gt;dnsmasq&lt;/code&gt; with &lt;code&gt;dnsmasq-full&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;replace-dnsmasq-with-dnsmasq-full&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#replace-dnsmasq-with-dnsmasq-full&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Install &lt;code&gt;dnsmasq-full&lt;/code&gt; before installing keen-pbr:&lt;/p&gt;
-&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# OpenWrt 25.x and newer&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;apk --update-cache add dnsmasq-full
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# OpenWrt 24.x and older&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;opkg update &lt;span class=&#34;o&#34;&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class=&#34;nb&#34;&gt;cd&lt;/span&gt; /tmp/ &lt;span class=&#34;o&#34;&gt;&amp;amp;&amp;amp;&lt;/span&gt; opkg download dnsmasq-full
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;opkg remove dnsmasq&lt;span class=&#34;p&#34;&gt;;&lt;/span&gt; opkg install dnsmasq-full --cache /tmp/&lt;span class=&#34;p&#34;&gt;;&lt;/span&gt; rm -f /tmp/dnsmasq-full*.ipk&lt;span class=&#34;p&#34;&gt;;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Copy code&#34;
-    aria-label=&#34;Copy code&#34;
-    data-copied-label=&#34;Copied!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
 &lt;h3&gt;Install from the repository page&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-from-the-repository-page&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#install-from-the-repository-page&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open the repository instructions page, select &lt;strong&gt;OpenWrt&lt;/strong&gt; in the OS selector on the left, and use the generated commands for your exact version and architecture:&lt;/p&gt;
 &lt;p&gt;&lt;a href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;span class=&#34;hx:inline-block hx:align-text-bottom hextra-icon&#34;&gt;&lt;svg height=1em xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01&#34;/&gt;&lt;/svg&gt;&lt;/span&gt;
@@ -331,6 +426,13 @@ keen-pbr repository&lt;/a&gt;&lt;/p&gt;
 It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
+&lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200&#34;&gt;
+  &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
+  &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;DNS and L7 interception needs the kernel modules &lt;code&gt;nfnetlink_queue&lt;/code&gt;, &lt;code&gt;nfnetlink_log&lt;/code&gt; and &lt;code&gt;nft_queue&lt;/code&gt;.
+The package pulls in &lt;code&gt;kmod-nfnetlink-queue&lt;/code&gt;, &lt;code&gt;kmod-nfnetlink-log&lt;/code&gt; and &lt;code&gt;kmod-nft-queue&lt;/code&gt; automatically. If you installed an older build or removed them, install them manually; otherwise the daemon logs &lt;code&gt;cannot bind netfilter queue/log ... Invalid argument&lt;/code&gt; and &lt;code&gt;/api/health/service&lt;/code&gt; names the missing module. &lt;code&gt;nft_log&lt;/code&gt; is part of &lt;code&gt;kmod-nft-core&lt;/code&gt;.&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
 &lt;h3&gt;Next steps&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;next-steps&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#next-steps&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/quick-start/&#34;&gt;Quick Start&lt;/a&gt; and use the &lt;strong&gt;Web UI&lt;/strong&gt; tab for the easiest first setup. If you installed &lt;code&gt;keen-pbr-headless&lt;/code&gt;, use the &lt;strong&gt;JSON / CLI&lt;/strong&gt; tab instead.&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
@@ -340,6 +442,13 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
   &lt;/div&gt;
 &lt;/div&gt;
 &lt;/div&gt;
+&lt;h2&gt;Separate DNS servers for lists (dnsmasq)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dnsmasq&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#dnsmasq&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;keen-pbr does not need dnsmasq for routing, but OpenWrt already uses it as the system resolver. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#do-i-need-dnsmasq&#34;&gt;Do I need dnsmasq?&lt;/a&gt; to decide whether you want keen-pbr to manage it.&lt;/p&gt;
+&lt;h3&gt;Turn it on&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dnsmasq-install&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#dnsmasq-install&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;In the Web UI, open &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Local DNS server management&lt;/strong&gt; and turn on &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt;. keen-pbr adds three &lt;code&gt;addnmount&lt;/code&gt; entries to the dnsmasq section in &lt;code&gt;/etc/config/dhcp&lt;/code&gt;, so that the sandboxed dnsmasq can run keen-pbr.&lt;/p&gt;
+&lt;p&gt;While management is on and &lt;strong&gt;Default DNS servers&lt;/strong&gt; are set, keen-pbr takes the servers without a domain out of the list in &lt;code&gt;/etc/config/dhcp&lt;/code&gt; (LuCI &lt;strong&gt;DNS forwardings&lt;/strong&gt;). Per-domain servers such as &lt;code&gt;/lan/192.168.1.1&lt;/code&gt; stay. The removed servers return when you turn management off or clear the default servers.&lt;/p&gt;
+&lt;h3&gt;Return to how it was&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dnsmasq-rollback&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#dnsmasq-rollback&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Turn off &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt; and apply the config. keen-pbr restarts dnsmasq and returns the removed servers. Removing the package also removes the &lt;code&gt;addnmount&lt;/code&gt; entries it added.&lt;/p&gt;
 
       </description>
     </item>
@@ -413,6 +522,78 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
   &lt;/div&gt;
 &lt;/div&gt;
 &lt;/div&gt;
+&lt;h2&gt;Separate DNS servers for lists (dnsmasq)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dnsmasq&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#dnsmasq&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;keen-pbr does not need dnsmasq for routing. Install it only if you want separate DNS servers for some lists or your own default DNS servers. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#do-i-need-dnsmasq&#34;&gt;Do I need dnsmasq?&lt;/a&gt;.&lt;/p&gt;
+&lt;h3&gt;Install dnsmasq&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dnsmasq-install&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#dnsmasq-install&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;apt install dnsmasq&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;To apply the recommended dnsmasq settings, run:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/usr/lib/keen-pbr/dnsmasq-hook.sh install-recommended-config&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;It replaces &lt;code&gt;/etc/dnsmasq.conf&lt;/code&gt; and saves the previous file as &lt;code&gt;/etc/dnsmasq.conf.backup-keenpbr&lt;/code&gt;. dnsmasq then answers only your local networks and takes its servers from keen-pbr.&lt;/p&gt;
+&lt;p&gt;Then, in the Web UI, open &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Local DNS server management&lt;/strong&gt; and turn on &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt;. keen-pbr adds a marked block to &lt;code&gt;/etc/dnsmasq.conf&lt;/code&gt;; the recommended config already has it. Point the system resolver (or your DHCP server) at dnsmasq if it is not already used.&lt;/p&gt;
+&lt;h3&gt;Return to how it was&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dnsmasq-rollback&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#dnsmasq-rollback&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;Turn off &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt; and apply the config. dnsmasq restarts and uses the servers from &lt;code&gt;/etc/keen-pbr/dnsmasq-fallback.conf&lt;/code&gt;. If dnsmasq has servers of its own, these are added to them; clear the file to avoid that.&lt;/li&gt;
+&lt;li&gt;Restore the system resolver you used before dnsmasq.&lt;/li&gt;
+&lt;li&gt;If you ran &lt;code&gt;install-recommended-config&lt;/code&gt;, put the old settings back:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;cp /etc/dnsmasq.conf.backup-keenpbr /etc/dnsmasq.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;systemctl restart dnsmasq&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;li&gt;Or remove the package:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;apt remove dnsmasq&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
 
       </description>
     </item>

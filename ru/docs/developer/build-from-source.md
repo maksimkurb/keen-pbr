@@ -21,10 +21,11 @@
 | libcurl | Загрузка удалённых списков |
 | nlohmann_json | JSON-парсинг |
 | libnl | Коммуникация через сокеты Netlink (маршрутизация/правила) |
-| libunwind | Обязательная build-time зависимость для backend разворачивания стека в crash diagnostics; по умолчанию линкуется статически, если доступен `libunwind.a` |
+| libresolv | Разрешение DNS-имён |
+| libunwind | В сборках Debian по умолчанию используется для разворачивания стека при обработке сигналов. Сборки OpenWrt и Keenetic переходят на диагностику только по регистрам, если библиотека недоступна; параметр `KEEN_PBR_USE_LIBUNWIND` управляет попыткой найти её через CMake. |
 | fmt | C++17 formatting polyfill |
-| cpptrace | Вендорная библиотека crash diagnostics |
-| cpp-httplib | Встроенный HTTP API сервер |
+| cpptrace | Библиотека в составе репозитория для диагностики падений |
+| cpp-httplib | Встроенный HTTP API сервер при `WITH_API=ON` |
 
 ## Сборка
 
@@ -48,11 +49,12 @@ make clean
 Пошаговые цели также доступны:
 
 ```bash {filename="bash"}
-make setup    # cmake -S . -B cmake-build
-make build    # cmake --build cmake-build
+make setup    # cmake -S . -B cmake-build-gcc
+make build    # cmake --build cmake-build-gcc
 ```
 
-Бинарный файл производится в `cmake-build/keen-pbr`.
+Бинарный файл создаётся в `cmake-build-gcc/keen-pbr` (`cmake-build-clang`
+используется целями Clang).
 
 Запустите `make help`, чтобы увидеть все доступные цели сборки и упаковки.
 
@@ -63,12 +65,12 @@ make build    # cmake --build cmake-build
 | Опция | По умолчанию | Описание |
 |---|---|---|
 | `WITH_API` | `ON` | Собирать со встроенным HTTP API сервером |
-| `KEEN_PBR_STATIC_LIBUNWIND` | `ON` | Предпочитать статическую линковку `libunwind`; установите `OFF`, чтобы принудительно использовать shared library |
+| `KEEN_PBR_USE_LIBUNWIND` | `ON` | Пытаться найти и использовать `libunwind` для диагностики сбоев. Сборки Debian требуют её при включённом параметре; OpenWrt и Keenetic могут использовать диагностику только по регистрам, если библиотека отсутствует или параметр выключен. |
 
 Пример:
 
 ```bash {filename="bash"}
-cmake -S . -B cmake-build -DWITH_API=OFF
+cmake -S . -B cmake-build-gcc -DWITH_API=OFF
 ```
 
 ## Пакеты Debian / Ubuntu
@@ -111,7 +113,7 @@ noble (24.04) использует пакеты Debian bookworm, а Ubuntu resol
 - собирает фронтенд с `bun` для полного пакета
 - компилирует нативные бинарники с путями установки Debian под `/etc/keen-pbr` и `/usr/share/keen-pbr/frontend`
 - устанавливает `systemd` юнит в `/lib/systemd/system/keen-pbr.service`
-- не автовключает и не автозапускает сервис во время установки пакета
+- при установке пакета включает и запускает сервис
 
 ## Сборка пакетов для роутеров
 
@@ -119,7 +121,7 @@ noble (24.04) использует пакеты Debian bookworm, а Ubuntu resol
 
 ### Entware (для роутеров Keenetic и Netcraze)
 
-Соберите пакет Entware:
+Соберите пакет {{< term "Entware" >}}:
 
 ```bash {filename="bash"}
 make keenetic-packages KEENETIC_CONFIG=mipsel-3.4 KEENETIC_VERSION=current

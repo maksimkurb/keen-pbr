@@ -9,15 +9,15 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>keen-pbr CLI usage – keen-pbr</title>
-  <meta name="description" content="keen-pbr can run the service, inspect live routing state, download list data, and print generated resolver configuration.
-Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze." /><link rel="canonical" href="https://keen-pbr.fyi/docs/cli/" itemprop="url" />
+  <meta name="description" content="keen-pbr can run the service, inspect live routing state, download list data, and test routing decisions.
+Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download test-routing &lt;ip-or-domain&gt; [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...] dnsmasq detect [--json] dnsmasq remove &lt;selector&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze." /><link rel="canonical" href="https://keen-pbr.fyi/docs/cli/" itemprop="url" />
 
 <meta property="og:title" content="keen-pbr CLI usage">
 <meta
   property="og:description"
   content="
     
-      keen-pbr can run the service, inspect live routing state, download list data, and print generated resolver configuration.
+      keen-pbr can run the service, inspect live routing state, download list data, and test routing decisions.
 Usage
     
 
@@ -36,9 +36,9 @@ Commands:
   service
   status
   download
-  generate-resolver-config &lt;res&gt;
-  resolver-config-hash
-  test-routing &lt;ip-or-domain&gt;
+  test-routing &lt;ip-or-domain&gt; [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...]
+  dnsmasq detect [--json]
+  dnsmasq remove &lt;selector&gt;
   
     
 
@@ -59,13 +59,13 @@ The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and 
 
 
 	<meta itemprop="name" content="keen-pbr CLI usage">
-	<meta itemprop="description" content="keen-pbr can run the service, inspect live routing state, download list data, and print generated resolver configuration.
-Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
-	<meta itemprop="wordCount" content="741">
+	<meta itemprop="description" content="keen-pbr can run the service, inspect live routing state, download list data, and test routing decisions.
+Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download test-routing &lt;ip-or-domain&gt; [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...] dnsmasq detect [--json] dnsmasq remove &lt;selector&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
+	<meta itemprop="wordCount" content="1296">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="keen-pbr CLI usage">
-	<meta name="twitter:description" content="keen-pbr can run the service, inspect live routing state, download list data, and print generated resolver configuration.
-Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
+	<meta name="twitter:description" content="keen-pbr can run the service, inspect live routing state, download list data, and test routing decisions.
+Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download test-routing &lt;ip-or-domain&gt; [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...] dnsmasq detect [--json] dnsmasq remove &lt;selector&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -135,11 +135,11 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
           </a>
           <a class="hx:p-2 hx:text-current" target="_blank" rel="noreferrer" href="https://t.me/keen_pbr" title="Telegram"><svg height=24 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><path fill="currentColor" d="M248 8C111.033 8 0 119.033 0 256s111.033 248 248 248 248-111.033 248-248S384.967 8 248 8m114.952 168.66c-3.732 39.215-19.881 134.378-28.1 178.3-3.476 18.584-10.322 24.816-16.948 25.425-14.4 1.326-25.338-9.517-39.287-18.661-21.827-14.308-34.158-23.215-55.346-37.177-24.485-16.135-8.612-25 5.342-39.5 3.652-3.793 67.107-61.51 68.335-66.746.153-.655.3-3.1-1.154-4.384s-3.59-.849-5.135-.5q-3.283.746-104.608 69.142-14.845 10.194-26.894 9.934c-8.855-.191-25.888-5.006-38.551-9.123-15.531-5.048-27.875-7.717-26.8-16.291q.84-6.7 18.45-13.7 108.446-47.248 144.628-62.3c68.872-28.647 83.183-33.623 92.511-33.789 2.052-.034 6.639.474 9.61 2.885a10.45 10.45 0 0 1 3.53 6.716 43.8 43.8 0 0 1 .417 9.769"/></svg><span class="hx:sr-only">Telegram</span>
           </a><a
-  title="Sponsor this project"
+  title="Support this project"
   href="/docs/donate"
   
   class="hx:text-sm hx:contrast-more:text-gray-700 hx:contrast-more:dark:text-gray-100 hx:relative hx:-ml-2 hx:hidden hx:whitespace-nowrap hx:p-2 hx:md:inline-flex hx:items-center hx:gap-1 hx:text-gray-600 hx:hover:text-gray-800 hx:dark:text-gray-400 hx:dark:hover:text-gray-200 donation-nav-button"
-><span class="hx:inline-flex hx:items-center"><svg height="1em" class="hx:inline-block" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M640-440 474-602q-31-30-52.5-66.5T400-748q0-55 38.5-93.5T532-880q32 0 60 13.5t48 36.5q20-23 48-36.5t60-13.5q55 0 93.5 38.5T880-748q0 43-21 79.5T807-602L640-440Zm0-112 109-107q19-19 35-40.5t16-48.5q0-22-15-37t-37-15q-14 0-26.5 5.5T700-778l-60 72-60-72q-9-11-21.5-16.5T532-800q-22 0-37 15t-15 37q0 27 16 48.5t35 40.5l109 107ZM280-220l278 76 238-74q-5-9-14.5-15.5T760-240H558q-27 0-43-2t-33-8l-93-31 22-78 81 27q17 5 40 8t68 4q0-11-6.5-21T578-354l-234-86h-64v220ZM40-80v-440h304q7 0 14 1.5t13 3.5l235 87q33 12 53.5 42t20.5 66h80q50 0 85 33t35 87v40L560-60l-280-78v58H40Zm80-80h80v-280h-80v280Zm520-546Z"/></svg></span><span class="hx:text-center">Sponsor this project</span>
+><span class="hx:inline-flex hx:items-center"><svg height="1em" class="hx:inline-block" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M640-440 474-602q-31-30-52.5-66.5T400-748q0-55 38.5-93.5T532-880q32 0 60 13.5t48 36.5q20-23 48-36.5t60-13.5q55 0 93.5 38.5T880-748q0 43-21 79.5T807-602L640-440Zm0-112 109-107q19-19 35-40.5t16-48.5q0-22-15-37t-37-15q-14 0-26.5 5.5T700-778l-60 72-60-72q-9-11-21.5-16.5T532-800q-22 0-37 15t-15 37q0 27 16 48.5t35 40.5l109 107ZM280-220l278 76 238-74q-5-9-14.5-15.5T760-240H558q-27 0-43-2t-33-8l-93-31 22-78 81 27q17 5 40 8t68 4q0-11-6.5-21T578-354l-234-86h-64v220ZM40-80v-440h304q7 0 14 1.5t13 3.5l235 87q33 12 53.5 42t20.5 66h80q50 0 85 33t35 87v40L560-60l-280-78v58H40Zm80-80h80v-280h-80v280Zm520-546Z"/></svg></span><span class="hx:text-center">Support this project</span>
 </a><button type="button" aria-label="Menu" aria-expanded="false" class="hextra-hamburger-menu hx:cursor-pointer hx:-mr-2 hx:rounded-sm hx:p-2 hx:active:bg-gray-400/20 hx:md:hidden hx:hextra-focus-visible-inset"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
   </nav>
 </div>
@@ -378,6 +378,18 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Multi-WAN Load Balancing</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col open"><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="true">
@@ -463,6 +475,18 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
               
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
     <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Changelog</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
       hx:hextra-focus-visible-inset
         hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
@@ -510,7 +534,7 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
       href="/docs/donate/"
       
     >
-      <span class="hx:min-w-0 [word-break:break-word]">Sponsor this project</span>
+      <span class="hx:min-w-0 [word-break:break-word]">Support this project</span>
     </a>
   </div></li>
     </ul>
@@ -701,6 +725,18 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Multi-WAN Load Balancing</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div></li>
             <li class="open"><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="true">
@@ -745,6 +781,17 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Changelog</span>
     </a>
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -910,6 +957,14 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#generate-resolver-config-dnsmasq">generate-resolver-config dnsmasq
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dnsmasq-detect-and-remove">dnsmasq detect and remove
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#signals">Signals
         </a>
       </li>
@@ -997,7 +1052,7 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
     </div>
           </div>
           
-          <p><code>keen-pbr</code> can run the service, inspect live routing state, download list data, and print generated resolver configuration.</p>
+          <p><code>keen-pbr</code> can run the service, inspect live routing state, download list data, and test routing decisions.</p>
 <h2>Usage<span class="hx:absolute hx:-mt-20" id="usage"></span>
     <a href="#usage" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1016,9 +1071,9 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 </span></span><span class="line"><span class="cl">  service
 </span></span><span class="line"><span class="cl">  status
 </span></span><span class="line"><span class="cl">  download
-</span></span><span class="line"><span class="cl">  generate-resolver-config &lt;res&gt;
-</span></span><span class="line"><span class="cl">  resolver-config-hash
-</span></span><span class="line"><span class="cl">  test-routing &lt;ip-or-domain&gt;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+</span></span><span class="line"><span class="cl">  test-routing &lt;ip-or-domain&gt; [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...]
+</span></span><span class="line"><span class="cl">  dnsmasq detect [--json]
+</span></span><span class="line"><span class="cl">  dnsmasq remove &lt;selector&gt;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1050,7 +1105,7 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 			</tr>
 			<tr>
 					<td><code>--log-target &lt;target&gt;</code></td>
-					<td>External log destination: <code>stderr</code>, <code>syslog</code>, or <code>both</code>. Defaults to <code>syslog</code> for <code>service</code> and <code>stderr</code> for interactive commands.</td>
+					<td>External log destination: <code>stderr</code>, <code>syslog</code>, or <code>both</code>. Defaults to <code>both</code> for every command. The packaged service files (systemd, OpenWrt procd, Keenetic init script) pass <code>--log-target syslog</code> so logs are not duplicated when stdout/stderr are also captured by the init system.</td>
 			</tr>
 			<tr>
 					<td><code>--no-api</code></td>
@@ -1075,39 +1130,36 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 	</tbody>
 </table>
 <h3><code>--use-raw-prerouting</code><span class="hx:absolute hx:-mt-20" id="--use-raw-prerouting"></span>
-    <a href="#--use-raw-prerouting" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>This disabled-by-default option is intended for systems such as KeeneticOS where
-an external firewall manager periodically replaces the <code>mangle</code> table. It moves
-only IPv4 forwarded-traffic classification from <code>mangle PREROUTING</code> to <code>raw PREROUTING</code>; locally generated traffic remains in <code>mangle OUTPUT</code>, and IPv6
-can be selected independently with <code>--use-raw6-prerouting</code>.</p>
-<p>On Keenetic, the service independently probes and loads <code>iptable_raw.ko</code> and
-<code>ip6table_raw.ko</code> at startup. It enables each flag automatically only after that
-family&rsquo;s raw table probe succeeds; otherwise it logs a warning and keeps that
-family on the normal mangle path. Raw PREROUTING deliberately does not use
-connmark acceleration: each forwarded packet is classified directly.</p>
-<p>To force the Keenetic package to keep using mangle PREROUTING, set the following
-in <code>/opt/etc/keen-pbr/defaults</code>, then restart the service:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl"><span class="nv">KEEN_PBR_RAW_PREROUTING</span><span class="o">=</span><span class="s2">&#34;disable&#34;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>The default value is <code>auto</code>: IPv4 and IPv6 capabilities are probed independently,
-so one family can use RAW while the other remains in mangle. Set it to <code>enable</code>
-to require RAW for every enabled family; <code>ipv4-only</code> and <code>ipv6-only</code> force one
-family. The service fails to start rather than falling back for a forced family.
-RAW PREROUTING intentionally runs before conntrack and does not use CONNMARK
-acceleration. For the Keenetic-specific RAW versus mangle trade-off, see
-<a href="/docs/getting-started/installation/keenetic/">Keenetic / NetCraze installation</a>.</p>
-<p>Troubleshoot the required capability with:</p>
+    <a href="#--use-raw-prerouting" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>This flag is mainly for Keenetic / NetCraze, where the firmware periodically rebuilds the <code>mangle</code> table and keen-pbr&rsquo;s rules briefly disappear. With this flag keen-pbr puts the rules for forwarded IPv4 traffic into the <code>raw</code> table, which the firmware leaves alone. IPv6 has a separate flag, <code>--use-raw6-prerouting</code>. The router&rsquo;s own traffic is always handled in <code>mangle OUTPUT</code>.</p>
+<p>On Keenetic / NetCraze the start script sets these flags. The mode is set with <code>KEEN_PBR_RAW_PREROUTING</code> in <code>/opt/etc/keen-pbr/defaults</code>:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Value</th>
+					<th>What it does</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>auto</code> (default)</td>
+					<td>Checks separately for IPv4 and IPv6 whether <code>raw</code> works, and uses it if so; otherwise <code>mangle</code></td>
+			</tr>
+			<tr>
+					<td><code>disable</code></td>
+					<td>Always use <code>mangle</code></td>
+			</tr>
+			<tr>
+					<td><code>enable</code></td>
+					<td>Require <code>raw</code> for IPv4 and IPv6. If <code>raw</code> is unavailable, the service does not start</td>
+			</tr>
+			<tr>
+					<td><code>ipv4-only</code>, <code>ipv6-only</code></td>
+					<td>Require <code>raw</code> for one address family only</td>
+			</tr>
+	</tbody>
+</table>
+<p>Restart the service after changing it. The practical difference between the modes is described in <a href="/docs/getting-started/installation/keenetic/">Keenetic / NetCraze installation</a>.</p>
+<p>To check whether <code>raw</code> is available:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl">ls -l <span class="s2">&#34;/lib/modules/</span><span class="k">$(</span>uname -r<span class="k">)</span><span class="s2">/iptable_raw.ko&#34;</span>
@@ -1142,26 +1194,136 @@ acceleration. For the Keenetic-specific RAW versus mangle trade-off, see
 			</tr>
 			<tr>
 					<td><code>status</code></td>
-					<td>Show routing, route table, rule, and firewall verification status, then exit.</td>
+					<td>Show service, outbound, routing, firewall and kernel health, then the issue list the web UI overview shows, and exit. Exits with 1 when any check failed or any issue is an error.</td>
 			</tr>
 			<tr>
 					<td><code>download</code></td>
 					<td>Download all URL-backed lists into cache, then exit.</td>
 			</tr>
 			<tr>
-					<td><code>generate-resolver-config &lt;res&gt;</code></td>
-					<td>Print generated resolver config to stdout. Supported resolvers: <code>dnsmasq-ipset</code>, <code>dnsmasq-nftset</code>.</td>
+					<td><code>generate-resolver-config dnsmasq</code></td>
+					<td>Print dnsmasq configuration for per-list DNS servers to stdout.</td>
 			</tr>
 			<tr>
-					<td><code>resolver-config-hash</code></td>
-					<td>Print the MD5 hash of the generated domain-to-ipset mapping, then exit.</td>
+					<td><code>dnsmasq detect [--json]</code></td>
+					<td>List dnsmasq instances, their DNS endpoints and the instance keen-pbr uses.</td>
 			</tr>
 			<tr>
-					<td><code>test-routing &lt;ip-or-domain&gt;</code></td>
-					<td>Compare expected and actual routing for the given IP or domain.</td>
+					<td><code>dnsmasq remove &lt;selector&gt;</code></td>
+					<td>Restart one dnsmasq instance without keen-pbr&rsquo;s config.</td>
+			</tr>
+			<tr>
+					<td><code>test-routing &lt;ip-or-domain&gt; [packet options]</code></td>
+					<td>Compare expected and actual routing for the given IP or domain. The daemon runs the check, the same way as the routing test in the web UI.</td>
 			</tr>
 	</tbody>
 </table>
+<h3><code>generate-resolver-config dnsmasq</code><span class="hx:absolute hx:-mt-20" id="generate-resolver-config-dnsmasq"></span>
+    <a href="#generate-resolver-config-dnsmasq" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>When <code>dns.resolver_integration: &quot;dnsmasq&quot;</code> is enabled, this command prints the generated dnsmasq configuration to stdout. It contains domain-to-server mappings, 
+  <abbr title="An attack in which a public domain resolves to a private address. dnsmasq can block such answers.">DNS rebinding</abbr>
+ protection exceptions, and <code>fallback</code> servers.</p>
+<p><strong>Usage:</strong></p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr generate-resolver-config dnsmasq</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p><strong>Output:</strong> Dnsmasq configuration directives.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl"># Generated by keen-pbr - do not edit manually
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">address=/use-application-dns.net/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">server=192.168.1.1
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"># List: ai_services
+</span></span><span class="line"><span class="cl">server=/openai.com/www.openai.com/.../1.1.1.1
+</span></span><span class="line"><span class="cl">rebind-domain-ok=/openai.com/www.openai.com/...</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>Always exits with status 0, even on errors; errors are printed as <code># keen-pbr: ...</code> comment lines.</li>
+<li>When <code>resolver_integration: &quot;none&quot;</code> (default), or the config cannot be read, the output is only the <code>server=</code> lines from <code>dnsmasq-fallback.conf</code>; the dynamic sets are filled by interception.</li>
+<li>With <code>&quot;dnsmasq&quot;</code> and no <code>fallback</code> servers, those <code>server=</code> lines are added to the output.</li>
+<li>dnsmasq reads the config via this command (see <code>conf-script=keen-pbr generate-resolver-config dnsmasq</code> in the 
+  <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr>
+).</li>
+</ul>
+<h3><code>dnsmasq detect</code> and <code>remove</code><span class="hx:absolute hx:-mt-20" id="dnsmasq-detect-and-remove"></span>
+    <a href="#dnsmasq-detect-and-remove" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Inspect and clean up the dnsmasq integration without the daemon. Neither command needs the control socket.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr dnsmasq detect <span class="o">[</span>--json<span class="o">]</span>
+</span></span><span class="line"><span class="cl">keen-pbr dnsmasq remove &lt;selector&gt;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p><strong><code>detect</code></strong> lists every dnsmasq instance the platform hook reports: whether it runs, its DNS endpoint and how it was confirmed, listening sockets, whether keen-pbr&rsquo;s 
+  <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr>
+ is installed and which configuration it loaded, and any problem. The last line tells which instance keen-pbr selected and how (<code>explicit</code>, <code>adopted</code> or <code>automatic</code>), or why it could not choose.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">dnsmasq hook: /usr/lib/keen-pbr/dnsmasq-hook.sh (platform openwrt, binary /usr/sbin/dnsmasq)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  uci:cfg01411c  [selected: adopted]
+</span></span><span class="line"><span class="cl">    running:     yes (pid 1842)
+</span></span><span class="line"><span class="cl">    enabled:     yes
+</span></span><span class="line"><span class="cl">    endpoint:    127.0.0.1:53 (stamp_verified)
+</span></span><span class="line"><span class="cl">    listeners:   udp+tcp 0.0.0.0:53, udp+tcp [::]:53
+</span></span><span class="line"><span class="cl">    keen-pbr:    installed, loaded hash 3f2a9c0e1b7d4a55c6e8f0a1b2c3d4e5
+</span></span><span class="line"><span class="cl">    conf-dir:    /tmp/dnsmasq.cfg01411c.d (included)
+</span></span><span class="line"><span class="cl">    problem:     none
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Selection: uci:cfg01411c (adopted)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<ul>
+<li><code>--json</code> prints the same data as one JSON object (<code>selected</code>, <code>selection</code>, <code>error_code</code>, <code>message</code>, <code>warnings</code>, <code>instances[]</code>).</li>
+<li>Exit code <code>0</code> when an instance is selected and has no problem, <code>1</code> otherwise.</li>
+<li>If the choice is ambiguous, the output ends with a hint to set <code>dns.dnsmasq_instance</code>.</li>
+</ul>
+<p><strong><code>remove &lt;selector&gt;</code></strong> restarts one instance so that it stops using keen-pbr&rsquo;s config; on OpenWrt it also returns the server list moved aside. Use it when <code>detect</code> shows an instance that still runs keen-pbr&rsquo;s config after you switched the integration off.</p>
+<ul>
+<li>Must run as root. Exit code <code>64</code> for a missing or invalid selector.</li>
+<li>If the integration is still enabled for this instance, the command prints a note: the daemon may apply its config to dnsmasq again on its next sync. Disable the integration first.</li>
+</ul>
 <h2>Signals<span class="hx:absolute hx:-mt-20" id="signals"></span>
     <a href="#signals" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>When <code>keen-pbr</code> is running as a managed service (daemon), you can also control it with Unix signals:</p>
 <table>
@@ -1221,22 +1383,43 @@ acceleration. For the Keenetic-specific RAW versus mangle trade-off, see
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">keen-pbr status - config: /etc/keen-pbr/config.json
+</span></span><span class="line"><span class="cl">Service: running (runtime running: startup complete) - keen-pbr 3.4.0 (build 20261012064940)
 </span></span><span class="line"><span class="cl">Firewall backend: nftables
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">Outbounds:
 </span></span><span class="line"><span class="cl">  corp_vpn [interface] iface=corp_vpn fwmark=0x00010000 table=402
+</span></span><span class="line"><span class="cl">    state ........................................................... HEALTHY
 </span></span><span class="line"><span class="cl">    route   table=402 default dev corp_vpn ............................... OK
 </span></span><span class="line"><span class="cl">    rule    0x00010000/0x00ff0000 -&gt; table=402 pri=402 ........... OK [v4+v6]
-</span></span><span class="line"><span class="cl">  auto_vpn [urltest] fwmark=0x00060000 table=407
-</span></span><span class="line"><span class="cl">    route   table=407 default dev corp_vpn ............................... OK
-</span></span><span class="line"><span class="cl">    rule    0x00060000/0x00ff0000 -&gt; table=407 pri=407 ........... OK [v4+v6]
+</span></span><span class="line"><span class="cl">  auto_vpn [urltest] fwmark=0x00060000 table=402
+</span></span><span class="line"><span class="cl">    state ........................................................... HEALTHY
+</span></span><span class="line"><span class="cl">    member  corp_vpn (corp_vpn) 41 ms ................................ ACTIVE
+</span></span><span class="line"><span class="cl">    member  backup_vpn (wg1) ....................................... DEGRADED
+</span></span><span class="line"><span class="cl">      probe failed: timeout
+</span></span><span class="line"><span class="cl">    route   table=402 default dev corp_vpn ............................... OK
+</span></span><span class="line"><span class="cl">    rule    0x00060000/0x00ff0000 -&gt; table=402 pri=407 ........... OK [v4+v6]
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">Firewall:
 </span></span><span class="line"><span class="cl">  chain   KeenPbrTable / prerouting hook ............................... OK
 </span></span><span class="line"><span class="cl">  rule    kpbr4_generic -&gt; MARK 0x00010000 ........................ MISSING
 </span></span><span class="line"><span class="cl">    rule not found in nftables prerouting chain
+</span></span><span class="line"><span class="cl">  rule    kpbr4_auto -&gt; MARK 0x00060000 selected=corp_vpn .............. OK
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">Overall: DEGRADED (2 check(s) failed)
+</span></span><span class="line"><span class="cl">Kernel 6.12.94:
+</span></span><span class="line"><span class="cl">  capability nfqueue ................................................... OK
+</span></span><span class="line"><span class="cl">  probe      set_write ................................................. OK
+</span></span><span class="line"><span class="cl">  probe      conntrack ................................................. OK
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Interception: running, DNS hold active, L7 active
+</span></span><span class="line"><span class="cl">dnsmasq: ok, alive, 127.0.0.1:53 (uci:cfg01411c), 3 rules, 16 domains
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Issues:
+</span></span><span class="line"><span class="cl">  ERROR  Firewall rules do not match: 1
+</span></span><span class="line"><span class="cl">         kpbr4_generic: rule not found in nftables prerouting chain
+</span></span><span class="line"><span class="cl">  WARN   auto_vpn: failing members: 1
+</span></span><span class="line"><span class="cl">         backup_vpn · degraded · probe failed: timeout
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Overall: DEGRADED (1 check(s) failed, 1 error(s), 1 warning(s))
 </span></span><span class="line"><span class="cl">Status values: OK / MISSING / MISMATCH / ERROR</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1270,76 +1453,6 @@ acceleration. For the Keenetic-specific RAW versus mangle trade-off, see
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">[google] Not modified (304)
 </span></span><span class="line"><span class="cl">[internal.site] Skipped (no URL)
 </span></span><span class="line"><span class="cl">[generic] Skipped (no URL)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Generate resolver config:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr generate-resolver-config dnsmasq-ipset</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Example output:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl"># Generated by keen-pbr (dnsmasq-ipset) - do not edit manually
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">address=/use-application-dns.net/
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">rebind-domain-ok=keen.pbr
-</span></span><span class="line"><span class="cl">server=/check.keen.pbr/127.0.0.88#53
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">server=10.100.100.100
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"># List: google
-</span></span><span class="line"><span class="cl">ipset=/google.com/www.google.com/.../kpbr4d_google,kpbr6d_google</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Print the resolver config hash:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr resolver-config-hash</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Example output:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">6aa71fa9012013b242460b9d1e173d82</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1387,6 +1500,52 @@ acceleration. For the Keenetic-specific RAW versus mangle trade-off, see
   </button>
 </div>
 </div>
+<p>By default only list membership is checked. To also match rules that use ports, protocol, source address or DSCP, describe the packet:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Flag</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>--proto &lt;tcp|udp|other&gt;</code></td>
+					<td>Packet protocol.</td>
+			</tr>
+			<tr>
+					<td><code>--src-addr &lt;ip&gt;</code></td>
+					<td>Source address of the client sending the packet.</td>
+			</tr>
+			<tr>
+					<td><code>--src-port &lt;port&gt;</code></td>
+					<td>Source port.</td>
+			</tr>
+			<tr>
+					<td><code>--dest-port &lt;port&gt;</code></td>
+					<td>Destination port.</td>
+			</tr>
+			<tr>
+					<td><code>--dscp &lt;0-63&gt;</code></td>
+					<td>DSCP value. A packet without <code>--dscp</code> is treated as DSCP 0.</td>
+			</tr>
+	</tbody>
+</table>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr test-routing google.com --proto tcp --dest-port <span class="m">443</span> --src-addr 192.168.1.10</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>If a rule depends on a field you did not give (for example <code>src_addr</code>), that IP shows <code>(unknown)</code>.</p>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

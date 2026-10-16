@@ -1,6 +1,6 @@
 # Использование CLI keen-pbr
 
-`keen-pbr` умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.
+`keen-pbr` умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и проверять решения маршрутизации.
 
 ## Использование
 
@@ -8,21 +8,21 @@
 Usage: keen-pbr [options] <command>
 
 Options:
-  --config <path>    Путь к JSON файлу конфигурации
-  --log-level <lvl>  Уровень логов: error, warn, info, verbose, debug
-  --no-api           Отключить REST API во время выполнения
-  --use-raw-prerouting  Использовать raw PREROUTING для пересылаемого IPv4 (только iptables)
-  --use-raw6-prerouting Использовать raw PREROUTING для пересылаемого IPv6 (только iptables)
-  --version         Показать версию и выйти
-  --help            Показать эту справку и выйти
+  --config <path>    Path to JSON config file
+  --log-level <lvl>  Log level: error, warn, info, verbose, debug
+  --no-api           Disable REST API at runtime
+  --use-raw-prerouting  Use raw PREROUTING for IPv4 forwarded traffic (iptables only)
+  --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only)
+  --version          Show version and exit
+  --help             Show this help and exit
 
 Commands:
   service
   status
   download
-  generate-resolver-config <res>
-  resolver-config-hash
-  test-routing <ip-or-domain>
+  test-routing <ip-or-domain> [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...]
+  dnsmasq detect [--json]
+  dnsmasq remove <selector>
 ```
 
 Файл конфигурации обычно `/etc/keen-pbr/config.json` на OpenWrt и Debian, и `/opt/etc/keen-pbr/config.json` на Keenetic / NetCraze.
@@ -33,38 +33,29 @@ Commands:
 |---|---|
 | `--config <path>` | Путь к JSON файлу конфигурации. |
 | `--log-level <lvl>` | Детализация логов: `error`, `warn`, `info`, `verbose` или `debug`. |
-| `--log-target <target>` | Назначение логов: `stderr`, `syslog` или `both`. По умолчанию используется `syslog` для `service` и `stderr` для интерактивных команд. |
+| `--log-target <target>` | Назначение логов: `stderr`, `syslog` или `both`. По умолчанию для всех команд используется `both`. Пакетные сервисные файлы (systemd, OpenWrt procd, init-скрипт Keenetic) передают `--log-target syslog`, чтобы логи не дублировались, когда stdout/stderr дополнительно перехватываются системой инициализации. |
 | `--no-api` | Отключить REST API, даже если он включён в конфиге. |
-| `--use-raw-prerouting` | Использовать raw PREROUTING для классификации пересылаемого IPv4-трафика; доступно только с iptables. |
+| `--use-raw-prerouting` | Использовать raw {{< term "PREROUTING" >}} для классификации пересылаемого IPv4-трафика; доступно только с iptables. |
 | `--use-raw6-prerouting` | Использовать raw PREROUTING для классификации пересылаемого IPv6-трафика; доступно только с iptables. |
 | `--version` | Вывести версию и выйти. |
 | `--help` | Вывести справку и выйти. |
 
 ### `--use-raw-prerouting`
 
-Этот флаг переносит классификацию только пересылаемого IPv4-трафика из `mangle
-PREROUTING` в `raw PREROUTING`. Локально сгенерированный трафик остаётся в
-`mangle OUTPUT`, а IPv6 настраивается независимо флагом
-`--use-raw6-prerouting`.
+Флаг нужен в основном на Keenetic / NetCraze, где прошивка время от времени пересобирает таблицу `mangle` и правила keen-pbr ненадолго пропадают. С этим флагом keen-pbr ставит правила для транзитного IPv4-трафика в таблицу `raw`, которую прошивка не трогает. Для IPv6 есть отдельный флаг `--use-raw6-prerouting`. Трафик самого роутера всегда обрабатывается в `mangle OUTPUT`.
 
-На Keenetic / NetCraze init-скрипт независимо проверяет и при
-необходимости загружает `iptable_raw.ko` и `ip6table_raw.ko`. По умолчанию
-`KEEN_PBR_RAW_PREROUTING="auto"`: каждая семья использует RAW только после
-успешной проверки, иначе для неё используется mangle. Чтобы всегда
-использовать mangle, добавьте в `/opt/etc/keen-pbr/defaults`:
+На Keenetic / NetCraze флаги выставляет скрипт запуска. Режим задаётся переменной `KEEN_PBR_RAW_PREROUTING` в `/opt/etc/keen-pbr/defaults`:
 
-```sh
-KEEN_PBR_RAW_PREROUTING="disable"
-```
+| Значение | Что делает |
+|---|---|
+| `auto` (по умолчанию) | Для IPv4 и IPv6 отдельно проверяет, работает ли `raw`, и использует его, если работает, иначе `mangle` |
+| `disable` | Всегда использовать `mangle` |
+| `enable` | Требовать `raw` для IPv4 и IPv6. Если `raw` недоступен, сервис не запустится |
+| `ipv4-only`, `ipv6-only` | Требовать `raw` только для одного семейства адресов |
 
-Затем перезапустите сервис. Значение `auto` проверяет IPv4 и IPv6 независимо:
-доступное семейство использует RAW, недоступное — mangle. Значения `enable`,
-`ipv4-only` и `ipv6-only` требуют RAW для соответствующего семейства и не
-допускают переход на mangle при ошибке проверки. RAW работает до conntrack и
-намеренно не использует CONNMARK. Сравнение последствий для Keenetic приведено в
-[инструкции по установке Keenetic / NetCraze]({{< relref "/docs/getting-started/installation/keenetic" >}}).
+После изменения перезапустите сервис. Чем отличаются режимы на практике, описано в [инструкции по установке Keenetic / NetCraze]({{< relref "/docs/getting-started/installation/keenetic" >}}).
 
-Проверить обе возможности RAW можно так:
+Проверить, доступен ли `raw`:
 
 ```sh
 ls -l "/lib/modules/$(uname -r)/iptable_raw.ko"
@@ -80,11 +71,77 @@ ip6tables -t raw -S
 | Команда | Описание |
 |---|---|
 | `service` | Запустить сервис маршрутизации на переднем плане. |
-| `status` | Показать состояние маршрутизации, таблиц маршрутизации, правил и верификации firewall, затем выйти. |
+| `status` | Показать состояние службы, outbound'ов, маршрутизации, firewall и проверок ядра, затем список проблем, как на главной странице веб-интерфейса, и выйти. Код выхода 1, если какая-то проверка не прошла или есть проблема уровня «ошибка». |
 | `download` | Загрузить все списки с URL в кэш, затем выйти. |
-| `generate-resolver-config <res>` | Вывести сгенерированную конфигурацию резолвера в stdout. Поддерживаемые резолверы: `dnsmasq-ipset`, `dnsmasq-nftset`. |
-| `resolver-config-hash` | Вывести MD5-хеш сгенерированного сопоставления домен-ipset, затем выйти. |
-| `test-routing <ip-or-domain>` | Сравнить ожидаемую и фактическую маршрутизацию для данного IP или домена. |
+| `generate-resolver-config dnsmasq` | Вывести в stdout конфигурацию dnsmasq для отдельных DNS-серверов списков. |
+| `dnsmasq detect [--json]` | Показать экземпляры dnsmasq, их DNS-адреса и экземпляр, который использует keen-pbr. |
+| `dnsmasq remove <selector>` | Перезапустить один экземпляр dnsmasq без конфигурации keen-pbr. |
+| `test-routing <ip-or-domain> [параметры пакета]` | Сравнить ожидаемую и фактическую маршрутизацию для данного IP или домена. Проверку выполняет служба, так же как проверку маршрутизации в веб-интерфейсе. |
+
+### `generate-resolver-config dnsmasq`
+
+Когда включена `dns.resolver_integration: "dnsmasq"`, эта команда выводит сгенерированную конфигурацию dnsmasq в stdout. В ней соответствия «домен → сервер», исключения защиты от {{< term "DNS rebinding" >}} и резервные (`fallback`) серверы.
+
+**Использование:**
+
+```bash
+keen-pbr generate-resolver-config dnsmasq
+```
+
+**Вывод:** Директивы конфигурации dnsmasq.
+
+```text
+# Generated by keen-pbr - do not edit manually
+
+address=/use-application-dns.net/
+
+server=192.168.1.1
+
+# List: ai_services
+server=/openai.com/www.openai.com/.../1.1.1.1
+rebind-domain-ok=/openai.com/www.openai.com/...
+```
+
+**Поведение:**
+- Всегда завершается с кодом 0, даже при ошибках; ошибки выводятся в виде строк комментариев `# keen-pbr: ...`.
+- Когда `resolver_integration: "none"` (по умолчанию) или конфиг не читается, в выводе только строки `server=` из `dnsmasq-fallback.conf`; динамические наборы заполняются перехватом.
+- При `"dnsmasq"` и без серверов `fallback` эти строки `server=` добавляются в вывод.
+- dnsmasq читает конфиг через эту команду (см. `conf-script=keen-pbr generate-resolver-config dnsmasq` в {{< term "drop-in" >}}).
+
+### `dnsmasq detect` и `remove` {#dnsmasq-detect-and-remove}
+
+Просмотр и очистка интеграции с dnsmasq без демона. Ни одной из команд не нужен управляющий сокет.
+
+```bash
+keen-pbr dnsmasq detect [--json]
+keen-pbr dnsmasq remove <selector>
+```
+
+**`detect`** выводит все экземпляры dnsmasq, о которых сообщает hook-скрипт платформы: запущен ли, DNS-адрес и чем он подтверждён, слушающие сокеты, установлен ли {{< term "drop-in" >}} keen-pbr и какую конфигурацию загрузил dnsmasq, а также проблемы. В последней строке указано, какой экземпляр выбрал keen-pbr и как (`explicit`, `adopted` или `automatic`), либо почему выбрать не удалось.
+
+```text
+dnsmasq hook: /usr/lib/keen-pbr/dnsmasq-hook.sh (platform openwrt, binary /usr/sbin/dnsmasq)
+
+  uci:cfg01411c  [selected: adopted]
+    running:     yes (pid 1842)
+    enabled:     yes
+    endpoint:    127.0.0.1:53 (stamp_verified)
+    listeners:   udp+tcp 0.0.0.0:53, udp+tcp [::]:53
+    keen-pbr:    installed, loaded hash 3f2a9c0e1b7d4a55c6e8f0a1b2c3d4e5
+    conf-dir:    /tmp/dnsmasq.cfg01411c.d (included)
+    problem:     none
+
+Selection: uci:cfg01411c (adopted)
+```
+
+- `--json` печатает те же данные одним JSON-объектом (`selected`, `selection`, `error_code`, `message`, `warnings`, `instances[]`).
+- Код возврата `0`, если экземпляр выбран и проблем нет, иначе `1`.
+- Если выбор неоднозначен, в конце выводится подсказка задать `dns.dnsmasq_instance`.
+
+**`remove <selector>`** перезапускает один экземпляр, чтобы он перестал использовать конфигурацию keen-pbr; на OpenWrt ещё возвращает убранный список серверов. Команда нужна, если после отключения интеграции `detect` показывает экземпляр, который всё ещё работает с конфигурацией keen-pbr.
+
+- Нужны права root. Код возврата `64`, если селектор не указан или некорректен.
+- Если интеграция для этого экземпляра всё ещё включена, команда напечатает примечание: демон может снова применить свою конфигурацию к dnsmasq при следующей синхронизации. Сначала отключите интеграцию.
 
 ## Сигналы
 
@@ -114,23 +171,44 @@ keen-pbr status
 
 ```text
 keen-pbr status - config: /etc/keen-pbr/config.json
+Service: running (runtime running: startup complete) - keen-pbr 3.4.0 (build 20261012064940)
 Firewall backend: nftables
 
 Outbounds:
   corp_vpn [interface] iface=corp_vpn fwmark=0x00010000 table=402
+    state ........................................................... HEALTHY
     route   table=402 default dev corp_vpn ............................... OK
     rule    0x00010000/0x00ff0000 -> table=402 pri=402 ........... OK [v4+v6]
-  auto_vpn [urltest] fwmark=0x00060000 table=407
-    route   table=407 default dev corp_vpn ............................... OK
-    rule    0x00060000/0x00ff0000 -> table=407 pri=407 ........... OK [v4+v6]
+  auto_vpn [urltest] fwmark=0x00060000 table=402
+    state ........................................................... HEALTHY
+    member  corp_vpn (corp_vpn) 41 ms ................................ ACTIVE
+    member  backup_vpn (wg1) ....................................... DEGRADED
+      probe failed: timeout
+    route   table=402 default dev corp_vpn ............................... OK
+    rule    0x00060000/0x00ff0000 -> table=402 pri=407 ........... OK [v4+v6]
 
 Firewall:
   chain   KeenPbrTable / prerouting hook ............................... OK
-    rule    kpbr4_generic -> MARK 0x00010000 ........................ MISSING
-     правило не найдено в цепочке prerouting nftables
+  rule    kpbr4_generic -> MARK 0x00010000 ........................ MISSING
+    rule not found in nftables prerouting chain
+  rule    kpbr4_auto -> MARK 0x00060000 selected=corp_vpn .............. OK
 
-Overall: DEGRADED (2 проверки не пройдено)
-Статус: OK / MISSING / MISMATCH / ERROR
+Kernel 6.12.94:
+  capability nfqueue ................................................... OK
+  probe      set_write ................................................. OK
+  probe      conntrack ................................................. OK
+
+Interception: running, DNS hold active, L7 active
+dnsmasq: ok, alive, 127.0.0.1:53 (uci:cfg01411c), 3 rules, 16 domains
+
+Issues:
+  ERROR  Firewall rules do not match: 1
+         kpbr4_generic: rule not found in nftables prerouting chain
+  WARN   auto_vpn: failing members: 1
+         backup_vpn · degraded · probe failed: timeout
+
+Overall: DEGRADED (1 check(s) failed, 1 error(s), 1 warning(s))
+Status values: OK / MISSING / MISMATCH / ERROR
 ```
 
 Загрузить все списки с URL:
@@ -145,40 +223,6 @@ keen-pbr download
 [google] Not modified (304)
 [internal.site] Skipped (no URL)
 [generic] Skipped (no URL)
-```
-
-Сгенерировать конфигурацию резолвера:
-
-```bash {filename="bash"}
-keen-pbr generate-resolver-config dnsmasq-ipset
-```
-
-Пример вывода:
-
-```text
-# Generated by keen-pbr (dnsmasq-ipset) - do not edit manually
-
-address=/use-application-dns.net/
-
-rebind-domain-ok=keen.pbr
-server=/check.keen.pbr/127.0.0.88#53
-
-server=10.100.100.100
-
-# List: google
-ipset=/google.com/www.google.com/.../kpbr4d_google,kpbr6d_google
-```
-
-Вывести хеш конфигурации резолвера:
-
-```bash {filename="bash"}
-keen-pbr resolver-config-hash
-```
-
-Пример вывода:
-
-```text
-6aa71fa9012013b242460b9d1e173d82
 ```
 
 Протестировать совпадение ожидаемой и фактической маршрутизации:
@@ -198,4 +242,20 @@ IP                        | List Match               | Expected Outbound  | Actu
 2001:4860:4860::8888      | google (via google.com)  | corp_vpn           | corp_vpn           | OK
 142.250.74.14             | google (via google.com)  | corp_vpn           | corp_vpn           | OK
 ```
+
+По умолчанию проверяется только попадание в списки. Чтобы учесть и правила с портами, протоколом, адресом источника или DSCP, опишите пакет:
+
+| Флаг | Описание |
+|---|---|
+| `--proto <tcp\|udp\|other>` | Протокол пакета. |
+| `--src-addr <ip>` | Адрес клиента, который отправляет пакет. |
+| `--src-port <port>` | Порт источника. |
+| `--dest-port <port>` | Порт назначения. |
+| `--dscp <0-63>` | Значение DSCP. Без `--dscp` пакет считается с DSCP 0. |
+
+```bash {filename="bash"}
+keen-pbr test-routing google.com --proto tcp --dest-port 443 --src-addr 192.168.1.10
+```
+
+Если правило зависит от поля, которое вы не указали (например, `src_addr`), для этого IP будет `(unknown)`.
 

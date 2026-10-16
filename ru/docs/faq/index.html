@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>FAQ – keen-pbr</title>
-  <meta name="description" content="Какой бэкенд firewall будет использоваться? keen-pbr автоматически определяет бэкенд firewall при запуске. Он использует nftables, если доступен, и возвращается к iptables/ipset на более старых ядрах.
+  <meta name="description" content="Какой бэкенд firewall будет использоваться? При daemon.firewall_backend: &#34;auto&#34; (по умолчанию) keen-pbr использует nftables, если установлена команда nft, а иначе iptables/ipset.
 Как перезагрузить списки без перезапуска сервиса? Используйте SIGHUP:
 bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полную перезагрузку: заново скачиваются все удалённые списки и повторно применяются правила firewall и маршрутизации." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/faq/" itemprop="url" />
 
@@ -19,7 +19,7 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
   content="
     
       Какой бэкенд firewall будет использоваться?
-    keen-pbr автоматически определяет бэкенд firewall при запуске. Он использует nftables, если доступен, и возвращается к iptables/ipset на более старых ядрах.
+    При daemon.firewall_backend: &quot;auto&quot; (по умолчанию) keen-pbr использует nftables, если установлена команда nft, а иначе iptables/ipset.
 Как перезагрузить списки без перезапуска сервиса?
     Используйте SIGHUP:
 
@@ -45,13 +45,13 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid)
 
 
 	<meta itemprop="name" content="FAQ">
-	<meta itemprop="description" content="Какой бэкенд firewall будет использоваться? keen-pbr автоматически определяет бэкенд firewall при запуске. Он использует nftables, если доступен, и возвращается к iptables/ipset на более старых ядрах.
+	<meta itemprop="description" content="Какой бэкенд firewall будет использоваться? При daemon.firewall_backend: &#34;auto&#34; (по умолчанию) keen-pbr использует nftables, если установлена команда nft, а иначе iptables/ipset.
 Как перезагрузить списки без перезапуска сервиса? Используйте SIGHUP:
 bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полную перезагрузку: заново скачиваются все удалённые списки и повторно применяются правила firewall и маршрутизации.">
-	<meta itemprop="wordCount" content="397">
+	<meta itemprop="wordCount" content="404">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="FAQ">
-	<meta name="twitter:description" content="Какой бэкенд firewall будет использоваться? keen-pbr автоматически определяет бэкенд firewall при запуске. Он использует nftables, если доступен, и возвращается к iptables/ipset на более старых ядрах.
+	<meta name="twitter:description" content="Какой бэкенд firewall будет использоваться? При daemon.firewall_backend: &#34;auto&#34; (по умолчанию) keen-pbr использует nftables, если установлена команда nft, а иначе iptables/ipset.
 Как перезагрузить списки без перезапуска сервиса? Используйте SIGHUP:
 bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полную перезагрузку: заново скачиваются все удалённые списки и повторно применяются правила firewall и маршрутизации.">
 
@@ -366,6 +366,18 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -424,9 +436,9 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
             </li>
           <li>
               <a
-                href="#%d0%ba%d0%b0%d0%ba-urltest-outbound-%d0%b2%d1%8b%d0%b1%d0%b8%d1%80%d0%b0%d0%b5%d1%82-%d0%bb%d1%83%d1%87%d1%88%d0%b8%d0%b9-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81"
+                href="#%d0%ba%d0%b0%d0%ba-urltest-outbound-%d0%b2%d1%8b%d0%b1%d0%b8%d1%80%d0%b0%d0%b5%d1%82-%d0%bb%d1%83%d1%87%d1%88%d0%b8%d0%b9-%d0%ba%d0%b0%d0%bd%d0%b0%d0%bb"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Как urltest outbound выбирает лучший интерфейс?</a>
+              >Как urltest outbound выбирает лучший канал?</a>
             </li>
           <li>
               <a
@@ -464,6 +476,18 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div>
               
@@ -707,6 +731,18 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -751,6 +787,17 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -912,7 +959,7 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%ba%d0%b0%d0%ba-urltest-outbound-%d0%b2%d1%8b%d0%b1%d0%b8%d1%80%d0%b0%d0%b5%d1%82-%d0%bb%d1%83%d1%87%d1%88%d0%b8%d0%b9-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81">Как urltest outbound выбирает лучший интерфейс?
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%ba%d0%b0%d0%ba-urltest-outbound-%d0%b2%d1%8b%d0%b1%d0%b8%d1%80%d0%b0%d0%b5%d1%82-%d0%bb%d1%83%d1%87%d1%88%d0%b8%d0%b9-%d0%ba%d0%b0%d0%bd%d0%b0%d0%bb">Как urltest outbound выбирает лучший канал?
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1012,7 +1059,7 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
           </div>
           
           <h2>Какой бэкенд firewall будет использоваться?<span class="hx:absolute hx:-mt-20" id="какой-бэкенд-firewall-будет-использоваться"></span>
-    <a href="#%d0%ba%d0%b0%d0%ba%d0%be%d0%b9-%d0%b1%d1%8d%d0%ba%d0%b5%d0%bd%d0%b4-firewall-%d0%b1%d1%83%d0%b4%d0%b5%d1%82-%d0%b8%d1%81%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d0%be%d0%b2%d0%b0%d1%82%d1%8c%d1%81%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>keen-pbr автоматически определяет бэкенд firewall при запуске. Он использует nftables, если доступен, и возвращается к iptables/ipset на более старых ядрах.</p>
+    <a href="#%d0%ba%d0%b0%d0%ba%d0%be%d0%b9-%d0%b1%d1%8d%d0%ba%d0%b5%d0%bd%d0%b4-firewall-%d0%b1%d1%83%d0%b4%d0%b5%d1%82-%d0%b8%d1%81%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d0%be%d0%b2%d0%b0%d1%82%d1%8c%d1%81%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>При <code>daemon.firewall_backend: &quot;auto&quot;</code> (по умолчанию) keen-pbr использует nftables, если установлена команда <code>nft</code>, а иначе iptables/ipset.</p>
 <h2>Как перезагрузить списки без перезапуска сервиса?<span class="hx:absolute hx:-mt-20" id="как-перезагрузить-списки-без-перезапуска-сервиса"></span>
     <a href="#%d0%ba%d0%b0%d0%ba-%d0%bf%d0%b5%d1%80%d0%b5%d0%b7%d0%b0%d0%b3%d1%80%d1%83%d0%b7%d0%b8%d1%82%d1%8c-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b8-%d0%b1%d0%b5%d0%b7-%d0%bf%d0%b5%d1%80%d0%b5%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b0-%d1%81%d0%b5%d1%80%d0%b2%d0%b8%d1%81%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Используйте <code>SIGHUP</code>:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1035,14 +1082,16 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
     <strong class="hx:text-lg">Чем отличается SIGUSR1</strong>
   </summary>
   <div class="hx:p-2 hx:overflow-hidden">
-    <code>SIGUSR1</code> работает иначе: он заново проверяет таблицы маршрутизации и запускает URL-тесты немедленно, но СПИСКИ НЕ перезагружает.
+    <code>SIGUSR1</code> работает иначе: он заново проверяет таблицы маршрутизации и запускает URL-тесты немедленно, но списки заново не скачивает.
   </div>
 </details>
 <h2>Что произойдёт, если URL удалённого списка недоступен при запуске?<span class="hx:absolute hx:-mt-20" id="что-произойдёт-если-url-удалённого-списка-недоступен-при-запуске"></span>
-    <a href="#%d1%87%d1%82%d0%be-%d0%bf%d1%80%d0%be%d0%b8%d0%b7%d0%be%d0%b9%d0%b4%d1%91%d1%82-%d0%b5%d1%81%d0%bb%d0%b8-url-%d1%83%d0%b4%d0%b0%d0%bb%d1%91%d0%bd%d0%bd%d0%be%d0%b3%d0%be-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0-%d0%bd%d0%b5%d0%b4%d0%be%d1%81%d1%82%d1%83%d0%bf%d0%b5%d0%bd-%d0%bf%d1%80%d0%b8-%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b5" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>keen-pbr использует кэшированную копию из <code>daemon.cache_dir</code>, если она доступна. Если кэша не существует и URL недоступен, удалённый источник не вносит никаких записей для этого запуска. Для списка только с URL это означает, что список фактически пуст и никакой набор или правило firewall не создаётся.</p>
-<h2>Как urltest outbound выбирает лучший интерфейс?<span class="hx:absolute hx:-mt-20" id="как-urltest-outbound-выбирает-лучший-интерфейс"></span>
-    <a href="#%d0%ba%d0%b0%d0%ba-urltest-outbound-%d0%b2%d1%8b%d0%b1%d0%b8%d1%80%d0%b0%d0%b5%d1%82-%d0%bb%d1%83%d1%87%d1%88%d0%b8%d0%b9-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Раз в указанный интервал keen-pbr отправляет HTTP-запрос на настроенный <code>url</code> от каждого дочернего outbound и измеряет задержку (RTT). Выбирается дочерний outbound с наименьшей задержкой. Дочерние outbounds в пределах <code>tolerance_ms</code> от лучшего считаются эквивалентными и выбираются по весу.</p>
-<p>Circuit breaker предотвращает использование нестабильного соединения: после <code>failure_threshold</code> последовательных сбоев circuit переходит в статус OPEN и этот дочерний outbound игнорируются в течение <code>timeout_ms</code> (период охлаждения). После охлаждения он входит в состояние HALF-OPEN и получает ограниченные попытки проверки для восстановления.</p>
+    <a href="#%d1%87%d1%82%d0%be-%d0%bf%d1%80%d0%be%d0%b8%d0%b7%d0%be%d0%b9%d0%b4%d1%91%d1%82-%d0%b5%d1%81%d0%bb%d0%b8-url-%d1%83%d0%b4%d0%b0%d0%bb%d1%91%d0%bd%d0%bd%d0%be%d0%b3%d0%be-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0-%d0%bd%d0%b5%d0%b4%d0%be%d1%81%d1%82%d1%83%d0%bf%d0%b5%d0%bd-%d0%bf%d1%80%d0%b8-%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b5" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>keen-pbr использует кэшированную копию из <code>daemon.cache_dir</code>, если она доступна. Если кэша тоже нет, список только с <code>url</code> остаётся пустым, пока загрузка не удастся; keen-pbr продолжает попытки в фоне.</p>
+<h2>Как urltest outbound выбирает лучший канал?<span class="hx:absolute hx:-mt-20" id="как-urltest-outbound-выбирает-лучший-канал"></span>
+    <a href="#%d0%ba%d0%b0%d0%ba-urltest-outbound-%d0%b2%d1%8b%d0%b1%d0%b8%d1%80%d0%b0%d0%b5%d1%82-%d0%bb%d1%83%d1%87%d1%88%d0%b8%d0%b9-%d0%ba%d0%b0%d0%bd%d0%b0%d0%bb" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Каждые <code>interval_ms</code> keen-pbr отправляет HTTP-запрос на настроенный <code>url</code> через каждый канал и измеряет задержку (
+  <abbr title="Время от отправки запроса до получения ответа.">RTT</abbr>
+). При <code>strategy: &quot;priority&quot;</code> выбирается канал с наименьшей задержкой. Если новый лучший канал быстрее текущего меньше чем на <code>tolerance_ms</code>, переключения не происходит. Каналы проверяются по группам: следующая группа из <code>outbound_groups</code> используется, только если в предыдущей не работает ни один канал.</p>
+<p>Если канал <code>failure_threshold</code> раз подряд не прошёл проверку, keen-pbr перестаёт его использовать на <code>timeout_ms</code>, а затем снова проверяет его несколько раз. Так трафик не прыгает между каналами, пока один из них работает нестабильно.</p>
 <h2>Можно ли маршрутизировать DNS-запросы через VPN?<span class="hx:absolute hx:-mt-20" id="можно-ли-маршрутизировать-dns-запросы-через-vpn"></span>
     <a href="#%d0%bc%d0%be%d0%b6%d0%bd%d0%be-%d0%bb%d0%b8-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b8%d1%80%d0%be%d0%b2%d0%b0%d1%82%d1%8c-dns-%d0%b7%d0%b0%d0%bf%d1%80%d0%be%d1%81%d1%8b-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Да. Используйте поле <code>detour</code> в <code>dns.servers</code>, чтобы привязать DNS-запросы к этому серверу к конкретному outbound:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1072,7 +1121,9 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
 <ul>
 <li>IPv4-адрес: <code>93.184.216.34</code></li>
 <li>IPv6-адрес: <code>2606:2800:220:1:248:1893:25c8:1946</code></li>
-<li>CIDR: <code>10.0.0.0/8</code></li>
+<li>
+  <abbr title="Запись подсети: адрес и длина префикса, например 192.168.1.0/24.">CIDR</abbr>
+: <code>10.0.0.0/8</code></li>
 <li>Домен: <code>example.com</code> (автоматически включает все поддомены)
 <ul>
 <li>записи вида <code>*.example.com</code> также поддерживаются и обрабатываются так же, как <code>example.com</code></li>
@@ -1082,10 +1133,10 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
 <li>Пустые строки игнорируются</li>
 </ul>
 <h2>Как проверить, что маршрутизация правильно применена?<span class="hx:absolute hx:-mt-20" id="как-проверить-что-маршрутизация-правильно-применена"></span>
-    <a href="#%d0%ba%d0%b0%d0%ba-%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%b8%d1%82%d1%8c-%d1%87%d1%82%d0%be-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d1%8f-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d1%8c%d0%bd%d0%be-%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d0%bd%d0%b5%d0%bd%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Используйте эндпоинт проверки маршрутизации:</p>
+    <a href="#%d0%ba%d0%b0%d0%ba-%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%b8%d1%82%d1%8c-%d1%87%d1%82%d0%be-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d1%8f-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d1%8c%d0%bd%d0%be-%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d0%bd%d0%b5%d0%bd%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Выполните:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/health/routing</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1097,7 +1148,7 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
   </button>
 </div>
 </div>
-<p>Это проверяет живое состояние ядра (цепочка firewall, правила firewall, таблицы маршрутизации, политические правила) против ожидаемой конфигурации и сообщает <code>ok</code>, <code>missing</code> или <code>mismatch</code> для каждого элемента.</p>
+<p>keen-pbr сравнит правила firewall, таблицы маршрутизации и записи <code>ip rule</code> в ядре с тем, что он ожидает, и отметит каждый пункт как <code>OK</code>, <code>MISSING</code> или <code>MISMATCH</code>. Та же проверка есть на странице состояния в веб-интерфейсе и в <code>GET /api/health/routing</code>. Чтобы проверить конкретный сайт, используйте <code>keen-pbr test-routing &lt;домен-или-ip&gt;</code>.</p>
 <h2>Можно ли объединить несколько источников в одном списке?<span class="hx:absolute hx:-mt-20" id="можно-ли-объединить-несколько-источников-в-одном-списке"></span>
     <a href="#%d0%bc%d0%be%d0%b6%d0%bd%d0%be-%d0%bb%d0%b8-%d0%be%d0%b1%d1%8a%d0%b5%d0%b4%d0%b8%d0%bd%d0%b8%d1%82%d1%8c-%d0%bd%d0%b5%d1%81%d0%ba%d0%be%d0%bb%d1%8c%d0%ba%d0%be-%d0%b8%d1%81%d1%82%d0%be%d1%87%d0%bd%d0%b8%d0%ba%d0%be%d0%b2-%d0%b2-%d0%be%d0%b4%d0%bd%d0%be%d0%bc-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b5" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Да. Можно объединять <code>url</code>, <code>domains</code>, <code>ip_cidrs</code> и <code>file</code> в одной записи списка — все данные сольются воедино:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1127,7 +1178,7 @@ bashkill -HUP $(cat /var/run/keen-pbr.pid) Это запускает полну�
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">В веб-интерфейсе объединение поддерживается только для <code>ip_cidrs</code> + <code>domains</code>. Объединение их с <code>url</code> или с <code>file</code> не поддерживается в веб-интерфейсе и не рекомендуется; таким образом, это может быть запрещено в будущем, чтобы предотвратить недопонимание.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Веб-интерфейс умеет объединять только <code>ip_cidrs</code> и <code>domains</code>. Объединять их с <code>url</code> или <code>file</code> веб-интерфейс не умеет, и делать так не рекомендуется: в будущих версиях это может быть запрещено.</div>
   </div>
 </div>
 

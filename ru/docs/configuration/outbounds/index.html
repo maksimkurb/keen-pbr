@@ -10,10 +10,9 @@
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Outbounds – keen-pbr</title>
   <meta name="description" content="Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
-Каждый outbound tag должен соответствовать маске ^[a-z][a-z0-9_]*$ и быть не длиннее 24 символов.
+tag outbound: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
 Большинству пользователей достаточно:
-одного outbound типа interface для VPN-соединения одного outbound типа table с id=254 для прямого соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
-Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы icmptest icmptest выбирает кандидатов так же, как urltest, но проверяет каждый путь строгими ICMP Echo request/reply. Для каждого кандидата задаётся отдельный literal IPv4- или IPv6-адрес в записи группы." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/outbounds/" itemprop="url" />
+одного outbound типа interface для VPN-соединения одного outbound типа table с table: 254 (основная таблица маршрутизации системы) для обычного соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/outbounds/" itemprop="url" />
 
 <meta property="og:title" content="Outbounds">
 <meta
@@ -21,44 +20,14 @@
   content="
     
       Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
-Каждый outbound tag должен соответствовать маске ^[a-z][a-z0-9_]*$ и быть не длиннее 24 символов.
+tag outbound: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
 Большинству пользователей достаточно:
 
 одного outbound типа interface для VPN-соединения
-одного outbound типа table с id=254 для прямого соединения, как правило wan
+одного outbound типа table с table: 254 (основная таблица маршрутизации системы) для обычного соединения, как правило wan
 при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений
 
 Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
-Общий пример
-    
-
-config.json{
-  &#34;outbounds&#34;: [
-    {
-      &#34;type&#34;: &#34;interface&#34;,
-      &#34;tag&#34;: &#34;vpn&#34;,
-      &#34;interface&#34;: &#34;tun0&#34;,
-      &#34;gateway&#34;: &#34;10.8.0.1&#34;,
-      &#34;gateway6&#34;: &#34;2001:db8::1&#34;
-    },
-    {
-      &#34;type&#34;: &#34;table&#34;,
-      &#34;tag&#34;: &#34;wan&#34;,
-      &#34;table&#34;: 254
-    }
-  ]
-}
-  
-    
-
-  
-
-
-Типы
-    icmptest
-    icmptest выбирает кандидатов так же, как urltest, но проверяет каждый путь
-строгими ICMP Echo request/reply. Для каждого кандидата задаётся отдельный
-literal IPv4- или IPv6-адрес в записи группы.
     
   ">
 <meta
@@ -73,18 +42,16 @@ literal IPv4- или IPv6-адрес в записи группы.
 
 	<meta itemprop="name" content="Outbounds">
 	<meta itemprop="description" content="Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
-Каждый outbound tag должен соответствовать маске ^[a-z][a-z0-9_]*$ и быть не длиннее 24 символов.
+tag outbound: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
 Большинству пользователей достаточно:
-одного outbound типа interface для VPN-соединения одного outbound типа table с id=254 для прямого соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
-Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы icmptest icmptest выбирает кандидатов так же, как urltest, но проверяет каждый путь строгими ICMP Echo request/reply. Для каждого кандидата задаётся отдельный literal IPv4- или IPv6-адрес в записи группы.">
-	<meta itemprop="wordCount" content="1078">
+одного outbound типа interface для VPN-соединения одного outbound типа table с table: 254 (основная таблица маршрутизации системы) для обычного соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.">
+	<meta itemprop="wordCount" content="1362">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Outbounds">
 	<meta name="twitter:description" content="Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
-Каждый outbound tag должен соответствовать маске ^[a-z][a-z0-9_]*$ и быть не длиннее 24 символов.
+tag outbound: строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
 Большинству пользователей достаточно:
-одного outbound типа interface для VPN-соединения одного outbound типа table с id=254 для прямого соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
-Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы icmptest icmptest выбирает кандидатов так же, как urltest, но проверяет каждый путь строгими ICMP Echo request/reply. Для каждого кандидата задаётся отдельный literal IPv4- или IPv6-адрес в записи группы.">
+одного outbound типа interface для VPN-соединения одного outbound типа table с table: 254 (основная таблица маршрутизации системы) для обычного соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -351,12 +318,6 @@ literal IPv4- или IPv6-адрес в записи группы.
             </li>
           <li>
               <a
-                href="#icmptest"
-                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >icmptest</a>
-            </li>
-          <li>
-              <a
                 href="#interface"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >interface</a>
@@ -384,6 +345,12 @@ literal IPv4- или IPv6-адрес в записи группы.
                 href="#urltest"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >urltest</a>
+            </li>
+          <li>
+              <a
+                href="#icmptest"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >icmptest</a>
             </li>
           </ul>
   
@@ -448,6 +415,18 @@ literal IPv4- или IPv6-адрес в записи группы.
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -495,6 +474,18 @@ literal IPv4- или IPv6-адрес в записи группы.
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div>
               
@@ -738,6 +729,18 @@ literal IPv4- или IPv6-адрес в записи группы.
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -782,6 +785,17 @@ literal IPv4- или IPv6-адрес в записи группы.
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -939,10 +953,6 @@ literal IPv4- или IPv6-адрес в записи группы.
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#icmptest">icmptest
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#interface">interface
         </a>
       </li>
@@ -967,11 +977,19 @@ literal IPv4- или IPv6-адрес в записи группы.
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f-%d0%bf%d0%be%d0%b2%d1%82%d0%be%d1%80%d0%be%d0%b2">Конфигурация повторов
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b1%d0%b0%d0%bb%d0%b0%d0%bd%d1%81%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-strategy-balance">Балансировка (strategy: &#34;balance&#34;)
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f-circuit-breaker">Конфигурация Circuit Breaker
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d0%be%d0%b2%d1%82%d0%be%d1%80%d0%bd%d1%8b%d0%b5-%d0%bf%d0%be%d0%bf%d1%8b%d1%82%d0%ba%d0%b8-retry">Повторные попытки (retry)
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b8%d1%81%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bd%d0%b5%d1%81%d1%82%d0%b0%d0%b1%d0%b8%d0%bb%d1%8c%d0%bd%d0%be%d0%b3%d0%be-%d0%ba%d0%b0%d0%bd%d0%b0%d0%bb%d0%b0-circuit_breaker">Исключение нестабильного канала (circuit_breaker)
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#icmptest">icmptest
         </a>
       </li></ul>
       <div class="hx:mt-8 hx:border-t hx:bg-white hx:pt-8 hx:shadow-[0_-12px_16px_white] hx:dark:bg-dark hx:dark:shadow-[0_-12px_16px_#111] hx:sticky hx:bottom-0 hx:flex hx:flex-col hx:items-start hx:gap-2 hx:pb-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-t hx:contrast-more:border-neutral-400 hx:contrast-more:shadow-none hx:contrast-more:dark:border-neutral-400">
@@ -1058,11 +1076,11 @@ literal IPv4- или IPv6-адрес в записи группы.
           </div>
           
           <p>Outbounds сообщают keen-pbr, куда отправить совпавший трафик.</p>
-<p>Каждый outbound <code>tag</code> должен соответствовать маске <code>^[a-z][a-z0-9_]*$</code> и быть не длиннее 24 символов.</p>
+<p><code>tag</code> outbound: строчные латинские буквы, цифры и <code>_</code>, начинается с буквы, не длиннее 24 символов (<code>^[a-z][a-z0-9_]*$</code>).</p>
 <p>Большинству пользователей достаточно:</p>
 <ul>
 <li>одного outbound типа <code>interface</code> для VPN-соединения</li>
-<li>одного outbound типа <code>table</code> с <code>id=254</code> для прямого соединения, как правило <code>wan</code></li>
+<li>одного outbound типа <code>table</code> с <code>table: 254</code> (основная таблица маршрутизации системы) для обычного соединения, как правило <code>wan</code></li>
 <li>при необходимости — одного outbound типа <code>urltest</code> для автоматического выбора лучшего из нескольких соединений</li>
 </ul>
 <p>Если не знаете, с чего начать, возьмите тип <code>interface</code> и вернитесь к остальным позже.</p>
@@ -1097,60 +1115,7 @@ literal IPv4- или IPv6-адрес в записи группы.
 </div>
 </div>
 <h2>Типы<span class="hx:absolute hx:-mt-20" id="типы"></span>
-    <a href="#%d1%82%d0%b8%d0%bf%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><h2><code>icmptest</code><span class="hx:absolute hx:-mt-20" id="icmptest"></span>
-    <a href="#icmptest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><code>icmptest</code> выбирает кандидатов так же, как <code>urltest</code>, но проверяет каждый путь
-строгими ICMP Echo request/reply. Для каждого кандидата задаётся отдельный
-literal IPv4- или IPv6-адрес в записи группы.</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;icmptest&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;auto_ping&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;interval_ms&#34;</span><span class="p">:</span> <span class="mi">60000</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;count&#34;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;max_failed&#34;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;packet_interval_ms&#34;</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;probe_timeout_ms&#34;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;max_rtt_ms&#34;</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;tolerance_ms&#34;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;outbound_groups&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">    <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;candidates&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">,</span> <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;1.1.1.1&#34;</span> <span class="p">},</span>
-</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;wan&#34;</span><span class="p">,</span> <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;9.9.9.9&#34;</span> <span class="p">}</span>
-</span></span><span class="line"><span class="cl">      <span class="p">]</span>
-</span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">  <span class="p">]</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Старый формат с <code>outbound_groups[].outbounds</code> и верхнеуровневым <code>probes</code>
-при загрузке мигрируется в памяти. Канонический вложенный формат будет записан
-при следующем явном сохранении конфигурации; сам запуск файл не перезаписывает.
-Смешивать старые и новые поля нельзя.</p>
-<p>Попытки выполняются последовательно. После обработки ответа или таймаута демон
-ждёт <code>packet_interval_ms</code> и только затем отправляет следующий пакет. Worst-case
-для кандидата равен
-<code>count * probe_timeout_ms + (count - 1) * packet_interval_ms</code>; <code>interval_ms</code>
-должен покрывать все кандидатские проверки и запас 25%.</p>
-<p>Ответ засчитывается только при совпадении target, ICMP type, identifier и
-sequence. Посторонние и запоздавшие ответы игнорируются до deadline текущей
-попытки. Ответ медленнее <code>max_rtt_ms</code> считается ошибкой, но отображается в
-runtime-счётчиках полученных пакетов.</p>
-<p>Сервер разрешает 1–10 пакетов на кандидата, 1–16 уникальных кандидатов, не более
-160 пакетов и не более 10 минут worst-case на sweep. Пауза ограничена
-100–1000 мс, timeout — 100–5000 мс, а интервал sweep — от одной секунды до
-24 часов.</p>
-<h2><code>interface</code><span class="hx:absolute hx:-mt-20" id="interface"></span>
+    <a href="#%d1%82%d0%b8%d0%bf%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><h2><code>interface</code><span class="hx:absolute hx:-mt-20" id="interface"></span>
     <a href="#interface" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение.</p>
 <table>
 	<thead>
@@ -1194,9 +1159,8 @@ runtime-счётчиках полученных пакетов.</p>
 			</tr>
 	</tbody>
 </table>
-<p>Если не заданы ни <code>gateway</code>, ни <code>gateway6</code>, keen-pbr создаёт и IPv4-, и IPv6-маршрут по умолчанию для этого interface outbound.</p>
-<p>Если задан только один шлюз, keen-pbr создаёт обычный маршрут по умолчанию для соответствующего семейства адресов и маршрут <code>unreachable</code> для второго семейства, чтобы помеченный трафик не мог утечь за пределы таблицы outbound.</p>
-<p>Если заданы и <code>gateway</code>, и <code>gateway6</code>, keen-pbr создаёт отдельные маршруты по умолчанию для IPv4 и IPv6.</p>
+<p>Для туннелей вроде <code>tun0</code> или <code>wg0</code> шлюз обычно не нужен: без <code>gateway</code> и <code>gateway6</code> трафик IPv4 и IPv6 отправляется прямо в интерфейс. Шлюз задают, когда следующий узел нужно указать явно, например для второго WAN за роутером провайдера.</p>
+<p>Если задать только один из них, трафик другой версии IP для этого outbound блокируется, а не уходит мимо VPN.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1222,8 +1186,8 @@ runtime-счётчиках полученных пакетов.</p>
 </div>
 </div>
 <h2><code>table</code><span class="hx:absolute hx:-mt-20" id="table"></span>
-    <a href="#table" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Используйте только если другой сервис в системе уже создал для вас отдельную таблицу маршрутизации и вы хотите, чтобы keen-pbr повторно использовал её.</p>
-<p>Чтобы найти существующие ID таблиц перед выбором, проверьте текущее состояние политической маршрутизации и маршруты. Чтобы увидеть соответствия имён таблиц, проверьте <code>/etc/iproute2/rt_tables</code>:</p>
+    <a href="#table" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Отправляет трафик через существующую таблицу маршрутизации: обычно <code>254</code>, основную таблицу системы (обычное интернет-соединение), или таблицу, которую создал другой сервис.</p>
+<p>Посмотреть, какие таблицы есть и как они называются:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ip rule show
@@ -1292,7 +1256,7 @@ runtime-счётчиках полученных пакетов.</p>
 </div>
 </div>
 <h2><code>blackhole</code><span class="hx:absolute hx:-mt-20" id="blackhole"></span>
-    <a href="#blackhole" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Отбрасывает весь соответствующий трафик. Полезно для блокировки доступа к конкретным ресурсам.</p>
+    <a href="#blackhole" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Отбрасывает подходящий трафик. Полезно для блокировки доступа к конкретным ресурсам.</p>
 <table>
 	<thead>
 			<tr>
@@ -1339,8 +1303,25 @@ runtime-счётчиках полученных пакетов.</p>
 </div>
 </div>
 <h2><code>ignore</code><span class="hx:absolute hx:-mt-20" id="ignore"></span>
-    <a href="#ignore" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Пропускает трафик без какой-либо модификации маршрутизации. Используйте это, чтобы явно исключить трафик из других правил.</p>
-<p>Когда правило маршрутизации разрешается в outbound типа <code>ignore</code>, keen-pbr устанавливает вердикт прохождения через firewall для этого трафика. Это останавливает дальнейшую обработку правил keen-pbr без установки mark или отбрасывания пакета. Ни таблица маршрутизации, ни <code>ip rule</code> не создаются для этого совпадения, поэтому пакет следует обычной системной маршрутизации. Поскольку правила маршрутизации оцениваются сверху вниз и первое совпадение выигрывает, <code>ignore</code> наиболее полезен для исключающих правил, размещённых перед более широкими перехватывающими правилами.</p>
+    <a href="#ignore" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Оставляет трафик как есть: keen-pbr его не трогает, и он идёт по обычной маршрутизации роутера, как если бы keen-pbr не было.</p>
+<p>Нужен для исключений. Правила проверяются сверху вниз, и срабатывает первое подходящее, поэтому правило с <code>ignore</code> ставят выше более общего правила. Например, весь список <code>streaming</code> идёт через VPN, кроме адресов из списка <code>streaming_direct</code> (<code>direct</code> — outbound типа <code>ignore</code> из примера ниже):</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="s2">&#34;rules&#34;</span><span class="err">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span> <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;streaming_direct&#34;</span><span class="p">],</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;direct&#34;</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span> <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;streaming&#34;</span><span class="p">],</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">]</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
 <table>
 	<thead>
 			<tr>
@@ -1387,15 +1368,8 @@ runtime-счётчиках полученных пакетов.</p>
 </div>
 </div>
 <h2><code>urltest</code><span class="hx:absolute hx:-mt-20" id="urltest"></span>
-    <a href="#urltest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Используйте это, когда у вас есть несколько кандидатов outbound и вы хотите, чтобы keen-pbr автоматически выбирал лучший доступный.</p>
-<p>Правила firewall сохраняют стабильную mark самого outbound <code>urltest</code>. Его
-policy rule указывает на таблицу выбранного дочернего outbound, включая уже
-существующую таблицу outbound типа <code>table</code>; при переключении правила firewall
-не перестраиваются.</p>
-<p>keen-pbr всегда добавляет в сгенерированную fallback-таблицу <code>urltest</code>
-терминальные маршруты <code>unreachable</code> для IPv4 и IPv6. Эта таблица выбирается,
-когда нет пригодного кандидата, а терминальное policy rule не позволяет таблице
-выбранного кандидата провалиться в обычную системную маршрутизацию.</p>
+    <a href="#urltest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Используйте, когда у вас несколько каналов (например, два VPN и обычный интернет) и keen-pbr должен сам выбирать рабочий. keen-pbr периодически открывает <code>url</code> через каждый канал и измеряет время ответа.</p>
+<p>Если ни один канал не работает, трафик этого outbound блокируется, а не уходит через обычный интернет мимо VPN.</p>
 <table>
 	<thead>
 			<tr>
@@ -1434,122 +1408,48 @@ policy rule указывает на таблицу выбранного доче
 					<td><code>probe_timeout_ms</code></td>
 					<td>integer</td>
 					<td>нет (по умолчанию: <code>5000</code>)</td>
-					<td>Таймаут каждой отдельной попытки проверки в миллисекундах</td>
+					<td>Таймаут одной проверки в миллисекундах</td>
 			</tr>
 			<tr>
 					<td><code>tolerance_ms</code></td>
 					<td>integer</td>
 					<td>нет (по умолчанию: <code>100</code>)</td>
-					<td>Допуск задержки в мс; предотвращает переключение outbound, если разница задержки между текущим и новым лучшим outbound меньше этого допуска</td>
+					<td>Не переключаться на другой канал, если он быстрее текущего меньше чем на столько миллисекунд</td>
+			</tr>
+			<tr>
+					<td><code>strategy</code></td>
+					<td>string</td>
+					<td>нет (по умолчанию: <code>&quot;priority&quot;</code>)</td>
+					<td><code>&quot;priority&quot;</code> — весь трафик идёт через один, самый быстрый канал. <code>&quot;balance&quot;</code> — новые соединения распределяются между рабочими каналами первой рабочей группы пропорционально <code>weight</code> (недоступно на Keenetic)</td>
+			</tr>
+			<tr>
+					<td><code>conntrack_on_switch</code></td>
+					<td>string</td>
+					<td>нет (по умолчанию: <code>&quot;preserve&quot;</code>)</td>
+					<td>Что делать с открытыми соединениями при переходе на более быстрый канал: <code>&quot;preserve&quot;</code> — оставить на старом, <code>&quot;delete&quot;</code> — удалить их записи из 
+  <abbr title="Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).">conntrack</abbr>
+, чтобы они переподключились. См. <a href="/ru/docs/configuration/advanced/#резервный-канал-failover">Резервный канал</a></td>
 			</tr>
 			<tr>
 					<td><code>outbound_groups</code></td>
 					<td>array</td>
 					<td>да</td>
-					<td>Упорядоченный список групп outbound (см. ниже)</td>
+					<td>Упорядоченный список групп каналов (см. ниже)</td>
 			</tr>
 			<tr>
 					<td><code>retry</code></td>
 					<td>object</td>
 					<td>нет</td>
-					<td>Конфигурация повторов (см. ниже)</td>
+					<td>Повторные попытки проверки (см. ниже)</td>
 			</tr>
 			<tr>
 					<td><code>circuit_breaker</code></td>
 					<td>object</td>
 					<td>нет</td>
-					<td>Конфигурация circuit breaker (см. ниже)</td>
+					<td>Временное исключение нестабильного канала (см. ниже)</td>
 			</tr>
 	</tbody>
 </table>
-<h3>Группы outbound<span class="hx:absolute hx:-mt-20" id="группы-outbound"></span>
-    <a href="#%d0%b3%d1%80%d1%83%d0%bf%d0%bf%d1%8b-outbound" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Группы проверяются по порядку. Внутри первой здоровой группы outbounds выбираются по наименьшей задержке. Если все outbounds в группе нездоровы, оценивается следующая группа. Это позволяет определить более сложные правила приоритета. Например, можно предпочесть один из двух более медленных outbounds сначала, и если оба недоступны, переключиться на другой outbound, который быстрее, но дороже.</p>
-<table>
-	<thead>
-			<tr>
-					<th>Поле</th>
-					<th>Тип</th>
-					<th>Обязательно</th>
-					<th>Описание</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>outbounds</code></td>
-					<td>array of string</td>
-					<td>да</td>
-					<td>Упорядоченный список тегов outbound для попытки</td>
-			</tr>
-	</tbody>
-</table>
-<h3>Конфигурация повторов<span class="hx:absolute hx:-mt-20" id="конфигурация-повторов"></span>
-    <a href="#%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f-%d0%bf%d0%be%d0%b2%d1%82%d0%be%d1%80%d0%be%d0%b2" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><table>
-	<thead>
-			<tr>
-					<th>Поле</th>
-					<th>Тип</th>
-					<th>Обязательно</th>
-					<th>Описание</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>attempts</code></td>
-					<td>integer</td>
-					<td>нет (по умолчанию: <code>3</code>)</td>
-					<td>Количество попыток проверки перед пометкой outbound как неработающего</td>
-			</tr>
-			<tr>
-					<td><code>interval_ms</code></td>
-					<td>integer</td>
-					<td>нет (по умолчанию: <code>1000</code>)</td>
-					<td>Задержка между попытками повтора в миллисекундах</td>
-			</tr>
-	</tbody>
-</table>
-<h3>Конфигурация Circuit Breaker<span class="hx:absolute hx:-mt-20" id="конфигурация-circuit-breaker"></span>
-    <a href="#%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f-circuit-breaker" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><table>
-	<thead>
-			<tr>
-					<th>Поле</th>
-					<th>Тип</th>
-					<th>Обязательно</th>
-					<th>Описание</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>failure_threshold</code></td>
-					<td>integer</td>
-					<td>нет (по умолчанию: <code>5</code>)</td>
-					<td>Количество последовательных сбоев перед открытием circuit</td>
-			</tr>
-			<tr>
-					<td><code>success_threshold</code></td>
-					<td>integer</td>
-					<td>нет (по умолчанию: <code>2</code>)</td>
-					<td>Количество последовательных успехов в состоянии half-open для закрытия circuit</td>
-			</tr>
-			<tr>
-					<td><code>timeout_ms</code></td>
-					<td>integer</td>
-					<td>нет (по умолчанию: <code>30000</code>)</td>
-					<td>Время перед переходом из открытого в состояние half-open</td>
-			</tr>
-			<tr>
-					<td><code>half_open_max_requests</code></td>
-					<td>integer</td>
-					<td>нет (по умолчанию: <code>1</code>)</td>
-					<td>Максимальное количество запросов проверки в состоянии half-open</td>
-			</tr>
-	</tbody>
-</table>
-<p><strong>Состояния circuit breaker:</strong></p>
-<ul>
-<li><code>closed</code> — здоров, трафик проходит нормально</li>
-<li><code>open</code> — сбой, трафик блокируется в период охлаждения</li>
-<li><code>half-open</code> — тестирование восстановления с ограниченными запросами проверки</li>
-</ul>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1562,8 +1462,8 @@ policy rule указывает на таблицу выбранного доче
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;probe_timeout_ms&#34;</span><span class="p">:</span> <span class="mi">5000</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;tolerance_ms&#34;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;outbound_groups&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbounds&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;vpn1&#34;</span><span class="p">,</span> <span class="s2">&#34;vpn2&#34;</span><span class="p">]</span> <span class="p">},</span>
-</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbounds&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;wan&#34;</span><span class="p">]</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;members&#34;</span><span class="p">:</span> <span class="p">[{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn1&#34;</span> <span class="p">},</span> <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn2&#34;</span> <span class="p">}]</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;members&#34;</span><span class="p">:</span> <span class="p">[{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;wan&#34;</span> <span class="p">}]</span> <span class="p">}</span>
 </span></span><span class="line"><span class="cl">      <span class="p">],</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;retry&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;attempts&#34;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
@@ -1589,6 +1489,251 @@ policy rule указывает на таблицу выбранного доче
   </button>
 </div>
 </div>
+<h3>Группы outbound<span class="hx:absolute hx:-mt-20" id="группы-outbound"></span>
+    <a href="#%d0%b3%d1%80%d1%83%d0%bf%d0%bf%d1%8b-outbound" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p><code>outbound_groups</code> — список групп по приоритету. keen-pbr использует первую группу, в которой есть хотя бы один рабочий канал. Если в группе не работает ни один канал, используется следующая.</p>
+<table>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательно</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>members</code></td>
+					<td>array of object</td>
+					<td>да</td>
+					<td>Каналы этой группы (см. ниже)</td>
+			</tr>
+	</tbody>
+</table>
+<p>Каждый канал в группе:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательно</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>outbound</code></td>
+					<td>string</td>
+					<td>да</td>
+					<td>Тег outbound (<code>interface</code>, <code>table</code> или <code>blackhole</code>)</td>
+			</tr>
+			<tr>
+					<td><code>weight</code></td>
+					<td>integer 1-100</td>
+					<td>нет (по умолчанию: <code>1</code>)</td>
+					<td>Доля новых соединений при <code>strategy: &quot;balance&quot;</code>, при <code>priority</code> не используется. Каналы с весами 7 и 3 получат 70% и 30% новых соединений, пока оба работают</td>
+			</tr>
+	</tbody>
+</table>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="s2">&#34;outbound_groups&#34;</span><span class="err">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span> <span class="nt">&#34;members&#34;</span><span class="p">:</span> <span class="p">[</span> <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;wan1&#34;</span><span class="p">,</span> <span class="nt">&#34;weight&#34;</span><span class="p">:</span> <span class="mi">7</span> <span class="p">},</span> <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;wan2&#34;</span><span class="p">,</span> <span class="nt">&#34;weight&#34;</span><span class="p">:</span> <span class="mi">3</span> <span class="p">}</span> <span class="p">]</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span> <span class="nt">&#34;members&#34;</span><span class="p">:</span> <span class="p">[</span> <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;backup&#34;</span> <span class="p">}</span> <span class="p">]</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">]</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
+  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+
+  <div class="hx:w-full hx:min-w-0 hx:leading-7">
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Старый формат групп (<code>outbounds: [&quot;a&quot;, &quot;b&quot;]</code> и <code>weight</code> группы как её приоритет) тоже поддерживается. При первом запуске keen-pbr переписывает <code>config.json</code> в новый формат, а старый файл сохраняет рядом как <code>config.json.bak-pre-members</code>. Комментарии из старого файла в новый не переносятся. Смешивать старые и новые поля в одной группе нельзя.</div>
+  </div>
+</div>
+
+<h3>Балансировка (<code>strategy: &quot;balance&quot;</code>)<span class="hx:absolute hx:-mt-20" id="балансировка-strategy-balance"></span>
+    <a href="#%d0%b1%d0%b0%d0%bb%d0%b0%d0%bd%d1%81%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-strategy-balance" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Канал выбирается для каждого нового соединения, а не для каждого запроса: всё соединение, включая HTTP/2 и 
+  <abbr title="Транспортный протокол поверх UDP, на нём работает HTTP/3.">QUIC</abbr>
+, идёт через один канал. <code>tolerance_ms</code> и <code>conntrack_on_switch</code> при балансировке не используются. Если канал перестал работать, записи 
+  <abbr title="Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).">conntrack</abbr>
+ его соединений удаляются, а новые соединения распределяются между оставшимися каналами.</p>
+<p>С nftables соединения распределяются точно по весам. С iptables канал выбирается случайно с нужной вероятностью, поэтому на малом числе соединений доли могут заметно отличаться от весов, а на большом выравниваются. Для iptables нужен модуль ядра <code>xt_statistic</code>; если его нет, keen-pbr сообщит об этом при применении конфигурации. С <code>--use-raw-prerouting</code> балансировка недоступна.</p>
+<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
+  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+
+  <div class="hx:w-full hx:min-w-0 hx:leading-7">
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Для балансировки между несколькими WAN нужны
+<abbr title="Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.">NAT</abbr>
+на каждом канале, нестрогий <code>rp_filter</code> и диапазон
+<abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
+, который не используют другие программы. Полная настройка для Debian/iptables описана на странице <a href="/ru/docs/configuration/multi-wan/">Балансировка нагрузки между несколькими WAN</a>.</div>
+  </div>
+</div>
+
+<h3>Повторные попытки (<code>retry</code>)<span class="hx:absolute hx:-mt-20" id="повторные-попытки-retry"></span>
+    <a href="#%d0%bf%d0%be%d0%b2%d1%82%d0%be%d1%80%d0%bd%d1%8b%d0%b5-%d0%bf%d0%be%d0%bf%d1%8b%d1%82%d0%ba%d0%b8-retry" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><table>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательно</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>attempts</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>3</code>)</td>
+					<td>Сколько раз повторить проверку, прежде чем считать канал нерабочим</td>
+			</tr>
+			<tr>
+					<td><code>interval_ms</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>1000</code>)</td>
+					<td>Пауза между попытками в миллисекундах</td>
+			</tr>
+	</tbody>
+</table>
+<h3>Исключение нестабильного канала (<code>circuit_breaker</code>)<span class="hx:absolute hx:-mt-20" id="исключение-нестабильного-канала-circuit_breaker"></span>
+    <a href="#%d0%b8%d1%81%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bd%d0%b5%d1%81%d1%82%d0%b0%d0%b1%d0%b8%d0%bb%d1%8c%d0%bd%d0%be%d0%b3%d0%be-%d0%ba%d0%b0%d0%bd%d0%b0%d0%bb%d0%b0-circuit_breaker" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Если канал несколько раз подряд не прошёл проверку, keen-pbr временно перестаёт его использовать. Так трафик не прыгает туда-обратно, когда канал то работает, то нет.</p>
+<table>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательно</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>failure_threshold</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>5</code>)</td>
+					<td>Сколько неудачных проверок подряд нужно, чтобы исключить канал</td>
+			</tr>
+			<tr>
+					<td><code>timeout_ms</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>30000</code>)</td>
+					<td>Через сколько миллисекунд снова попробовать исключённый канал</td>
+			</tr>
+			<tr>
+					<td><code>success_threshold</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>2</code>)</td>
+					<td>Сколько успешных проверок подряд нужно, чтобы вернуть канал</td>
+			</tr>
+			<tr>
+					<td><code>half_open_max_requests</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>1</code>)</td>
+					<td>Сколько проверок одновременно разрешено, пока исключённый канал проверяется повторно</td>
+			</tr>
+	</tbody>
+</table>
+<p>Исключённый канал отображается как <strong>Недоступен</strong> на странице <strong>Outbounds</strong> веб-интерфейса и как <code>unavailable</code> в <code>GET /api/runtime/outbounds</code>.</p>
+<h2><code>icmptest</code><span class="hx:absolute hx:-mt-20" id="icmptest"></span>
+    <a href="#icmptest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>То же, что <code>urltest</code>, но каналы проверяются ping-ом (
+  <abbr title="Служебный протокол для диагностики сети. ping использует ICMP Echo.">ICMP</abbr>
+ Echo) вместо HTTP-запроса. Для каждого канала в группе задайте <code>target</code> — IP-адрес, который будет пинговаться через этот канал.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;icmptest&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;auto_ping&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;interval_ms&#34;</span><span class="p">:</span> <span class="mi">60000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;count&#34;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;max_failed&#34;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;packet_interval_ms&#34;</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;probe_timeout_ms&#34;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;max_rtt_ms&#34;</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;tolerance_ms&#34;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;outbound_groups&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;members&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">,</span> <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;1.1.1.1&#34;</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;wan&#34;</span><span class="p">,</span> <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;9.9.9.9&#34;</span><span class="p">,</span> <span class="nt">&#34;weight&#34;</span><span class="p">:</span> <span class="mi">3</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">      <span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<table>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательно</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>interval_ms</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>60000</code>)</td>
+					<td>Интервал между проверками, от 1 секунды до 24 часов</td>
+			</tr>
+			<tr>
+					<td><code>count</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>3</code>)</td>
+					<td>Сколько ping-ов отправить в каждый канал за одну проверку, от 1 до 10</td>
+			</tr>
+			<tr>
+					<td><code>max_failed</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>0</code>)</td>
+					<td>Сколько ping-ов из <code>count</code> может потеряться, чтобы канал всё ещё считался рабочим</td>
+			</tr>
+			<tr>
+					<td><code>packet_interval_ms</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>200</code>)</td>
+					<td>Пауза между ping-ами, от 100 до 1000 мс</td>
+			</tr>
+			<tr>
+					<td><code>probe_timeout_ms</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>1000</code>)</td>
+					<td>Сколько ждать ответа на один ping, от 100 до 5000 мс</td>
+			</tr>
+			<tr>
+					<td><code>max_rtt_ms</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>500</code>)</td>
+					<td>Ответ медленнее этого считается потерянным. Не больше <code>probe_timeout_ms</code></td>
+			</tr>
+			<tr>
+					<td><code>outbound_groups[].members[].target</code></td>
+					<td>string</td>
+					<td>да</td>
+					<td>IPv4- или IPv6-адрес для ping через этот канал</td>
+			</tr>
+	</tbody>
+</table>
+<p><code>tolerance_ms</code>, <code>strategy</code>, <code>conntrack_on_switch</code>, группы и веса работают так же, как у <code>urltest</code>.</p>
+<p>Ping-и отправляются по очереди, поэтому проверка всех каналов занимает время. <code>interval_ms</code> должен быть больше этого времени хотя бы на 25%, иначе keen-pbr не примет конфигурацию и напишет минимально допустимое значение. Всего в группах может быть не больше 16 каналов.</p>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

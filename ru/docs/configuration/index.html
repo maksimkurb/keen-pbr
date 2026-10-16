@@ -12,7 +12,7 @@
   <meta name="description" content="keen-pbr хранит настройки в едином JSON-файле конфигурации.
 Расположение файла конфигурации:
 Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json Если установлен полный пакет, первоначальную настройку удобнее сделать через веб-интерфейс и вернуться к этому разделу позже. Большинству пользователей достаточно четырёх разделов конфигурации:
-Outbounds — куда должен идти трафик Списки — сайты или диапазоны IP для сопоставления Правила маршрутизации — какие списки через какой outbound DNS — какой DNS-сервер использовать для этих списков Практический пример В этом примере google.com идёт через vpn, а весь остальной трафик — через wan:" /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/" itemprop="url" />
+Outbounds — куда должен идти трафик Списки — сайты и диапазоны IP, которые нужно маршрутизировать Правила маршрутизации — какие списки через какой outbound DNS — определения DNS-серверов и DNS-перехват Практический пример В этом примере google.com идёт через vpn, а весь остальной трафик — через wan:" /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/" itemprop="url" />
 
 <meta property="og:title" content="Конфигурация">
 <meta
@@ -34,14 +34,14 @@ Outbounds — куда должен идти трафик Списки — са�
 	<meta itemprop="description" content="keen-pbr хранит настройки в едином JSON-файле конфигурации.
 Расположение файла конфигурации:
 Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json Если установлен полный пакет, первоначальную настройку удобнее сделать через веб-интерфейс и вернуться к этому разделу позже. Большинству пользователей достаточно четырёх разделов конфигурации:
-Outbounds — куда должен идти трафик Списки — сайты или диапазоны IP для сопоставления Правила маршрутизации — какие списки через какой outbound DNS — какой DNS-сервер использовать для этих списков Практический пример В этом примере google.com идёт через vpn, а весь остальной трафик — через wan:">
-	<meta itemprop="wordCount" content="253">
+Outbounds — куда должен идти трафик Списки — сайты и диапазоны IP, которые нужно маршрутизировать Правила маршрутизации — какие списки через какой outbound DNS — определения DNS-серверов и DNS-перехват Практический пример В этом примере google.com идёт через vpn, а весь остальной трафик — через wan:">
+	<meta itemprop="wordCount" content="213">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Конфигурация">
 	<meta name="twitter:description" content="keen-pbr хранит настройки в едином JSON-файле конфигурации.
 Расположение файла конфигурации:
 Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json Если установлен полный пакет, первоначальную настройку удобнее сделать через веб-интерфейс и вернуться к этому разделу позже. Большинству пользователей достаточно четырёх разделов конфигурации:
-Outbounds — куда должен идти трафик Списки — сайты или диапазоны IP для сопоставления Правила маршрутизации — какие списки через какой outbound DNS — какой DNS-сервер использовать для этих списков Практический пример В этом примере google.com идёт через vpn, а весь остальной трафик — через wan:">
+Outbounds — куда должен идти трафик Списки — сайты и диапазоны IP, которые нужно маршрутизировать Правила маршрутизации — какие списки через какой outbound DNS — определения DNS-серверов и DNS-перехват Практический пример В этом примере google.com идёт через vpn, а весь остальной трафик — через wan:">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -375,6 +375,18 @@ Outbounds — куда должен идти трафик Списки — са�
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -422,6 +434,18 @@ Outbounds — куда должен идти трафик Списки — са�
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div>
               
@@ -665,6 +689,18 @@ Outbounds — куда должен идти трафик Списки — са�
     </a>
   </div>
               
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/configuration/multi-wan/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Балансировка нагрузки между несколькими WAN</span>
+    </a>
+  </div>
+              
             </li></ul>
       </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -709,6 +745,17 @@ Outbounds — куда должен идти трафик Списки — са�
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Устранение неполадок</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
     </a>
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -959,9 +1006,9 @@ Outbounds — куда должен идти трафик Списки — са�
 <p>Если установлен полный пакет, первоначальную настройку удобнее сделать через веб-интерфейс и вернуться к этому разделу позже. Большинству пользователей достаточно четырёх разделов конфигурации:</p>
 <ul>
 <li><a href="/ru/docs/configuration/outbounds/">Outbounds</a> — куда должен идти трафик</li>
-<li><a href="/ru/docs/configuration/lists/">Списки</a> — сайты или диапазоны IP для сопоставления</li>
+<li><a href="/ru/docs/configuration/lists/">Списки</a> — сайты и диапазоны IP, которые нужно маршрутизировать</li>
 <li><a href="/ru/docs/configuration/route-rules/">Правила маршрутизации</a> — какие списки через какой outbound</li>
-<li><a href="/ru/docs/configuration/dns/">DNS</a> — какой DNS-сервер использовать для этих списков</li>
+<li><a href="/ru/docs/configuration/dns/">DNS</a> — определения DNS-серверов и DNS-перехват</li>
 </ul>
 <h2>Практический пример<span class="hx:absolute hx:-mt-20" id="практический-пример"></span>
     <a href="#%d0%bf%d1%80%d0%b0%d0%ba%d1%82%d0%b8%d1%87%d0%b5%d1%81%d0%ba%d0%b8%d0%b9-%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>В этом примере <code>google.com</code> идёт через <code>vpn</code>, а весь остальной трафик — через <code>wan</code>:</p>
@@ -988,30 +1035,6 @@ Outbounds — куда должен идти трафик Списки — са�
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;domains&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;google.com&#34;</span><span class="p">]</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">},</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;system_resolver&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;dnsmasq-nftset&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;127.0.0.1&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="p">},</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;10.8.0.1&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;detour&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">},</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;default_dns&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;1.1.1.1&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_sites&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;server&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;fallback&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;default_dns&#34;</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">  <span class="p">},</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">      <span class="p">{</span>
@@ -1035,9 +1058,9 @@ Outbounds — куда должен идти трафик Списки — са�
 <h2>Базовая конфигурация<span class="hx:absolute hx:-mt-20" id="базовая-конфигурация"></span>
     <a href="#%d0%b1%d0%b0%d0%b7%d0%be%d0%b2%d0%b0%d1%8f-%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><ul>
 <li><a href="/ru/docs/configuration/outbounds/">Outbounds</a> — задайте VPN и обычное интернет-соединение</li>
-<li><a href="/ru/docs/configuration/lists/">Списки</a> — задайте сайты, домены или диапазоны IP для сопоставления</li>
+<li><a href="/ru/docs/configuration/lists/">Списки</a> — задайте сайты, домены или диапазоны IP, которые нужно маршрутизировать</li>
 <li><a href="/ru/docs/configuration/route-rules/">Правила маршрутизации</a> — свяжите каждый список с outbound</li>
-<li><a href="/ru/docs/configuration/dns/">DNS</a> — настройте DNS-сервер для доменов из списков</li>
+<li><a href="/ru/docs/configuration/dns/">DNS</a> — определения DNS-серверов и DNS-перехват</li>
 </ul>
 <h2>Расширенная конфигурация<span class="hx:absolute hx:-mt-20" id="расширенная-конфигурация"></span>
     <a href="#%d1%80%d0%b0%d1%81%d1%88%d0%b8%d1%80%d0%b5%d0%bd%d0%bd%d0%b0%d1%8f-%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Для большинства пользователей эти настройки необязательны:</p>

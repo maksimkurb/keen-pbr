@@ -11,19 +11,6 @@ The repository page automatically shows the correct flow for your target:
 - OpenWrt 25.x and newer: `apk`
 - OpenWrt 24.x and older: `opkg`
 
-### Replace `dnsmasq` with `dnsmasq-full`
-
-Install `dnsmasq-full` before installing keen-pbr:
-
-```bash {filename="bash"}
-# OpenWrt 25.x and newer
-apk --update-cache add dnsmasq-full
-
-# OpenWrt 24.x and older
-opkg update && cd /tmp/ && opkg download dnsmasq-full
-opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk;
-```
-
 ### Install from the repository page
 
 Open the repository instructions page, select **OpenWrt** in the OS selector on the left, and use the generated commands for your exact version and architecture: 
@@ -67,6 +54,11 @@ If you do not plan to use the keen-pbr Web UI or API, you can install the `keen-
 It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version.
 {{< /callout >}}
 
+{{< callout type="warning" >}}
+DNS and L7 interception needs the kernel modules `nfnetlink_queue`, `nfnetlink_log` and `nft_queue`.
+The package pulls in `kmod-nfnetlink-queue`, `kmod-nfnetlink-log` and `kmod-nft-queue` automatically. If you installed an older build or removed them, install them manually; otherwise the daemon logs `cannot bind netfilter queue/log ... Invalid argument` and `/api/health/service` names the missing module. `nft_log` is part of `kmod-nft-core`.
+{{< /callout >}}
+
 ### Next steps
 
 Open [Quick Start]({{< relref "/docs/getting-started/quick-start" >}}) and use the **Web UI** tab for the easiest first setup. If you installed `keen-pbr-headless`, use the **JSON / CLI** tab instead.
@@ -76,4 +68,18 @@ If pre-built packages are not yet available for your platform, see [Build from S
 {{< /callout >}}
 
 {{% /steps %}}
+
+## Separate DNS servers for lists (dnsmasq) {#dnsmasq}
+
+keen-pbr does not need dnsmasq for routing, but OpenWrt already uses it as the system resolver. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}) to decide whether you want keen-pbr to manage it.
+
+### Turn it on {#dnsmasq-install}
+
+In the Web UI, open **General** > **Local DNS server management** and turn on **Manage dnsmasq configuration**. keen-pbr adds three `addnmount` entries to the dnsmasq section in `/etc/config/dhcp`, so that the sandboxed dnsmasq can run keen-pbr.
+
+While management is on and **Default DNS servers** are set, keen-pbr takes the servers without a domain out of the list in `/etc/config/dhcp` (LuCI **DNS forwardings**). Per-domain servers such as `/lan/192.168.1.1` stay. The removed servers return when you turn management off or clear the default servers.
+
+### Return to how it was {#dnsmasq-rollback}
+
+Turn off **Manage dnsmasq configuration** and apply the config. keen-pbr restarts dnsmasq and returns the removed servers. Removing the package also removes the `addnmount` entries it added.
 
