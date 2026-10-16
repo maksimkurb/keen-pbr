@@ -233,6 +233,20 @@
   font-size: 0.9rem;
 }
 
+.yoomoney-donation-privacy {
+  max-width: 64rem;
+  margin: 1.5rem 0 0;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: rgb(59 130 246 / 12%);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.yoomoney-donation-privacy + .yoomoney-donation-layout {
+  margin-top: 1rem;
+}
+
 .yoomoney-donation-sidebar {
   display: grid;
   gap: 1rem;

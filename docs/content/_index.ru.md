@@ -12,7 +12,7 @@ toc: false
 
 <div class="hx:mb-12">
 {{< hextra/hero-subtitle >}}
-  Направляйте нужный трафик через VPN, WAN или пользовательские таблицы маршрутизации.&nbsp;<br class="hx:sm:block hx:hidden" />Разработано для роутеров OpenWRT, Keenetic® и Netcraze®.
+  Направляйте нужный трафик через VPN, провайдера или свои каналы.&nbsp;<br class="hx:sm:block hx:hidden" />Работает на роутерах Keenetic®, NetCraze®, OpenWrt и на Debian.
 {{< /hextra/hero-subtitle >}}
 </div>
 
@@ -269,7 +269,7 @@ toc: false
 <div class="hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:dark:border-neutral-800 hx:aspect-auto hx:max-md:min-h-[280px]" style="background: radial-gradient(ellipse at 50% 80%,rgba(239,68,68,0.15),hsla(0,0%,100%,0));display:flex;flex-direction:column;">
 <div class="hx:relative hx:w-full hx:p-6" style="flex:1;display:flex;flex-direction:column;">
 <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2">Failover и проверки состояния</h3>
-<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">urltest проверяет кандидаты outbound по задержке и выбирает самый быстрый в пределах допуска. Circuit breaker предотвращает флаппинг при устойчивых сбоях.</p>
+<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Тип urltest проверяет каналы и выбирает канал с самой низкой задержкой (в пределах допуска) или распределяет между ними соединения. Нестабильный канал временно исключается, чтобы трафик не метался между каналами.</p>
 <div style="flex:1;"></div>
 <div class="hx:mt-4">
   <div style="border:1.5px solid rgba(128,128,128,0.25);border-radius:10px;padding:8px 10px;background:rgba(128,128,128,0.06);">
@@ -332,26 +332,26 @@ toc: false
   {{< hextra/feature-card
     title="Несколько типов outbound"
     icon="switch-horizontal"
-    subtitle="Трафик можно направить на конкретный интерфейс, в существующую таблицу маршрутизации (например, WAN) или полностью заблокировать. Тип <code>urltest</code> измеряет задержку и автоматически выбирает лучший интерфейс."
+    subtitle="Трафик можно направить в конкретный интерфейс, в обычный выход через провайдера или заблокировать. Тип <code>urltest</code> сам выбирает лучший из нескольких каналов."
   >}}
   {{< hextra/feature-card
     title="Интеграция с DNS"
     icon="server"
-    subtitle="Перехватывает DNS и видимые L7-имена и напрямую заполняет динамические наборы; резолвер не настраивается и не требуется."
+    subtitle="Настраивать DNS-сервер не нужно: keen-pbr узнаёт адреса сайтов из списков по DNS-ответам и по соединениям, которые проходят через роутер."
   >}}
   {{< hextra/feature-card
     title="Два firewall-бэкенда"
     icon="fire"
-    subtitle="Автоматически определяет <code>nftables</code> или <code>iptables</code>. Работает на современных и старых ядрах без изменения конфигурации."
+    subtitle="Сам определяет, что использовать, <code>nftables</code> или <code>iptables</code>. Работает на новых и старых прошивках без дополнительной настройки."
   >}}
   {{< hextra/feature-card
     title="REST API"
     icon="code"
-    subtitle="Встроенный HTTP API для проверки состояния, верификации маршрутизации ядра в реальном времени и перезагрузки конфигурации без перезапуска демона."
+    subtitle="Встроенный HTTP API: проверка состояния, проверка маршрутов и перезагрузка конфигурации без перезапуска сервиса."
   >}}
   {{< hextra/feature-card
     title="Автообновление списков"
     icon="refresh"
-    subtitle="Удалённые списки доменов и IP загружаются при запуске и обновляются по настраиваемому расписанию, с локальным кэшем в качестве резервного источника."
+    subtitle="Списки доменов и IP загружаются по ссылке при запуске и обновляются по расписанию. Если источник недоступен, используется сохранённая копия."
   >}}
 {{< /hextra/feature-grid >}}

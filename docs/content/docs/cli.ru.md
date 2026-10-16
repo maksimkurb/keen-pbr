@@ -8,14 +8,19 @@ aliases:
 
 `keen-pbr` умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и проверять решения маршрутизации.
 
+Команды `status`, `download` и `test-routing` обращаются к работающему сервису. Если сервис не запущен, они завершаются с ошибкой и кодом 1. Сначала запустите сервис (на роутере он стартует вместе с системой).
+
 ## Использование
 
 ```text
 Usage: keen-pbr [options] <command>
 
 Options:
-  --config <path>    Path to JSON config file
-  --log-level <lvl>  Log level: error, warn, info, verbose, debug
+  --config <path>    Path to JSON config file (default: <KEEN_PBR_DEFAULT_CONFIG_PATH>)
+  --log-level <lvl>  Log level: error, warn, info, verbose, debug (default: info)
+  --log-target <target>  Log destination: stderr, syslog, or both (default: both)
+  --pid-file <path>  Override daemon.pid_file when running the service command
+  --crash-report <path>  Last-crash report path (default: /tmp/keen-pbr-crash.log)
   --no-api           Disable REST API at runtime
   --use-raw-prerouting  Use raw PREROUTING for IPv4 forwarded traffic (iptables only)
   --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only)
@@ -23,12 +28,20 @@ Options:
   --help             Show this help and exit
 
 Commands:
-  service
-  status
-  download
-  test-routing <ip-or-domain> [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...]
-  dnsmasq detect [--json]
-  dnsmasq remove <selector>
+  service                            Start the routing service (foreground)
+  status                             Show routing/firewall status and exit
+  download                           Download all configured lists to cache and exit
+  test-routing <ip-or-domain> [packet options]
+                                     Test expected vs actual routing for an IP or domain
+      --proto <tcp|udp|other>        Packet protocol
+      --src-addr <ip>                Packet source address
+      --src-port <port>              Packet source port
+      --dest-port <port>             Packet destination port
+      --dscp <0-63>                  Packet DSCP (default: 0)
+  generate-resolver-config dnsmasq   Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
+  dnsmasq detect [--json]            List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
+  dnsmasq remove <selector>          Restart one dnsmasq instance without keen-pbr's generated config (OpenWrt: also return the moved servers)
+  hash-password [--update]           Generate an authentication password hash; --update writes config.json
 ```
 
 Файл конфигурации обычно `/etc/keen-pbr/config.json` на OpenWrt и Debian, и `/opt/etc/keen-pbr/config.json` на Keenetic / NetCraze.
@@ -37,9 +50,11 @@ Commands:
 
 | Флаг | Описание |
 |---|---|
-| `--config <path>` | Путь к JSON файлу конфигурации. |
+| `--config <path>` | Путь к JSON файлу конфигурации. Работает только с командой `service`. |
 | `--log-level <lvl>` | Детализация логов: `error`, `warn`, `info`, `verbose` или `debug`. |
 | `--log-target <target>` | Назначение логов: `stderr`, `syslog` или `both`. По умолчанию для всех команд используется `both`. Пакетные сервисные файлы (systemd, OpenWrt procd, init-скрипт Keenetic) передают `--log-target syslog`, чтобы логи не дублировались, когда stdout/stderr дополнительно перехватываются системой инициализации. |
+| `--pid-file <path>` | Путь к PID-файлу (файлу с номером процесса сервиса). Заменяет `daemon.pid_file` из конфига; только для `service`. |
+| `--crash-report <path>` | Куда записать отчёт о последнем аварийном завершении. По умолчанию `/tmp/keen-pbr-crash.log`. |
 | `--no-api` | Отключить REST API, даже если он включён в конфиге. |
 | `--use-raw-prerouting` | Использовать raw {{< term "PREROUTING" >}} для классификации пересылаемого IPv4-трафика; доступно только с iptables. |
 | `--use-raw6-prerouting` | Использовать raw PREROUTING для классификации пересылаемого IPv6-трафика; доступно только с iptables. |
@@ -48,7 +63,7 @@ Commands:
 
 ### `--use-raw-prerouting`
 
-Флаг нужен в основном на Keenetic / NetCraze, где прошивка время от времени пересобирает таблицу `mangle` и правила keen-pbr ненадолго пропадают. С этим флагом keen-pbr ставит правила для транзитного IPv4-трафика в таблицу `raw`, которую прошивка не трогает. Для IPv6 есть отдельный флаг `--use-raw6-prerouting`. Трафик самого роутера всегда обрабатывается в `mangle OUTPUT`.
+Флаг нужен в основном на Keenetic / NetCraze. Прошивка время от времени пересобирает таблицу firewall `mangle`, и правила keen-pbr ненадолго пропадают. С флагом keen-pbr ставит правила для проходящего через роутер IPv4-трафика в таблицу `raw`, которую прошивка не пересобирает. Для IPv6 есть отдельный флаг `--use-raw6-prerouting`.
 
 На Keenetic / NetCraze флаги выставляет скрипт запуска. Режим задаётся переменной `KEEN_PBR_RAW_PREROUTING` в `/opt/etc/keen-pbr/defaults`:
 
@@ -77,16 +92,17 @@ ip6tables -t raw -S
 | Команда | Описание |
 |---|---|
 | `service` | Запустить сервис маршрутизации на переднем плане. |
-| `status` | Показать состояние службы, outbound'ов, маршрутизации, firewall и проверок ядра, затем список проблем, как на главной странице веб-интерфейса, и выйти. Код выхода 1, если какая-то проверка не прошла или есть проблема уровня «ошибка». |
-| `download` | Загрузить все списки с URL в кэш, затем выйти. |
-| `generate-resolver-config dnsmasq` | Вывести в stdout конфигурацию dnsmasq для отдельных DNS-серверов списков. |
+| `status` | Показать состояние службы, outbound, маршрутизации, firewall и проверок ядра, затем список проблем, как на главной странице веб-интерфейса, и выйти. Код выхода 1, если какая-то проверка не прошла или есть проблема уровня «ошибка». |
+| `download [--reload]` | Загрузить все списки с URL в кэш и выйти. С `--reload` сервис сразу применяет списки, которые изменились. |
+| `generate-resolver-config dnsmasq` | Вывести конфигурацию dnsmasq для отдельных DNS-серверов списков. |
+| `hash-password [--update]` | Создать хеш пароля для входа в веб-интерфейс и API. |
 | `dnsmasq detect [--json]` | Показать экземпляры dnsmasq, их DNS-адреса и экземпляр, который использует keen-pbr. |
 | `dnsmasq remove <selector>` | Перезапустить один экземпляр dnsmasq без конфигурации keen-pbr. |
 | `test-routing <ip-or-domain> [параметры пакета]` | Сравнить ожидаемую и фактическую маршрутизацию для данного IP или домена. Проверку выполняет служба, так же как проверку маршрутизации в веб-интерфейсе. |
 
 ### `generate-resolver-config dnsmasq`
 
-Когда включена `dns.resolver_integration: "dnsmasq"`, эта команда выводит сгенерированную конфигурацию dnsmasq в stdout. В ней соответствия «домен → сервер», исключения защиты от {{< term "DNS rebinding" >}} и резервные (`fallback`) серверы.
+Когда включена `dns.resolver_integration: "dnsmasq"`, эта команда печатает конфигурацию dnsmasq, которую собрал keen-pbr. Списки берутся только из кэша, ничего не скачивается. В ней соответствия «домен → сервер», исключения защиты от {{< term "DNS rebinding" >}} и резервные (`fallback`) серверы.
 
 **Использование:**
 
@@ -109,10 +125,21 @@ rebind-domain-ok=/openai.com/www.openai.com/...
 ```
 
 **Поведение:**
-- Всегда завершается с кодом 0, даже при ошибках; ошибки выводятся в виде строк комментариев `# keen-pbr: ...`.
+- Всегда завершается с кодом 0, даже при ошибках; ошибки печатаются строками-комментариями `# keen-pbr: ...`.
 - Когда `resolver_integration: "none"` (по умолчанию) или конфиг не читается, в выводе только строки `server=` из `dnsmasq-fallback.conf`; динамические наборы заполняются перехватом.
 - При `"dnsmasq"` и без серверов `fallback` эти строки `server=` добавляются в вывод.
 - dnsmasq читает конфиг через эту команду (см. `conf-script=keen-pbr generate-resolver-config dnsmasq` в {{< term "drop-in" >}}).
+
+### `hash-password`
+
+Создаёт хеш пароля для входа в веб-интерфейс и API. Команда дважды спрашивает пароль.
+
+```bash
+keen-pbr hash-password
+keen-pbr hash-password --update
+```
+
+Без `--update` команда печатает `Password hash: <хеш>`, который вы вставляете в `api.authentication.password_hash` сами. С `--update` она записывает в `config.json` `api.enabled: true`, `api.authentication.enabled: true` и хеш. После этого перезапустите сервис: `Restart the keen-pbr service for authentication changes to take effect.`
 
 ### `dnsmasq detect` и `remove` {#dnsmasq-detect-and-remove}
 
@@ -151,15 +178,15 @@ Selection: uci:cfg01411c (adopted)
 
 ## Сигналы
 
-Когда `keen-pbr` работает как управляемый сервис (демон), им также можно управлять через Unix-сигналы:
+Запущенным сервисом `keen-pbr` можно управлять сигналами:
 
 | Сигнал | Действие |
 |---|---|
-| `SIGUSR1` | Повторная проверка таблиц маршрутизации и немедленный запуск urltest-замеров задержки |
-| `SIGHUP` | Полная перезагрузка: повторная загрузка списков при изменениях, повторное применение правил firewall и маршрутизации |
+| `SIGUSR1` | Заново собрать маршруты и правила firewall |
+| `SIGHUP` | Перечитать `config.json` и применить его заново. В сборке `keen-pbr-headless` не работает |
 | `SIGTERM` / `SIGINT` | Корректное завершение работы |
 
-Пример полной перезагрузки через сигнал SIGHUP:
+Пример: перечитать конфиг сигналом SIGHUP:
 
 ```bash {filename="bash"}
 kill -HUP $(cat /var/run/keen-pbr.pid)
@@ -223,15 +250,15 @@ Status values: OK / MISSING / MISMATCH / ERROR
 keen-pbr download
 ```
 
-Пример вывода:
+Команда печатает ответ сервиса одной строкой JSON. В `refreshed_lists` перечислены обновлённые списки, в `changed_lists` те, у которых изменилось содержимое:
 
 ```text
-[google] Not modified (304)
-[internal.site] Skipped (no URL)
-[generic] Skipped (no URL)
+{"ok":true,"protocol_version":2,"request_id":"cli-download","result":{"changed_lists":["google"],"failed_lists":[],"refreshed_lists":["google"],"reloaded":false}}
 ```
 
-Протестировать совпадение ожидаемой и фактической маршрутизации:
+Если какой-то список не скачался, команда напишет ошибку и завершится с кодом 1.
+
+Сравнить ожидаемую и фактическую маршрутизацию:
 
 ```bash {filename="bash"}
 keen-pbr test-routing google.com

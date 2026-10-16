@@ -1103,7 +1103,7 @@ components:
       properties:
         outbound:
           type: string
-          description: Member interface, table or (urltest only) blackhole outbound tag.
+          description: Member interface or table outbound tag.
           example: "wan1"
         target:
           type: string

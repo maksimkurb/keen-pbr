@@ -8,6 +8,8 @@
 
 {{- partialCached "donation/yoomoney-assets.html" . "yoomoney-donation-assets" -}}
 
+<p class="yoomoney-donation-privacy not-prose">{{ T "donationPrivacyNote" }}</p>
+
 <div class="yoomoney-donation-layout">
 <form
   id="{{ $formID }}"

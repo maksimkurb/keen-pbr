@@ -5,7 +5,7 @@ aliases:
   - /docs/getting-started/compilation/
 ---
 
-This page is for developers and package maintainers who want to build keen-pbr from source.
+This page is for developers and package maintainers who want to build keen-pbr from source. If you just need a ready-made package, see [installation]({{< relref "/docs/getting-started" >}}).
 
 ## Prerequisites
 
@@ -15,36 +15,38 @@ This page is for developers and package maintainers who want to build keen-pbr f
 | CMake | 3.14+ |
 | Make | any |
 | pkg-config | any |
-| Docker (for cross-compilation) | any |
+| git | any |
+| Docker with Buildx (for package builds) | any |
 
 ## Dependencies
 
-Dependencies are bundled as git submodules or resolved from system packages during the CMake build.
+Some libraries are bundled in the repository as git submodules (the `third_party` folder); the rest come from system packages during the CMake build. For a host build, install the development headers of the system libraries (on Debian and Ubuntu: `libcurl4-openssl-dev`, `libnl-3-dev`, `libnl-route-3-dev`, `zlib1g-dev`).
 
-| Library | Purpose |
-|---|---|
-| libcurl | Downloading remote lists |
-| nlohmann_json | JSON parsing |
-| libnl | Netlink socket communication (routing/rules) |
-| libresolv | DNS resolution |
-| libunwind | Debian builds use it for signal-context stack unwinding by default. OpenWrt and Keenetic builds use register-only crash diagnostics if it is unavailable; `KEEN_PBR_USE_LIBUNWIND` controls whether CMake attempts to find it. |
-| fmt | C++17 formatting polyfill |
-| cpptrace | Vendored crash diagnostics library |
-| cpp-httplib | Embedded HTTP API server when `WITH_API=ON` |
+| Library | Source | Purpose |
+|---|---|---|
+| libcurl | system | Downloading remote lists |
+| libnl-3, libnl-route-3 | system | Routes and rules through Netlink |
+| zlib | system | Needed by the built-in HTTP server (`WITH_API=ON`) |
+| libresolv | part of libc | DNS resolution |
+| libunwind | system | Call stacks on crashes. Debian builds need it by default. OpenWrt and Keenetic builds work without it and show only registers on a crash. `KEEN_PBR_USE_LIBUNWIND` controls whether CMake looks for it. |
+| nlohmann_json | submodule | JSON parsing |
+| fmt | submodule | String formatting |
+| Monocypher | submodule | Cryptography (password hashing) |
+| cpp-httplib | submodule | Built-in HTTP server when `WITH_API=ON` |
 
 ## Build
 
 A `Makefile` wraps all build steps:
 
 ```bash {filename="bash"}
-# Clone the repository
-git clone https://github.com/maksimkurb/keen-pbr.git
+# Clone the repository with submodules
+git clone --recurse-submodules https://github.com/maksimkurb/keen-pbr.git
 cd keen-pbr
 
 # Build
 make
 
-# Run tests
+# Run tests (needs python3 and sh; dnsmasq is optional)
 make test
 
 # Clean build artifacts
@@ -58,37 +60,38 @@ make setup    # cmake -S . -B cmake-build-gcc
 make build    # cmake --build cmake-build-gcc
 ```
 
-The binary is produced at `cmake-build-gcc/keen-pbr` (`cmake-build-clang` is
-used by the Clang targets).
+The binary is produced at `cmake-build-gcc/keen-pbr`. The Clang targets (`make clang-build`) build into `cmake-build-clang`.
 
-Run `make help` to see all available build and packaging targets.
+Run `make help` to see all build and packaging targets.
 
 ## Build Options
 
-Pass options during `cmake` configure:
+Pass options when configuring with `cmake`:
 
 | Option | Default | Description |
 |---|---|---|
-| `WITH_API` | `ON` | Build with embedded HTTP API server |
-| `KEEN_PBR_USE_LIBUNWIND` | `ON` | Attempt to find and use `libunwind` for crash diagnostics. Debian builds require it when enabled; OpenWrt and Keenetic can fall back to register-only diagnostics when it is missing or disabled. |
+| `WITH_API` | `ON` | Build with the built-in HTTP server (REST API and web interface) |
+| `USE_KEENETIC_API` | `OFF` | Enable the Keenetic integration (DNS server type `keenetic`) |
+| `KEEN_PBR_PLATFORM_KEENETIC` | `OFF` | Build for KeeneticOS: iptables only, no balancing |
+| `KEEN_PBR_USE_LIBUNWIND` | `ON` | Look for and use `libunwind` for crash diagnostics. Debian builds require it when enabled; OpenWrt and Keenetic use register-only diagnostics when it is missing or disabled. |
+| `BUILD_TESTS` | `OFF` | Build unit tests (`make test` turns it on itself) |
 
-Example:
+Example: build without the HTTP server (like the `keen-pbr-headless` package):
 
 ```bash {filename="bash"}
 cmake -S . -B cmake-build-gcc -DWITH_API=OFF
+cmake --build cmake-build-gcc
 ```
 
 ## Debian / Ubuntu Packages
 
-For Debian/Ubuntu targets, use the Docker-backed package build targets from the root `Makefile`.
-
-Build Debian packages from the repository root:
+Debian and Ubuntu packages are built in Docker with targets from the root `Makefile`. You need Docker and the Buildx plugin. Run from the repository root:
 
 ```bash {filename="bash"}
 make deb-packages
 ```
 
-Use an explicit Debian release and architecture inside `build/packages/`:
+You can set the Debian release (`bookworm` or `trixie`) and the architecture (`amd64` or `arm64`) explicitly. The defaults are `bookworm` and `amd64`:
 
 ```bash {filename="bash"}
 # AMD64
@@ -98,31 +101,24 @@ make deb-packages DEBIAN_VERSION=bookworm DEBIAN_ARCH=amd64
 make deb-packages DEBIAN_VERSION=bookworm DEBIAN_ARCH=arm64
 ```
 
-Rebuild the reusable Debian builder image explicitly:
+To recreate the Debian builder image:
 
 ```bash {filename="bash"}
 make debian-builder-image
 ```
 
-Artifacts are written to `build/packages/`:
+The finished packages (full and `headless`) appear in `build/packages/`:
 
 - `build/packages/debian/<debian-version>/<architecture>/keen-pbr_<version>_debian_<architecture>.deb`
 - `build/packages/debian/<debian-version>/<architecture>/keen-pbr-headless_<version>_debian_<architecture>.deb`
 
-The published repository also provides Ubuntu aliases: Ubuntu noble (24.04)
-uses the Debian bookworm packages, and Ubuntu resolute (26.04) uses Debian
-trixie packages. The aliases reuse the Debian package and index paths.
+The published repository also contains packages for Ubuntu: Ubuntu noble (24.04) uses the Debian bookworm packages, and Ubuntu resolute (26.04) uses the Debian trixie packages.
 
-The Debian packaging flow:
-
-- builds the frontend with `bun` for the full package
-- compiles dedicated native binaries with Debian install paths under `/etc/keen-pbr` and `/usr/share/keen-pbr/frontend`
-- installs a `systemd` unit at `/lib/systemd/system/keen-pbr.service`
-- enables and starts the service on package installation
+For the full package, the web interface is built with `bun`. Installing the package enables and starts the `keen-pbr` service (a `systemd` unit); the configuration lives in `/etc/keen-pbr`.
 
 ## Router Package Builds
 
-For router targets, use the Docker-backed package build targets from the root `Makefile`. They mirror the GitHub Actions workflows and write normalized artifacts into `build/packages/`.
+Router packages are also built in Docker with targets from the root `Makefile`. They repeat the GitHub Actions build, and the finished packages appear in `build/packages/`.
 
 ### Entware (for Keenetic and Netcraze routers)
 
@@ -136,14 +132,14 @@ Parameters:
 
 | Variable | Required | Example | Description |
 |---|---|---|---|
-| `KEENETIC_VERSION` | yes | `current` | Keenetic channel version used in the `build/packages` layout. |
+| `KEENETIC_VERSION` | yes | `current` | Keenetic firmware channel: the name of the subfolder in `build/packages/keenetic/`. |
 | `KEENETIC_CONFIG` | yes | `mipsel-3.4` | Entware builder architecture tag.<br>Supported values: <br>`aarch64-3.10`, <br>`mips-3.4`, <br>`mipsel-3.4`, <br>`armv7-3.2`, <br>`x64-3.2`. |
 
 Behavior:
 
-- Uses the prebuilt `ghcr.io/maksimkurb/entware-builder:<config>` image
-- Mounts the repo into the container at `/workspace`
-- Builds and collects artifacts into `build/packages/`
+- It uses the prebuilt `ghcr.io/maksimkurb/entware-builder:<config>` image.
+- The repository is mounted into the container at `/workspace`.
+- Packages (`keen-pbr` and `keen-pbr-headless`) are copied to `build/packages/keenetic/<version>/<architecture>/`, for example `keen-pbr_<version>_keenetic_mipsel-3.4.ipk`.
 
 ### OpenWrt
 
@@ -159,12 +155,9 @@ Build an OpenWrt package:
 make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_ARCHITECTURE=aarch64_cortex-a53
 ```
 
-Or with an explicit release:
+Another example:
 
 ```bash {filename="bash"}
-make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_ARCHITECTURE=aarch64_cortex-a53
-
-# another common example
 make openwrt-packages OPENWRT_VERSION=25.12.2 OPENWRT_ARCHITECTURE=x86_64
 ```
 
@@ -172,23 +165,18 @@ Parameters:
 
 | Variable | Required | Default | Example | Description |
 |---|---|---|---|---|
-| `OPENWRT_VERSION` | yes | - | `24.10.4` | OpenWrt release used to select the SDK image. |
-| `OPENWRT_ARCHITECTURE` | yes | - | `aarch64_cortex-a53` | OpenWrt package architecture and SDK image tag prefix. |
+| `OPENWRT_VERSION` | yes | - | `24.10.4` | OpenWrt version (selects the SDK image). |
+| `OPENWRT_ARCHITECTURE` | yes | - | `aarch64_cortex-a53` | OpenWrt package architecture. |
 
 Behavior:
 
-- Mounts the repo into the container at `/workspace`
-- Uses the official SDK image `ghcr.io/openwrt/sdk:<architecture>-<version>`
-- Copies resulting `.ipk` / `.apk` artifacts into `build/packages/`
-
-### Notes
-
-- The repo is bind-mounted into `/workspace`, so source and packaging-script edits are picked up on the next build.
-- OpenWrt packages are built inside the SDK image that matches the requested version and architecture.
+- It uses the official SDK image `ghcr.io/openwrt/sdk:<architecture>-<version>`.
+- The repository is mounted into the container at `/workspace`, so source edits are picked up on the next build.
+- The `.ipk` / `.apk` packages are copied to `build/packages/openwrt/<version>/<architecture>/`.
 
 ## Deployment to Router
 
-Copy a built package and a config file to your router:
+Copy the built package to your router and install it (replace `192.168.1.1` with your router's address):
 
 ```bash {filename="bash"}
 # Keenetic example
@@ -200,12 +188,12 @@ scp build/packages/openwrt/<openwrt_version>/<pkg_arch>/keen-pbr_<version>_openw
 ssh root@192.168.1.1 opkg install /tmp/keen-pbr_<version>_openwrt_<openwrt_version>_<architecture>.ipk
 
 # OpenWrt .apk example
-scp build/packages/openwrt/<openwrt_version>/<pkg_arch>/keen-pbr_<version>_openwrt_<openwrt_version>_<architecture>.apk root@192.168.1.1:/tmp/
-ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr_<version>_openwrt_<openwrt_version>_<architecture>.apk
-
+# the .apk file keeps the name the OpenWrt SDK gave it
+scp build/packages/openwrt/<openwrt_version>/<pkg_arch>/keen-pbr-<version>.apk root@192.168.1.1:/tmp/
+ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr-<version>.apk
 ```
 
-Run on the router:
+After installation the service is usually already running. If not, start it on the router:
 
 ```bash {filename="bash"}
 # Keenetic

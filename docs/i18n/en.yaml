@@ -34,6 +34,7 @@ donationConfirmMessage: "Review the form values before sending:"
 donationNoticeTitle: Voluntary, gratuitous support
 donationNoticeText: Funds are transferred gratuitously as a gift to support development. This is not payment for software, a license, features, technical support, advertising, goods, or services, and creates no obligation to provide anything in return.
 donationSubmit: Continue to YooMoney
+donationPrivacyNote: We never ask for or store bank details or card numbers. You will be redirected to the YooMoney payment processor to complete the payment.
 donationSubmitting: Opening YooMoney…
 languageSuggestionTitle: Prefer another language?
 languageSuggestionText: This page is also available in

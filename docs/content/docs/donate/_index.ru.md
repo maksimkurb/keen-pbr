@@ -7,8 +7,9 @@ weight: 9
 
 <div class="support-payment-cards">
 {{< cards cols="1" >}}
-  {{< card icon="ko_fi" link="https://ko-fi.com/keen_pbr" title="Поддержать на ko-fi.com" subtitle="PayPal и зарубежные банковские карты" >}}
-  {{< card icon="yoomoney" link="/ru/docs/donate-yoomoney/" title="Поддержать через ЮMoney" subtitle="Кошелёк ЮMoney и российские банковские карты" >}}
+  {{< card icon="ko_fi" link="https://ko-fi.com/keen_pbr" title="Зарубежные банковские карты (ko-fi)" subtitle="PayPal и зарубежные банковские карты" >}}
+  {{< card icon="yoomoney" link="/ru/docs/donate-yoomoney/" title="Российские банковские карты (шлюз ЮMoney)" subtitle="Без комиссии. Кошелёк ЮMoney и российские банковские карты" >}}
+  {{< card icon="cloudtips" link="https://pay.cloudtips.ru/p/a633c47d" title="Российские банковские карты (шлюз CloudTips)" subtitle="Сервис может брать комиссию. Российские банковские карты и СБП" >}}
 {{< /cards >}}
 </div>
 

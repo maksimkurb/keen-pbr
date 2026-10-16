@@ -8,7 +8,8 @@ If keen-pbr saves you time, helps keep your router setup sane, or just makes you
 <div class="support-payment-cards">
 {{< cards cols="1" >}}
   {{< card icon="ko_fi" link="https://ko-fi.com/keen_pbr" title="Support on ko-fi.com" subtitle="PayPal and bank cards" >}}
-  {{< card icon="yoomoney" link="/docs/donate-yoomoney/" title="Support via YooMoney" subtitle="YooMoney wallet and Russian bank cards" >}}
+  {{< card icon="yoomoney" link="/docs/donate-yoomoney/" title="Support via Russian bank cards (YooMoney)" subtitle="No fee. YooMoney wallet and Russian bank cards" >}}
+  {{< card icon="cloudtips" link="https://pay.cloudtips.ru/p/a633c47d" title="Support via Russian bank cards (CloudTips)" subtitle="Payment processor can take a fee. Russian bank cards and SBP" >}}
 {{< /cards >}}
 </div>
 

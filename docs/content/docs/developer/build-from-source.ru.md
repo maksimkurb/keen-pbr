@@ -5,7 +5,7 @@ aliases:
   - /docs/getting-started/compilation/
 ---
 
-Эта страница для разработчиков и мейнтейнеров пакетов, которые хотят собрать keen-pbr из исходного кода.
+Эта страница для разработчиков и мейнтейнеров пакетов, которые хотят собрать keen-pbr из исходного кода. Если вам нужен готовый пакет, смотрите [установку]({{< relref "/docs/getting-started" >}}).
 
 ## Предварительные требования
 
@@ -15,36 +15,38 @@ aliases:
 | CMake | 3.14+ |
 | Make | любой |
 | pkg-config | любой |
-| Docker (для кросс-компиляции) | любой |
+| git | любой |
+| Docker с Buildx (для сборки пакетов) | любой |
 
 ## Зависимости
 
-Зависимости объединены как git-подмодули или разрешаются из системных пакетов во время сборки CMake.
+Часть библиотек входит в репозиторий как git-подмодули (папка `third_party`), остальные берутся из системных пакетов при сборке CMake. Для сборки на хосте установите заголовочные файлы системных библиотек (в Debian и Ubuntu это пакеты `libcurl4-openssl-dev`, `libnl-3-dev`, `libnl-route-3-dev`, `zlib1g-dev`).
 
-| Библиотека | Назначение |
-|---|---|
-| libcurl | Загрузка удалённых списков |
-| nlohmann_json | JSON-парсинг |
-| libnl | Коммуникация через сокеты Netlink (маршрутизация/правила) |
-| libresolv | Разрешение DNS-имён |
-| libunwind | В сборках Debian по умолчанию используется для разворачивания стека при обработке сигналов. Сборки OpenWrt и Keenetic переходят на диагностику только по регистрам, если библиотека недоступна; параметр `KEEN_PBR_USE_LIBUNWIND` управляет попыткой найти её через CMake. |
-| fmt | C++17 formatting polyfill |
-| cpptrace | Библиотека в составе репозитория для диагностики падений |
-| cpp-httplib | Встроенный HTTP API сервер при `WITH_API=ON` |
+| Библиотека | Откуда | Назначение |
+|---|---|---|
+| libcurl | система | Загрузка удалённых списков |
+| libnl-3, libnl-route-3 | система | Работа с маршрутами и правилами через Netlink |
+| zlib | система | Нужна встроенному HTTP-серверу (при `WITH_API=ON`) |
+| libresolv | входит в libc | Разрешение DNS-имён |
+| libunwind | система | Стек вызовов при сбоях. В сборках Debian нужна по умолчанию. Сборки OpenWrt и Keenetic обходятся без неё и показывают при сбое только регистры. Параметр `KEEN_PBR_USE_LIBUNWIND` управляет поиском. |
+| nlohmann_json | подмодуль | Разбор JSON |
+| fmt | подмодуль | Форматирование строк |
+| Monocypher | подмодуль | Криптография (хеширование паролей) |
+| cpp-httplib | подмодуль | Встроенный HTTP-сервер при `WITH_API=ON` |
 
 ## Сборка
 
 `Makefile` оборачивает все шаги сборки:
 
 ```bash {filename="bash"}
-# Клонировать репозиторий
-git clone https://github.com/maksimkurb/keen-pbr.git
+# Клонировать репозиторий вместе с подмодулями
+git clone --recurse-submodules https://github.com/maksimkurb/keen-pbr.git
 cd keen-pbr
 
 # Собрать
 make
 
-# Запустить тесты
+# Запустить тесты (нужны python3 и sh; dnsmasq необязателен)
 make test
 
 # Очистить артефакты сборки
@@ -58,37 +60,38 @@ make setup    # cmake -S . -B cmake-build-gcc
 make build    # cmake --build cmake-build-gcc
 ```
 
-Бинарный файл создаётся в `cmake-build-gcc/keen-pbr` (`cmake-build-clang`
-используется целями Clang).
+Бинарный файл создаётся в `cmake-build-gcc/keen-pbr`. Цели Clang (`make clang-build`) собирают в `cmake-build-clang`.
 
-Запустите `make help`, чтобы увидеть все доступные цели сборки и упаковки.
+Запустите `make help`, чтобы увидеть все цели сборки и упаковки.
 
 ## Опции сборки
 
-Передавайте опции во время конфигурации `cmake`:
+Передавайте опции при настройке `cmake`:
 
 | Опция | По умолчанию | Описание |
 |---|---|---|
-| `WITH_API` | `ON` | Собирать со встроенным HTTP API сервером |
-| `KEEN_PBR_USE_LIBUNWIND` | `ON` | Пытаться найти и использовать `libunwind` для диагностики сбоев. Сборки Debian требуют её при включённом параметре; OpenWrt и Keenetic могут использовать диагностику только по регистрам, если библиотека отсутствует или параметр выключен. |
+| `WITH_API` | `ON` | Собирать со встроенным HTTP-сервером (REST API и веб-интерфейс) |
+| `USE_KEENETIC_API` | `OFF` | Включить интеграцию с Keenetic (DNS-сервер типа `keenetic`) |
+| `KEEN_PBR_PLATFORM_KEENETIC` | `OFF` | Сборка для KeeneticOS: только iptables, без балансировки |
+| `KEEN_PBR_USE_LIBUNWIND` | `ON` | Искать и использовать `libunwind` для диагностики сбоев. Сборки Debian требуют её при включённом параметре; OpenWrt и Keenetic при её отсутствии или выключенном параметре используют диагностику только по регистрам. |
+| `BUILD_TESTS` | `OFF` | Собирать модульные тесты (`make test` включает его сам) |
 
-Пример:
+Пример: сборка без HTTP-сервера (как пакет `keen-pbr-headless`):
 
 ```bash {filename="bash"}
 cmake -S . -B cmake-build-gcc -DWITH_API=OFF
+cmake --build cmake-build-gcc
 ```
 
 ## Пакеты Debian / Ubuntu
 
-Для целей Debian/Ubuntu используйте поддерживаемые Docker-ом цели сборки пакетов из корневого `Makefile`.
-
-Собирайте пакеты Debian из корня репозитория:
+Пакеты для Debian и Ubuntu собираются в Docker целями корневого `Makefile`. Нужны Docker и плагин Buildx. Выполните из корня репозитория:
 
 ```bash {filename="bash"}
 make deb-packages
 ```
 
-Явно указывайте релиз Debian и архитектуру внутри `build/packages/`:
+Релиз Debian (`bookworm` или `trixie`) и архитектуру (`amd64` или `arm64`) можно указать явно. По умолчанию `bookworm` и `amd64`:
 
 ```bash {filename="bash"}
 # AMD64
@@ -98,31 +101,24 @@ make deb-packages DEBIAN_VERSION=bookworm DEBIAN_ARCH=amd64
 make deb-packages DEBIAN_VERSION=bookworm DEBIAN_ARCH=arm64
 ```
 
-Пересобирайте образ Debian builder явным образом:
+Образ сборщика Debian пересоздаётся командой:
 
 ```bash {filename="bash"}
 make debian-builder-image
 ```
 
-Артефакты записываются в `build/packages/`:
+Готовые пакеты (полный и `headless`) появятся в `build/packages/`:
 
 - `build/packages/debian/<debian-version>/<architecture>/keen-pbr_<version>_debian_<architecture>.deb`
 - `build/packages/debian/<debian-version>/<architecture>/keen-pbr-headless_<version>_debian_<architecture>.deb`
 
-Опубликованный репозиторий также предоставляет псевдонимы Ubuntu: Ubuntu
-noble (24.04) использует пакеты Debian bookworm, а Ubuntu resolute (26.04) —
-пакеты Debian trixie. Псевдонимы используют те же пути пакетов и индексов Debian.
+Опубликованный репозиторий также содержит пакеты для Ubuntu: Ubuntu noble (24.04) использует пакеты Debian bookworm, а Ubuntu resolute (26.04) использует пакеты Debian trixie.
 
-Поток упаковки Debian:
-
-- собирает фронтенд с `bun` для полного пакета
-- компилирует нативные бинарники с путями установки Debian под `/etc/keen-pbr` и `/usr/share/keen-pbr/frontend`
-- устанавливает `systemd` юнит в `/lib/systemd/system/keen-pbr.service`
-- при установке пакета включает и запускает сервис
+Для полного пакета интерфейс собирается с помощью `bun`. При установке пакета сервис `keen-pbr` (юнит `systemd`) включается и запускается, а конфигурация лежит в `/etc/keen-pbr`.
 
 ## Сборка пакетов для роутеров
 
-Для целей роутеров используйте поддерживаемые Docker-ом цели сборки пакетов из корневого `Makefile`. Они отражают рабочие процессы GitHub Actions и записывают нормализованные артефакты в `build/packages/`.
+Пакеты для роутеров тоже собираются в Docker целями корневого `Makefile`. Они повторяют сборку в GitHub Actions, готовые пакеты появляются в `build/packages/`.
 
 ### Entware (для роутеров Keenetic и Netcraze)
 
@@ -136,14 +132,14 @@ make keenetic-packages KEENETIC_CONFIG=mipsel-3.4 KEENETIC_VERSION=current
 
 | Переменная | Обязательно | Пример | Описание |
 |---|---|---|---|
-| `KEENETIC_VERSION` | да | `current` | Версия канала Keenetic, используемая в макете `build/packages`. |
+| `KEENETIC_VERSION` | да | `current` | Канал прошивки Keenetic: имя подпапки в `build/packages/keenetic/`. |
 | `KEENETIC_CONFIG` | да | `mipsel-3.4` | Тег архитектуры сборщика Entware.<br>Поддерживаемые значения: <br>`aarch64-3.10`, <br>`mips-3.4`, <br>`mipsel-3.4`, <br>`armv7-3.2`, <br>`x64-3.2`. |
 
 Поведение:
 
-- Использует предварительно собранный образ `ghcr.io/maksimkurb/entware-builder:<config>`
-- Монтирует репозиторий в контейнер в `/workspace`
-- Собирает и собирает артефакты в `build/packages/`
+- Используется готовый образ `ghcr.io/maksimkurb/entware-builder:<config>`.
+- Репозиторий монтируется в контейнер в `/workspace`.
+- Пакеты (`keen-pbr` и `keen-pbr-headless`) копируются в `build/packages/keenetic/<версия>/<архитектура>/`, например `keen-pbr_<version>_keenetic_mipsel-3.4.ipk`.
 
 ### OpenWrt
 
@@ -159,12 +155,9 @@ make list-openwrt-architectures OPENWRT_VERSION=24.10.4
 make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_ARCHITECTURE=aarch64_cortex-a53
 ```
 
-Или с явным выпуском:
+Другой пример:
 
 ```bash {filename="bash"}
-make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_ARCHITECTURE=aarch64_cortex-a53
-
-# ещё один распространённый пример
 make openwrt-packages OPENWRT_VERSION=25.12.2 OPENWRT_ARCHITECTURE=x86_64
 ```
 
@@ -172,23 +165,18 @@ make openwrt-packages OPENWRT_VERSION=25.12.2 OPENWRT_ARCHITECTURE=x86_64
 
 | Переменная | Обязательно | По умолчанию | Пример | Описание |
 |---|---|---|---|---|
-| `OPENWRT_VERSION` | да | - | `24.10.4` | Выпуск OpenWrt, используемый для выбора образа SDK. |
-| `OPENWRT_ARCHITECTURE` | да | - | `aarch64_cortex-a53` | Архитектура пакетов OpenWrt и префикс тега образа SDK. |
+| `OPENWRT_VERSION` | да | - | `24.10.4` | Версия OpenWrt (по ней выбирается образ SDK). |
+| `OPENWRT_ARCHITECTURE` | да | - | `aarch64_cortex-a53` | Архитектура пакетов OpenWrt. |
 
 Поведение:
 
-- Монтирует репозиторий в контейнер в `/workspace`
-- Использует официальный образ SDK `ghcr.io/openwrt/sdk:<architecture>-<version>`
-- Копирует полученные артефакты `.ipk` / `.apk` в `build/packages/`
-
-### Примечания
-
-- Репозиторий монтируется в `/workspace`, поэтому изменения исходного кода и скриптов упаковки подхватываются при следующей сборке.
-- Пакеты OpenWrt собираются внутри образа SDK, соответствующего выбранным версии и архитектуре.
+- Используется официальный образ SDK `ghcr.io/openwrt/sdk:<architecture>-<version>`.
+- Репозиторий монтируется в контейнер в `/workspace`, поэтому правки в исходниках подхватываются при следующей сборке.
+- Пакеты `.ipk` / `.apk` копируются в `build/packages/openwrt/<версия>/<архитектура>/`.
 
 ## Развёртывание на роутер
 
-Скопируйте собранный пакет и файл конфигурации на ваш роутер:
+Скопируйте собранный пакет на роутер и установите его (замените `192.168.1.1` на адрес роутера):
 
 ```bash {filename="bash"}
 # Пример для Keenetic
@@ -200,12 +188,12 @@ scp build/packages/openwrt/<openwrt_version>/<pkg_arch>/keen-pbr_<version>_openw
 ssh root@192.168.1.1 opkg install /tmp/keen-pbr_<version>_openwrt_<openwrt_version>_<architecture>.ipk
 
 # Пример для OpenWrt .apk
-scp build/packages/openwrt/<openwrt_version>/<pkg_arch>/keen-pbr_<version>_openwrt_<openwrt_version>_<architecture>.apk root@192.168.1.1:/tmp/
-ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr_<version>_openwrt_<openwrt_version>_<architecture>.apk
-
+# имя файла .apk сохраняется таким, каким его создал SDK OpenWrt
+scp build/packages/openwrt/<openwrt_version>/<pkg_arch>/keen-pbr-<version>.apk root@192.168.1.1:/tmp/
+ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr-<version>.apk
 ```
 
-Запустите на роутере:
+После установки сервис обычно уже запущен. Если нет, запустите его на роутере:
 
 ```bash {filename="bash"}
 # Keenetic
