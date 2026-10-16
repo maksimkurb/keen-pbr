@@ -199,6 +199,7 @@ jobs:
     with:
       build_scope: ${{ needs.prepare-frontend.outputs.build_scope }}
       keenetic_version: current
+      configs: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'mipsel-3.4.config,aarch64-3.10.config' || '' }}
       frontend_artifact_name: frontend-dist-keenetic
       publish_branch: ${{ needs.prepare-frontend.outputs.allow_publish == 'true' }}
       source_ref_name: ${{ needs.prepare-frontend.outputs.source_ref_name }}
