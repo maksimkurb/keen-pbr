@@ -7,6 +7,8 @@ on:
       - 'dev'
       - 'dev-*'
     paths:
+      - '.github/workflows/**'
+      - '.github/builder/**'
       - 'build_scripts/**'
       - 'cmake/**'
       - 'docker/**'
@@ -23,12 +25,14 @@ on:
   workflow_dispatch:
     inputs:
       build_scope:
-        description: Package target set
+        description: Package target set (auto = prerelease on main, default elsewhere)
         required: true
-        default: default
+        default: auto
         type: choice
         options:
+          - auto
           - default
+          - prerelease
           - full
 
 concurrency:
@@ -61,7 +65,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_HEAD_REPO_FULL_NAME: ${{ github.event.pull_request.head.repo.full_name }}
-          REQUESTED_SCOPE: ${{ inputs.build_scope || 'default' }}
+          REQUESTED_SCOPE: ${{ inputs.build_scope || 'auto' }}
         run: |
           set -euo pipefail
 
@@ -73,8 +77,10 @@ jobs:
           source_pr_number=
           build_scope=default
 
-          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$REQUESTED_SCOPE" = "full" ]; then
-            build_scope=full
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$REQUESTED_SCOPE" != "auto" ]; then
+            build_scope="$REQUESTED_SCOPE"
+          elif [ "$EVENT_NAME" != "pull_request" ] && [ "$REF" = "refs/heads/main" ]; then
+            build_scope=prerelease
           fi
 
           if [ "$EVENT_NAME" = "pull_request" ]; then
@@ -171,6 +177,8 @@ jobs:
           set -euo pipefail
           if [ "$BUILD_SCOPE" = "full" ]; then
             matrix="$(python3 .github/builder/extract_release_openwrt_matrix.py)"
+          elif [ "$BUILD_SCOPE" = "prerelease" ]; then
+            matrix='[{"openwrt_version":"25.12.2","architecture":"aarch64_cortex-a53"},{"openwrt_version":"24.10.6","architecture":"aarch64_cortex-a53"}]'
           else
             matrix='[{"openwrt_version":"25.12.2","architecture":"aarch64_cortex-a53"}]'
           fi
@@ -199,7 +207,6 @@ jobs:
     with:
       build_scope: ${{ needs.prepare-frontend.outputs.build_scope }}
       keenetic_version: current
-      configs: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'mipsel-3.4.config,aarch64-3.10.config' || '' }}
       frontend_artifact_name: frontend-dist-keenetic
       publish_branch: ${{ needs.prepare-frontend.outputs.allow_publish == 'true' }}
       source_ref_name: ${{ needs.prepare-frontend.outputs.source_ref_name }}
