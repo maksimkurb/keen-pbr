@@ -35,6 +35,7 @@ What changed in each keen-pbr release, and what to do when you upgrade.
 - After a power loss a list cache file could be left empty.
 - `keen-pbr status` reported every `urltest` and `icmptest` rule as an error.
 - The Web UI dropped `conntrack_on_switch`, `strict_enforcement_action` and the `urltest` probe timeout when saving an outbound.
+- A DNS server with `detour` through a tunnel did not answer: queries entered the tunnel with the ISP address. They now use the tunnel address (for servers with an IPv4 address).
 
 ### Upgrading from 3.3.x {#upgrading-from-33x}
 

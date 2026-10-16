@@ -33,6 +33,10 @@
 // repeated) in mangle per enabled family; nft base chains dns_hold,
 // sniff_fwd and sniff_out of the keen-pbr table, present only when non-empty.
 //
+// Source NAT (MasqueradeAction, IPv4 only) has its own chain as well:
+// iptables KeenPbrSnat in nat (hook postrouting), nft nat base chain snat;
+// both present only when the plan carries such a rule.
+//
 // The function is pure: it never inspects the system.
 
 #include "firewall_physical.hpp"
@@ -100,6 +104,9 @@ const char *iptables_sniff_chain_name();
 // OUTPUT only; present when the forward sniff rules need an `-i` allowlist and
 // the shared KeenPbrSniff would match forwarded packets of any interface.
 const char *iptables_sniff_out_chain_name();
+// KeenPbrSnat (nat): MASQUERADE of detoured router traffic, jumped from
+// POSTROUTING (IPv4 only).
+const char *iptables_snat_chain_name();
 
 PhysicalChainId iptables_physical_chain_id(const std::string &name,
                                            PhysicalTable table,

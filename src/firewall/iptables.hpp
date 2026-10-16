@@ -249,6 +249,9 @@ private:
   // The PREROUTING classification chain of the family exists live
   // (RulesOnly reuses the live rules).
   bool live_prerouting_chain_present(bool ipv6) const;
+  // The IPv4 source NAT chain exists live; false when the nat table cannot be
+  // listed.
+  static bool live_snat_chain_present();
   // Names of the live ipsets (`ipset list -n`); nullopt when the listing
   // fails.
   static std::optional<std::set<std::string>> list_live_ipset_names();

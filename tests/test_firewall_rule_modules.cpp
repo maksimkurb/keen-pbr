@@ -734,6 +734,74 @@ TEST_CASE("config builds ordered DNS detour rules in the firewall plan") {
   }
 }
 
+TEST_CASE("DNS detours source-NAT their IPv4 queries per outbound") {
+  const Config config = parse_config(R"({
+    "outbounds": [
+      {"type":"interface","tag":"vpn","interface":"tun0"},
+      {"type":"table","tag":"wan","table":100},
+      {"type":"table","tag":"v6only","table":101},
+      {"type":"urltest","tag":"auto","outbound_groups":[{"outbounds":["vpn"]}],
+       "url":"http://example.com/"}
+    ],
+    "dns": {"servers":[
+      {"tag":"a","address":"192.0.2.53","detour":"vpn"},
+      {"tag":"b","address":"192.0.2.54","detour":"vpn"},
+      {"tag":"c","address":"192.0.2.55","detour":"wan"},
+      {"tag":"d","address":"[2001:db8::53]:53","detour":"v6only"},
+      {"tag":"e","address":"192.0.2.56","detour":"auto"}
+    ]}
+  })");
+  const OutboundMarkMap marks{
+      {"vpn", 0x100U},
+      {internal_detour_mark_key("vpn"), 0x200U},
+      {"wan", 0x300U},
+      {internal_detour_mark_key("wan"), 0x400U},
+      {internal_detour_mark_key("v6only"), 0x500U},
+      {"auto", 0x600U},
+      {internal_detour_mark_key("auto"), 0x700U}};
+  const auto plan = build_plan(config, marks);
+
+  // The detour classifiers use the internal mark, urltest included.
+  for (const auto* rule : dns_rules(plan)) {
+    const auto mark = std::get<MarkAction>(rule->action).value;
+    CHECK((mark == 0x200U || mark == 0x400U || mark == 0x500U ||
+           mark == 0x700U));
+  }
+
+  std::vector<const FirewallRuleInstance*> snat;
+  for (const auto& rule : plan.rules) {
+    if (rule.key.module_id == "dns.detour_snat") snat.push_back(&rule);
+  }
+  // One rule per outbound with an IPv4 detour, in tag order; none for the
+  // IPv6-only one.
+  REQUIRE(snat.size() == 3);
+  const std::vector<std::pair<std::string, uint32_t>> expected{
+      {"auto", 0x700U}, {"vpn", 0x200U}, {"wan", 0x400U}};
+  for (std::size_t index = 0; index < snat.size(); ++index) {
+    const auto& rule = *snat[index];
+    CHECK(rule.key == FirewallRuleKey::compact(
+                          "dns.detour_snat", "route=" + expected[index].first));
+    CHECK(rule.hook == FirewallHook::postrouting);
+    CHECK(rule.family == FirewallFamily::ipv4);
+    CHECK(rule.stage == FirewallRuleStage::source_nat);
+    CHECK(std::get<MasqueradeAction>(rule.action) ==
+          MasqueradeAction{expected[index].second, 0xFFFFFFFFU});
+  }
+  // Source NAT comes last in the plan.
+  CHECK(plan.rules.back().key.module_id == "dns.detour_snat");
+
+  const Config without_detour = parse_config(R"({
+    "outbounds": [{"type":"table","tag":"wan","table":100}],
+    "dns": {"servers":[{"tag":"a","address":"192.0.2.53"}]}
+  })");
+  const auto plain = build_plan(without_detour, marks);
+  CHECK(std::none_of(plain.rules.begin(), plain.rules.end(),
+                     [](const FirewallRuleInstance& rule) {
+                       return std::holds_alternative<MasqueradeAction>(
+                           rule.action);
+                     }));
+}
+
 #ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("health reports only the removed DNS physical instance as missing") {
   const Config config = parse_config(R"({

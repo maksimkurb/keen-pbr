@@ -4,6 +4,7 @@
 #include "../../dns/dns_router.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <map>
 #include <string>
 #include <utility>
@@ -12,6 +13,9 @@ namespace keen_pbr3 {
 
 namespace {
 constexpr std::string_view kModuleId = "dns.detour";
+// Source NAT of the detoured queries; a module id of its own so the detour
+// classifiers stay countable on their own.
+constexpr std::string_view kSnatModuleId = "dns.detour_snat";
 }
 
 void register_dns_detour_rules(const FirewallBuildContext& context,
@@ -26,6 +30,8 @@ void register_dns_detour_rules(const FirewallBuildContext& context,
       dns_config.servers.value_or(std::vector<DnsServer>{});
   const DnsServerRegistry dns_registry(dns_config);
   std::map<std::string, std::size_t> occurrences;
+  // Outbound tag -> internal detour mark of the IPv4 detours planned.
+  std::map<std::string, uint32_t> snat_marks;
   int priority = static_cast<int>(context.route_rules.size());
   for (const auto& server : dns_servers) {
     if (!server.detour.has_value()) {
@@ -41,12 +47,11 @@ void register_dns_detour_rules(const FirewallBuildContext& context,
       continue;
     }
 
-    std::string effective_tag = outbound->tag;
-    if (outbound->type != OutboundType::URLTEST &&
-        outbound->type != OutboundType::ICMPTEST) {
-      effective_tag = internal_detour_mark_key(outbound->tag);
-    }
-    const auto mark_it = context.outbound_marks->find(effective_tag);
+    // The internal detour mark of the outbound (a urltest/icmptest one routes
+    // through its selected child's table).  Only router-originated traffic
+    // carries it, which the source NAT below relies on.
+    const auto mark_it =
+        context.outbound_marks->find(internal_detour_mark_key(outbound->tag));
     if (mark_it == context.outbound_marks->end()) {
       continue;
     }
@@ -75,6 +80,9 @@ void register_dns_detour_rules(const FirewallBuildContext& context,
       }
       const char* family_label =
           family == FirewallFamily::ipv6 ? "ipv6" : "ipv4";
+      if (family == FirewallFamily::ipv4) {
+        snat_marks.emplace(outbound->tag, fwmark);
+      }
 
       const std::string endpoint_id =
           "server=" + server.tag + ";route=" + outbound->tag +
@@ -98,6 +106,21 @@ void register_dns_detour_rules(const FirewallBuildContext& context,
         registrar.register_rule(std::move(rule));
       }
     }
+  }
+
+  // The query socket took the source address of the main-table route before
+  // the OUTPUT mark rerouted the packet; replace it with the address of the
+  // interface the packet actually leaves through.  IPv4 only.
+  int snat_priority = 0;
+  for (const auto& [tag, mark] : snat_marks) {
+    FirewallRuleInstance rule;
+    rule.key = FirewallRuleKey::compact(kSnatModuleId, "route=" + tag);
+    rule.stage = FirewallRuleStage::source_nat;
+    rule.priority = snat_priority++;
+    rule.hook = FirewallHook::postrouting;
+    rule.family = FirewallFamily::ipv4;
+    rule.action = MasqueradeAction{mark, context.fwmark_mask};
+    registrar.register_rule(std::move(rule));
   }
 }
 

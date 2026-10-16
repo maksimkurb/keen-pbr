@@ -168,9 +168,17 @@ nlohmann::json NftablesFirewall::build_base_chain_json(
     case PhysicalBaseChain::Hook::other:
         throw FirewallError("nft base chain has an unsupported hook");
     }
+    const char* type = "filter";
+    switch (base.type) {
+    case PhysicalBaseChain::Type::filter: type = "filter"; break;
+    case PhysicalBaseChain::Type::route: type = "route"; break;
+    case PhysicalBaseChain::Type::nat: type = "nat"; break;
+    case PhysicalBaseChain::Type::other:
+        throw FirewallError("nft base chain has an unsupported type");
+    }
     return {{"add", {{"chain", {
         {"family", "inet"}, {"table", TABLE_NAME}, {"name", id.name},
-        {"type", base.type == PhysicalBaseChain::Type::route ? "route" : "filter"},
+        {"type", type},
         {"hook", hook}, {"prio", base.priority},
         {"policy", base.policy_accept ? "accept" : "drop"}
     }}}}};
@@ -184,7 +192,8 @@ nlohmann::json NftablesFirewall::build_delete_named_chain_json(
 }
 
 bool NftablesFirewall::is_intercept_chain_name(const std::string& name) {
-    return name == "dns_hold" || name == "sniff_fwd" || name == "sniff_out";
+    return name == "dns_hold" || name == "sniff_fwd" || name == "sniff_out" ||
+           name == "snat";
 }
 
 nlohmann::json NftablesFirewall::build_delete_chain_json() {
@@ -481,6 +490,8 @@ void append_statement_exprs(json& expr, const PhysicalStatement& statement,
         }
         expr.push_back({{"vmap", {{"key", std::move(key)},
                                    {"data", {{"set", std::move(targets)}}}}}});
+    } else if (std::holds_alternative<MasqueradeStmt>(statement)) {
+        expr.push_back({{"masquerade", nullptr}});
     } else if (const auto* late = std::get_if<LateMatchStmt>(&statement)) {
         append_match_exprs(expr, late->match, ip_proto, /*late=*/true);
     } else {
@@ -754,7 +765,8 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
         arr.push_back(build_output_chain_json());
         for (const auto role : {PhysicalChainRole::nft_dns_hold,
                                 PhysicalChainRole::nft_sniff_forward,
-                                PhysicalChainRole::nft_sniff_output}) {
+                                PhysicalChainRole::nft_sniff_output,
+                                PhysicalChainRole::nft_snat}) {
             for (const auto& chain : pending_ruleset_.chains) {
                 if (chain.id.role == role && chain.base.has_value()) {
                     arr.push_back(build_base_chain_json(chain.id, *chain.base));
@@ -778,7 +790,8 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
                                 PhysicalChainRole::nft_output,
                                 PhysicalChainRole::nft_dns_hold,
                                 PhysicalChainRole::nft_sniff_forward,
-                                PhysicalChainRole::nft_sniff_output}) {
+                                PhysicalChainRole::nft_sniff_output,
+                                PhysicalChainRole::nft_snat}) {
             for (const auto& chain : pending_ruleset_.chains) {
                 if (chain.id.role != role) {
                     continue;

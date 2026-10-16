@@ -34,22 +34,67 @@ const std::string kEmptyMangle =
 
 } // namespace
 
-TEST_CASE("iptables snapshot reads only the mangle table of each enabled family") {
+TEST_CASE("iptables snapshot reads mangle of each enabled family and IPv4 nat") {
   Calls calls;
   const auto snapshot =
       inspect_iptables_snapshot(recording_runner(calls, kEmptyMangle), {}, true);
   CHECK(snapshot.available);
   CHECK(snapshot.backend == FirewallBackend::iptables);
-  REQUIRE(calls.size() == 2);
+  REQUIRE(calls.size() == 3);
   CHECK(called(calls, {"iptables", "-t", "mangle", "-S"}));
+  CHECK(called(calls, {"iptables", "-t", "nat", "-S"}));
   CHECK(called(calls, {"ip6tables", "-t", "mangle", "-S"}));
+  CHECK_FALSE(called(calls, {"ip6tables", "-t", "nat", "-S"}));
 
   calls.clear();
   CHECK(inspect_iptables_snapshot(recording_runner(calls, kEmptyMangle), {},
                                   false)
             .available);
-  REQUIRE(calls.size() == 1);
+  REQUIRE(calls.size() == 2);
   CHECK(calls[0] == std::vector<std::string>{"iptables", "-t", "mangle", "-S"});
+  CHECK(calls[1] == std::vector<std::string>{"iptables", "-t", "nat", "-S"});
+}
+
+TEST_CASE("iptables snapshot tolerates an unreadable nat table") {
+  Calls calls;
+  const CommandRunner runner = [&calls](const std::vector<std::string>& args) {
+    calls.push_back(args);
+    if (args[2] == "nat") return CommandResult{"", 3, false};
+    return CommandResult{kEmptyMangle, 0, false};
+  };
+  const auto snapshot = inspect_iptables_snapshot(runner, {}, false);
+  CHECK(snapshot.available);
+  CHECK(snapshot.error.empty());
+  CHECK(called(calls, {"iptables", "-t", "nat", "-S"}));
+}
+
+TEST_CASE("iptables snapshot keeps the source NAT chain and its hook") {
+  Calls calls;
+  const CommandRunner runner = [&calls](const std::vector<std::string>& args) {
+    calls.push_back(args);
+    if (args[2] == "nat") {
+      return CommandResult{
+          "-P POSTROUTING ACCEPT\n-N KeenPbrSnat\n-N _NDM_MASQ\n"
+          "-A POSTROUTING -j _NDM_MASQ\n-A POSTROUTING -j KeenPbrSnat\n"
+          "-A KeenPbrSnat -m mark --mark 0x20000/0xff0000 -j MASQUERADE\n",
+          0, false};
+    }
+    return CommandResult{kEmptyMangle, 0, false};
+  };
+  const auto snapshot = inspect_iptables_snapshot(runner, {}, false);
+  REQUIRE(snapshot.available);
+  const auto* snat = snapshot.ruleset.find(
+      {PhysicalChainRole::iptables_snat, PhysicalTable::nat,
+       FirewallFamily::ipv4, 0, "KeenPbrSnat"});
+  REQUIRE(snat != nullptr);
+  REQUIRE(snat->rules.size() == 1);
+  CHECK(std::holds_alternative<MasqueradeStmt>(
+      snat->rules.front().statements.front()));
+  const auto* hook = snapshot.ruleset.find(
+      {PhysicalChainRole::system_other, PhysicalTable::nat,
+       FirewallFamily::ipv4, 0, "POSTROUTING"});
+  REQUIRE(hook != nullptr);
+  CHECK(hook->rules.size() == 1);
 }
 
 TEST_CASE("iptables snapshot adds the raw table per RAW PREROUTING family") {
@@ -57,7 +102,7 @@ TEST_CASE("iptables snapshot adds the raw table per RAW PREROUTING family") {
   CHECK(inspect_iptables_snapshot(recording_runner(calls, kEmptyMangle),
                                   RawPreroutingMode{true, false}, true)
             .available);
-  CHECK(calls.size() == 3);
+  CHECK(calls.size() == 4);
   CHECK(called(calls, {"iptables", "-t", "raw", "-S"}));
   CHECK(called(calls, {"iptables", "-t", "mangle", "-S"}));
   CHECK(called(calls, {"ip6tables", "-t", "mangle", "-S"}));
@@ -67,7 +112,7 @@ TEST_CASE("iptables snapshot adds the raw table per RAW PREROUTING family") {
   CHECK(inspect_iptables_snapshot(recording_runner(calls, kEmptyMangle),
                                   RawPreroutingMode{true, true}, true)
             .available);
-  CHECK(calls.size() == 4);
+  CHECK(calls.size() == 5);
 }
 
 TEST_CASE("iptables snapshot parses the real kernel dump into chains") {
@@ -143,7 +188,7 @@ TEST_CASE("the inspector factory refuses RAW PREROUTING with nftables") {
   const auto inspector = create_firewall_snapshot_inspector(
       FirewallBackend::iptables, {}, recording_runner(calls, kEmptyMangle));
   CHECK(inspector->inspect(false).available);
-  CHECK(calls.size() == 1);
+  CHECK(calls.size() == 2); // mangle and nat
 }
 
 TEST_CASE("IPv6 chains in the expected ruleset enable the IPv6 inspection") {

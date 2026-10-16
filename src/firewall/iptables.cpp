@@ -830,7 +830,9 @@ constexpr const char *kLegacyChains[] = {
     "KeenPbrOutput_B",
     // Interception chains are retired the same way whenever the plan no
     // longer carries them (they are skipped while declared by the commit).
-    "KeenPbrDnsHold",      "KeenPbrSniff",   "KeenPbrSniffOut"};
+    "KeenPbrDnsHold",      "KeenPbrSniff",   "KeenPbrSniffOut",
+    // nat: the source NAT chain, retired the same way.
+    "KeenPbrSnat"};
 
 } // namespace
 
@@ -838,6 +840,17 @@ bool IptablesFirewall::live_prerouting_chain_present(bool ipv6) const {
   const auto table = parse_observed_table(
       capture_table_dump(ipv6, prerouting_table_name(ipv6)));
   return table.chains.count(prerouting_chain_name(ipv6)) != 0;
+}
+
+bool IptablesFirewall::live_snat_chain_present() {
+  // A nat table that cannot be listed holds no chain of ours.
+  const auto result = safe_exec_capture({"iptables", "-t", "nat", "-S"},
+                                        /*suppress_stderr=*/true);
+  if (result.exit_code != 0 || result.truncated || result.timed_out) {
+    return false;
+  }
+  return parse_observed_table(result.stdout_output)
+             .chains.count(iptables_snat_chain_name()) != 0;
 }
 
 size_t IptablesFirewall::count_exact_jump(const std::string &rules,
@@ -955,6 +968,16 @@ void IptablesFirewall::verify_applied_hooks(bool ipv6) const {
   }
   if (has_chain(iptables_sniff_out_chain_name())) {
     verify_pinned("OUTPUT", iptables_sniff_out_chain_name());
+  }
+  if (pending_ruleset_.find(iptables_physical_chain_id(
+          iptables_snat_chain_name(), PhysicalTable::nat, family)) != nullptr) {
+    const auto dump = safe_exec_capture(
+        {command, "-t", "nat", "-S", "POSTROUTING"}, /*suppress_stderr=*/true);
+    if (dump.exit_code != 0 ||
+        count_exact_jump(dump.stdout_output, "POSTROUTING",
+                         iptables_snat_chain_name()) != 1) {
+      throw FirewallError("iptables builtin hook verification failed");
+    }
   }
 }
 
@@ -1152,6 +1175,8 @@ void append_iptables_target(std::string &out, const PhysicalStatement &stmt) {
       out += " --nflog-threshold ";
       out += std::to_string(log->threshold);
     }
+  } else if (std::holds_alternative<MasqueradeStmt>(stmt)) {
+    out += " -j MASQUERADE";
   } else if (const auto *verdict = std::get_if<VerdictStmt>(&stmt)) {
     switch (verdict->verdict) {
     case PhysicalVerdict::accept:
@@ -1203,9 +1228,11 @@ std::string IptablesFirewall::build_table_script(
     const char *table, FirewallFamily family,
     const std::vector<OwnedChainSpec> &chains, const PhysicalRuleset &rules,
     const std::string &observed_dump) {
+  const std::string_view table_name(table);
   const PhysicalTable physical_table =
-      std::string_view(table) == "raw" ? PhysicalTable::raw
-                                       : PhysicalTable::mangle;
+      table_name == "raw"   ? PhysicalTable::raw
+      : table_name == "nat" ? PhysicalTable::nat
+                            : PhysicalTable::mangle;
   const ObservedTable observed = parse_observed_table(observed_dump);
 
   // Chains this commit flushes: the declared owned chains plus every retired
@@ -1424,6 +1451,24 @@ void add_intercept_hook_rules(PhysicalRuleset &result) {
   }
 }
 
+// The appended (not pinned) nat POSTROUTING jump into KeenPbrSnat, when the
+// lowered ruleset has that chain.
+void add_snat_hook_rule(PhysicalRuleset &result) {
+  const PhysicalChainId snat = iptables_physical_chain_id(
+      iptables_snat_chain_name(), PhysicalTable::nat, FirewallFamily::ipv4);
+  if (result.find(snat) == nullptr) {
+    return;
+  }
+  PhysicalChain hook;
+  hook.id = iptables_physical_chain_id("POSTROUTING", PhysicalTable::nat,
+                                       FirewallFamily::ipv4);
+  PhysicalRule rule;
+  rule.family = FirewallFamily::ipv4;
+  rule.statements.push_back(JumpStmt{snat, false});
+  hook.rules.push_back(std::move(rule));
+  append_physical_ruleset(result, PhysicalRuleset{{std::move(hook)}});
+}
+
 } // namespace
 
 PhysicalRuleset
@@ -1434,6 +1479,7 @@ IptablesFirewall::expected_ruleset(const FirewallPlan &plan) const {
   PhysicalRuleset result = lower_firewall_plan(plan, context);
   append_physical_ruleset(result, expected_hook_rules());
   add_intercept_hook_rules(result);
+  add_snat_hook_rule(result);
   return result;
 }
 
@@ -1730,6 +1776,18 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
                   build_table_script(table, family, chains, pending_ruleset_,
                                      capture_table_dump(ipv6, table)));
     };
+    // Source NAT (nat table, IPv4 only), published before the marks that
+    // select it.  The table is touched only when the plan carries the chain
+    // or a stale one is left over (then retired).
+    if (!ipv6) {
+      if (pending_ruleset_.find(iptables_physical_chain_id(
+              iptables_snat_chain_name(), PhysicalTable::nat, family)) !=
+          nullptr) {
+        run("nat", {{iptables_snat_chain_name(), "POSTROUTING"}});
+      } else if (live_snat_chain_present()) {
+        run("nat", {});
+      }
+    }
     if (uses_raw_prerouting(ipv6)) {
       // Publish local OUTPUT first and the forwarded-traffic PREROUTING path
       // last.
@@ -1893,6 +1951,12 @@ void IptablesFirewall::cleanup_rules_impl(bool sweep_live_state) {
     }
     if (sweep_live_state || !raw) {
       delete_chain_if_present(mangle, "KeenPbrTable");
+    }
+    // Source NAT lives in the IPv4 nat table only.
+    if (!ipv6) {
+      TableSnapshot nat = inspect_table(command, "nat", ipv6);
+      remove_all_hooks(nat, "POSTROUTING", iptables_snat_chain_name());
+      delete_chain_if_present(nat, iptables_snat_chain_name());
     }
     for (const char *chain : {"KeenPbrOutput_A", "KeenPbrOutput_B",
                               "KeenPbrTable_A", "KeenPbrTable_B"}) {

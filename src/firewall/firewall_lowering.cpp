@@ -208,6 +208,8 @@ const char *iptables_sniff_chain_name() { return "KeenPbrSniff"; }
 
 const char *iptables_sniff_out_chain_name() { return "KeenPbrSniffOut"; }
 
+const char *iptables_snat_chain_name() { return "KeenPbrSnat"; }
+
 PhysicalChainId iptables_physical_chain_id(const std::string &name,
                                            PhysicalTable table,
                                            FirewallFamily family) {
@@ -248,6 +250,9 @@ PhysicalChainId nft_physical_chain_id(PhysicalChainRole role, uint32_t mark) {
     break;
   case PhysicalChainRole::nft_sniff_output:
     id.name = "sniff_out";
+    break;
+  case PhysicalChainRole::nft_snat:
+    id.name = "snat";
     break;
   case PhysicalChainRole::nft_setter:
     id.setter_mark = mark;
@@ -486,6 +491,8 @@ struct IptablesChain {
   // The interception chains hold only interception rules; the classification
   // chains never receive them.
   bool intercept{false};
+  // The source NAT chain (nat POSTROUTING) holds only MASQUERADE rules.
+  bool snat{false};
 };
 
 // iptables multiport accepts at most 15 ports; a range takes two slots.
@@ -907,6 +914,7 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
 
   const bool has_queue = plan_has_action<QueueAction>(plan);
   const bool has_log = plan_has_action<LogAction>(plan);
+  const bool has_masquerade = plan_has_action<MasqueradeAction>(plan);
   // A router-originated sniff rule exists only when router traffic is
   // processed: KeenPbrSniff is then jumped from OUTPUT as well as FORWARD.
   const bool log_in_output = std::any_of(
@@ -986,6 +994,17 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
                             FirewallHook::output);
       }
     }
+    // Source NAT is IPv4 only (plan validation enforces it).
+    if (has_masquerade && family == FirewallFamily::ipv4) {
+      IptablesChain chain;
+      chain.chain.id = iptables_physical_chain_id(
+          iptables_snat_chain_name(), PhysicalTable::nat, family);
+      chain.family = family;
+      chain.hook = FirewallHook::postrouting;
+      chain.comments = comments;
+      chain.snat = true;
+      chains.push_back(std::move(chain));
+    }
   };
   add_family(FirewallFamily::ipv4);
   if (context.ipv6_enabled) {
@@ -1001,7 +1020,18 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
     for (const auto &target : chains) {
       before.push_back(target.chain.rules.size());
     }
-    if (is_intercept_action(rule.action)) {
+    if (const auto *masquerade =
+            std::get_if<MasqueradeAction>(&rule.action)) {
+      for (auto &target : chains) {
+        if (target.snat && target.family == rule.family) {
+          target.chain.rules.push_back(build_rule(
+              rule.family,
+              {MarkMatch{PhysicalMarkKind::packet, masquerade->mask, false,
+                         {masquerade->mark}}},
+              {MasqueradeStmt{}}, physical_key(rule.key, target.comments)));
+        }
+      }
+    } else if (is_intercept_action(rule.action)) {
       const FirewallHook want =
           rule.hook == FirewallHook::postrouting ? FirewallHook::postrouting
           : rule.hook == FirewallHook::output && sniff_out_chain
@@ -1021,7 +1051,8 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
           // Route rules (prerouting hook) cover forwarded traffic and, when
           // the plan processes router traffic, local traffic too; output-hook
           // rules (DNS detour) only local traffic.
-          if (!target.intercept && target.family == classifier.family &&
+          if (!target.intercept && !target.snat &&
+              target.family == classifier.family &&
               (classifier.hook == FirewallHook::prerouting
                    ? (target.hook == FirewallHook::prerouting ||
                       plan.process_router_traffic)
@@ -1033,7 +1064,9 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
       }
     } else {
       for (auto &target : chains) {
-        if (!target.intercept) lower_iptables_prefilter(rule, target);
+        if (!target.intercept && !target.snat) {
+          lower_iptables_prefilter(rule, target);
+        }
       }
     }
     for (std::size_t i = 0; i < chains.size(); ++i) {
@@ -1151,6 +1184,12 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
       PhysicalChainRole::nft_sniff_forward, PhysicalBaseChain::Hook::forward);
   PhysicalChain sniff_output = intercept_chain(
       PhysicalChainRole::nft_sniff_output, PhysicalBaseChain::Hook::output);
+  // Source NAT: srcnat priority, kept only when it received a rule.
+  PhysicalChain snat;
+  snat.id = nft_physical_chain_id(PhysicalChainRole::nft_snat);
+  snat.base = PhysicalBaseChain{PhysicalBaseChain::Type::nat,
+                                PhysicalBaseChain::Hook::postrouting, 100,
+                                true};
 
   for (std::size_t plan_index = 0; plan_index < plan.rules.size();
        ++plan_index) {
@@ -1160,9 +1199,17 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
     const std::size_t dns_hold_before = dns_hold.rules.size();
     const std::size_t sniff_forward_before = sniff_forward.rules.size();
     const std::size_t sniff_output_before = sniff_output.rules.size();
+    const std::size_t snat_before = snat.rules.size();
     const auto key = physical_key(rule.key, true);
     const FirewallFamily any = FirewallFamily::any;
-    if (is_intercept_action(rule.action)) {
+    if (const auto *masquerade =
+            std::get_if<MasqueradeAction>(&rule.action)) {
+      snat.rules.push_back(build_rule(
+          rule.family,
+          {MarkMatch{PhysicalMarkKind::packet, masquerade->mask, false,
+                     {masquerade->mark}}},
+          {MasqueradeStmt{}}, key));
+    } else if (is_intercept_action(rule.action)) {
       PhysicalChain &chain =
           rule.hook == FirewallHook::postrouting ? dns_hold
           : rule.hook == FirewallHook::forward   ? sniff_forward
@@ -1322,12 +1369,13 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
     stamp_plan_rule(dns_hold, dns_hold_before, plan_index);
     stamp_plan_rule(sniff_forward, sniff_forward_before, plan_index);
     stamp_plan_rule(sniff_output, sniff_output_before, plan_index);
+    stamp_plan_rule(snat, snat_before, plan_index);
   }
 
   PhysicalRuleset result;
   result.chains.push_back(std::move(prerouting));
   result.chains.push_back(std::move(output));
-  for (auto *chain : {&dns_hold, &sniff_forward, &sniff_output}) {
+  for (auto *chain : {&dns_hold, &sniff_forward, &sniff_output, &snat}) {
     if (!chain->rules.empty()) result.chains.push_back(std::move(*chain));
   }
   for (const uint32_t mark : setter_marks) {

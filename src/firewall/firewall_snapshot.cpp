@@ -36,9 +36,19 @@ FirewallSnapshot inspect_iptables_snapshot_impl(const CommandRunner& runner,
                                  snapshot.ruleset)) {
             return false;
         }
-        return !raw_prerouting.uses(ipv6) ||
-               read_iptables_table(runner, command, "raw", PhysicalTable::raw,
-                                   family, snapshot.ruleset);
+        if (raw_prerouting.uses(ipv6) &&
+            !read_iptables_table(runner, command, "raw", PhysicalTable::raw,
+                                 family, snapshot.ruleset)) {
+            return false;
+        }
+        // nat holds the IPv4 source NAT chain.  A nat table that cannot be
+        // listed holds nothing of ours; an expected chain is then reported
+        // missing by the verifier.
+        if (!ipv6) {
+            (void)read_iptables_table(runner, command, "nat", PhysicalTable::nat,
+                                      family, snapshot.ruleset);
+        }
+        return true;
     };
 
     try {

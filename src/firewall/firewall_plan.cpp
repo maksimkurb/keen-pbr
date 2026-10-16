@@ -19,10 +19,11 @@ void validate_firewall_rule(const FirewallRuleInstance& rule,
       rule.hook != FirewallHook::postrouting) {
     throw std::invalid_argument("firewall rule has an invalid hook");
   }
-  // Interception actions live in their own chains: NFQUEUE on the way out
-  // (postrouting), NFLOG on forwarded or locally generated traffic.  Every
-  // other action classifies in prerouting/output.
-  const bool queue = std::holds_alternative<QueueAction>(rule.action);
+  // Interception and source NAT live in their own chains: NFQUEUE and
+  // MASQUERADE on the way out (postrouting), NFLOG on forwarded or locally
+  // generated traffic.  Every other action classifies in prerouting/output.
+  const bool queue = std::holds_alternative<QueueAction>(rule.action) ||
+                     std::holds_alternative<MasqueradeAction>(rule.action);
   const bool log = std::holds_alternative<LogAction>(rule.action);
   const bool hook_ok =
       queue ? rule.hook == FirewallHook::postrouting
@@ -79,6 +80,13 @@ void validate_firewall_rule(const FirewallRuleInstance& rule,
                       return candidate.fwmark == 0;
                     })) {
       throw std::invalid_argument("firewall rule has an invalid balance mark");
+    }
+  } else if (const auto* masquerade =
+                 std::get_if<MasqueradeAction>(&rule.action)) {
+    // Only IPv4 is source-NATed: the IPv6 nat table is often absent.
+    if (masquerade->mark == 0 || masquerade->mask != fwmark_mask ||
+        rule.family != FirewallFamily::ipv4 || !rule.criteria.empty()) {
+      throw std::invalid_argument("firewall rule has an invalid masquerade");
     }
   } else if (const auto* restore =
                  std::get_if<RestoreConntrackMarkAction>(&rule.action)) {

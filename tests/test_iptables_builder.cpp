@@ -413,6 +413,26 @@ public:
     return table_script("mangle", ipv6, chains, ruleset, observed);
   }
 
+  // The nat restore of the source NAT chain over an observed
+  // `iptables -t nat -S` dump.  `enabled` false declares no chain.
+  static std::string snat_script(bool enabled, const std::string &observed) {
+    FirewallPlan plan;
+    plan.fwmark_mask = 0x00FF0000u;
+    if (enabled) {
+      FirewallRuleInstance rule;
+      rule.key = {"dns.detour_snat", "vpn"};
+      rule.stage = FirewallRuleStage::source_nat;
+      rule.hook = FirewallHook::postrouting;
+      rule.family = FirewallFamily::ipv4;
+      rule.action = MasqueradeAction{0x20000u, 0x00FF0000u};
+      plan.rules.push_back(rule);
+    }
+    const auto ruleset = lower(plan, {}, false);
+    std::vector<ChainSpec> chains;
+    if (enabled) chains.push_back({"KeenPbrSnat", "POSTROUTING"});
+    return table_script("nat", false, chains, ruleset, observed);
+  }
+
   static PhysicalRuleset expected_hooks(RawPreroutingMode mode) {
     IptablesFirewall firewall;
     firewall.raw_prerouting_ = mode;
@@ -914,6 +934,51 @@ TEST_CASE("iptables interception disabled: hooks and chains are retired") {
         std::string::npos);
 }
 
+TEST_CASE("iptables source NAT chain is declared in nat and hooked from POSTROUTING") {
+  const std::string script = T::snat_script(true, "-P POSTROUTING ACCEPT\n");
+  CHECK(script ==
+        "*nat\n"
+        ":KeenPbrSnat - [0:0]\n"
+        "-A KeenPbrSnat -m mark --mark 0x20000/0xff0000 -j MASQUERADE\n"
+        "-A POSTROUTING -j KeenPbrSnat\n"
+        "COMMIT\n");
+  // An existing hook after foreign rules is kept where it is.
+  const std::string hooked = T::snat_script(
+      true,
+      "-P POSTROUTING ACCEPT\n-N KeenPbrSnat\n-N _NDM_MASQ\n"
+      "-A POSTROUTING -j _NDM_MASQ\n-A POSTROUTING -j KeenPbrSnat\n");
+  CHECK(hooked.find("POSTROUTING -j KeenPbrSnat") == std::string::npos);
+}
+
+TEST_CASE("iptables source NAT disabled: hook and chain are retired") {
+  const std::string script = T::snat_script(
+      false,
+      "-P POSTROUTING ACCEPT\n-N KeenPbrSnat\n"
+      "-A POSTROUTING -j KeenPbrSnat\n"
+      "-A KeenPbrSnat -m mark --mark 0x20000/0xff0000 -j MASQUERADE\n");
+  CHECK(script ==
+        "*nat\n"
+        ":KeenPbrSnat - [0:0]\n"
+        "-D POSTROUTING -j KeenPbrSnat\n"
+        "-X KeenPbrSnat\n"
+        "COMMIT\n");
+}
+
+TEST_CASE("live-state cleanup removes the source NAT hook and chain") {
+  const auto result = T::fake_cleanup(
+      RawPreroutingMode{},
+      "-P POSTROUTING ACCEPT\n-N KeenPbrSnat\n"
+      "-A POSTROUTING -j KeenPbrSnat\n",
+      "");
+  CHECK_FALSE(result.threw);
+  CHECK(result.log.find("iptables -t nat -D POSTROUTING -j KeenPbrSnat") !=
+        std::string::npos);
+  CHECK(result.log.find("iptables -t nat -X KeenPbrSnat") != std::string::npos);
+  CHECK(result.log.find("ip6tables -t nat") == std::string::npos);
+  CHECK(result.log.find("-D POSTROUTING -j KeenPbrSnat") <
+        result.log.find("-t nat -F KeenPbrSnat"));
+}
+
 TEST_CASE("live-state cleanup removes the interception hooks and chains") {
   const auto log = T::cleanup_sweep_log(RawPreroutingMode{});
   for (const char *command : {"iptables", "ip6tables"}) {
@@ -1027,8 +1092,9 @@ TEST_CASE("cleanup inspects each table once per family and sets once") {
   const auto result = T::fake_cleanup(RawPreroutingMode{}, T::kOwnedDump,
                                       "kpbr4_a\nkpbr6d_b\nforeign\n");
   CHECK_FALSE(result.threw);
-  // raw + mangle per family; legacy numbered-chain sweep reuses the mangle one.
-  CHECK(count_of(result.log, " -S\n") == 4);
+  // raw + mangle per family and the IPv4 nat; the legacy numbered-chain
+  // sweep reuses the mangle one.
+  CHECK(count_of(result.log, " -S\n") == 5);
   CHECK(count_of(result.log, "ipset list -n") == 1);
   CHECK(result.log.find("flush kpbr4_a") != std::string::npos);
   CHECK(result.log.find("destroy kpbr4_a") != std::string::npos);

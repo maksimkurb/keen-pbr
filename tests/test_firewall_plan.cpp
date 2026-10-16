@@ -229,7 +229,7 @@ TEST_CASE("backend plan order keeps routes before DNS detours") {
       0x00FF0000U};
   const auto plan = build_firewall_plan(inputs);
 
-  REQUIRE(plan.rules.size() == 11);
+  REQUIRE(plan.rules.size() == 12);
   CHECK(plan.rules[2].source_rule_index ==
         std::numeric_limits<std::size_t>::max());
   CHECK(plan.rules[6].source_rule_index ==
@@ -248,6 +248,10 @@ TEST_CASE("backend plan order keeps routes before DNS detours") {
   CHECK(plan.rules[9].priority < plan.rules[10].priority);
   CHECK(plan.rules[9].criteria.proto == L4Proto::Tcp);
   CHECK(plan.rules[10].criteria.proto == L4Proto::Udp);
+  // The source NAT of the detour comes after every classification rule.
+  CHECK(plan.rules[11].stage == FirewallRuleStage::source_nat);
+  CHECK(std::get<MasqueradeAction>(plan.rules[11].action) ==
+        MasqueradeAction{0x200U, 0x00FF0000U});
 
   PlanFirewall firewall;
   firewall.apply(plan);

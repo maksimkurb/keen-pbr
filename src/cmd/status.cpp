@@ -578,6 +578,8 @@ void print_firewall_section(const std::vector<DisplayFirewallRule>& firewall_rul
             }
         } else if (fr.action == "drop") {
             rule_desc += "DROP";
+        } else if (fr.action == "masquerade") {
+            rule_desc += "MASQUERADE " + fwmark_hex(fr.expected_fwmark.value_or(0));
         } else {
             rule_desc += "PASS";
         }

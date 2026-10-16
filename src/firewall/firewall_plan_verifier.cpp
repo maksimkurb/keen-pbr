@@ -54,7 +54,9 @@ const char* mark_kind_name(PhysicalMarkKind kind) {
 
 std::string chain_label(const PhysicalChainId& id) {
     if (id.table == PhysicalTable::nft_inet) return id.name;
-    std::string label = id.table == PhysicalTable::raw ? "raw/" : "mangle/";
+    std::string label = id.table == PhysicalTable::raw   ? "raw/"
+                        : id.table == PhysicalTable::nat ? "nat/"
+                                                         : "mangle/";
     label += id.name;
     if (id.family == FirewallFamily::ipv6) label += " (ipv6)";
     return label;
@@ -179,6 +181,9 @@ struct StatementDescriber {
             s.key == PhysicalVmapKey::numgen_inc ? "numgen mod " : "ctmark&",
             s.param, entries);
     }
+    std::string operator()(const MasqueradeStmt&) const {
+        return "masquerade";
+    }
     std::string operator()(const UnknownStmt& s) const {
         return "unknown(" + s.text + ")";
     }
@@ -220,9 +225,13 @@ std::string describe_base(const std::optional<PhysicalBaseChain>& base) {
     case PhysicalBaseChain::Hook::postrouting: hook = "postrouting"; break;
     case PhysicalBaseChain::Hook::other: break;
     }
-    const char* type = base->type == PhysicalBaseChain::Type::filter
-        ? "filter"
-        : (base->type == PhysicalBaseChain::Type::route ? "route" : "other");
+    const char* type = "other";
+    switch (base->type) {
+    case PhysicalBaseChain::Type::filter: type = "filter"; break;
+    case PhysicalBaseChain::Type::route: type = "route"; break;
+    case PhysicalBaseChain::Type::nat: type = "nat"; break;
+    case PhysicalBaseChain::Type::other: break;
+    }
     return keen_pbr3::format("{} hook {} priority {} policy {}", type, hook,
                              base->priority,
                              base->policy_accept ? "accept" : "drop");
@@ -289,6 +298,7 @@ std::string action_name(const FirewallRuleAction& action) {
     }
     if (std::holds_alternative<QueueAction>(action)) return "queue";
     if (std::holds_alternative<LogAction>(action)) return "log";
+    if (std::holds_alternative<MasqueradeAction>(action)) return "masquerade";
     return "inbound_interface";
 }
 
@@ -312,6 +322,9 @@ public:
             } else if (const auto* balance =
                            std::get_if<BalanceAction>(&rule.action)) {
                 check.expected_fwmark = balance->fallback_mark;
+            } else if (const auto* masquerade =
+                           std::get_if<MasqueradeAction>(&rule.action)) {
+                check.expected_fwmark = masquerade->mark;
             }
             check.status = CheckStatus::ok;
         }

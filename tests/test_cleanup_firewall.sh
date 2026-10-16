@@ -114,7 +114,16 @@ cat > "$FAKE_XT_DIR/iptables.raw" <<'EOF'
 -A PREROUTING -j KeenPbrRaw
 -A KeenPbrRaw -j MARK --set-xmark 0x1/0x1
 EOF
-# ip6tables has mangle only; its raw table does not exist.
+cat > "$FAKE_XT_DIR/iptables.nat" <<'EOF'
+-P POSTROUTING ACCEPT
+-N KeenPbrSnat
+-N _NDM_MASQ
+-A POSTROUTING -j _NDM_MASQ
+-A POSTROUTING -j KeenPbrSnat
+-A KeenPbrSnat -m mark --mark 0x20000/0xff0000 -j MASQUERADE
+-A _NDM_MASQ -s 192.168.1.0/24 -j MASQUERADE
+EOF
+# ip6tables has mangle only; its raw and nat tables do not exist.
 cat > "$FAKE_XT_DIR/ip6tables.mangle" <<'EOF'
 -P PREROUTING ACCEPT
 -N KeenPbrTable
@@ -136,6 +145,12 @@ expected_mangle='-P PREROUTING ACCEPT
 [ "$(cat "$FAKE_XT_DIR/iptables.mangle")" = "$expected_mangle" ] ||
     fail "iptables mangle not cleaned: $(cat "$FAKE_XT_DIR/iptables.mangle")"
 [ "$(cat "$FAKE_XT_DIR/iptables.raw")" = '-P PREROUTING ACCEPT' ] || fail "iptables raw not cleaned"
+expected_nat='-P POSTROUTING ACCEPT
+-N _NDM_MASQ
+-A POSTROUTING -j _NDM_MASQ
+-A _NDM_MASQ -s 192.168.1.0/24 -j MASQUERADE'
+[ "$(cat "$FAKE_XT_DIR/iptables.nat")" = "$expected_nat" ] ||
+    fail "iptables nat not cleaned: $(cat "$FAKE_XT_DIR/iptables.nat")"
 [ "$(cat "$FAKE_XT_DIR/ip6tables.mangle")" = '-P PREROUTING ACCEPT' ] || fail "ip6tables mangle not cleaned"
 [ ! -e "$FAKE_XT_DIR/nft-table" ] || fail "nft table not deleted"
 grep -qxF 'destroy kpbr4_lan' "$FAKE_LOG" || fail "ipset kpbr4_lan not destroyed"

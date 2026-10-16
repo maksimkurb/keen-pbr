@@ -2132,4 +2132,127 @@ TEST_CASE("lowering interception: only iptables 1.4.21 options without optional 
   }
 }
 
+namespace {
+
+FirewallPlan snat_plan(bool process_router_traffic) {
+  FirewallRuleInstance snat =
+      make_rule("dns.detour_snat", "vpn", Fam::ipv4, {},
+                MasqueradeAction{kMark2, kMask}, FirewallHook::postrouting);
+  snat.stage = FirewallRuleStage::source_nat;
+  auto plan = plan_of({mark_rule("route", Fam::any, for_set("kpbr4_vpn")),
+                       snat});
+  plan.process_router_traffic = process_router_traffic;
+  return plan;
+}
+
+} // namespace
+
+TEST_CASE("lowering iptables: source NAT in its own nat chain, IPv4 only") {
+  for (const bool router_traffic : {false, true}) {
+    const auto set = lower_firewall_plan(snat_plan(router_traffic), ipt_context());
+    const auto &chain =
+        chain_of(set, ipt_chain("KeenPbrSnat", PhysicalTable::nat, Fam::ipv4));
+    CHECK(chain.id.role == Role::iptables_snat);
+    REQUIRE(chain.rules.size() == 1);
+    CHECK(render_iptables_rule(chain.rules[0], "KeenPbrSnat") ==
+          "-A KeenPbrSnat -m mark --mark 0x20000/0xff0000 -m comment "
+          "--comment " +
+              chain.rules[0].key->comment() + " -j MASQUERADE\n");
+    CHECK(chain.rules[0].plan_rule == 1U);
+    CHECK_FALSE(set.find(ipt_chain("KeenPbrSnat", PhysicalTable::nat, Fam::ipv6)));
+    // The classification chains never get the MASQUERADE rule.
+    for (const auto &other : set.chains) {
+      if (other.id.role == Role::iptables_snat) continue;
+      for (const auto &rule : other.rules) {
+        CHECK_FALSE(std::holds_alternative<MasqueradeStmt>(rule.statements.back()));
+      }
+    }
+  }
+  // No source NAT rule: no nat chain.
+  const auto plain = lower_firewall_plan(
+      plan_of({mark_rule("route", Fam::any, for_set("kpbr4_vpn"))}),
+      ipt_context());
+  CHECK_FALSE(has_chain_named(plain, "KeenPbrSnat"));
+}
+
+TEST_CASE("lowering iptables: source NAT omits the comment without xt_comment") {
+  auto context = ipt_context();
+  context.comments_ipv4_supported = false;
+  const auto set = lower_firewall_plan(snat_plan(false), context);
+  const auto &chain =
+      chain_of(set, ipt_chain("KeenPbrSnat", PhysicalTable::nat, Fam::ipv4));
+  REQUIRE(chain.rules.size() == 1);
+  CHECK(render_iptables_rule(chain.rules[0], "KeenPbrSnat") ==
+        "-A KeenPbrSnat -m mark --mark 0x20000/0xff0000 -j MASQUERADE\n");
+}
+
+TEST_CASE("iptables expected ruleset hooks the source NAT chain from POSTROUTING") {
+  IptablesFirewall firewall;
+  const auto expected = firewall.expected_ruleset(snat_plan(false));
+  const auto *hook = expected.find(
+      ipt_chain("POSTROUTING", PhysicalTable::nat, Fam::ipv4));
+  REQUIRE(hook != nullptr);
+  REQUIRE(hook->rules.size() == 1);
+  const auto &jump = std::get<JumpStmt>(hook->rules[0].statements.front());
+  CHECK(jump.target ==
+        ipt_chain("KeenPbrSnat", PhysicalTable::nat, Fam::ipv4));
+  CHECK_FALSE(hook->rules[0].hook_position.has_value());
+
+  const auto plain = firewall.expected_ruleset(
+      plan_of({mark_rule("route", Fam::any, for_set("kpbr4_vpn"))}));
+  CHECK_FALSE(plain.find(ipt_chain("POSTROUTING", PhysicalTable::nat, Fam::ipv4)));
+}
+
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
+TEST_CASE("lowering nftables: source NAT in a nat base chain") {
+  const auto set = lower_firewall_plan(snat_plan(true), nft_context());
+  const auto &chain = chain_of(set, nft_physical_chain_id(Role::nft_snat));
+  REQUIRE(chain.base.has_value());
+  CHECK(chain.base->type == PhysicalBaseChain::Type::nat);
+  CHECK(chain.base->hook == PhysicalBaseChain::Hook::postrouting);
+  CHECK(chain.base->priority == 100);
+  CHECK(chain.base->policy_accept);
+  REQUIRE(chain.rules.size() == 1);
+  const auto expr = nft_rule_json(set, Role::nft_snat, 0);
+  CHECK(expr[0]["match"]["left"]["meta"]["key"] == "nfproto");
+  CHECK(expr[0]["match"]["right"] == "ipv4");
+  CHECK(expr[1]["match"]["left"]["&"][0]["meta"]["key"] == "mark");
+  CHECK(expr.back() == nlohmann::json{{"masquerade", nullptr}});
+  // Not in the classification chains.
+  for (const auto &rule : nft_out(set).rules) {
+    CHECK_FALSE(std::holds_alternative<MasqueradeStmt>(rule.statements.back()));
+  }
+
+  const auto plain = lower_firewall_plan(
+      plan_of({mark_rule("route", Fam::any, for_set("kpbr4_vpn"))}),
+      nft_context());
+  CHECK_FALSE(plain.find(nft_physical_chain_id(Role::nft_snat)));
+}
+#endif
+
+TEST_CASE("plan validation: masquerade is IPv4 postrouting with an owned mark") {
+  const auto make = [](FirewallRuleAction action, FirewallHook hook,
+                       Fam family = Fam::ipv4) {
+    FirewallPlan plan;
+    plan.fwmark_mask = kMask;
+    FirewallRuleRegistrar registrar(plan);
+    registrar.register_rule(
+        make_rule("m", "i", family, {}, std::move(action), hook));
+  };
+  CHECK_NOTHROW(make(MasqueradeAction{kMark2, kMask}, FirewallHook::postrouting));
+  CHECK_THROWS_AS(make(MasqueradeAction{kMark2, kMask}, FirewallHook::output),
+                  std::invalid_argument);
+  CHECK_THROWS_AS(make(MasqueradeAction{kMark2, kMask},
+                       FirewallHook::postrouting, Fam::ipv6),
+                  std::invalid_argument);
+  CHECK_THROWS_AS(make(MasqueradeAction{kMark2, kMask},
+                       FirewallHook::postrouting, Fam::any),
+                  std::invalid_argument);
+  CHECK_THROWS_AS(make(MasqueradeAction{0, kMask}, FirewallHook::postrouting),
+                  std::invalid_argument);
+  CHECK_THROWS_AS(make(MasqueradeAction{kMark2, 0xFFFFFFFFu},
+                       FirewallHook::postrouting),
+                  std::invalid_argument);
+}
+
 } // namespace keen_pbr3

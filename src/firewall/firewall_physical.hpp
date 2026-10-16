@@ -43,6 +43,7 @@ namespace keen_pbr3 {
 enum class PhysicalTable : uint8_t {
   mangle,   // iptables mangle
   raw,      // iptables raw
+  nat,      // iptables nat
   nft_inet, // nft `table inet KeenPbrTable`
 };
 
@@ -59,12 +60,16 @@ enum class PhysicalChainRole : uint8_t {
   // iptables: router-originated sniff chain, only when KeenPbrSniff cannot
   // serve OUTPUT as well (it is jumped from FORWARD and needs an `-i` match).
   iptables_sniff_out,
+  // iptables: source NAT chain KeenPbrSnat in nat, jumped from POSTROUTING.
+  iptables_snat,
   // nft: base chain `prerouting` / `output` of the keen-pbr table.
   nft_prerouting,
   nft_output,
   nft_dns_hold,
   nft_sniff_forward,
   nft_sniff_output,
+  // nft: nat base chain `snat` (postrouting).
+  nft_snat,
   // nft: balance/ct-restore setter chain `setmark_XXXXXXXX`.
   nft_setter,
   // Builtin chain of a system table.  Only hook rules (jumps into keen-pbr
@@ -329,6 +334,11 @@ struct VmapStmt {
   }
 };
 
+// iptables `-j MASQUERADE` / nft `masquerade`, without options.
+struct MasqueradeStmt {
+  bool operator==(const MasqueradeStmt &) const { return true; }
+};
+
 struct UnknownStmt {
   std::string text;
   bool operator==(const UnknownStmt &) const { return false; }
@@ -344,7 +354,7 @@ struct LateMatchStmt {
 
 using PhysicalStatement =
     std::variant<SetMarkStmt, CopyMarkStmt, JumpStmt, VerdictStmt, QueueStmt,
-                 LogStmt, VmapStmt, UnknownStmt, LateMatchStmt>;
+                 LogStmt, VmapStmt, MasqueradeStmt, UnknownStmt, LateMatchStmt>;
 
 // ---------------------------------------------------------------------------
 // Rules, chains, ruleset
@@ -386,7 +396,7 @@ struct PhysicalRule {
 
 // nft base-chain attributes (the nft equivalent of an iptables hook rule).
 struct PhysicalBaseChain {
-  enum class Type : uint8_t { filter, route, other };
+  enum class Type : uint8_t { filter, route, nat, other };
   enum class Hook : uint8_t { prerouting, output, forward, postrouting, other };
   Type type{Type::filter};
   Hook hook{Hook::prerouting};
@@ -430,7 +440,7 @@ struct PhysicalRuleset {
 // Parse `iptables-save` / `ip6tables-save` output (optionally `-t <table>`),
 // or `iptables -t <table> -S` output (which has `-N`/`-P` instead of `:chain`
 // lines and no `*table` header; `default_table` is used then).  Only the
-// mangle and raw tables are examined.
+// mangle, raw and nat tables are examined.
 PhysicalRuleset parse_iptables_save(
     std::string_view output, FirewallFamily family,
     PhysicalTable default_table = PhysicalTable::mangle);

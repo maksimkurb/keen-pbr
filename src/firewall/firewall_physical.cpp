@@ -603,6 +603,9 @@ std::optional<PhysicalChainId> classify_iptables_chain(std::string_view name,
   if (name == "KeenPbrSniffOut") {
     return iptables_id(R::iptables_sniff_out, table, family, name);
   }
+  if (name == "KeenPbrSnat") {
+    return iptables_id(R::iptables_snat, table, family, name);
+  }
   return iptables_id(R::other_owned, table, family, name);
 }
 
@@ -1065,6 +1068,10 @@ struct IptablesRuleParser {
         r.rule.statements.push_back(VerdictStmt{PhysicalVerdict::return_});
         return;
       }
+      if (target == "MASQUERADE") {
+        r.rule.statements.push_back(MasqueradeStmt{});
+        return;
+      }
     }
     if (!is_goto && target == "NFQUEUE") {
       QueueStmt queue;
@@ -1201,6 +1208,7 @@ PhysicalRuleset parse_iptables_save(std::string_view output,
       builtin_rules.fill(0);
       if (name == "mangle") table = PhysicalTable::mangle;
       else if (name == "raw") table = PhysicalTable::raw;
+      else if (name == "nat") table = PhysicalTable::nat;
       else table_active = false;
       continue;
     }
@@ -1334,6 +1342,8 @@ PhysicalChainId nft_chain_id(std::string_view name) {
     id.role = PhysicalChainRole::nft_sniff_forward;
   } else if (name == "sniff_out") {
     id.role = PhysicalChainRole::nft_sniff_output;
+  } else if (name == "snat") {
+    id.role = PhysicalChainRole::nft_snat;
   } else if (name.size() == 16 && name.substr(0, 8) == "setmark_") {
     const std::string_view hex = name.substr(8);
     uint32_t mark = 0;
@@ -1855,6 +1865,8 @@ struct NftRuleParser {
       }
     } else if (name == "vmap") {
       parse_vmap(expr);
+    } else if (name == "masquerade" && expr[name].is_null()) {
+      add_statement(MasqueradeStmt{});
     } else if (name == "mangle") {
       parse_mangle(expr);
     } else if (name == "queue") {
@@ -1953,6 +1965,7 @@ PhysicalRuleset parse_nft_json(std::string_view text) {
         const std::string type = c.value("type", "");
         base.type = type == "filter"  ? PhysicalBaseChain::Type::filter
                     : type == "route" ? PhysicalBaseChain::Type::route
+                    : type == "nat"   ? PhysicalBaseChain::Type::nat
                                       : PhysicalBaseChain::Type::other;
         const std::string hook = c.value("hook", "");
         base.hook = hook == "prerouting" ? PhysicalBaseChain::Hook::prerouting

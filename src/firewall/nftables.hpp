@@ -59,7 +59,7 @@ private:
         bool table_exists{false};
         bool chain_exists{false};
         bool output_chain_exists{false};
-        // dns_hold / sniff_fwd / sniff_out base chains found live.
+        // dns_hold / sniff_fwd / sniff_out / snat base chains found live.
         std::set<std::string> intercept_chains;
         std::set<uint32_t> setter_chain_marks;
         std::set<std::string> set_names;

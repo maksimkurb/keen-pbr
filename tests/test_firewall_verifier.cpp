@@ -120,6 +120,8 @@ CommandRunner iptables_runner(const IptTexts& texts,
     REQUIRE(args[3] == "-S");
     const bool v6 = args[0] == "ip6tables";
     const bool raw = args[2] == "raw";
+    // No source NAT in these fixtures: an empty nat table.
+    if (args[2] == "nat") return CommandResult{"-P POSTROUTING ACCEPT\n", 0, false};
     return CommandResult{raw ? (v6 ? texts.v6_raw : texts.v4_raw)
                              : (v6 ? texts.v6_mangle : texts.v4_mangle),
                          0, false};

@@ -152,6 +152,23 @@ struct LogAction {
   bool operator!=(const LogAction &other) const { return !(*this == other); }
 };
 
+// Source NAT of router-originated packets carrying `mark` (under `mask`):
+// rewrite the source address to the one of the interface the packet leaves
+// through.  A packet rerouted by a mark set in OUTPUT keeps the source address
+// chosen for the original route; without this the reply never comes back.
+// Lives in its own chain (nat POSTROUTING on iptables).
+struct MasqueradeAction {
+  uint32_t mark{0};
+  uint32_t mask{0xFFFFFFFFu};
+
+  bool operator==(const MasqueradeAction &other) const {
+    return mark == other.mark && mask == other.mask;
+  }
+  bool operator!=(const MasqueradeAction &other) const {
+    return !(*this == other);
+  }
+};
+
 using FirewallRuleAction = std::variant<MarkAction, BalanceAction, VerdictAction,
                                         RestoreConntrackMarkAction,
                                         SkipEstablishedOrDnatAction,
@@ -159,7 +176,8 @@ using FirewallRuleAction = std::variant<MarkAction, BalanceAction, VerdictAction
                                         SkipMarkedPacketsAction,
                                         InboundInterfaceFilterAction,
                                         SkipLanOutputAction,
-                                        QueueAction, LogAction>;
+                                        QueueAction, LogAction,
+                                        MasqueradeAction>;
 
 enum class FirewallRuleStage : uint16_t {
   restore_conntrack = 100,
@@ -169,10 +187,12 @@ enum class FirewallRuleStage : uint16_t {
   terminal = 500,
   // Observation-only rules (DNS hold, L7 sniff) in their own chains.
   interception = 600,
+  // Source NAT (MasqueradeAction), in its own chain.
+  source_nat = 700,
 };
 
 // prerouting/output carry classification rules.  forward/postrouting exist for
-// interception rules, which live in their own chains: QueueAction at
+// the rules that live in their own chains: QueueAction and MasqueradeAction at
 // postrouting, LogAction at forward or output.
 enum class FirewallHook : uint8_t { prerouting, output, forward, postrouting };
 // `any` means the canonical rule applies to both families; it is not an

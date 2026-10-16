@@ -4,7 +4,7 @@
 # the ipsets kpbr*.  The package scripts run it on removal, after the service
 # is stopped.  A clean stop already removes all of this; the script covers a
 # daemon that crashed or never started, whose leftover rules (marking, DNS
-# hold) would keep steering traffic after keen-pbr is gone.  Uses only
+# hold, source NAT) would keep steering traffic after keen-pbr is gone.  Uses only
 # iptables, nft and ipset, never keen-pbr itself.  Idempotent; always exits 0.
 #
 #   cleanup-firewall.sh [--reason uninstall|stop|crash]
@@ -20,7 +20,7 @@ IPTABLES="${IPTABLES:-iptables}"
 IP6TABLES="${IP6TABLES:-ip6tables}"
 NFT="${NFT:-nft}"
 IPSET="${IPSET:-ipset}"
-XT_TABLES="${XT_TABLES:-mangle raw}"
+XT_TABLES="${XT_TABLES:-mangle raw nat}"
 NFT_TABLE="KeenPbrTable"
 REASON="uninstall"
 [ "${1:-}" = --reason ] && [ -n "${2:-}" ] && REASON="$2"
