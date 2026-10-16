@@ -61,6 +61,22 @@ public:
     ~ScopedIpv6Capabilities() { set_kernel_capabilities_for_tests(std::nullopt); }
 };
 
+// Pins the cached host tool lookup so the firewall backend does not depend on
+// which test filled the cache first or on the PATH a test overrides.
+class ScopedIptablesTools {
+public:
+    ScopedIptablesTools() {
+        HostTools tools;
+        tools.iptables = true;
+        tools.iptables_restore = true;
+        tools.ip6tables = true;
+        tools.ip6tables_restore = true;
+        tools.ipset = true;
+        set_host_tools_for_tests(tools);
+    }
+    ~ScopedIptablesTools() { set_host_tools_for_tests(std::nullopt); }
+};
+
 Config build_test_config() {
     Config config;
     config.lists = std::map<std::string, ListConfig>{};
@@ -671,6 +687,7 @@ TEST_CASE("compute_test_routing keeps unknown set membership from proving absenc
         "  *) exit 1 ;;\n"
         "esac\n");
     ScopedPathOverride path_override(bin_dir.string());
+    ScopedIptablesTools iptables_tools;
 
     CacheManager cache(temp_dir / "cache");
     cache.ensure_dir();
