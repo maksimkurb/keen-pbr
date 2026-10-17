@@ -53,8 +53,8 @@ Load balancing is not available on Keenetic: the Keenetic build does not support
 	<meta name="twitter:description" content="This page is for a Debian or Ubuntu host connected to two internet providers, where new connections should be spread between them (multi-WAN). It describes the iptables firewall backend.
 Load balancing is not available on Keenetic: the Keenetic build does not support it and rejects a configuration with &#34;strategy&#34;: &#34;balance&#34;. Use the router’s own multipath there. The nftables backend (OpenWrt 24&#43; with fw4, or any host with nft) supports balancing as well, see Outbounds. The step-by-step guide below targets iptables on Debian/Ubuntu, and the NAT , rp_filter and fwmark (a numeric mark on a packet) notes apply to every backend. How it works A urltest or icmptest outbound with &#34;strategy&#34;: &#34;balance&#34; picks one of its working links for every new connection, in proportion to the link’s weight (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again.">
 
-    <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
-    <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
+    <link rel="preload" href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" as="style" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
+    <link href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" rel="stylesheet" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
 
   
 
