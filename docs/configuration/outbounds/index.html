@@ -37,15 +37,15 @@ The name (tag) uses lowercase Latin letters, digits and _, starts with a letter,
 	<meta itemprop="description" content="An outbound is a channel that traffic can take: a VPN interface, your ISP connection, or a block. You choose which traffic goes to which outbound in route rules.
 In the Web UI: open Routing &gt; Outbounds, click Add outbound, enter a Name (called tag in the config) and pick a type. Then click Apply in the draft bar.
 The name (tag) uses lowercase Latin letters, digits and _, starts with a letter, and is at most 24 characters long (^[a-z][a-z0-9_]*$).">
-	<meta itemprop="wordCount" content="1896">
+	<meta itemprop="wordCount" content="1901">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Outbounds">
 	<meta name="twitter:description" content="An outbound is a channel that traffic can take: a VPN interface, your ISP connection, or a block. You choose which traffic goes to which outbound in route rules.
 In the Web UI: open Routing &gt; Outbounds, click Add outbound, enter a Name (called tag in the config) and pick a type. Then click Apply in the draft bar.
 The name (tag) uses lowercase Latin letters, digits and _, starts with a letter, and is at most 24 characters long (^[a-z][a-z0-9_]*$).">
 
-    <link rel="preload" href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" as="style" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
-    <link href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" rel="stylesheet" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
+    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
 
   
 
@@ -1073,7 +1073,7 @@ The name (tag) uses lowercase Latin letters, digits and _, starts with a letter,
 <ul>
 <li>one <strong>Interface</strong> (<code>interface</code>) outbound for the VPN connection</li>
 <li>one <strong>Routing table</strong> (<code>table</code>) outbound with <code>table: 254</code> (the system&rsquo;s main routing table) for the normal connection, often <code>wan</code></li>
-<li>optionally one <strong>Auto-select (urltest)</strong> outbound, so keen-pbr picks a working one among several connections</li>
+<li>optionally one <strong>Auto-select (urltest)</strong> or <strong>Auto-select (ICMP)</strong> (<code>icmptest</code>) outbound, so keen-pbr picks a working one among several connections</li>
 </ul>
 <p>If you are not sure, start with <strong>Interface</strong> and come back to the other types later.</p>
 <h2>Common Example<span class="hx:absolute hx:-mt-20" id="common-example"></span>
@@ -1432,9 +1432,7 @@ The name (tag) uses lowercase Latin letters, digits and _, starts with a letter,
 					<td><code>conntrack_on_switch</code></td>
 					<td>string</td>
 					<td>no (default: <code>&quot;preserve&quot;</code>)</td>
-					<td>What to do with open connections when switching to another link. In the Web UI: <strong>Existing connections on switch</strong>. <code>&quot;preserve&quot;</code> (<strong>Keep</strong>) keeps them on the old link, <code>&quot;delete&quot;</code> (<strong>Reset</strong>) deletes their 
-  <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
- entries so they reconnect. See <a href="/docs/configuration/advanced/#failover">Failover</a></td>
+					<td>What to do with open connections when switching to another link. In the Web UI: <strong>Existing connections on switch</strong>. <code>&quot;preserve&quot;</code> (<strong>Keep</strong>) keeps them on the old link, <code>&quot;delete&quot;</code> (<strong>Reset</strong>) deletes their <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr> entries so they reconnect. See <a href="/docs/configuration/advanced/#failover">Failover</a></td>
 			</tr>
 			<tr>
 					<td><code>outbound_groups</code></td>
@@ -1559,21 +1557,13 @@ The name (tag) uses lowercase Latin letters, digits and _, starts with a letter,
 </div>
 </div>
 <h3>Multipath (<code>strategy: &quot;balance&quot;</code>)<span class="hx:absolute hx:-mt-20" id="multipath-strategy-balance"></span>
-    <a href="#multipath-strategy-balance" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>This strategy spreads load across the working links of the first working tier. A link is chosen per new connection, not per request: the whole connection, including HTTP/2 and 
-  <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr>
-, stays on one link. <code>tolerance_ms</code> and <code>conntrack_on_switch</code> are not used with balancing. When a link stops working, 
-  <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
- entries of its connections are deleted, and new connections are spread across the remaining links.</p>
+    <a href="#multipath-strategy-balance" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>This strategy spreads load across the working links of the first working tier. A link is chosen per new connection, not per request: the whole connection, including HTTP/2 and <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr>, stays on one link. <code>tolerance_ms</code> and <code>conntrack_on_switch</code> are not used with balancing. When a link stops working, <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr> entries of its connections are deleted, and new connections are spread across the remaining links.</p>
 <p>With nftables, connections are split exactly by weight. With iptables, a link is picked at random with the right probability, so with only a few connections the shares can differ noticeably from the weights; with many connections they even out. iptables needs the <code>xt_statistic</code> kernel module; if it is missing, keen-pbr reports it when applying the configuration. This strategy is not available on Keenetic. Balancing is not available with <code>--use-raw-prerouting</code>.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Balancing across several WANs needs
-<abbr title="Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&#39;s WAN address.">NAT</abbr>
-on every uplink, loose <code>rp_filter</code>, and an
-<abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
-range that other software does not use. See <a href="/docs/configuration/multi-wan/">Multi-WAN Load Balancing</a> for a complete Debian/iptables setup.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Balancing across several WANs needs <abbr title="Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&#39;s WAN address.">NAT</abbr> on every uplink, loose <code>rp_filter</code>, and an <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr> range that other software does not use. See <a href="/docs/configuration/multi-wan/">Multi-WAN Load Balancing</a> for a complete setup for each firewall backend.</div>
   </div>
 </div>
 
@@ -1642,9 +1632,7 @@ range that other software does not use. See <a href="/docs/configuration/multi-w
 </table>
 <p>An excluded link is shown as <strong>Unavailable</strong> on the <strong>Routing</strong> &gt; <strong>Outbounds</strong> page of the web UI and as <code>unavailable</code> in <code>GET /api/runtime/outbounds</code>.</p>
 <h2><code>icmptest</code><span class="hx:absolute hx:-mt-20" id="icmptest"></span>
-    <a href="#icmptest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use it instead of <code>urltest</code> when HTTP checks do not work for you. In the Web UI the type is called <strong>Auto-select (ICMP)</strong>. A link is checked by pinging a specific address (
-  <abbr title="Service protocol for network diagnostics. ping uses ICMP Echo.">ICMP</abbr>
- Echo). For every link in a group, set <code>target</code> (in the Web UI, <strong>Ping target</strong>): the IP address to ping through that link.</p>
+    <a href="#icmptest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use it instead of <code>urltest</code> when HTTP checks do not work for you. In the Web UI the type is called <strong>Auto-select (ICMP)</strong>. A link is checked by pinging a specific address (<abbr title="Service protocol for network diagnostics. ping uses ICMP Echo.">ICMP</abbr> Echo). For every link in a group, set <code>target</code> (in the Web UI, <strong>Ping target</strong>): the IP address to ping through that link.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>

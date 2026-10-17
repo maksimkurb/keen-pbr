@@ -30,7 +30,7 @@
 &lt;ul&gt;
 &lt;li&gt;одного outbound типа &lt;strong&gt;Интерфейс&lt;/strong&gt; (&lt;code&gt;interface&lt;/code&gt;) для VPN-соединения&lt;/li&gt;
 &lt;li&gt;одного outbound типа &lt;strong&gt;Таблица маршрутизации&lt;/strong&gt; (&lt;code&gt;table&lt;/code&gt;) с &lt;code&gt;table: 254&lt;/code&gt; (основная таблица маршрутизации системы) для обычного соединения, как правило &lt;code&gt;wan&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;при необходимости — одного outbound типа &lt;strong&gt;Автовыбор (urltest)&lt;/strong&gt;, чтобы keen-pbr сам выбирал рабочий из нескольких каналов&lt;/li&gt;
+&lt;li&gt;при необходимости — одного outbound типа &lt;strong&gt;Автовыбор (urltest)&lt;/strong&gt; или &lt;strong&gt;Автовыбор (ICMP)&lt;/strong&gt; (&lt;code&gt;icmptest&lt;/code&gt;), чтобы keen-pbr сам выбирал рабочий из нескольких каналов&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;Если не знаете, с чего начать, возьмите &lt;strong&gt;Интерфейс&lt;/strong&gt; и вернитесь к остальным типам позже.&lt;/p&gt;
 &lt;h2&gt;Общий пример&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;общий-пример&#34;&gt;&lt;/span&gt;
@@ -389,9 +389,7 @@
 					&lt;td&gt;&lt;code&gt;conntrack_on_switch&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;string&lt;/td&gt;
 					&lt;td&gt;нет (по умолчанию: &lt;code&gt;&amp;quot;preserve&amp;quot;&lt;/code&gt;)&lt;/td&gt;
-					&lt;td&gt;Что делать с открытыми соединениями при переключении на другой канал. В веб-интерфейсе: &lt;strong&gt;Соединения при переключении&lt;/strong&gt;. &lt;code&gt;&amp;quot;preserve&amp;quot;&lt;/code&gt; (&lt;strong&gt;Сохранять&lt;/strong&gt;) — оставить на старом канале, &lt;code&gt;&amp;quot;delete&amp;quot;&lt;/code&gt; (&lt;strong&gt;Сбрасывать&lt;/strong&gt;) — удалить их записи из 
-  &lt;abbr title=&#34;Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).&#34;&gt;conntrack&lt;/abbr&gt;
-, чтобы они переподключились. См. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/configuration/advanced/#резервный-канал-failover&#34;&gt;Резервный канал&lt;/a&gt;&lt;/td&gt;
+					&lt;td&gt;Что делать с открытыми соединениями при переключении на другой канал. В веб-интерфейсе: &lt;strong&gt;Соединения при переключении&lt;/strong&gt;. &lt;code&gt;&amp;quot;preserve&amp;quot;&lt;/code&gt; (&lt;strong&gt;Сохранять&lt;/strong&gt;) — оставить на старом канале, &lt;code&gt;&amp;quot;delete&amp;quot;&lt;/code&gt; (&lt;strong&gt;Сбрасывать&lt;/strong&gt;) — удалить их записи из &lt;abbr title=&#34;Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).&#34;&gt;conntrack&lt;/abbr&gt;, чтобы они переподключились. См. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/configuration/advanced/#резервный-канал-failover&#34;&gt;Резервный канал&lt;/a&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;outbound_groups&lt;/code&gt;&lt;/td&gt;
@@ -516,21 +514,13 @@
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;h3&gt;Многопутевая передача (&lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt;)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;многопутевая-передача-strategy-balance&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%bc%d0%bd%d0%be%d0%b3%d0%be%d0%bf%d1%83%d1%82%d0%b5%d0%b2%d0%b0%d1%8f-%d0%bf%d0%b5%d1%80%d0%b5%d0%b4%d0%b0%d1%87%d0%b0-strategy-balance&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Эта стратегия распределяет нагрузку между несколькими работающими каналами первой рабочей ступени. Канал выбирается для каждого нового соединения, а не для каждого запроса: всё соединение, включая HTTP/2 и 
-  &lt;abbr title=&#34;Транспортный протокол поверх UDP, на нём работает HTTP/3.&#34;&gt;QUIC&lt;/abbr&gt;
-, идёт через один канал. &lt;code&gt;tolerance_ms&lt;/code&gt; и &lt;code&gt;conntrack_on_switch&lt;/code&gt; при балансировке не используются. Если канал перестал работать, записи 
-  &lt;abbr title=&#34;Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).&#34;&gt;conntrack&lt;/abbr&gt;
- его соединений удаляются, а новые соединения распределяются между оставшимися каналами.&lt;/p&gt;
+    &lt;a href=&#34;#%d0%bc%d0%bd%d0%be%d0%b3%d0%be%d0%bf%d1%83%d1%82%d0%b5%d0%b2%d0%b0%d1%8f-%d0%bf%d0%b5%d1%80%d0%b5%d0%b4%d0%b0%d1%87%d0%b0-strategy-balance&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Эта стратегия распределяет нагрузку между несколькими работающими каналами первой рабочей ступени. Канал выбирается для каждого нового соединения, а не для каждого запроса: всё соединение, включая HTTP/2 и &lt;abbr title=&#34;Транспортный протокол поверх UDP, на нём работает HTTP/3.&#34;&gt;QUIC&lt;/abbr&gt;, идёт через один канал. &lt;code&gt;tolerance_ms&lt;/code&gt; и &lt;code&gt;conntrack_on_switch&lt;/code&gt; при балансировке не используются. Если канал перестал работать, записи &lt;abbr title=&#34;Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).&#34;&gt;conntrack&lt;/abbr&gt; его соединений удаляются, а новые соединения распределяются между оставшимися каналами.&lt;/p&gt;
 &lt;p&gt;С nftables соединения распределяются точно по весам. С iptables канал выбирается случайно с нужной вероятностью, поэтому на малом числе соединений доли могут заметно отличаться от весов, а на большом выравниваются. Для iptables нужен модуль ядра &lt;code&gt;xt_statistic&lt;/code&gt;; если его нет, keen-pbr сообщит об этом при применении конфигурации. На Keenetic эта стратегия недоступна. С &lt;code&gt;--use-raw-prerouting&lt;/code&gt; балансировка недоступна.&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
 
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Для балансировки между несколькими WAN нужны
-&lt;abbr title=&#34;Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.&#34;&gt;NAT&lt;/abbr&gt;
-на каждом канале, нестрогий &lt;code&gt;rp_filter&lt;/code&gt; и диапазон
-&lt;abbr title=&#34;Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.&#34;&gt;fwmark&lt;/abbr&gt;
-, который не используют другие программы. Полная настройка для Debian/iptables описана на странице &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/configuration/multi-wan/&#34;&gt;Балансировка нагрузки между несколькими WAN&lt;/a&gt;.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Для балансировки между несколькими WAN нужны &lt;abbr title=&#34;Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.&#34;&gt;NAT&lt;/abbr&gt; на каждом канале, нестрогий &lt;code&gt;rp_filter&lt;/code&gt; и диапазон &lt;abbr title=&#34;Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.&#34;&gt;fwmark&lt;/abbr&gt;, который не используют другие программы. Полная настройка для каждого firewall-бэкенда описана на странице &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/configuration/multi-wan/&#34;&gt;Балансировка нагрузки между несколькими WAN&lt;/a&gt;.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 
@@ -599,9 +589,7 @@
 &lt;/table&gt;
 &lt;p&gt;Исключённый канал отображается как &lt;strong&gt;Недоступен&lt;/strong&gt; на странице &lt;strong&gt;Маршрутизация&lt;/strong&gt; &amp;gt; &lt;strong&gt;Outbounds&lt;/strong&gt; веб-интерфейса и как &lt;code&gt;unavailable&lt;/code&gt; в &lt;code&gt;GET /api/runtime/outbounds&lt;/code&gt;.&lt;/p&gt;
 &lt;h2&gt;&lt;code&gt;icmptest&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;icmptest&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#icmptest&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Нужен вместо &lt;code&gt;urltest&lt;/code&gt;, когда проверка по HTTP не подходит. В веб-интерфейсе тип называется &lt;strong&gt;Автовыбор (ICMP)&lt;/strong&gt;. Канал проверяется ping-ом (
-  &lt;abbr title=&#34;Служебный протокол для диагностики сети. ping использует ICMP Echo.&#34;&gt;ICMP&lt;/abbr&gt;
- Echo) конкретного адреса. Для каждого канала в группе задайте &lt;code&gt;target&lt;/code&gt; (в веб-интерфейсе — &lt;strong&gt;Цель ping&lt;/strong&gt;): IP-адрес, который будет пинговаться через этот канал.&lt;/p&gt;
+    &lt;a href=&#34;#icmptest&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Нужен вместо &lt;code&gt;urltest&lt;/code&gt;, когда проверка по HTTP не подходит. В веб-интерфейсе тип называется &lt;strong&gt;Автовыбор (ICMP)&lt;/strong&gt;. Канал проверяется ping-ом (&lt;abbr title=&#34;Служебный протокол для диагностики сети. ping использует ICMP Echo.&#34;&gt;ICMP&lt;/abbr&gt; Echo) конкретного адреса. Для каждого канала в группе задайте &lt;code&gt;target&lt;/code&gt; (в веб-интерфейсе — &lt;strong&gt;Цель ping&lt;/strong&gt;): IP-адрес, который будет пинговаться через этот канал.&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
@@ -754,9 +742,7 @@
 					&lt;td&gt;&lt;code&gt;ip_cidrs&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;array of string&lt;/td&gt;
 					&lt;td&gt;нет&lt;/td&gt;
-					&lt;td&gt;IP-адреса и подсети (
-  &lt;abbr title=&#34;Запись подсети: адрес и длина префикса, например 192.168.1.0/24.&#34;&gt;CIDR&lt;/abbr&gt;
-) прямо в конфиге&lt;/td&gt;
+					&lt;td&gt;IP-адреса и подсети (&lt;abbr title=&#34;Запись подсети: адрес и длина префикса, например 192.168.1.0/24.&#34;&gt;CIDR&lt;/abbr&gt;) прямо в конфиге&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;file&lt;/code&gt;&lt;/td&gt;
@@ -768,9 +754,7 @@
 					&lt;td&gt;&lt;code&gt;ttl_ms&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;нет (по умолчанию: &lt;code&gt;0&lt;/code&gt;)&lt;/td&gt;
-					&lt;td&gt;Сколько минимум хранить IP-адреса доменов этого списка, в миллисекундах. В веб-интерфейсе: &lt;strong&gt;Время жизни IP-кэша (мс)&lt;/strong&gt;. Если не задано или меньше 1000, используется &lt;code&gt;intercept.min_ttl_ms&lt;/code&gt;. Если 
-  &lt;abbr title=&#34;Сколько секунд DNS-ответ можно хранить в кэше.&#34;&gt;TTL&lt;/abbr&gt;
- в DNS-ответе больше, адрес хранится дольше, но не больше &lt;code&gt;intercept.max_ttl_ms&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Сколько минимум хранить IP-адреса доменов этого списка, в миллисекундах. В веб-интерфейсе: &lt;strong&gt;Время жизни IP-кэша (мс)&lt;/strong&gt;. Если не задано или меньше 1000, используется &lt;code&gt;intercept.min_ttl_ms&lt;/code&gt;. Если &lt;abbr title=&#34;Сколько секунд DNS-ответ можно хранить в кэше.&#34;&gt;TTL&lt;/abbr&gt; в DNS-ответе больше, адрес хранится дольше, но не больше &lt;code&gt;intercept.max_ttl_ms&lt;/code&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;detour&lt;/code&gt;&lt;/td&gt;
@@ -796,9 +780,7 @@
     &lt;a href=&#34;#%d1%84%d0%be%d1%80%d0%bc%d0%b0%d1%82-%d1%84%d0%b0%d0%b9%d0%bb%d0%b0-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Файл по &lt;code&gt;url&lt;/code&gt; или &lt;code&gt;file&lt;/code&gt; содержит одну запись на строку:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;IPv4-адрес: &lt;code&gt;93.184.216.34&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;IPv4 
-  &lt;abbr title=&#34;Запись подсети: адрес и длина префикса, например 192.168.1.0/24.&#34;&gt;CIDR&lt;/abbr&gt;
-: &lt;code&gt;10.0.0.0/8&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;IPv4 &lt;abbr title=&#34;Запись подсети: адрес и длина префикса, например 192.168.1.0/24.&#34;&gt;CIDR&lt;/abbr&gt;: &lt;code&gt;10.0.0.0/8&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;IPv6-адрес: &lt;code&gt;2606:2800:220:1:248:1893:25c8:1946&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;IPv6 CIDR: &lt;code&gt;2001:db8::/32&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;Домен: &lt;code&gt;example.com&lt;/code&gt; — подходит сам домен и все его поддомены (&lt;code&gt;*.example.com&lt;/code&gt; писать не нужно, запись понимается так же)&lt;/li&gt;
@@ -1385,11 +1367,7 @@
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;h3&gt;Фильтр DSCP — направить маркированный трафик через VPN&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;фильтр-dscp--направить-маркированный-трафик-через-vpn&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-dscp--%d0%bd%d0%b0%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d1%82%d1%8c-%d0%bc%d0%b0%d1%80%d0%ba%d0%b8%d1%80%d0%be%d0%b2%d0%b0%d0%bd%d0%bd%d1%8b%d0%b9-%d1%82%d1%80%d0%b0%d1%84%d0%b8%d0%ba-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;
-  &lt;abbr title=&#34;6-битное поле в IP-заголовке, которым помечают класс трафика для QoS.&#34;&gt;DSCP&lt;/abbr&gt;
- (Differentiated Services Code Point) — это 6-битная метка в IP-заголовке. Обычно она используется для 
-  &lt;abbr title=&#34;Приоритизация трафика, например звонки важнее загрузок.&#34;&gt;QoS&lt;/abbr&gt;
-, но keen-pbr может использовать её как условие маршрутизации: пометьте пакеты на клиентском устройстве, затем сопоставьте эту метку в правиле маршрутизации. Это удобно для маршрутизации по приложениям, когда у приложения нет стабильных доменов, IP-адресов или портов назначения.&lt;/p&gt;
+    &lt;a href=&#34;#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-dscp--%d0%bd%d0%b0%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d1%82%d1%8c-%d0%bc%d0%b0%d1%80%d0%ba%d0%b8%d1%80%d0%be%d0%b2%d0%b0%d0%bd%d0%bd%d1%8b%d0%b9-%d1%82%d1%80%d0%b0%d1%84%d0%b8%d0%ba-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;abbr title=&#34;6-битное поле в IP-заголовке, которым помечают класс трафика для QoS.&#34;&gt;DSCP&lt;/abbr&gt; (Differentiated Services Code Point) — это 6-битная метка в IP-заголовке. Обычно она используется для &lt;abbr title=&#34;Приоритизация трафика, например звонки важнее загрузок.&#34;&gt;QoS&lt;/abbr&gt;, но keen-pbr может использовать её как условие маршрутизации: пометьте пакеты на клиентском устройстве, затем сопоставьте эту метку в правиле маршрутизации. Это удобно для маршрутизации по приложениям, когда у приложения нет стабильных доменов, IP-адресов или портов назначения.&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
@@ -1431,9 +1409,7 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;&lt;code&gt;AppPathNameMatchCondition&lt;/code&gt; может быть именем исполняемого файла, например &lt;code&gt;zoom.exe&lt;/code&gt;, или полным путём к приложению. После этого Windows будет помечать трафик подходящего приложения 
-  &lt;abbr title=&#34;6-битное поле в IP-заголовке, которым помечают класс трафика для QoS.&#34;&gt;DSCP&lt;/abbr&gt;
- &lt;code&gt;46&lt;/code&gt;, а keen-pbr сможет маршрутизировать его правилом с &lt;code&gt;&amp;quot;dscp&amp;quot;: 46&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;AppPathNameMatchCondition&lt;/code&gt; может быть именем исполняемого файла, например &lt;code&gt;zoom.exe&lt;/code&gt;, или полным путём к приложению. После этого Windows будет помечать трафик подходящего приложения &lt;abbr title=&#34;6-битное поле в IP-заголовке, которым помечают класс трафика для QoS.&#34;&gt;DSCP&lt;/abbr&gt; &lt;code&gt;46&lt;/code&gt;, а keen-pbr сможет маршрутизировать его правилом с &lt;code&gt;&amp;quot;dscp&amp;quot;: 46&lt;/code&gt;.&lt;/p&gt;
 &lt;h4&gt;Linux: пометить трафик пользователя&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;linux-пометить-трафик-пользователя&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#linux-%d0%bf%d0%be%d0%bc%d0%b5%d1%82%d0%b8%d1%82%d1%8c-%d1%82%d1%80%d0%b0%d1%84%d0%b8%d0%ba-%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d0%be%d0%b2%d0%b0%d1%82%d0%b5%d0%bb%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h4&gt;&lt;p&gt;В Linux можно помечать пакеты, созданные конкретным локальным пользователем. Замените &lt;code&gt;ivan&lt;/code&gt; в примерах ниже на имя пользователя, от которого запускается приложение, которое нужно маршрутизировать.&lt;/p&gt;
 &lt;p&gt;Через nftables:&lt;/p&gt;
@@ -1669,7 +1645,7 @@
 &lt;li&gt;разрешать домены некоторых списков через отдельный DNS-сервер. Например, CDN (сеть доставки контента) должна отдавать адреса для региона вашего VPN, или домены резолвятся только внутри VPN;&lt;/li&gt;
 &lt;li&gt;задать свои DNS-серверы по умолчанию для всей сети прямо в keen-pbr.&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;Оба случая работают только через dnsmasq. Если ни один вам не подходит, оставьте переключатель &lt;strong&gt;Управлять конфигурацией dnsmasq&lt;/strong&gt; выключенным. Если вы обновились с 3.3.x, переключатель уже включён: выключите его, если dnsmasq вам не нужен (см. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/changelog/#upgrading-from-33x&#34;&gt;Обновление с 3.3.x&lt;/a&gt;).&lt;/p&gt;
+&lt;p&gt;Оба случая работают только через dnsmasq. Если ни один вам не подходит, оставьте переключатель &lt;strong&gt;Управлять конфигурацией dnsmasq&lt;/strong&gt; выключенным. Если вы обновились с 3.3.x, переключатель уже включён: выключите его, если dnsmasq вам не нужен (см. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/changelog/#upgrading-from-33x&#34;&gt;Ломающие изменения в 3.4.0&lt;/a&gt;).&lt;/p&gt;
 &lt;p&gt;Как установить dnsmasq и как вернуть всё обратно: &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/getting-started/installation/keenetic/#dnsmasq&#34;&gt;Keenetic&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/getting-started/installation/openwrt/#dnsmasq&#34;&gt;OpenWrt&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/getting-started/installation/debian/#dnsmasq&#34;&gt;Debian&lt;/a&gt;.&lt;/p&gt;
 &lt;h2&gt;Как проверить, что DNS идёт через роутер&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;как-проверить-что-dns-идёт-через-роутер&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%ba%d0%b0%d0%ba-%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%b8%d1%82%d1%8c-%d1%87%d1%82%d0%be-dns-%d0%b8%d0%b4%d1%91%d1%82-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Перехват видит только те DNS-запросы, которые проходят через роутер. Если устройство использует DoH или свой DNS-сервер, часть доменов keen-pbr определит только по L7.&lt;/p&gt;
@@ -1826,9 +1802,7 @@
 &lt;ul&gt;
 &lt;li&gt;Разрешён максимум один сервер с &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;Поле &lt;code&gt;address&lt;/code&gt; для него не задаётся.&lt;/li&gt;
-&lt;li&gt;keen-pbr читает серверы без привязки к домену из политики прокси &lt;strong&gt;System&lt;/strong&gt;. Если среди них есть зашифрованные (
-  &lt;abbr title=&#34;DNS over HTTPS — зашифрованный DNS. Роутер не может прочитать такие запросы.&#34;&gt;DoH&lt;/abbr&gt;
-/DoT), используются все такие серверы по порядку. Иначе по порядку используются все обычные серверы.&lt;/li&gt;
+&lt;li&gt;keen-pbr читает серверы без привязки к домену из политики прокси &lt;strong&gt;System&lt;/strong&gt;. Если среди них есть зашифрованные (&lt;abbr title=&#34;DNS over HTTPS — зашифрованный DNS. Роутер не может прочитать такие запросы.&#34;&gt;DoH&lt;/abbr&gt;/DoT), используются все такие серверы по порядку. Иначе по порядку используются все обычные серверы.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2&gt;Справочник полей&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;справочник-полей&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d1%81%d0%bf%d1%80%d0%b0%d0%b2%d0%be%d1%87%d0%bd%d0%b8%d0%ba-%d0%bf%d0%be%d0%bb%d0%b5%d0%b9&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Секция &lt;code&gt;dns&lt;/code&gt; в &lt;code&gt;config.json&lt;/code&gt;:&lt;/p&gt;
@@ -1921,7 +1895,7 @@
     &lt;a href=&#34;#dns-%d0%bf%d0%b5%d1%80%d0%b5%d1%85%d0%b2%d0%b0%d1%82&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Перехват включён по умолчанию. Настройки: &lt;strong&gt;Общее&lt;/strong&gt; &amp;gt; &lt;strong&gt;Настройки&lt;/strong&gt; &amp;gt; &lt;strong&gt;Маршрутизация на основе доменов&lt;/strong&gt;. Перехват определяет IP-адреса доменов из ваших списков:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;DNS&lt;/strong&gt;: keen-pbr ненадолго задерживает DNS-ответ, проходящий через роутер, добавляет адреса из него в набор списка и только потом отдаёт ответ клиенту. Так первое же соединение к сайту идёт нужным маршрутом.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;L7&lt;/strong&gt;: keen-pbr читает имя сайта в начале TLS-, HTTP- и QUIC-соединений. Это помогает, когда устройство использует зашифрованный DNS.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;L7&lt;/strong&gt;: keen-pbr читает имя сайта в начале TLS-, HTTP- и QUIC-соединений. Это помогает, когда устройство использует зашифрованный DNS. Первое соединение к сайту при этом обрывается, и браузер или приложение подключается заново, уже нужным маршрутом.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;Менять эти настройки нужно, только если значения по умолчанию вам не подходят. Секция &lt;code&gt;intercept&lt;/code&gt; в &lt;code&gt;config.json&lt;/code&gt;:&lt;/p&gt;
 &lt;table&gt;
@@ -1944,9 +1918,7 @@
 					&lt;td&gt;&lt;code&gt;min_ttl_ms&lt;/code&gt; / &lt;code&gt;max_ttl_ms&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;300000&lt;/code&gt; / &lt;code&gt;86400000&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;Сколько хранить адрес в динамическом наборе: не меньше и не больше указанного, в миллисекундах (округляется до секунд). Внутри этих границ используется 
-  &lt;abbr title=&#34;Сколько секунд DNS-ответ можно хранить в кэше.&#34;&gt;TTL&lt;/abbr&gt;
- из DNS-ответа (&lt;strong&gt;Минимальный TTL&lt;/strong&gt;, &lt;strong&gt;Максимальный TTL&lt;/strong&gt;)&lt;/td&gt;
+					&lt;td&gt;Сколько хранить адрес в динамическом наборе: не меньше и не больше указанного, в миллисекундах (округляется до секунд). Внутри этих границ используется &lt;abbr title=&#34;Сколько секунд DNS-ответ можно хранить в кэше.&#34;&gt;TTL&lt;/abbr&gt; из DNS-ответа (&lt;strong&gt;Минимальный TTL&lt;/strong&gt;, &lt;strong&gt;Максимальный TTL&lt;/strong&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;dns.enabled&lt;/code&gt;&lt;/td&gt;
@@ -1958,9 +1930,7 @@
 					&lt;td&gt;&lt;code&gt;dns.queue_num&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;9053&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;Номер очереди 
-  &lt;abbr title=&#34;Механизм netfilter, который передаёт пакеты программе и ждёт её решения. keen-pbr так ненадолго задерживает DNS-ответы.&#34;&gt;NFQUEUE&lt;/abbr&gt;
-. Меняйте, только если он занят другой программой (&lt;strong&gt;Номер NFQUEUE&lt;/strong&gt;)&lt;/td&gt;
+					&lt;td&gt;Номер очереди &lt;abbr title=&#34;Механизм netfilter, который передаёт пакеты программе и ждёт её решения. keen-pbr так ненадолго задерживает DNS-ответы.&#34;&gt;NFQUEUE&lt;/abbr&gt;. Меняйте, только если он занят другой программой (&lt;strong&gt;Номер NFQUEUE&lt;/strong&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;dns.hold_timeout_ms&lt;/code&gt;&lt;/td&gt;
@@ -1984,9 +1954,7 @@
 					&lt;td&gt;&lt;code&gt;l7.nflog_group&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;9054&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;Номер группы 
-  &lt;abbr title=&#34;Механизм netfilter, который отправляет программе копии пакетов, не задерживая их.&#34;&gt;NFLOG&lt;/abbr&gt;
-. Меняйте, только если он занят другой программой (&lt;strong&gt;Группа NFLOG&lt;/strong&gt;)&lt;/td&gt;
+					&lt;td&gt;Номер группы &lt;abbr title=&#34;Механизм netfilter, который отправляет программе копии пакетов, не задерживая их.&#34;&gt;NFLOG&lt;/abbr&gt;. Меняйте, только если он занят другой программой (&lt;strong&gt;Группа NFLOG&lt;/strong&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;l7.tls&lt;/code&gt; / &lt;code&gt;http&lt;/code&gt; / &lt;code&gt;quic&lt;/code&gt;&lt;/td&gt;
@@ -2045,9 +2013,7 @@
 					&lt;td&gt;&lt;code&gt;uci:cfg01411c&lt;/code&gt;, &lt;code&gt;uci:guest&lt;/code&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
-					&lt;td&gt;Keenetic (
-  &lt;abbr title=&#34;Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.&#34;&gt;Entware&lt;/abbr&gt;
-)&lt;/td&gt;
+					&lt;td&gt;Keenetic (&lt;abbr title=&#34;Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.&#34;&gt;Entware&lt;/abbr&gt;)&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;entware:default&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;entware:default&lt;/code&gt;&lt;/td&gt;
 			&lt;/tr&gt;
@@ -2061,20 +2027,14 @@
 &lt;p&gt;Экземпляр выбирается в таком порядке:&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;Явно&lt;/strong&gt;: задан &lt;code&gt;dns.dnsmasq_instance&lt;/code&gt;. Если такого экземпляра нет, keen-pbr сообщает &lt;code&gt;DNSMASQ_INSTANCE_NOT_FOUND&lt;/code&gt; и ничего не меняет.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;По установленному drop-in&lt;/strong&gt;: поле пустое, а 
-  &lt;abbr title=&#34;Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.&#34;&gt;drop-in&lt;/abbr&gt;
- keen-pbr уже стоит ровно в одном экземпляре. Он и продолжает использоваться. Если drop-in найден в нескольких, выбор останавливается с ошибкой &lt;code&gt;DNSMASQ_INSTANCE_AMBIGUOUS&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;По установленному drop-in&lt;/strong&gt;: поле пустое, а &lt;abbr title=&#34;Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.&#34;&gt;drop-in&lt;/abbr&gt; keen-pbr уже стоит ровно в одном экземпляре. Он и продолжает использоваться. Если drop-in найден в нескольких, выбор останавливается с ошибкой &lt;code&gt;DNSMASQ_INSTANCE_AMBIGUOUS&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Автоматически&lt;/strong&gt;: поле пустое, ничего не установлено, и ровно один включённый экземпляр обслуживает DNS (&lt;code&gt;port&lt;/code&gt; не равен &lt;code&gt;0&lt;/code&gt;). Если таких нет, результат &lt;code&gt;DNSMASQ_NO_DNS_INSTANCE&lt;/code&gt;; если несколько, &lt;code&gt;DNSMASQ_INSTANCE_AMBIGUOUS&lt;/code&gt;.&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;Если выбор неоднозначен, keen-pbr ничего не меняет и не трогает уже установленные drop-in. Посмотрите кандидатов командой &lt;code&gt;keen-pbr resolver dnsmasq detect&lt;/code&gt; и задайте экземпляр в &lt;strong&gt;Общее&lt;/strong&gt; &amp;gt; &lt;strong&gt;Настройки&lt;/strong&gt; &amp;gt; &lt;strong&gt;Управление локальным DNS-сервером&lt;/strong&gt; &amp;gt; &lt;strong&gt;Экземпляр dnsmasq&lt;/strong&gt; (или &lt;code&gt;dns.dnsmasq_instance&lt;/code&gt; в &lt;code&gt;config.json&lt;/code&gt;). Если drop-in keen-pbr стоит ещё и в невыбранном экземпляре, &lt;code&gt;detect&lt;/code&gt; и журнал покажут предупреждение. Удалите файл drop-in, который назван в предупреждении, и перезапустите этот экземпляр dnsmasq.&lt;/p&gt;
 &lt;h4&gt;Определение DNS-адреса&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;определение-dns-адреса&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%be%d0%bf%d1%80%d0%b5%d0%b4%d0%b5%d0%bb%d0%b5%d0%bd%d0%b8%d0%b5-dns-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%b0&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h4&gt;&lt;p&gt;keen-pbr сам находит адрес, на котором отвечает выбранный dnsmasq: читает конфигурацию, которую dnsmasq действительно загрузил, и проверяет адрес DNS-запросом. Если dnsmasq не обслуживает DNS (&lt;code&gt;port=0&lt;/code&gt;, нет DNS-сокета или он работает в другом 
-  &lt;abbr title=&#34;Изолированная копия сетевого стека Linux со своими интерфейсами, маршрутами и firewall.&#34;&gt;network namespace&lt;/abbr&gt;
-), keen-pbr сообщит об ошибке, а не подставит &lt;code&gt;127.0.0.1:53&lt;/code&gt; наугад.&lt;/p&gt;
+    &lt;a href=&#34;#%d0%be%d0%bf%d1%80%d0%b5%d0%b4%d0%b5%d0%bb%d0%b5%d0%bd%d0%b8%d0%b5-dns-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%b0&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h4&gt;&lt;p&gt;keen-pbr сам находит адрес, на котором отвечает выбранный dnsmasq: читает конфигурацию, которую dnsmasq действительно загрузил, и проверяет адрес DNS-запросом. Если dnsmasq не обслуживает DNS (&lt;code&gt;port=0&lt;/code&gt;, нет DNS-сокета или он работает в другом &lt;abbr title=&#34;Изолированная копия сетевого стека Linux со своими интерфейсами, маршрутами и firewall.&#34;&gt;network namespace&lt;/abbr&gt;), keen-pbr сообщит об ошибке, а не подставит &lt;code&gt;127.0.0.1:53&lt;/code&gt; наугад.&lt;/p&gt;
 &lt;h4&gt;Проверки перед каждым перезапуском&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;проверки-перед-каждым-перезапуском&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b8-%d0%bf%d0%b5%d1%80%d0%b5%d0%b4-%d0%ba%d0%b0%d0%b6%d0%b4%d1%8b%d0%bc-%d0%bf%d0%b5%d1%80%d0%b5%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%be%d0%bc&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h4&gt;&lt;p&gt;Перед перезапуском dnsmasq keen-pbr проверяет новые настройки командой &lt;code&gt;dnsmasq --test&lt;/code&gt; на вашей текущей конфигурации dnsmasq вместе с 
-  &lt;abbr title=&#34;Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.&#34;&gt;drop-in&lt;/abbr&gt;
- keen-pbr. Ещё один раз он проверяет, что ваша сборка dnsmasq поддерживает &lt;code&gt;conf-script&lt;/code&gt;.&lt;/p&gt;
+    &lt;a href=&#34;#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b8-%d0%bf%d0%b5%d1%80%d0%b5%d0%b4-%d0%ba%d0%b0%d0%b6%d0%b4%d1%8b%d0%bc-%d0%bf%d0%b5%d1%80%d0%b5%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%be%d0%bc&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h4&gt;&lt;p&gt;Перед перезапуском dnsmasq keen-pbr проверяет новые настройки командой &lt;code&gt;dnsmasq --test&lt;/code&gt; на вашей текущей конфигурации dnsmasq вместе с &lt;abbr title=&#34;Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.&#34;&gt;drop-in&lt;/abbr&gt; keen-pbr. Ещё один раз он проверяет, что ваша сборка dnsmasq поддерживает &lt;code&gt;conf-script&lt;/code&gt;.&lt;/p&gt;
 &lt;p&gt;Если проверка не прошла, &lt;strong&gt;dnsmasq не перезапускается и работает со старыми настройками&lt;/strong&gt;. Код ошибки и вывод dnsmasq видны в веб-интерфейсе и в &lt;code&gt;/api/health/service&lt;/code&gt;; исправьте проблему и примените конфигурацию снова.&lt;/p&gt;
 &lt;p&gt;Каждая проверка запускает генератор конфигурации, поэтому перед каждым применением в системном журнале появляется лишний блок &lt;code&gt;generate-resolver-config dnsmasq: pid ..., parent ... (dnsmasq)&lt;/code&gt;. Так и должно быть.&lt;/p&gt;
 &lt;h4&gt;Ошибки&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;ошибки&#34;&gt;&lt;/span&gt;
@@ -2145,9 +2105,7 @@
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;DNSMASQ_DROPIN_NOT_LOADED&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;Работающий dnsmasq не читает каталог, куда ставится 
-  &lt;abbr title=&#34;Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.&#34;&gt;drop-in&lt;/abbr&gt;
- keen-pbr (или фильтр &lt;code&gt;conf-dir&lt;/code&gt; отбрасывает имя файла).&lt;/td&gt;
+					&lt;td&gt;Работающий dnsmasq не читает каталог, куда ставится &lt;abbr title=&#34;Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.&#34;&gt;drop-in&lt;/abbr&gt; keen-pbr (или фильтр &lt;code&gt;conf-dir&lt;/code&gt; отбрасывает имя файла).&lt;/td&gt;
 					&lt;td&gt;Добавьте каталог в &lt;code&gt;conf-dir&lt;/code&gt; этого экземпляра или ослабьте фильтр.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
@@ -2198,9 +2156,7 @@
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;h3&gt;Как это работает&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;как-это-работает&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;В конфигурации dnsmasq стоит одна строка 
-  &lt;abbr title=&#34;Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.&#34;&gt;drop-in&lt;/abbr&gt;
-: при каждом старте dnsmasq запускает keen-pbr и получает от него правила для списков и основные DNS-серверы.&lt;/p&gt;
+    &lt;a href=&#34;#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;В конфигурации dnsmasq стоит одна строка &lt;abbr title=&#34;Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.&#34;&gt;drop-in&lt;/abbr&gt;: при каждом старте dnsmasq запускает keen-pbr и получает от него правила для списков и основные DNS-серверы.&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;Когда &lt;strong&gt;Управлять конфигурацией dnsmasq&lt;/strong&gt; включено, dnsmasq перезапускается при изменении этих данных (обновление списка, смена настроек или один раз после старта keen-pbr) и только после проверок из раздела &lt;a href=&#34;#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b8-%d0%bf%d0%b5%d1%80%d0%b5%d0%b4-%d0%ba%d0%b0%d0%b6%d0%b4%d1%8b%d0%bc-%d0%bf%d0%b5%d1%80%d0%b5%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%be%d0%bc&#34;&gt;Проверки перед каждым перезапуском&lt;/a&gt;.&lt;/li&gt;
 &lt;li&gt;Когда выключено, dnsmasq получает серверы из файла &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt; (Keenetic: &lt;code&gt;/opt/etc/keen-pbr/&lt;/code&gt;, Debian и OpenWrt: &lt;code&gt;/etc/keen-pbr/&lt;/code&gt;). Они добавляются к собственным серверам dnsmasq. Чтобы этого не было, очистите файл. На OpenWrt он по умолчанию пустой.&lt;/li&gt;
@@ -2210,9 +2166,7 @@
     &lt;a href=&#34;#%d0%bf%d1%80%d0%b8-%d0%be%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%ba%d0%b5-%d0%be%d1%82%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d0%b8-%d0%b8%d0%bb%d0%b8-%d1%83%d0%b4%d0%b0%d0%bb%d0%b5%d0%bd%d0%b8%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Остановка keen-pbr&lt;/strong&gt;: dnsmasq не перезапускается. Отдельные DNS-серверы для списков продолжают работать, в том числе после перезапуска dnsmasq или роутера.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Отключение функции&lt;/strong&gt; (&lt;code&gt;resolver_integration: &amp;quot;none&amp;quot;&lt;/code&gt;): keen-pbr перезапускает dnsmasq, и тот переходит на серверы из &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt;. На OpenWrt список серверов возвращается в &lt;code&gt;/etc/config/dhcp&lt;/code&gt;. Если вы выключили управление, правя конфиг при остановленном keen-pbr, первый старт один раз перезапустит dnsmasq. Проверить результат можно командой &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/cli/#resolver-dnsmasq-detect&#34;&gt;&lt;code&gt;resolver dnsmasq detect&lt;/code&gt;&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;dnsmasq не запущен&lt;/strong&gt;: keen-pbr никогда не запускает остановленный dnsmasq. Если dnsmasq упал в системе без супервизора служб (
-  &lt;abbr title=&#34;Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.&#34;&gt;Entware&lt;/abbr&gt;
-), запустите его вручную; keen-pbr применит свою конфигурацию заново, как только dnsmasq снова заработает.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;dnsmasq не запущен&lt;/strong&gt;: keen-pbr никогда не запускает остановленный dnsmasq. Если dnsmasq упал в системе без супервизора служб (&lt;abbr title=&#34;Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.&#34;&gt;Entware&lt;/abbr&gt;), запустите его вручную; keen-pbr применит свою конфигурацию заново, как только dnsmasq снова заработает.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;dnsmasq потерял конфигурацию&lt;/strong&gt; (перезапущен с другими настройками): keen-pbr перезапускает его не более 3 раз (сразу, затем через 5 и 10 минут), после чего автоматическое восстановление приостанавливается; &lt;code&gt;state&lt;/code&gt; в &lt;code&gt;/api/health/service&lt;/code&gt; показывает &lt;code&gt;reconciling&lt;/code&gt; или &lt;code&gt;error&lt;/code&gt; с причиной. Применение конфигурации или перезапуск keen-pbr включают его снова. Работающий dnsmasq, который не отвечает на проверку конфигурации, не перезапускается.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Удаление пакета&lt;/strong&gt;: keen-pbr убирает свою запись из dnsmasq, возвращает список серверов на OpenWrt и перезапускает dnsmasq. Это работает, даже если сам keen-pbr сломан: скрипты удаления его не запускают. Если у dnsmasq не остаётся ни одного вышестоящего DNS-сервера (в конфиге &lt;code&gt;no-resolv&lt;/code&gt; и нет своих строк &lt;code&gt;server=&lt;/code&gt;), серверы из &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt; остаются в блоке с пометкой &lt;code&gt;keen-pbr fallback upstream&lt;/code&gt; в &lt;code&gt;/opt/etc/dnsmasq.conf&lt;/code&gt; (Keenetic) или &lt;code&gt;/etc/dnsmasq.conf&lt;/code&gt; (Debian). Замените их своими. Правила файрвола, оставшиеся после аварийно завершившегося keen-pbr, тоже удаляются.&lt;/li&gt;
 &lt;/ul&gt;
@@ -2274,9 +2228,7 @@
 					&lt;td&gt;&lt;code&gt;ipset_hashsize&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;отсутствует&lt;/td&gt;
-					&lt;td&gt;Необязательный начальный размер хеш-таблицы 
-  &lt;abbr title=&#34;Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.&#34;&gt;ipset&lt;/abbr&gt;
-, создаваемых бэкендом iptables (по умолчанию &lt;code&gt;1024&lt;/code&gt;). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. Веб-интерфейс (&lt;strong&gt;Продвинутый&lt;/strong&gt; режим): &lt;strong&gt;Размер хеш-таблицы IPSet (ipset hashsize)&lt;/strong&gt;. При изменении наборы пересоздаются, а динамические наборы очищаются.&lt;/td&gt;
+					&lt;td&gt;Необязательный начальный размер хеш-таблицы &lt;abbr title=&#34;Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.&#34;&gt;ipset&lt;/abbr&gt;, создаваемых бэкендом iptables (по умолчанию &lt;code&gt;1024&lt;/code&gt;). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. Веб-интерфейс (&lt;strong&gt;Продвинутый&lt;/strong&gt; режим): &lt;strong&gt;Размер хеш-таблицы IPSet (ipset hashsize)&lt;/strong&gt;. При изменении наборы пересоздаются, а динамические наборы очищаются.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;ipset_maxelem&lt;/code&gt;&lt;/td&gt;
@@ -2462,9 +2414,7 @@
 &lt;/div&gt;
 &lt;p&gt;Запустите &lt;code&gt;keen-pbr&lt;/code&gt; с флагом &lt;code&gt;--no-api&lt;/code&gt;, чтобы отключить API независимо от конфига. См. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/rest-api/&#34;&gt;REST API&lt;/a&gt; для описания эндпоинтов и управления сервисом во время работы.&lt;/p&gt;
 &lt;h2&gt;fwmark&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;fwmark&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#fwmark&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Задаёт диапазон значений 
-  &lt;abbr title=&#34;Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.&#34;&gt;fwmark&lt;/abbr&gt;
-. fwmark — метка, которую keen-pbr ставит на пакет, чтобы система отправила его в нужную таблицу маршрутизации (таблицу с маршрутами одного outbound). См. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/concepts/#fwmark-и-conntrack&#34;&gt;fwmark и conntrack&lt;/a&gt;.&lt;/p&gt;
+    &lt;a href=&#34;#fwmark&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Задаёт диапазон значений &lt;abbr title=&#34;Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.&#34;&gt;fwmark&lt;/abbr&gt;. fwmark — метка, которую keen-pbr ставит на пакет, чтобы система отправила его в нужную таблицу маршрутизации (таблицу с маршрутами одного outbound). См. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/concepts/#fwmark-и-conntrack&#34;&gt;fwmark и conntrack&lt;/a&gt;.&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;
@@ -2578,32 +2528,18 @@
 &lt;li&gt;выключен (по умолчанию) — трафик уйдёт через обычный шлюз провайдера, мимо VPN;&lt;/li&gt;
 &lt;li&gt;включён — трафик будет заблокирован (как именно, задаёт &lt;code&gt;strict_enforcement_action&lt;/code&gt;).&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;Чтобы трафик переключался на запасной канал, создайте один outbound типа &lt;code&gt;urltest&lt;/code&gt; и добавьте в него оба интерфейса. Параметр &lt;code&gt;conntrack_on_switch&lt;/code&gt; определяет, что происходит с уже открытыми соединениями, когда &lt;code&gt;urltest&lt;/code&gt; переходит на более быстрый канал: &lt;code&gt;preserve&lt;/code&gt; (по умолчанию) оставляет их на старом канале, &lt;code&gt;delete&lt;/code&gt; удаляет их записи из 
-  &lt;abbr title=&#34;Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).&#34;&gt;conntrack&lt;/abbr&gt;
-, и приложения переподключаются через новый. Если выбранный канал перестал работать, записи conntrack его соединений удаляются всегда.&lt;/p&gt;
+&lt;p&gt;Чтобы трафик переключался на запасной канал, создайте один outbound типа &lt;code&gt;urltest&lt;/code&gt; (или &lt;code&gt;icmptest&lt;/code&gt;) и добавьте в него оба интерфейса. Параметр &lt;code&gt;conntrack_on_switch&lt;/code&gt; определяет, что происходит с уже открытыми соединениями, когда он переходит на более быстрый канал: &lt;code&gt;preserve&lt;/code&gt; (по умолчанию) оставляет их на старом канале, &lt;code&gt;delete&lt;/code&gt; удаляет их записи из &lt;abbr title=&#34;Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).&#34;&gt;conntrack&lt;/abbr&gt;, и приложения переподключаются через новый. Если выбранный канал перестал работать, записи conntrack его соединений удаляются всегда.&lt;/p&gt;
 &lt;h2&gt;Что важно знать&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;что-важно-знать&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d1%87%d1%82%d0%be-%d0%b2%d0%b0%d0%b6%d0%bd%d0%be-%d0%b7%d0%bd%d0%b0%d1%82%d1%8c&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ul&gt;
 &lt;li&gt;При &lt;code&gt;ipv6_enabled: false&lt;/code&gt; IPv6-трафик идёт как обычно, мимо keen-pbr.&lt;/li&gt;
-&lt;li&gt;keen-pbr узнаёт IP-адреса доменов из обычных DNS-ответов, которые проходят через роутер, даже если клиент пользуется сторонним DNS-сервером. Если устройство использует зашифрованный DNS (
-  &lt;abbr title=&#34;DNS over HTTPS — зашифрованный DNS. Роутер не может прочитать такие запросы.&#34;&gt;DoH&lt;/abbr&gt;
-, 
-  &lt;abbr title=&#34;DNS over TLS — зашифрованный DNS. Роутер не может прочитать такие запросы.&#34;&gt;DoT&lt;/abbr&gt;
-), keen-pbr узнает адрес сайта только из самого соединения (имя сервера в TLS, HTTP или 
-  &lt;abbr title=&#34;Транспортный протокол поверх UDP, на нём работает HTTP/3.&#34;&gt;QUIC&lt;/abbr&gt;
-), и первые соединения могут пройти мимо VPN. Чтобы этого избежать, отключите на устройстве «безопасный DNS» и настройте DoH/DoT на самом роутере.&lt;/li&gt;
-&lt;li&gt;Когда у адреса домена истекает срок в списке, новые соединения идут уже по другому маршруту, а открытые продолжают идти прежним: их 
-  &lt;abbr title=&#34;Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.&#34;&gt;fwmark&lt;/abbr&gt;
- хранится в 
-  &lt;abbr title=&#34;Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).&#34;&gt;conntrack&lt;/abbr&gt;
-.&lt;/li&gt;
+&lt;li&gt;keen-pbr узнаёт IP-адреса доменов из обычных DNS-ответов, которые проходят через роутер, даже если клиент пользуется сторонним DNS-сервером. Если устройство использует зашифрованный DNS (&lt;abbr title=&#34;DNS over HTTPS — зашифрованный DNS. Роутер не может прочитать такие запросы.&#34;&gt;DoH&lt;/abbr&gt;, &lt;abbr title=&#34;DNS over TLS — зашифрованный DNS. Роутер не может прочитать такие запросы.&#34;&gt;DoT&lt;/abbr&gt;), keen-pbr узнает адрес сайта только из самого соединения (имя сервера в TLS, HTTP или &lt;abbr title=&#34;Транспортный протокол поверх UDP, на нём работает HTTP/3.&#34;&gt;QUIC&lt;/abbr&gt;), и первые соединения могут пройти мимо VPN. Чтобы этого избежать, отключите на устройстве «безопасный DNS» и настройте DoH/DoT на самом роутере.&lt;/li&gt;
+&lt;li&gt;Когда у адреса домена истекает срок в списке, новые соединения идут уже по другому маршруту, а открытые продолжают идти прежним: их &lt;abbr title=&#34;Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.&#34;&gt;fwmark&lt;/abbr&gt; хранится в &lt;abbr title=&#34;Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).&#34;&gt;conntrack&lt;/abbr&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;keen-pbr download&lt;/code&gt; скачивает списки в кэш. Чтобы работающий сервис начал их использовать, выполните &lt;code&gt;keen-pbr download --reload&lt;/code&gt; или перезапустите сервис.&lt;/li&gt;
 &lt;li&gt;Если keen-pbr остановился после сбоя, не меняйте &lt;code&gt;fwmark.mask&lt;/code&gt; до следующего запуска: иначе он не узнает свои старые правила и не сможет их удалить. Если так уже случилось, перезагрузите роутер.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2&gt;Только один экземпляр&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;только-один-экземпляр&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d1%82%d0%be%d0%bb%d1%8c%d0%ba%d0%be-%d0%be%d0%b4%d0%b8%d0%bd-%d1%8d%d0%ba%d0%b7%d0%b5%d0%bc%d0%bf%d0%bb%d1%8f%d1%80&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;На одном роутере может работать только один keen-pbr. Отдельный &lt;code&gt;pid_file&lt;/code&gt; не помогает: второй экземпляр использует те же имена правил и наборов firewall и сломает правила первого.&lt;/p&gt;
-&lt;p&gt;Все outbound и правила маршрутизации описывайте в одной конфигурации. Если нужны два независимых экземпляра, запускайте их в разных сетевых пространствах имён (
-  &lt;abbr title=&#34;Изолированная копия сетевого стека Linux со своими интерфейсами, маршрутами и firewall.&#34;&gt;network namespace&lt;/abbr&gt;
-).&lt;/p&gt;
+&lt;p&gt;Все outbound и правила маршрутизации описывайте в одной конфигурации. Если нужны два независимых экземпляра, запускайте их в разных сетевых пространствах имён (&lt;abbr title=&#34;Изолированная копия сетевого стека Linux со своими интерфейсами, маршрутами и firewall.&#34;&gt;network namespace&lt;/abbr&gt;).&lt;/p&gt;
 &lt;h2&gt;lists_autoupdate&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;lists_autoupdate&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#lists_autoupdate&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Обновление удалённых списков по расписанию.&lt;/p&gt;
 &lt;p&gt;Если секции &lt;code&gt;lists_autoupdate&lt;/code&gt; нет, автоматическое обновление выключено. В веб-интерфейсе: &lt;strong&gt;Общее&lt;/strong&gt; &amp;gt; &lt;strong&gt;Настройки&lt;/strong&gt; &amp;gt; &lt;strong&gt;Автообновление списков&lt;/strong&gt;.&lt;/p&gt;
@@ -3082,7 +3018,7 @@
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;url&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/apple&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;c1&#34;&gt;// Необязательный outbound, через который будет загружаться этот список.
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;c1&#34;&gt;// Подходят outbounds типов interface, table, urltest.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;c1&#34;&gt;// Подходят outbounds типов interface, table, urltest, icmptest.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;c1&#34;&gt;// По умолчанию: null (используется обычная системная маршрутизация)
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;detour&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;auto_select&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
@@ -3156,14 +3092,14 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;10.8.0.1:5353&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Необязательный outbound, через который нужно обращаться к этому DNS-серверу.
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Подходят outbounds типов interface, table, urltest.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Подходят outbounds типов interface, table, urltest, icmptest.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Не допускаются: blackhole, ignore.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// По умолчанию: использовать обычную системную маршрутизацию.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;detour&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn&amp;#34;&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// DNS-сервер, к которому обращаются через urltest outbound.
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// DNS-сервер, к которому обращаются через urltest (или icmptest) outbound.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;auto_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;[2606:4700:4700::1111]:53&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;detour&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;auto_select&amp;#34;&lt;/span&gt;
@@ -3409,7 +3345,7 @@
 &lt;/div&gt;
 &lt;h2&gt;Примечания&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;примечания&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%87%d0%b0%d0%bd%d0%b8%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ul&gt;
-&lt;li&gt;&lt;code&gt;dns.servers[].detour&lt;/code&gt; поддерживает outbounds типов &lt;code&gt;interface&lt;/code&gt;, &lt;code&gt;table&lt;/code&gt; и &lt;code&gt;urltest&lt;/code&gt;, но не &lt;code&gt;blackhole&lt;/code&gt; и не &lt;code&gt;ignore&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;dns.servers[].detour&lt;/code&gt; поддерживает outbounds типов &lt;code&gt;interface&lt;/code&gt;, &lt;code&gt;table&lt;/code&gt;, &lt;code&gt;urltest&lt;/code&gt; и &lt;code&gt;icmptest&lt;/code&gt;, но не &lt;code&gt;blackhole&lt;/code&gt; и не &lt;code&gt;ignore&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;lists[].detour&lt;/code&gt; полезен, когда удалённый список нужно загружать через VPN или другой нестандартный маршрут.&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;route.rules[]&lt;/code&gt; должен содержать хотя бы одно условие совпадения: &lt;code&gt;list&lt;/code&gt;, &lt;code&gt;dscp&lt;/code&gt;, &lt;code&gt;src_port&lt;/code&gt;, &lt;code&gt;dest_port&lt;/code&gt;, &lt;code&gt;src_addr&lt;/code&gt;, &lt;code&gt;dest_addr&lt;/code&gt; или &lt;code&gt;default_gateway&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;dns.rules[].allow_domain_rebinding&lt;/code&gt; в основном нужен для внутренних доменов, которые специально резолвятся в приватные IP-адреса.&lt;/li&gt;
@@ -3427,58 +3363,31 @@
       <description>
         
         
-        &lt;p&gt;Эта страница для тех, у кого к хосту на Debian или Ubuntu подключены два интернет-провайдера и новые соединения нужно распределить между ними (multi-WAN). Описан firewall-бэкенд &lt;code&gt;iptables&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;Эта страница для роутера или хоста, к которому подключены два и более интернет-провайдера и новые соединения нужно распределить между ними (multi-WAN).&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
 
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Балансировка нагрузки &lt;strong&gt;недоступна на Keenetic&lt;/strong&gt;: сборка для Keenetic её не поддерживает и не примет конфигурацию с &lt;code&gt;&amp;quot;strategy&amp;quot;: &amp;quot;balance&amp;quot;&lt;/code&gt;. На этих устройствах используйте собственный multipath роутера. Бэкенд &lt;code&gt;nftables&lt;/code&gt; (OpenWrt 24+ с fw4 или любой хост с &lt;code&gt;nft&lt;/code&gt;) тоже поддерживает балансировку, см. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/configuration/outbounds/#urltest&#34;&gt;Outbounds&lt;/a&gt;. Пошаговое руководство ниже рассчитано на iptables в Debian/Ubuntu, а заметки про
-&lt;abbr title=&#34;Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.&#34;&gt;NAT&lt;/abbr&gt;
-, &lt;code&gt;rp_filter&lt;/code&gt; и
-&lt;abbr title=&#34;Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.&#34;&gt;fwmark&lt;/abbr&gt;
-(числовую метку на пакете) применимы к любому бэкенду.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Балансировка нагрузки &lt;strong&gt;недоступна на Keenetic&lt;/strong&gt;: сборка для Keenetic её не поддерживает и не примет конфигурацию с &lt;code&gt;&amp;quot;strategy&amp;quot;: &amp;quot;balance&amp;quot;&lt;/code&gt;. На этих устройствах включите многопутевую передачу в профиле подключения.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 
 &lt;h2&gt;Как это работает&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;как-это-работает&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Outbound &lt;code&gt;urltest&lt;/code&gt; или &lt;code&gt;icmptest&lt;/code&gt; с &lt;code&gt;&amp;quot;strategy&amp;quot;: &amp;quot;balance&amp;quot;&lt;/code&gt; выбирает один из рабочих каналов для каждого &lt;strong&gt;нового&lt;/strong&gt; соединения пропорционально их &lt;code&gt;weight&lt;/code&gt; (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.&lt;/p&gt;
-&lt;p&gt;Две вещи в системе вы настраиваете сами: 
-  &lt;abbr title=&#34;Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.&#34;&gt;NAT&lt;/abbr&gt;
- на каждом провайдере и &lt;code&gt;rp_filter&lt;/code&gt; (см. ниже).&lt;/p&gt;
-&lt;h2&gt;Выбор бэкенда iptables&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;выбор-бэкенда-iptables&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%b2%d1%8b%d0%b1%d0%be%d1%80-%d0%b1%d1%8d%d0%ba%d0%b5%d0%bd%d0%b4%d0%b0-iptables&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;При &lt;code&gt;&amp;quot;firewall_backend&amp;quot;: &amp;quot;auto&amp;quot;&lt;/code&gt; (по умолчанию) keen-pbr использует nftables, если есть бинарный файл &lt;code&gt;nft&lt;/code&gt;, и переключается на iptables в противном случае. Debian и Ubuntu по умолчанию устанавливают &lt;code&gt;nftables&lt;/code&gt;, поэтому для использования iptables его нужно выбрать явно:&lt;/p&gt;
-&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;daemon&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;firewall_backend&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;iptables&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Скопировать код&#34;
-    aria-label=&#34;Скопировать код&#34;
-    data-copied-label=&#34;Скопировано!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
-&lt;p&gt;Допустимые значения: &lt;code&gt;auto&lt;/code&gt;, &lt;code&gt;iptables&lt;/code&gt; и &lt;code&gt;nftables&lt;/code&gt;. Выбирайте iptables, если на хосте уже работает стек на основе iptables (Docker, ufw, fail2ban), чтобы все правила firewall находились в одном месте. Работают оба варианта: &lt;code&gt;iptables-nft&lt;/code&gt; (по умолчанию в Debian) и &lt;code&gt;iptables-legacy&lt;/code&gt; (&lt;code&gt;update-alternatives --config iptables&lt;/code&gt;).&lt;/p&gt;
-&lt;p&gt;Балансировка на iptables использует модуль ядра &lt;code&gt;xt_statistic&lt;/code&gt;, который входит в стандартное ядро Debian/Ubuntu. keen-pbr проверяет его один раз при запуске сервиса. Если модуль не работает, конфигурация с &lt;code&gt;&amp;quot;strategy&amp;quot;: &amp;quot;balance&amp;quot;&lt;/code&gt; отклоняется с ошибкой, в которой назван &lt;code&gt;xt_statistic&lt;/code&gt;, а firewall остаётся без изменений. Балансировка на iptables также недоступна с &lt;code&gt;--use-raw-prerouting&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;В системе вам нужно настроить &lt;abbr title=&#34;Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.&#34;&gt;NAT&lt;/abbr&gt; на каждом провайдере и &lt;code&gt;rp_filter&lt;/code&gt; (см. ниже).&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
 
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;iptables выбирает канал случайно с заданной вероятностью, поэтому на небольшом числе соединений распределение получается приблизительным. Поле &lt;code&gt;default_gateway&lt;/code&gt; в правилах маршрутизации работает только с nftables, поэтому на iptables используйте явные правила, например &lt;code&gt;dest_addr&lt;/code&gt; (см. пример ниже).&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;На бэкенде &lt;code&gt;iptables&lt;/code&gt; каналы выбираются случайно с заданной вероятностью, поэтому на небольшом числе соединений доли получаются приблизительными. Бэкенду &lt;code&gt;iptables&lt;/code&gt; нужен модуль ядра &lt;code&gt;xt_statistic&lt;/code&gt;, а поле &lt;code&gt;default_gateway&lt;/code&gt; в правилах маршрутизации работает только с &lt;code&gt;nftables&lt;/code&gt;. Менять &lt;code&gt;firewall_backend&lt;/code&gt; обычно не нужно: keen-pbr сам выбирает подходящий бэкенд.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 
 &lt;h2&gt;Пример&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;пример&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Два подключения: &lt;code&gt;eth1&lt;/code&gt; (30% новых соединений) и &lt;code&gt;eth2&lt;/code&gt; (70%), LAN на &lt;code&gt;eth0&lt;/code&gt;. Если соединения самого хоста тоже нужно балансировать, включите &lt;strong&gt;Общее&lt;/strong&gt; &amp;gt; &lt;strong&gt;Настройки&lt;/strong&gt; &amp;gt; &lt;strong&gt;Общие&lt;/strong&gt; &amp;gt; &lt;strong&gt;Обрабатывать собственный трафик роутера&lt;/strong&gt; (виден в режиме настроек &lt;strong&gt;Продвинутый&lt;/strong&gt;) (&lt;code&gt;iproute.process_router_traffic&lt;/code&gt;); по умолчанию балансируется только транзитный трафик LAN. Интерфейсы LAN задаются в поле &lt;strong&gt;Обрабатываемые (входящие) интерфейсы&lt;/strong&gt; (&lt;code&gt;route.inbound_interfaces&lt;/code&gt;).&lt;/p&gt;
+    &lt;a href=&#34;#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Два подключения: &lt;code&gt;eth1&lt;/code&gt; (30% новых соединений) и &lt;code&gt;eth2&lt;/code&gt; (70%), LAN на &lt;code&gt;eth0&lt;/code&gt;. Если соединения самого хоста тоже нужно балансировать, включите &lt;strong&gt;Общее&lt;/strong&gt; &amp;gt; &lt;strong&gt;Настройки&lt;/strong&gt; &amp;gt; &lt;strong&gt;Общие&lt;/strong&gt; &amp;gt; &lt;strong&gt;Обрабатывать собственный трафик роутера&lt;/strong&gt; (виден в режиме настроек &lt;strong&gt;Продвинутый&lt;/strong&gt;); по умолчанию балансируется только трафик устройств из LAN. Интерфейсы LAN задаются в поле &lt;strong&gt;Обрабатываемые (входящие) интерфейсы&lt;/strong&gt;.&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;/etc/keen-pbr/config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;daemon&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;firewall_backend&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;iptables&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;outbounds&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;interface&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;wan1&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;interface&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;eth1&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;gateway&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;192.0.2.1&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;interface&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;wan2&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;interface&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;eth2&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;gateway&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;198.51.100.1&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
@@ -3530,16 +3439,19 @@
 &lt;p&gt;Используйте &lt;code&gt;icmptest&lt;/code&gt; вместо &lt;code&gt;urltest&lt;/code&gt;, если предпочитаете ICMP-проверки; тогда для каждого канала нужен адрес &lt;code&gt;target&lt;/code&gt; (см. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/configuration/outbounds/#icmptest&#34;&gt;Outbounds&lt;/a&gt;).&lt;/p&gt;
 &lt;h2&gt;Обязательная настройка системы&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;обязательная-настройка-системы&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%be%d0%b1%d1%8f%d0%b7%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%b0%d1%8f-%d0%bd%d0%b0%d1%81%d1%82%d1%80%d0%be%d0%b9%d0%ba%d0%b0-%d1%81%d0%b8%d1%81%d1%82%d0%b5%d0%bc%d1%8b&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;h3&gt;1. NAT на каждом WAN&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;1-nat-на-каждом-wan&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#1-nat-%d0%bd%d0%b0-%d0%ba%d0%b0%d0%b6%d0%b4%d0%be%d0%bc-wan&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;
-  &lt;abbr title=&#34;Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.&#34;&gt;NAT&lt;/abbr&gt;
- &lt;strong&gt;обязателен на каждом WAN-интерфейсе&lt;/strong&gt;. Без него пакет уходит ко второму провайдеру с адресом из вашей локальной сети, ответ на него не возвращается, и соединение зависает. Проверки работоспособности при этом проходят, потому что используют адрес самого интерфейса. Это касается и трафика самого хоста.&lt;/p&gt;
+    &lt;a href=&#34;#1-nat-%d0%bd%d0%b0-%d0%ba%d0%b0%d0%b6%d0%b4%d0%be%d0%bc-wan&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;abbr title=&#34;Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.&#34;&gt;NAT&lt;/abbr&gt; &lt;strong&gt;обязателен на каждом WAN-интерфейсе&lt;/strong&gt;. Без него пакет уходит ко второму провайдеру с адресом из вашей локальной сети, ответ не возвращается, и соединение зависает. Проверки каналов при этом проходят, поэтому проблему легко пропустить. Это касается и трафика самого хоста.&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+В &lt;strong&gt;Network&lt;/strong&gt; &amp;gt; &lt;strong&gt;Firewall&lt;/strong&gt; &amp;gt; &lt;strong&gt;Zones&lt;/strong&gt; включите &lt;strong&gt;Masquerading&lt;/strong&gt; для каждой зоны, в которой есть подключение к провайдеру (по умолчанию это зона &lt;code&gt;wan&lt;/code&gt;).&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+Добавьте &lt;code&gt;masquerade&lt;/code&gt; для обоих интерфейсов, например в &lt;code&gt;/etc/nftables.conf&lt;/code&gt;:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;sudo iptables -t nat -A POSTROUTING -o eth1 -j MASQUERADE
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;sudo iptables -t nat -A POSTROUTING -o eth2 -j MASQUERADE
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# IPv6, только если вы балансируете IPv6 и используете NAT66&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;sudo ip6tables -t nat -A POSTROUTING -o eth1 -j MASQUERADE
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;sudo ip6tables -t nat -A POSTROUTING -o eth2 -j MASQUERADE&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;/etc/nftables.conf&lt;/div&gt;&lt;div&gt;&lt;pre&gt;&lt;code&gt;table inet multiwan_nat {
+  chain postrouting {
+    type nat hook postrouting priority srcnat; policy accept;
+    oifname { &amp;#34;eth1&amp;#34;, &amp;#34;eth2&amp;#34; } masquerade
+  }
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Скопировать код&#34;
@@ -3551,9 +3463,25 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Сделайте правила постоянными, например с помощью &lt;code&gt;iptables-persistent&lt;/code&gt; (&lt;code&gt;sudo apt install iptables-persistent&lt;/code&gt;, затем &lt;code&gt;sudo netfilter-persistent save&lt;/code&gt;), либо добавьте эквивалентные строки &lt;code&gt;*nat&lt;/code&gt; в &lt;code&gt;/etc/ufw/before.rules&lt;/code&gt;, если используете ufw. Если NAT на хосте управляется через nftables, добавьте &lt;code&gt;masquerade&lt;/code&gt; для обоих интерфейсов в цепочку &lt;code&gt;postrouting&lt;/code&gt; типа &lt;code&gt;nat&lt;/code&gt;.&lt;/p&gt;
-&lt;h3&gt;2. Обратный фильтр пути (rp_filter)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;2-обратный-фильтр-пути-rp_filter&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#2-%d0%be%d0%b1%d1%80%d0%b0%d1%82%d0%bd%d1%8b%d0%b9-%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-%d0%bf%d1%83%d1%82%d0%b8-rp_filter&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Строгий фильтр ядра (&lt;code&gt;rp_filter=1&lt;/code&gt;) выбрасывает ответ, который пришёл не через тот интерфейс, через который ядро само отправило бы пакет этому адресу. При двух провайдерах ответы второго как раз такие. Значение по умолчанию в systemd — &lt;code&gt;2&lt;/code&gt; (нестрогий режим), и оно работает. Проверьте и при необходимости исправьте:&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+Добавьте правила &lt;code&gt;MASQUERADE&lt;/code&gt; и сохраните их, например через &lt;code&gt;iptables-persistent&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;sudo iptables -t nat -A POSTROUTING -o eth1 -j MASQUERADE
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;sudo iptables -t nat -A POSTROUTING -o eth2 -j MASQUERADE&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;h3&gt;2. rp_filter&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;2-rp_filter&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#2-rp_filter&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Строгая проверка обратного пути (&lt;code&gt;rp_filter=1&lt;/code&gt;) отбрасывает ответы второго провайдера. Нужен нестрогий режим (&lt;code&gt;2&lt;/code&gt;). Проверьте значения и при необходимости исправьте:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;sysctl net.ipv4.conf.all.rp_filter net.ipv4.conf.eth1.rp_filter net.ipv4.conf.eth2.rp_filter
@@ -3571,26 +3499,10 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Ядро использует большее из значений &lt;code&gt;all&lt;/code&gt; и значения для конкретного интерфейса.&lt;/p&gt;
-&lt;h2&gt;Метки (fwmark), поставленные другими программами&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;метки-fwmark-поставленные-другими-программами&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%bc%d0%b5%d1%82%d0%ba%d0%b8-fwmark-%d0%bf%d0%be%d1%81%d1%82%d0%b0%d0%b2%d0%bb%d0%b5%d0%bd%d0%bd%d1%8b%d0%b5-%d0%b4%d1%80%d1%83%d0%b3%d0%b8%d0%bc%d0%b8-%d0%bf%d1%80%d0%be%d0%b3%d1%80%d0%b0%d0%bc%d0%bc%d0%b0%d0%bc%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Метки на пакетах ставят не только keen-pbr, но и Docker, WireGuard (&lt;code&gt;0xca6c&lt;/code&gt;), Tailscale, скрипты 
-  &lt;abbr title=&#34;Приоритизация трафика, например звонки важнее загрузок.&#34;&gt;QoS&lt;/abbr&gt;
-. По умолчанию keen-pbr полностью пропускает пакет, у которого уже есть чужая метка, включая балансировку. В веб-интерфейсе это переключатель &lt;strong&gt;Общее&lt;/strong&gt; &amp;gt; &lt;strong&gt;Настройки&lt;/strong&gt; &amp;gt; &lt;strong&gt;Общие&lt;/strong&gt; &amp;gt; &lt;strong&gt;Не обрабатывать маркированные пакеты&lt;/strong&gt; (&lt;code&gt;daemon.skip_marked_packets&lt;/code&gt;). Если выключить его, keen-pbr будет маршрутизировать и такие пакеты, но может перезаписать метки, на которые полагается другое ПО:&lt;/p&gt;
-&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;daemon&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;skip_marked_packets&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;kc&#34;&gt;false&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Скопировать код&#34;
-    aria-label=&#34;Скопировать код&#34;
-    data-copied-label=&#34;Скопировано!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
-&lt;p&gt;Если другая программа пишет метки в те же биты, что и keen-pbr, выбор канала сбивается. Тогда перенесите метки keen-pbr в биты, которые никто не использует. По умолчанию это &lt;code&gt;fwmark.mask&lt;/code&gt; равный &lt;code&gt;0x00FF0000&lt;/code&gt; и &lt;code&gt;fwmark.start&lt;/code&gt; равный &lt;code&gt;0x00010000&lt;/code&gt;; каждому маршрутизируемому outbound нужно два значения. Маска должна состоять из идущих подряд целых шестнадцатеричных цифр &lt;code&gt;F&lt;/code&gt; (например, &lt;code&gt;0xFF000000&lt;/code&gt;):&lt;/p&gt;
+&lt;p&gt;На OpenWrt добавьте эти же три строки в &lt;code&gt;/etc/sysctl.conf&lt;/code&gt; и выполните &lt;code&gt;/etc/init.d/sysctl restart&lt;/code&gt;.&lt;/p&gt;
+&lt;h2&gt;Если на роутере работают другие программы с метками&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;если-на-роутере-работают-другие-программы-с-метками&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%b5%d1%81%d0%bb%d0%b8-%d0%bd%d0%b0-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%b5-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d1%8e%d1%82-%d0%b4%d1%80%d1%83%d0%b3%d0%b8%d0%b5-%d0%bf%d1%80%d0%be%d0%b3%d1%80%d0%b0%d0%bc%d0%bc%d1%8b-%d1%81-%d0%bc%d0%b5%d1%82%d0%ba%d0%b0%d0%bc%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Метки на пакетах ставят не только keen-pbr, но и Docker, WireGuard, Tailscale, скрипты &lt;abbr title=&#34;Приоритизация трафика, например звонки важнее загрузок.&#34;&gt;QoS&lt;/abbr&gt; и mwan3 на OpenWrt. По умолчанию keen-pbr не трогает пакеты с чужой меткой, и они не балансируются. Это управляется переключателем &lt;strong&gt;Общее&lt;/strong&gt; &amp;gt; &lt;strong&gt;Настройки&lt;/strong&gt; &amp;gt; &lt;strong&gt;Общие&lt;/strong&gt; &amp;gt; &lt;strong&gt;Не обрабатывать маркированные пакеты&lt;/strong&gt;.&lt;/p&gt;
+&lt;p&gt;Если выбор канала сбивается из-за чужих меток, предупреждение &lt;code&gt;fwmark_mask_conflict&lt;/code&gt; появится на странице состояния. Тогда перенесите метки keen-pbr в свободные биты:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
@@ -3610,50 +3522,37 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Проверить, что уже используется, можно через &lt;code&gt;ip rule show&lt;/code&gt; и &lt;code&gt;sudo iptables -t mangle -S | grep -i mark&lt;/code&gt;. Если в маске не хватает значений для всех ваших outbound, keen-pbr не примет конфигурацию. Страница состояния (веб-интерфейс, &lt;code&gt;keen-pbr status&lt;/code&gt;, &lt;code&gt;GET /api/health/routing&lt;/code&gt;) предупреждает об отсутствующем 
-  &lt;abbr title=&#34;Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.&#34;&gt;NAT&lt;/abbr&gt;
-, строгом &lt;code&gt;rp_filter&lt;/code&gt;, а также о правилах firewall и &lt;code&gt;ip rule&lt;/code&gt; других программ, которые используют биты внутри &lt;code&gt;fwmark.mask&lt;/code&gt; (&lt;code&gt;fwmark_mask_conflict&lt;/code&gt;). Это только предупреждения, применять конфигурацию они не мешают.&lt;/p&gt;
-&lt;p&gt;Tailscale — особый случай: перенос маски не поможет, см. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/troubleshooting/#tailscale&#34;&gt;Маршрутизация ломается при включённом Tailscale&lt;/a&gt;.&lt;/p&gt;
-&lt;h2&gt;Известное ограничение: входящие соединения на втором WAN&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;известное-ограничение-входящие-соединения-на-втором-wan&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%b8%d0%b7%d0%b2%d0%b5%d1%81%d1%82%d0%bd%d0%be%d0%b5-%d0%be%d0%b3%d1%80%d0%b0%d0%bd%d0%b8%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%b2%d1%85%d0%be%d0%b4%d1%8f%d1%89%d0%b8%d0%b5-%d1%81%d0%be%d0%b5%d0%b4%d0%b8%d0%bd%d0%b5%d0%bd%d0%b8%d1%8f-%d0%bd%d0%b0-%d0%b2%d1%82%d0%be%d1%80%d0%be%d0%bc-wan&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Балансировка работает только для соединений, которые открывают устройства вашей сети (и, если включено, сам хост). Входящие соединения ко второму провайдеру (SSH, проброс портов) получают ответ через основной маршрут по умолчанию, то есть через неправильное подключение. keen-pbr пока это не обрабатывает. Обойти это можно вручную: ставьте входящим соединениям 
-  &lt;abbr title=&#34;Метка соединения в записи conntrack. keen-pbr копирует в неё fwmark, чтобы все пакеты соединения шли одним маршрутом.&#34;&gt;connmark&lt;/abbr&gt;
- по интерфейсу через &lt;code&gt;CONNMARK&lt;/code&gt;, восстанавливайте его в 
-  &lt;abbr title=&#34;Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.&#34;&gt;fwmark&lt;/abbr&gt;
- ответов в &lt;code&gt;mangle OUTPUT&lt;/code&gt; и добавьте &lt;code&gt;ip rule fwmark ... lookup &amp;lt;table&amp;gt;&lt;/code&gt; для таблицы, у которой маршрут по умолчанию идёт через этот WAN. Используйте значения fwmark вне &lt;code&gt;fwmark.mask&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;С Tailscale это не поможет, см. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/troubleshooting/#tailscale&#34;&gt;Маршрутизация ломается при включённом Tailscale&lt;/a&gt;.&lt;/p&gt;
+&lt;h2&gt;Ограничение: входящие соединения на втором WAN&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;ограничение-входящие-соединения-на-втором-wan&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%be%d0%b3%d1%80%d0%b0%d0%bd%d0%b8%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%b2%d1%85%d0%be%d0%b4%d1%8f%d1%89%d0%b8%d0%b5-%d1%81%d0%be%d0%b5%d0%b4%d0%b8%d0%bd%d0%b5%d0%bd%d0%b8%d1%8f-%d0%bd%d0%b0-%d0%b2%d1%82%d0%be%d1%80%d0%be%d0%bc-wan&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Балансировка работает только для соединений, которые открывают устройства вашей сети (и сам хост, если включено). Входящие соединения ко второму провайдеру (SSH, проброс портов) получают ответ через основное подключение, то есть через другого провайдера, и могут не работать.&lt;/p&gt;
 &lt;h2&gt;Устранение неполадок&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;устранение-неполадок&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d1%83%d1%81%d1%82%d1%80%d0%b0%d0%bd%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bd%d0%b5%d0%bf%d0%be%d0%bb%d0%b0%d0%b4%d0%be%d0%ba&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;
 					&lt;th&gt;Симптом&lt;/th&gt;
-					&lt;th&gt;Вероятная причина и проверка&lt;/th&gt;
+					&lt;th&gt;Что проверить&lt;/th&gt;
 			&lt;/tr&gt;
 	&lt;/thead&gt;
 	&lt;tbody&gt;
 			&lt;tr&gt;
-					&lt;td&gt;Соединения зависают, когда идут через один WAN, проверки работоспособности в порядке&lt;/td&gt;
-					&lt;td&gt;Отсутствует 
-  &lt;abbr title=&#34;Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.&#34;&gt;NAT&lt;/abbr&gt;
- на этом WAN: &lt;code&gt;sudo iptables -t nat -S POSTROUTING&lt;/code&gt; должен показывать &lt;code&gt;MASQUERADE&lt;/code&gt; для каждого WAN.&lt;/td&gt;
+					&lt;td&gt;Часть соединений зависает, проверки каналов в порядке&lt;/td&gt;
+					&lt;td&gt;&lt;abbr title=&#34;Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.&#34;&gt;NAT&lt;/abbr&gt; включён на каждом WAN.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;Пакеты уходят, но ответы не приходят&lt;/td&gt;
-					&lt;td&gt;Строгий &lt;code&gt;rp_filter&lt;/code&gt;: действующее значение (&lt;code&gt;all&lt;/code&gt; или для интерфейса, побеждает большее) должно быть &lt;code&gt;2&lt;/code&gt; или &lt;code&gt;0&lt;/code&gt;.&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;rp_filter&lt;/code&gt; равен &lt;code&gt;2&lt;/code&gt; или &lt;code&gt;0&lt;/code&gt; (побеждает большее из значений &lt;code&gt;all&lt;/code&gt; и интерфейса).&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;Весь трафик идёт через один WAN&lt;/td&gt;
-					&lt;td&gt;Метки от других программ (&lt;strong&gt;Не обрабатывать маркированные пакеты&lt;/strong&gt;), конфликт маски fwmark (страница состояния покажет предупреждение &lt;code&gt;fwmark_mask_conflict&lt;/code&gt; с указанием правила) или второй WAN нездоров. Проверьте &lt;code&gt;sudo iptables -t mangle -S&lt;/code&gt; и статус outbound в веб-интерфейсе или API.&lt;/td&gt;
+					&lt;td&gt;Второй WAN нездоров (статус на странице &lt;strong&gt;Маршрутизация&lt;/strong&gt; &amp;gt; &lt;strong&gt;Outbounds&lt;/strong&gt;) или метки других программ (см. выше).&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;Конфигурация отклонена с сообщением о &lt;code&gt;xt_statistic&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;sudo modprobe xt_statistic&lt;/code&gt;, затем перезапустите сервис.&lt;/td&gt;
 			&lt;/tr&gt;
-			&lt;tr&gt;
-					&lt;td&gt;Нет правил iptables, вместо них появляются правила &lt;code&gt;nft&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;&lt;code&gt;firewall_backend&lt;/code&gt; равен &lt;code&gt;auto&lt;/code&gt;, и &lt;code&gt;nft&lt;/code&gt; установлен: установите &lt;code&gt;iptables&lt;/code&gt;.&lt;/td&gt;
-			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
-&lt;p&gt;Логи пишутся в syslog (в Debian — в systemd journal). Для более подробного вывода используйте &lt;code&gt;--log-level verbose&lt;/code&gt; или &lt;code&gt;debug&lt;/code&gt;, см. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/cli/&#34;&gt;CLI&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Логи пишутся в syslog (на OpenWrt — &lt;code&gt;logread&lt;/code&gt;). Для более подробного вывода используйте &lt;code&gt;--log-level verbose&lt;/code&gt; или &lt;code&gt;debug&lt;/code&gt;, см. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/cli/&#34;&gt;CLI&lt;/a&gt;.&lt;/p&gt;
 
       </description>
     </item>

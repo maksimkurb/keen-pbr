@@ -242,18 +242,6 @@
                 href="https://keen-pbr.fyi/ru/docs/troubleshooting/"
                 />
   </url><url>
-    <loc>https://keen-pbr.fyi/ru/docs/changelog/</loc>
-    <xhtml:link
-                rel="alternate"
-                hreflang="en-us"
-                href="https://keen-pbr.fyi/docs/changelog/"
-                />
-    <xhtml:link
-                rel="alternate"
-                hreflang="ru"
-                href="https://keen-pbr.fyi/ru/docs/changelog/"
-                />
-  </url><url>
     <loc>https://keen-pbr.fyi/ru/docs/developer/</loc>
     <xhtml:link
                 rel="alternate"
@@ -264,6 +252,18 @@
                 rel="alternate"
                 hreflang="ru"
                 href="https://keen-pbr.fyi/ru/docs/developer/"
+                />
+  </url><url>
+    <loc>https://keen-pbr.fyi/ru/docs/changelog/</loc>
+    <xhtml:link
+                rel="alternate"
+                hreflang="en-us"
+                href="https://keen-pbr.fyi/docs/changelog/"
+                />
+    <xhtml:link
+                rel="alternate"
+                hreflang="ru"
+                href="https://keen-pbr.fyi/ru/docs/changelog/"
                 />
   </url><url>
     <loc>https://keen-pbr.fyi/ru/docs/donate/</loc>

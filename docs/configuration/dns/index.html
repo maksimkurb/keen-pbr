@@ -35,14 +35,14 @@ Do I need dnsmasq?
 	<meta itemprop="name" content="DNS">
 	<meta itemprop="description" content="Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in DNS interception.
 Do I need dnsmasq? No, not for routing. Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough (DoH and DoT are encrypted DNS).">
-	<meta itemprop="wordCount" content="2946">
+	<meta itemprop="wordCount" content="2956">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="DNS">
 	<meta name="twitter:description" content="Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in DNS interception.
 Do I need dnsmasq? No, not for routing. Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough (DoH and DoT are encrypted DNS).">
 
-    <link rel="preload" href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" as="style" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
-    <link href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" rel="stylesheet" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
+    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
 
   
 
@@ -1105,7 +1105,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 <li>to resolve the domains of some lists through a separate DNS server. For example, a CDN (content delivery network) should answer for your VPN&rsquo;s region, or the domains resolve only inside the VPN;</li>
 <li>to set your own default DNS servers for the whole network right in keen-pbr.</li>
 </ul>
-<p>Both work only through dnsmasq. If neither fits you, leave the <strong>Manage dnsmasq configuration</strong> switch off. If you upgraded from 3.3.x, the switch is already on: turn it off if you do not need dnsmasq (see <a href="/docs/changelog/#upgrading-from-33x">Upgrading from 3.3.x</a>).</p>
+<p>Both work only through dnsmasq. If neither fits you, leave the <strong>Manage dnsmasq configuration</strong> switch off. If you upgraded from 3.3.x, the switch is already on: turn it off if you do not need dnsmasq (see <a href="/docs/changelog/#upgrading-from-33x">Breaking Changes in 3.4.0</a>).</p>
 <p>How to install dnsmasq and how to roll back: <a href="/docs/getting-started/installation/keenetic/#dnsmasq">Keenetic</a>, <a href="/docs/getting-started/installation/openwrt/#dnsmasq">OpenWrt</a>, <a href="/docs/getting-started/installation/debian/#dnsmasq">Debian</a>.</p>
 <h2>How to check that DNS goes through the router<span class="hx:absolute hx:-mt-20" id="how-to-check-that-dns-goes-through-the-router"></span>
     <a href="#how-to-check-that-dns-goes-through-the-router" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Interception sees only the DNS queries that pass through the router. If a device uses DoH or its own DNS server, keen-pbr can recognise part of the domains only through L7.</p>
@@ -1262,9 +1262,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 <ul>
 <li>At most one server may use <code>type: &quot;keenetic&quot;</code>.</li>
 <li><code>address</code> is not set for it.</li>
-<li>keen-pbr reads the servers that are not tied to a domain from the <strong>System</strong> proxy policy. If any of them are encrypted (
-  <abbr title="DNS over HTTPS: encrypted DNS. The router cannot read these queries.">DoH</abbr>
-/DoT), all encrypted servers are used in order. Otherwise, all plain servers are used in order.</li>
+<li>keen-pbr reads the servers that are not tied to a domain from the <strong>System</strong> proxy policy. If any of them are encrypted (<abbr title="DNS over HTTPS: encrypted DNS. The router cannot read these queries.">DoH</abbr>/DoT), all encrypted servers are used in order. Otherwise, all plain servers are used in order.</li>
 </ul>
 <h2>Field reference<span class="hx:absolute hx:-mt-20" id="field-reference"></span>
     <a href="#field-reference" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>The <code>dns</code> section in <code>config.json</code>:</p>
@@ -1357,9 +1355,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
     <a href="#dns-interception" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Interception is on by default. Settings: <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Domain-based routing</strong>. It learns the IP addresses of domains from your lists:</p>
 <ul>
 <li><strong>DNS</strong>: keen-pbr briefly holds a DNS reply passing through the router, adds its addresses to the list&rsquo;s set, and only then lets the reply reach the client. This way even the first connection to a site takes the right route.</li>
-<li><strong>L7</strong>: keen-pbr reads the site name at the start of TLS, HTTP and 
-  <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr>
- connections. This helps when a device uses encrypted DNS.</li>
+<li><strong>L7</strong>: keen-pbr reads the site name at the start of TLS, HTTP and <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr> connections. This helps when a device uses encrypted DNS. The first connection to the site then breaks, and the browser or app reconnects over the right route.</li>
 </ul>
 <p>Change these settings only when the defaults do not suit you. The <code>intercept</code> section in <code>config.json</code>:</p>
 <table>
@@ -1382,9 +1378,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 					<td><code>min_ttl_ms</code> / <code>max_ttl_ms</code></td>
 					<td>integer</td>
 					<td><code>300000</code> / <code>86400000</code></td>
-					<td>How long to keep an address in a dynamic set: no less and no more than this, in milliseconds (rounded to seconds). Within these bounds the 
-  <abbr title="How long a DNS answer may be cached, in seconds.">TTL</abbr>
- from the DNS reply is used (<strong>Minimum TTL</strong>, <strong>Maximum TTL</strong>)</td>
+					<td>How long to keep an address in a dynamic set: no less and no more than this, in milliseconds (rounded to seconds). Within these bounds the <abbr title="How long a DNS answer may be cached, in seconds.">TTL</abbr> from the DNS reply is used (<strong>Minimum TTL</strong>, <strong>Maximum TTL</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>dns.enabled</code></td>
@@ -1396,9 +1390,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 					<td><code>dns.queue_num</code></td>
 					<td>integer</td>
 					<td><code>9053</code></td>
-					<td>
-  <abbr title="A netfilter mechanism that passes packets to a user-space program and waits for its verdict. keen-pbr uses it to hold DNS replies briefly.">NFQUEUE</abbr>
- number. Change it only if another program uses it (<strong>NFQUEUE number</strong>)</td>
+					<td><abbr title="A netfilter mechanism that passes packets to a user-space program and waits for its verdict. keen-pbr uses it to hold DNS replies briefly.">NFQUEUE</abbr> number. Change it only if another program uses it (<strong>NFQUEUE number</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>dns.hold_timeout_ms</code></td>
@@ -1422,9 +1414,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 					<td><code>l7.nflog_group</code></td>
 					<td>integer</td>
 					<td><code>9054</code></td>
-					<td>
-  <abbr title="A netfilter mechanism that sends copies of packets to a user-space program without delaying them.">NFLOG</abbr>
- group number. Change it only if another program uses it (<strong>NFLOG group</strong>)</td>
+					<td><abbr title="A netfilter mechanism that sends copies of packets to a user-space program without delaying them.">NFLOG</abbr> group number. Change it only if another program uses it (<strong>NFLOG group</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>l7.tls</code> / <code>http</code> / <code>quic</code></td>
@@ -1482,9 +1472,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 					<td><code>uci:cfg01411c</code>, <code>uci:guest</code></td>
 			</tr>
 			<tr>
-					<td>Keenetic (
-  <abbr title="A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.">Entware</abbr>
-)</td>
+					<td>Keenetic (<abbr title="A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.">Entware</abbr>)</td>
 					<td><code>entware:default</code></td>
 					<td><code>entware:default</code></td>
 			</tr>
@@ -1498,20 +1486,14 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 <p>The instance is picked in this order:</p>
 <ol>
 <li><strong>Explicit</strong>: <code>dns.dnsmasq_instance</code> is set. If no such instance exists, keen-pbr reports <code>DNSMASQ_INSTANCE_NOT_FOUND</code> and changes nothing.</li>
-<li><strong>Adopted</strong>: the field is empty and keen-pbr&rsquo;s 
-  <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr>
- is already installed in exactly one instance. That instance keeps being used. If the drop-in is found in several instances, selection stops with <code>DNSMASQ_INSTANCE_AMBIGUOUS</code>.</li>
+<li><strong>Adopted</strong>: the field is empty and keen-pbr&rsquo;s <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr> is already installed in exactly one instance. That instance keeps being used. If the drop-in is found in several instances, selection stops with <code>DNSMASQ_INSTANCE_AMBIGUOUS</code>.</li>
 <li><strong>Automatic</strong>: the field is empty, nothing is installed yet, and exactly one enabled instance has DNS (<code>port</code> is not <code>0</code>). With none, the result is <code>DNSMASQ_NO_DNS_INSTANCE</code>; with several, <code>DNSMASQ_INSTANCE_AMBIGUOUS</code>.</li>
 </ol>
 <p>When the choice is ambiguous, keen-pbr does not guess: it modifies nothing and leaves existing drop-ins alone. Run <code>keen-pbr resolver dnsmasq detect</code> to see the candidates, then set it under <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Local DNS server management</strong> &gt; <strong>dnsmasq instance</strong> (or <code>dns.dnsmasq_instance</code> in <code>config.json</code>). If keen-pbr&rsquo;s drop-in is also installed in an instance that is not selected, <code>detect</code> and the logs show a warning. Delete the drop-in file named in the warning and restart that dnsmasq instance.</p>
 <h4>DNS endpoint detection<span class="hx:absolute hx:-mt-20" id="dns-endpoint-detection"></span>
-    <a href="#dns-endpoint-detection" class="subheading-anchor" aria-label="Permalink for this section"></a></h4><p>keen-pbr finds the address the selected dnsmasq answers on by itself: it reads the configuration dnsmasq actually loaded and checks the address with a DNS query. If dnsmasq does not serve DNS (<code>port=0</code>, no DNS socket, or another 
-  <abbr title="An isolated copy of the Linux network stack with its own interfaces, routes and firewall.">network namespace</abbr>
-), keen-pbr reports an error instead of guessing <code>127.0.0.1:53</code>.</p>
+    <a href="#dns-endpoint-detection" class="subheading-anchor" aria-label="Permalink for this section"></a></h4><p>keen-pbr finds the address the selected dnsmasq answers on by itself: it reads the configuration dnsmasq actually loaded and checks the address with a DNS query. If dnsmasq does not serve DNS (<code>port=0</code>, no DNS socket, or another <abbr title="An isolated copy of the Linux network stack with its own interfaces, routes and firewall.">network namespace</abbr>), keen-pbr reports an error instead of guessing <code>127.0.0.1:53</code>.</p>
 <h4>Checks before every restart<span class="hx:absolute hx:-mt-20" id="checks-before-every-restart"></span>
-    <a href="#checks-before-every-restart" class="subheading-anchor" aria-label="Permalink for this section"></a></h4><p>Before restarting dnsmasq, keen-pbr checks the new settings with <code>dnsmasq --test</code> on your current dnsmasq configuration plus keen-pbr&rsquo;s 
-  <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr>
-. It also checks once that your dnsmasq build supports <code>conf-script</code>.</p>
+    <a href="#checks-before-every-restart" class="subheading-anchor" aria-label="Permalink for this section"></a></h4><p>Before restarting dnsmasq, keen-pbr checks the new settings with <code>dnsmasq --test</code> on your current dnsmasq configuration plus keen-pbr&rsquo;s <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr>. It also checks once that your dnsmasq build supports <code>conf-script</code>.</p>
 <p>If a check fails, <strong>dnsmasq is not restarted and keeps its old settings</strong>. The error code and the dnsmasq output are shown in the web UI and in <code>/api/health/service</code>; fix the problem and apply the configuration again.</p>
 <p>Each check runs the config generator, so before each apply the system log shows an extra <code>generate-resolver-config dnsmasq: pid ..., parent ... (dnsmasq)</code> block. This is expected.</p>
 <h4>Errors<span class="hx:absolute hx:-mt-20" id="errors"></span>
@@ -1567,9 +1549,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 			</tr>
 			<tr>
 					<td><code>DNSMASQ_OTHER_NETNS</code></td>
-					<td>dnsmasq runs in another 
-  <abbr title="An isolated copy of the Linux network stack with its own interfaces, routes and firewall.">network namespace</abbr>
-.</td>
+					<td>dnsmasq runs in another <abbr title="An isolated copy of the Linux network stack with its own interfaces, routes and firewall.">network namespace</abbr>.</td>
 					<td>Not supported; run dnsmasq in the router&rsquo;s main namespace.</td>
 			</tr>
 			<tr>
@@ -1584,9 +1564,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 			</tr>
 			<tr>
 					<td><code>DNSMASQ_DROPIN_NOT_LOADED</code></td>
-					<td>The running dnsmasq does not read the directory keen-pbr&rsquo;s 
-  <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr>
- goes to (or a <code>conf-dir</code> filter rejects the file name).</td>
+					<td>The running dnsmasq does not read the directory keen-pbr&rsquo;s <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr> goes to (or a <code>conf-dir</code> filter rejects the file name).</td>
 					<td>Add the directory to the <code>conf-dir</code> of that instance, or relax the filter.</td>
 			</tr>
 			<tr>
@@ -1637,9 +1615,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 	</tbody>
 </table>
 <h3>How it works<span class="hx:absolute hx:-mt-20" id="how-it-works"></span>
-    <a href="#how-it-works" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>One 
-  <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr>
- line in the dnsmasq configuration makes dnsmasq run keen-pbr at every start and get the per-list rules and default DNS servers from it.</p>
+    <a href="#how-it-works" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>One <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr> line in the dnsmasq configuration makes dnsmasq run keen-pbr at every start and get the per-list rules and default DNS servers from it.</p>
 <ul>
 <li>With <strong>Manage dnsmasq configuration</strong> on, dnsmasq is restarted when this data changes (list update, settings change, or once after keen-pbr starts), and only after the checks described in <a href="#checks-before-every-restart">Checks before every restart</a> have passed.</li>
 <li>With it off, dnsmasq gets the servers from the <code>dnsmasq-fallback.conf</code> file (Keenetic: <code>/opt/etc/keen-pbr/</code>, Debian and OpenWrt: <code>/etc/keen-pbr/</code>). They are added to dnsmasq&rsquo;s own servers; clear the file to avoid that. On OpenWrt the file is empty by default.</li>
@@ -1649,9 +1625,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
     <a href="#on-stop-disable-or-uninstall" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
 <li><strong>Stopping keen-pbr</strong>: dnsmasq is not restarted; per-list DNS servers keep working, also after a dnsmasq or router restart.</li>
 <li><strong>Disabling the feature</strong> (<code>resolver_integration: &quot;none&quot;</code>): keen-pbr restarts dnsmasq, which then uses the servers from <code>dnsmasq-fallback.conf</code>. On OpenWrt the server list returns to <code>/etc/config/dhcp</code>. If you turned it off by editing the config while keen-pbr was stopped, the first start restarts dnsmasq once. To check the result, see <a href="/docs/cli/#resolver-dnsmasq-detect"><code>resolver dnsmasq detect</code></a>.</li>
-<li><strong>dnsmasq is not running</strong>: keen-pbr never starts a stopped dnsmasq. If dnsmasq crashes on a system without a service supervisor (
-  <abbr title="A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.">Entware</abbr>
-), start it manually; keen-pbr re-applies its configuration once dnsmasq is running again.</li>
+<li><strong>dnsmasq is not running</strong>: keen-pbr never starts a stopped dnsmasq. If dnsmasq crashes on a system without a service supervisor (<abbr title="A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.">Entware</abbr>), start it manually; keen-pbr re-applies its configuration once dnsmasq is running again.</li>
 <li><strong>dnsmasq loses the config</strong> (restarted with other settings): keen-pbr restarts it at most 3 times (immediately, then after 5 and 10 minutes) and then pauses automatic repair; <code>state</code> in <code>/api/health/service</code> shows <code>reconciling</code> or <code>error</code> with the reason. Applying the configuration or restarting keen-pbr re-arms it. A dnsmasq that is running but does not answer the config check is never restarted.</li>
 <li><strong>Uninstalling the package</strong>: keen-pbr removes its entry from dnsmasq, returns the OpenWrt server list, and restarts dnsmasq. This works even when keen-pbr itself is broken, because the removal scripts never run it. If dnsmasq would be left without any upstream DNS server (it has <code>no-resolv</code> and no <code>server=</code> line of its own), the servers from <code>dnsmasq-fallback.conf</code> stay in a block marked <code>keen-pbr fallback upstream</code> in <code>/opt/etc/dnsmasq.conf</code> (Keenetic) or <code>/etc/dnsmasq.conf</code> (Debian). Replace them with your own. Firewall rules left behind by a keen-pbr that crashed are removed as well.</li>
 </ul>

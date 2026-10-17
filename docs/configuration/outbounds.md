@@ -10,7 +10,7 @@ Most users only need:
 
 - one **Interface** (`interface`) outbound for the VPN connection
 - one **Routing table** (`table`) outbound with `table: 254` (the system's main routing table) for the normal connection, often `wan`
-- optionally one **Auto-select (urltest)** outbound, so keen-pbr picks a working one among several connections
+- optionally one **Auto-select (urltest)** or **Auto-select (ICMP)** (`icmptest`) outbound, so keen-pbr picks a working one among several connections
 
 If you are not sure, start with **Interface** and come back to the other types later.
 
@@ -231,7 +231,7 @@ This strategy spreads load across the working links of the first working tier. A
 With nftables, connections are split exactly by weight. With iptables, a link is picked at random with the right probability, so with only a few connections the shares can differ noticeably from the weights; with many connections they even out. iptables needs the `xt_statistic` kernel module; if it is missing, keen-pbr reports it when applying the configuration. This strategy is not available on Keenetic. Balancing is not available with `--use-raw-prerouting`.
 
 {{< callout type="info" >}}
-Balancing across several WANs needs {{< term "NAT" >}} on every uplink, loose `rp_filter`, and an {{< term "fwmark" >}} range that other software does not use. See [Multi-WAN Load Balancing]({{< relref "/docs/configuration/multi-wan" >}}) for a complete Debian/iptables setup.
+Balancing across several WANs needs {{< term "NAT" >}} on every uplink, loose `rp_filter`, and an {{< term "fwmark" >}} range that other software does not use. See [Multi-WAN Load Balancing]({{< relref "/docs/configuration/multi-wan" >}}) for a complete setup for each firewall backend.
 {{< /callout >}}
 
 ### Retries (`retry`)

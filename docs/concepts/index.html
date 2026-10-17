@@ -43,15 +43,15 @@ A letter whose address is in no book goes the usual way.
 	<meta itemprop="description" content="You do not need this page for a normal setup. It explains how keen-pbr decides where traffic goes.
 The idea: lists, rules, outbounds The easiest comparison is a post office sorting letters.
 A list is an address book. One book holds the sites you want to open through a VPN, another holds addresses to block. A routing rule is a sorting instruction: “send letters from this book along this route”. Instructions are read from top to bottom, and the first one that fits wins. An outbound is a delivery route: a VPN interface, your normal provider connection, or “throw the letter away”. A letter whose address is in no book goes the usual way.">
-	<meta itemprop="wordCount" content="723">
+	<meta itemprop="wordCount" content="719">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Concepts">
 	<meta name="twitter:description" content="You do not need this page for a normal setup. It explains how keen-pbr decides where traffic goes.
 The idea: lists, rules, outbounds The easiest comparison is a post office sorting letters.
 A list is an address book. One book holds the sites you want to open through a VPN, another holds addresses to block. A routing rule is a sorting instruction: “send letters from this book along this route”. Instructions are read from top to bottom, and the first one that fits wins. An outbound is a delivery route: a VPN interface, your normal provider connection, or “throw the letter away”. A letter whose address is in no book goes the usual way.">
 
-    <link rel="preload" href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" as="style" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
-    <link href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" rel="stylesheet" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
+    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
 
   
 
@@ -1090,9 +1090,7 @@ A list is an address book. One book holds the sites you want to open through a V
 			</tr>
 			<tr>
 					<td><code>icmptest</code></td>
-					<td>Same as <code>urltest</code>, but channels are checked with ping (
-  <abbr title="Service protocol for network diagnostics. ping uses ICMP Echo.">ICMP</abbr>
-)</td>
+					<td>Same as <code>urltest</code>, but channels are checked with ping (<abbr title="Service protocol for network diagnostics. ping uses ICMP Echo.">ICMP</abbr>)</td>
 			</tr>
 	</tbody>
 </table>
@@ -1104,9 +1102,7 @@ A list is an address book. One book holds the sites you want to open through a V
 <li><strong>Lists</strong>: the address is in one of the given lists;</li>
 <li><strong>Protocol</strong>: <code>tcp</code> or <code>udp</code>;</li>
 <li><strong>DSCP</strong>: a traffic priority tag;</li>
-<li><strong>Source IP</strong> and <strong>Destination IP</strong>: an address or subnet (
-  <abbr title="Subnet notation: an address and prefix length, for example 192.168.1.0/24.">CIDR</abbr>
-), optionally negated;</li>
+<li><strong>Source IP</strong> and <strong>Destination IP</strong>: an address or subnet (<abbr title="Subnet notation: an address and prefix length, for example 192.168.1.0/24.">CIDR</abbr>), optionally negated;</li>
 <li><strong>Source port</strong> and <strong>Destination port</strong>: a single port, a list or a range.</li>
 </ul>
 <p>If a rule has several conditions, traffic must match all of them. Rules are checked from top to bottom, and the first matching rule wins. Traffic that matches no rule goes the usual way.</p>
@@ -1118,12 +1114,8 @@ A list is an address book. One book holds the sites you want to open through a V
 <h2>fwmark and conntrack<span class="hx:absolute hx:-mt-20" id="fwmark-and-conntrack"></span>
     <a href="#fwmark-and-conntrack" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>You will meet these two words in logs and search results when something goes wrong. You normally do not need to configure them.</p>
 <ul>
-<li><strong>
-  <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
-</strong> is a numeric tag on a packet. keen-pbr puts it on traffic from your lists, and the tag tells the router which outbound to send the packet to. Each outbound has its own tag from the range set in the <a href="/docs/configuration/advanced/#fwmark"><code>fwmark</code></a> setting.</li>
-<li><strong>
-  <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
-</strong> is the router&rsquo;s table of open connections. It keeps all packets of one connection on the same path. When a connection has to move to another channel, keen-pbr clears its entry in this table and the device opens the connection again.</li>
+<li><strong><abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr></strong> is a numeric tag on a packet. keen-pbr puts it on traffic from your lists, and the tag tells the router which outbound to send the packet to. Each outbound has its own tag from the range set in the <a href="/docs/configuration/advanced/#fwmark"><code>fwmark</code></a> setting.</li>
+<li><strong><abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr></strong> is the router&rsquo;s table of open connections. It keeps all packets of one connection on the same path. When a connection has to move to another channel, keen-pbr clears its entry in this table and the device opens the connection again.</li>
 </ul>
 
         </div>

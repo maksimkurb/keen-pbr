@@ -258,7 +258,7 @@ nslookup google.com 127.0.0.1
 На Keenetic, если DNS-запросы клиентов не доходят до Entware `dnsmasq`, проверьте настройку `opkg dns-override`. Команды `opkg dns-override` и `system configuration save` выполняются в веб-консоли роутера `http://my.keenetic.net/a`, а не в SSH. Подробности есть в [установке на Keenetic]({{< relref "/docs/getting-started/installation/keenetic" >}}).
 
 {{% details title="После обновления со старой версии keen-pbr" closed="true" %}}
-После обновления управление dnsmasq остаётся включённым, подробности в разделе [Обновление с 3.3.x]({{< relref "/docs/changelog#upgrading-from-33x" >}}). Если dnsmasq не запускается после того, как вы удалили keen-pbr вручную, убедитесь, что в его конфигурации не осталось строки `conf-script=...keen-pbr...`.
+После обновления управление dnsmasq остаётся включённым, подробности в разделе [Ломающие изменения в 3.4.0]({{< relref "/docs/changelog#upgrading-from-33x" >}}). Если dnsmasq не запускается после того, как вы удалили keen-pbr вручную, убедитесь, что в его конфигурации не осталось строки `conf-script=...keen-pbr...`.
 {{% /details %}}
 
 ## Веб-сайты не открываются: `DNS_PROBE_FINISHED_NXDOMAIN` / `ERR_NAME_NOT_RESOLVED`

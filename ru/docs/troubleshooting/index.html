@@ -48,7 +48,7 @@
 В каждом разделе ниже порядок один: симптом, проверка в веб-интерфейсе, проверка командой, исправление.
 Быстрая проверка через веб-интерфейс Откройте http://&lt;ip-роутера&gt;:12121/ и перейдите в Общее &gt; Обзор системы.
 Строка состояния вверху. «Всё работает» означает, что проблем нет. «Служба остановлена» означает, что маршрутизация выключена: нажмите Запустить. «Система работает, но есть N проблем(ы)» или «Маршрутизация работает с ограничениями» означает, что надо смотреть панель Диагностика. Панель Outbounds. Outbound — это канал, через который пойдёт трафик: VPN-интерфейс, провайдер или блокировка. Каждый канал должен быть в состоянии «Исправен». «Деградирован» значит, что канал работает частично, «Недоступен» значит, что он не работает. Панель Диагностика. Если всё в порядке, там написано «Проблем нет». Чтобы увидеть и исправные пункты, включите переключатель Показать исправные. Что означают сообщения об ошибках, смотрите в разделе Сообщения в «Диагностике». Кнопка Куда пойдёт трафик? (Ctrl&#43;Alt&#43;K) в заголовке страницы. Введите домен или IP-адрес и нажмите Проверить маршрут: keen-pbr покажет, по какому правилу и через какой outbound пойдёт трафик. Панель Маршрутизация на основе доменов с виджетом проверки DNS. Нажмите Проверить снова: «Перехват DNS-запросов из этого браузера работает» означает, что с DNS всё в порядке. То же самое выводит команда на роутере:">
-	<meta itemprop="wordCount" content="3347">
+	<meta itemprop="wordCount" content="3341">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Устранение неполадок">
 	<meta name="twitter:description" content="Сначала посмотрите на страницу Общее &gt; Обзор системы в веб-интерфейсе: там видно, работает ли служба и что именно сломано. Если этого мало, читайте системный журнал: keen-pbr пишет в него причину каждой ошибки.
@@ -56,8 +56,8 @@
 Быстрая проверка через веб-интерфейс Откройте http://&lt;ip-роутера&gt;:12121/ и перейдите в Общее &gt; Обзор системы.
 Строка состояния вверху. «Всё работает» означает, что проблем нет. «Служба остановлена» означает, что маршрутизация выключена: нажмите Запустить. «Система работает, но есть N проблем(ы)» или «Маршрутизация работает с ограничениями» означает, что надо смотреть панель Диагностика. Панель Outbounds. Outbound — это канал, через который пойдёт трафик: VPN-интерфейс, провайдер или блокировка. Каждый канал должен быть в состоянии «Исправен». «Деградирован» значит, что канал работает частично, «Недоступен» значит, что он не работает. Панель Диагностика. Если всё в порядке, там написано «Проблем нет». Чтобы увидеть и исправные пункты, включите переключатель Показать исправные. Что означают сообщения об ошибках, смотрите в разделе Сообщения в «Диагностике». Кнопка Куда пойдёт трафик? (Ctrl&#43;Alt&#43;K) в заголовке страницы. Введите домен или IP-адрес и нажмите Проверить маршрут: keen-pbr покажет, по какому правилу и через какой outbound пойдёт трафик. Панель Маршрутизация на основе доменов с виджетом проверки DNS. Нажмите Проверить снова: «Перехват DNS-запросов из этого браузера работает» означает, что с DNS всё в порядке. То же самое выводит команда на роутере:">
 
-    <link rel="preload" href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" as="style" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
-    <link href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" rel="stylesheet" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
+    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
 
   
 
@@ -542,18 +542,6 @@
               
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
     <a
-      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
-      hx:hextra-focus-visible-inset
-        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
-      href="/ru/docs/changelog/"
-      
-    >
-      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
-    </a>
-  </div>
-              
-            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
-    <a
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
       hx:hextra-focus-visible-inset
         hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
@@ -579,6 +567,18 @@
               
             </li></ul>
       </div>
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Список изменений</span>
+    </a>
+  </div>
+              
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
     <a
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
@@ -852,17 +852,6 @@
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
     <a
-      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
-      hx:hextra-focus-visible-inset
-        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
-      href="/ru/docs/changelog/"
-      
-    >
-      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
-    </a>
-  </div></li>
-            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
-    <a
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
       hx:hextra-focus-visible-inset
         hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
@@ -887,6 +876,17 @@
               
             </li></ul>
       </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Список изменений</span>
+    </a>
+  </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
     <a
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
@@ -1725,16 +1725,14 @@
   </button>
 </div>
 </div>
-<p>Если вы видите <code>Connection refused</code>, резолвер не запущен или не слушает <code>127.0.0.1:53</code>. Проверьте его сервис и журнал: 
-  <abbr title="Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.">Entware</abbr>
- <code>dnsmasq</code> на Keenetic, <code>dnsmasq</code> на OpenWrt и Debian или встроенный DNS-прокси Keenetic.</p>
+<p>Если вы видите <code>Connection refused</code>, резолвер не запущен или не слушает <code>127.0.0.1:53</code>. Проверьте его сервис и журнал: <abbr title="Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.">Entware</abbr> <code>dnsmasq</code> на Keenetic, <code>dnsmasq</code> на OpenWrt и Debian или встроенный DNS-прокси Keenetic.</p>
 <p>На Keenetic, если DNS-запросы клиентов не доходят до Entware <code>dnsmasq</code>, проверьте настройку <code>opkg dns-override</code>. Команды <code>opkg dns-override</code> и <code>system configuration save</code> выполняются в веб-консоли роутера <code>http://my.keenetic.net/a</code>, а не в SSH. Подробности есть в <a href="/ru/docs/getting-started/installation/keenetic/">установке на Keenetic</a>.</p>
 <details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
   <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
     <strong class="hx:text-lg">После обновления со старой версии keen-pbr</strong>
   </summary>
   <div class="hx:p-2 hx:overflow-hidden">
-    После обновления управление dnsmasq остаётся включённым, подробности в разделе <a href="/ru/docs/changelog/#upgrading-from-33x">Обновление с 3.3.x</a>. Если dnsmasq не запускается после того, как вы удалили keen-pbr вручную, убедитесь, что в его конфигурации не осталось строки <code>conf-script=...keen-pbr...</code>.
+    После обновления управление dnsmasq остаётся включённым, подробности в разделе <a href="/ru/docs/changelog/#upgrading-from-33x">Ломающие изменения в 3.4.0</a>. Если dnsmasq не запускается после того, как вы удалили keen-pbr вручную, убедитесь, что в его конфигурации не осталось строки <code>conf-script=...keen-pbr...</code>.
   </div>
 </details>
 <h2>Веб-сайты не открываются: <code>DNS_PROBE_FINISHED_NXDOMAIN</code> / <code>ERR_NAME_NOT_RESOLVED</code><span class="hx:absolute hx:-mt-20" id="веб-сайты-не-открываются-dns_probe_finished_nxdomain--err_name_not_resolved"></span>
@@ -1746,9 +1744,7 @@
 <li>Если у DNS-сервера в <strong>DNS</strong> &gt; <strong>DNS серверы</strong> задан канал (<code>detour</code> в JSON), проверьте, что этот outbound «Исправен» в панели <strong>Outbounds</strong>.</li>
 </ol>
 <h2>Веб-сайты не открываются: <code>DNS_PROBE_FINISHED_BAD_CONFIG</code><span class="hx:absolute hx:-mt-20" id="веб-сайты-не-открываются-dns_probe_finished_bad_config"></span>
-    <a href="#%d0%b2%d0%b5%d0%b1-%d1%81%d0%b0%d0%b9%d1%82%d1%8b-%d0%bd%d0%b5-%d0%be%d1%82%d0%ba%d1%80%d1%8b%d0%b2%d0%b0%d1%8e%d1%82%d1%81%d1%8f-dns_probe_finished_bad_config" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Обычно это означает, что резолвер не запущен или не смог применить конфигурацию. Проверьте сервис и журнал резолвера: 
-  <abbr title="Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.">Entware</abbr>
- <code>dnsmasq</code> на Keenetic, <code>dnsmasq</code> на OpenWrt и Debian. Затем проверьте панель <strong>Маршрутизация на основе доменов</strong> на странице <strong>Обзор системы</strong>.</p>
+    <a href="#%d0%b2%d0%b5%d0%b1-%d1%81%d0%b0%d0%b9%d1%82%d1%8b-%d0%bd%d0%b5-%d0%be%d1%82%d0%ba%d1%80%d1%8b%d0%b2%d0%b0%d1%8e%d1%82%d1%81%d1%8f-dns_probe_finished_bad_config" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Обычно это означает, что резолвер не запущен или не смог применить конфигурацию. Проверьте сервис и журнал резолвера: <abbr title="Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.">Entware</abbr> <code>dnsmasq</code> на Keenetic, <code>dnsmasq</code> на OpenWrt и Debian. Затем проверьте панель <strong>Маршрутизация на основе доменов</strong> на странице <strong>Обзор системы</strong>.</p>
 <h2>Не работают отдельные DNS-серверы для списков<span class="hx:absolute hx:-mt-20" id="per-list-dns-servers-do-not-work"></span>
     <a href="#per-list-dns-servers-do-not-work" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><strong>Симптом:</strong> домены из списка должны разрешаться через выбранный DNS-сервер, но разрешаются через обычный.</p>
 <p><strong>В веб-интерфейсе.</strong></p>
@@ -1819,9 +1815,7 @@
     <strong class="hx:text-lg">Посмотреть правила межсетевого экрана напрямую</strong>
   </summary>
   <div class="hx:p-2 hx:overflow-hidden">
-    <p><code>keen-pbr</code> создаёт свою цепочку или таблицу <code>KeenPbrTable</code>. Трафик попадает в неё, сопоставляется со списками и получает метку пакета (
-<abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
-): по ней система выбирает таблицу маршрутизации.</p>
+    <p><code>keen-pbr</code> создаёт свою цепочку или таблицу <code>KeenPbrTable</code>. Трафик попадает в неё, сопоставляется со списками и получает метку пакета (<abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>): по ней система выбирает таблицу маршрутизации.</p>
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
   <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="iptables / ipset,nftables / nftset,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-0" role="tab" type="button" aria-controls="tabs-panel-tabs-01-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>iptables / ipset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-1" role="tab" type="button" aria-controls="tabs-panel-tabs-01-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>nftables / nftset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-2" role="tab" type="button" aria-controls="tabs-panel-tabs-01-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
 </div>
@@ -1917,9 +1911,7 @@
 </details>
 <p><strong>Исправление.</strong> Если <code>KeenPbrTable</code> отсутствует, нажмите <strong>Перезапустить</strong> в строке состояния и прочитайте журнал. Обычно причина в недоступном бэкенде, нехватке прав, отсутствующих пакетах или ошибке конфигурации.</p>
 <h2>Таблицы маршрутизации и <code>fwmark</code><span class="hx:absolute hx:-mt-20" id="таблицы-маршрутизации-и-fwmark"></span>
-    <a href="#%d1%82%d0%b0%d0%b1%d0%bb%d0%b8%d1%86%d1%8b-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8-%d0%b8-fwmark" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><strong>Симптом:</strong> межсетевой экран ставит метку пакета (
-  <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
-), но сайт бесконечно грузится или открывается через провайдера. Система должна увидеть метку, применить правило <code>ip rule</code> и отправить пакет в таблицу маршрутизации нужного outbound.</p>
+    <a href="#%d1%82%d0%b0%d0%b1%d0%bb%d0%b8%d1%86%d1%8b-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8-%d0%b8-fwmark" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><strong>Симптом:</strong> межсетевой экран ставит метку пакета (<abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>), но сайт бесконечно грузится или открывается через провайдера. Система должна увидеть метку, применить правило <code>ip rule</code> и отправить пакет в таблицу маршрутизации нужного outbound.</p>
 <p><strong>В веб-интерфейсе.</strong> В панели <strong>Диагностика</strong> ищите «Таблицы маршрутизации не совпадают» и «Политики маршрутизации не совпадают».</p>
 <p><strong>Команды.</strong></p>
 <ol>
@@ -1991,13 +1983,7 @@
 <p><strong>Исправление.</strong> Если таблица пустая, интерфейс не найден или правило ведёт не туда, нажмите <strong>Перезапустить</strong> в строке состояния. Если не помогло, проверьте имя outbound и имя интерфейса, а также конфликты меток (раздел «Конфликты низкоуровневой маршрутизации»).</p>
 <h2>Маршрутизация ломается при включённом Tailscale<span class="hx:absolute hx:-mt-20" id="tailscale"></span>
     <a href="#tailscale" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Tailscale резервирует <code>0x00FF0000</code>, что пересекается с маской keen-pbr по
-умолчанию, и восстанавливает 
-  <abbr title="Метка соединения в записи conntrack. keen-pbr копирует в неё fwmark, чтобы все пакеты соединения шли одним маршрутом.">connmark</abbr>
- из 
-  <abbr title="Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).">conntrack</abbr>
-, полностью перезаписывая 
-  <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
-
+умолчанию, и восстанавливает <abbr title="Метка соединения в записи conntrack. keen-pbr копирует в неё fwmark, чтобы все пакеты соединения шли одним маршрутом.">connmark</abbr> из <abbr title="Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).">conntrack</abbr>, полностью перезаписывая <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
 пакета. Перенос keen-pbr в другой диапазон fwmark не мешает Tailscale стереть его.</p>
 <p>Отключите netfilter-интеграцию Tailscale:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -2014,9 +2000,7 @@
   </button>
 </div>
 </div>
-<p>После этого правила межсетевого экрана и 
-  <abbr title="Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.">NAT</abbr>
- нужно настраивать отдельно, особенно если
+<p>После этого правила межсетевого экрана и <abbr title="Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.">NAT</abbr> нужно настраивать отдельно, особенно если
 Tailscale работает как subnet router или exit node.</p>
 <h2>Интерфейсы и VPN-туннели<span class="hx:absolute hx:-mt-20" id="интерфейсы-и-vpn-туннели"></span>
     <a href="#%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81%d1%8b-%d0%b8-vpn-%d1%82%d1%83%d0%bd%d0%bd%d0%b5%d0%bb%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><strong>Симптом:</strong> DNS, межсетевой экран и маршрутизация выглядят правильно, но трафик через VPN не идёт.</p>
@@ -2179,9 +2163,7 @@ Tailscale работает как subnet router или exit node.</p>
 <li>Выполните <code>keen-pbr status</code> и проверьте, созданы ли правила межсетевого экрана для этого правила маршрутизации.</li>
 </ul>
 <h2>Конфликты низкоуровневой маршрутизации<span class="hx:absolute hx:-mt-20" id="конфликты-низкоуровневой-маршрутизации"></span>
-    <a href="#%d0%ba%d0%be%d0%bd%d1%84%d0%bb%d0%b8%d0%ba%d1%82%d1%8b-%d0%bd%d0%b8%d0%b7%d0%ba%d0%be%d1%83%d1%80%d0%be%d0%b2%d0%bd%d0%b5%d0%b2%d0%be%d0%b9-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Если другая программа на роутере тоже ставит метки пакетов (
-  <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
-) или управляет <code>ip rule</code>, пакеты могут уйти не туда или быть отброшены. Об этом предупреждает сообщение «Стороннее правило использует биты метки пакета, зарезервированные keen-pbr» в панели <strong>Диагностика</strong>.</p>
+    <a href="#%d0%ba%d0%be%d0%bd%d1%84%d0%bb%d0%b8%d0%ba%d1%82%d1%8b-%d0%bd%d0%b8%d0%b7%d0%ba%d0%be%d1%83%d1%80%d0%be%d0%b2%d0%bd%d0%b5%d0%b2%d0%be%d0%b9-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Если другая программа на роутере тоже ставит метки пакетов (<abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>) или управляет <code>ip rule</code>, пакеты могут уйти не туда или быть отброшены. Об этом предупреждает сообщение «Стороннее правило использует биты метки пакета, зарезервированные keen-pbr» в панели <strong>Диагностика</strong>.</p>
 <p>Проверьте на конфликты:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -2358,9 +2340,9 @@ Tailscale работает как subnet router или exit node.</p>
         class="hx:flex hx:max-w-[50%] hx:items-center hx:gap-1 hx:py-4 hx:text-base hx:font-medium hx:text-gray-600 hx:transition-colors [word-break:break-word] hx:hover:text-primary-600 hx:dark:text-gray-300 hx:md:text-lg hx:ltr:pr-4 hx:rtl:pl-4"
       ><svg class="hx:inline hx:h-5 hx:shrink-0 hx:ltr:rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>FAQ</a><a
         href="/ru/docs/changelog/"
-        title="История изменений"
+        title="Список изменений"
         class="hx:flex hx:max-w-[50%] hx:items-center hx:gap-1 hx:py-4 hx:text-base hx:font-medium hx:text-gray-600 hx:transition-colors [word-break:break-word] hx:hover:text-primary-600 hx:dark:text-gray-300 hx:md:text-lg hx:ltr:ml-auto hx:ltr:pl-4 hx:ltr:text-right hx:rtl:mr-auto hx:rtl:pr-4 hx:rtl:text-left"
-      >История изменений<svg class="hx:inline hx:h-5 hx:shrink-0 hx:rtl:-rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></a></div>
+      >Список изменений<svg class="hx:inline hx:h-5 hx:shrink-0 hx:rtl:-rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></a></div>
       </main>
     </article>
   </div>

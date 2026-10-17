@@ -23,9 +23,7 @@
       <description>
         
         
-        &lt;p&gt;On Keenetic and NetCraze, keen-pbr is installed from 
-  &lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt;
-. Entware is a set of extra programs for the router, installed on a USB drive. Do use a USB drive: that way installing packages and running programs does not wear out the router&amp;rsquo;s built-in memory. You install programs from Entware with the &lt;code&gt;opkg&lt;/code&gt; command over SSH.&lt;/p&gt;
+        &lt;p&gt;On Keenetic and NetCraze, keen-pbr is installed from &lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt;. Entware is a set of extra programs for the router, installed on a USB drive. Do use a USB drive: that way installing packages and running programs does not wear out the router&amp;rsquo;s built-in memory. You install programs from Entware with the &lt;code&gt;opkg&lt;/code&gt; command over SSH.&lt;/p&gt;
 &lt;div class=&#34;hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]&#34;&gt;
 &lt;h3&gt;Install Entware&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-entware&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#install-entware&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;If Entware is already on your router, go to the next step.&lt;/p&gt;
@@ -46,8 +44,7 @@
 &lt;li&gt;Utilities and services / &lt;strong&gt;DNS-over-HTTPS proxy&lt;/strong&gt; (optional, but recommended)&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3&gt;Turn on DNS encryption (recommended)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;turn-on-dns-encryption-recommended&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#turn-on-dns-encryption-recommended&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;abbr title=&#34;DNS over HTTPS: encrypted DNS. The router cannot read these queries.&#34;&gt;DoH&lt;/abbr&gt;
-(DNS-over-HTTPS) and DoT (DNS-over-TLS) send DNS requests in encrypted form. Your provider cannot tamper with the answers, so sites open at the correct addresses.&lt;/p&gt;
+    &lt;a href=&#34;#turn-on-dns-encryption-recommended&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;abbr title=&#34;DNS over HTTPS: encrypted DNS. The router cannot read these queries.&#34;&gt;DoH&lt;/abbr&gt; (DNS-over-HTTPS) and DoT (DNS-over-TLS) send DNS requests in encrypted form. Your provider cannot tamper with the answers, so sites open at the correct addresses.&lt;/p&gt;
 &lt;p&gt;How to set it up: &lt;a href=&#34;https://support.keenetic.com/titan/kn-1811/en/25049.html&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;DoH and DoT proxy servers for DNS requests encryption&lt;/a&gt;.&lt;/p&gt;
 &lt;h3&gt;Install keen-pbr&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-keen-pbr&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#install-keen-pbr&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ol&gt;
@@ -149,11 +146,7 @@
 &lt;/table&gt;
 &lt;h2&gt;RAW or mangle&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;raw-or-mangle&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#raw-or-mangle&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;You do not need to change anything at first: keen-pbr picks a suitable mode itself. This section helps if you assign policies to devices in Keenetic &lt;strong&gt;Connection Policies&lt;/strong&gt;, or if connections through the VPN sometimes drop.&lt;/p&gt;
-&lt;p&gt;keen-pbr marks the packets that must go to a VPN or another channel. This mark is called 
-  &lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;
-. It can be set in one of two firewall tables of the router: RAW or 
-  &lt;abbr title=&#34;The iptables table for changing packet metadata, such as setting a fwmark, before routing.&#34;&gt;mangle&lt;/abbr&gt;
-.&lt;/p&gt;
+&lt;p&gt;keen-pbr marks the packets that must go to a VPN or another channel. This mark is called &lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;. It can be set in one of two firewall tables of the router: RAW or &lt;abbr title=&#34;The iptables table for changing packet metadata, such as setting a fwmark, before routing.&#34;&gt;mangle&lt;/abbr&gt;.&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;

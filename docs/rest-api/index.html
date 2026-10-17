@@ -59,8 +59,8 @@ Prometheus and Grafana show VPN channel health and latency (see GET /metrics). A
 The REST API is available when:
 Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration In the web interface, open Security &gt; Authentication and CORS. Turn on Enable authentication, enter a New password and confirm it. If a website on another address must call the API from a browser, add its address to Allowed CORS origins (one per line). Changes take effect immediately.">
 
-    <link rel="preload" href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" as="style" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
-    <link href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" rel="stylesheet" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
+    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
 
   
 
@@ -1361,9 +1361,7 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
 </div>
 </div>
 <p><code>status</code> is <code>running</code>, <code>degraded</code> (DNS interception is enabled but unavailable) or <code>stopped</code>.</p>
-<p>When interception is enabled, the response includes an <code>intercept</code> object: whether DNS interception (<code>dns_hold_active</code>) and traffic analysis (<code>l7_active</code>) are active, the kernel features available (<code>nfqueue</code>, <code>nflog</code>, <code>connbytes</code>, <code>addrtype</code>), and counters of processed packets, errors and queue overruns (
-  <abbr title="A netfilter mechanism that passes packets to a user-space program and waits for its verdict. keen-pbr uses it to hold DNS replies briefly.">NFQUEUE</abbr>
-/NFLOG). These values are mostly useful for diagnostics.</p>
+<p>When interception is enabled, the response includes an <code>intercept</code> object: whether DNS interception (<code>dns_hold_active</code>) and traffic analysis (<code>l7_active</code>) are active, the kernel features available (<code>nfqueue</code>, <code>nflog</code>, <code>connbytes</code>, <code>addrtype</code>), and counters of processed packets, errors and queue overruns (<abbr title="A netfilter mechanism that passes packets to a user-space program and waits for its verdict. keen-pbr uses it to hold DNS replies briefly.">NFQUEUE</abbr>/NFLOG). These values are mostly useful for diagnostics.</p>
 <p>For channel state (health, latency) see <code>GET /api/runtime/outbounds</code>.</p>
 <h2>GET /metrics<span class="hx:absolute hx:-mt-20" id="get-metrics"></span>
     <a href="#get-metrics" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns metrics in Prometheus text format 0.0.4. Prometheus requests this address periodically (a scrape) and stores the values. Authentication is the same as for the API: use Basic authentication or the current Bearer token. If metrics are unavailable, the response is <code>503</code>:</p>
@@ -1463,9 +1461,7 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
 			<tr>
 					<td><code>keen_pbr_probe_packets_sent_total</code></td>
 					<td>counter</td>
-					<td>
-  <abbr title="Service protocol for network diagnostics. ping uses ICMP Echo.">ICMP</abbr>
- echo requests sent. <code>type=&quot;icmptest&quot;</code> only.</td>
+					<td><abbr title="Service protocol for network diagnostics. ping uses ICMP Echo.">ICMP</abbr> echo requests sent. <code>type=&quot;icmptest&quot;</code> only.</td>
 			</tr>
 			<tr>
 					<td><code>keen_pbr_probe_packets_received_total</code></td>
@@ -2030,7 +2026,7 @@ probe completed yet. In Grafana this shows up as a gap, never as a <code>0</code
 <p>If applying failed after the file was saved, <code>GET /api/health/service</code> shows <code>rollback_available: true</code>. The file stays new. To return to the previous config, call <code>POST /api/config/rollback</code> (<code>409</code> if there is nothing to roll back or another operation is running). <code>POST /api/config/discard</code> only drops an unsaved draft; it changes neither the file nor routing.</p>
 <hr>
 <h2>GET /api/runtime/outbounds<span class="hx:absolute hx:-mt-20" id="get-apiruntimeoutbounds"></span>
-    <a href="#get-apiruntimeoutbounds" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns the current state of outbounds: which channel a urltest group has selected right now (the group picks the channel with the lowest latency on its own), whether an interface is reachable, and whether it was switched off after a series of failures.</p>
+    <a href="#get-apiruntimeoutbounds" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Returns the current state of outbounds: which channel a urltest or icmptest group has selected right now (the group picks the channel with the lowest latency on its own), whether an interface is reachable, and whether it was switched off after a series of failures.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://127.0.0.1:12121/api/runtime/outbounds</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2083,7 +2079,7 @@ probe completed yet. In Grafana this shows up as a gap, never as a <code>0</code
 <ul>
 <li><code>type</code>: <code>interface</code>, <code>table</code>, <code>blackhole</code>, <code>ignore</code>, <code>urltest</code> or <code>icmptest</code>.</li>
 <li>Outbound <code>status</code>: <code>healthy</code> (working), <code>degraded</code> (partly working), <code>unavailable</code> (no usable path), <code>unknown</code>.</li>
-<li><code>status</code> in <code>interfaces</code>: <code>active</code> (traffic goes through it), <code>backup</code> (standby), <code>degraded</code>, <code>unavailable</code> (switched off after a series of failures), <code>unknown</code>. In a urltest group the selected channel is <code>active</code>.</li>
+<li><code>status</code> in <code>interfaces</code>: <code>active</code> (traffic goes through it), <code>backup</code> (standby), <code>degraded</code>, <code>unavailable</code> (switched off after a series of failures), <code>unknown</code>. In a urltest or icmptest group the selected channel is <code>active</code>.</li>
 <li>Optional fields: <code>latency_ms</code>, <code>probe_target</code>, <code>detail</code> and packet counters.</li>
 </ul>
 <hr>
@@ -2107,9 +2103,7 @@ probe completed yet. In Grafana this shows up as a gap, never as a <code>0</code
 </div>
 <p>The optional packet fields (<code>proto</code>: <code>tcp</code>, <code>udp</code>, or <code>other</code>; <code>dest_port</code>,
 <code>src_addr</code>, <code>src_port</code>, and <code>dscp</code>) let you test rules that filter by port,
-address, or 
-  <abbr title="A 6-bit field in the IP header used to mark traffic classes for QoS.">DSCP</abbr>
-. Without them, only list membership of the target is checked.</p>
+address, or <abbr title="A 6-bit field in the IP header used to mark traffic classes for QoS.">DSCP</abbr>. Without them, only list membership of the target is checked.</p>
 <h3>Response<span class="hx:absolute hx:-mt-20" id="response-4"></span>
     <a href="#response-4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -2255,11 +2249,7 @@ address, or
     <a href="#get-apidnstest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Streams interception events as Server-Sent Events (the server sends events as they happen). <code>HELLO</code> comes first. The DNS check in the web interface uses this stream: it requests a special marker domain (<code>check.keen-pbr.fyi</code>) and waits for it to appear in the stream.</p>
 <ul>
 <li><code>show=keen-pbr</code> (default): only marker events. The stream closes when the matching marker arrives. Pass <code>domain=&lt;marker&gt;</code> to keep your check separate from others.</li>
-<li><code>show=all</code> (or <code>show=full</code>): the stream stays open and shows DNS queries, TLS 
-  <abbr title="The site name a client sends unencrypted at the start of a TLS connection.">SNI</abbr>
-, HTTP Host, 
-  <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr>
- Initial and markers, including domains that are not in any list.</li>
+<li><code>show=all</code> (or <code>show=full</code>): the stream stays open and shows DNS queries, TLS <abbr title="The site name a client sends unencrypted at the start of a TLS connection.">SNI</abbr>, HTTP Host, <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr> Initial and markers, including domains that are not in any list.</li>
 </ul>
 <p><code>show=all</code> exposes the traffic of every client, so it works only when API authentication is on. Without it the response is <code>403</code>. The default view is always available. An invalid <code>show</code> or <code>domain</code> returns <code>400</code>.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">

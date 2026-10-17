@@ -141,7 +141,7 @@ If the first outbound's interface goes down, the result depends on `strict_enfor
 - off (the default): traffic falls back to the ISP's default gateway, bypassing the VPN;
 - on: traffic is blocked (`strict_enforcement_action` decides how).
 
-To switch traffic to a backup link, create one `urltest` outbound and put both interfaces in it. `conntrack_on_switch` controls what happens to open connections when `urltest` moves to a faster link: `preserve` (the default) keeps them on the old link, `delete` deletes their {{< term "conntrack" >}} entries, so applications reconnect through the new one. When the selected link stops working, conntrack entries of its connections are always deleted.
+To switch traffic to a backup link, create one `urltest` (or `icmptest`) outbound and put both interfaces in it. `conntrack_on_switch` controls what happens to open connections when it moves to a faster link: `preserve` (the default) keeps them on the old link, `delete` deletes their {{< term "conntrack" >}} entries, so applications reconnect through the new one. When the selected link stops working, conntrack entries of its connections are always deleted.
 
 ## Good to know
 

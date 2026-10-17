@@ -74,15 +74,15 @@ The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and 
 	<meta itemprop="description" content="keen-pbr can run the service, inspect live routing state, download list data, and test routing decisions.
 The status, download and test-routing commands talk to the running service. If the service is not running, they fail with exit code 1. Start the service first (on a router it starts with the system).
 Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file (default: &lt;KEEN_PBR_DEFAULT_CONFIG_PATH&gt;) --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug (default: info) --log-target &lt;target&gt; Log destination: stderr, syslog, or both (default: both) --pid-file &lt;path&gt; Override daemon.pid_file when running the service command --crash-report &lt;path&gt; Last-crash report path (default: /tmp/keen-pbr-crash.log) --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service Start the routing service (foreground) status Show routing/firewall status and exit download Download all configured lists to cache and exit test-routing &lt;ip-or-domain&gt; [packet options] Test expected vs actual routing for an IP or domain --proto &lt;tcp|udp|other&gt; Packet protocol --src-addr &lt;ip&gt; Packet source address --src-port &lt;port&gt; Packet source port --dest-port &lt;port&gt; Packet destination port --dscp &lt;0-63&gt; Packet DSCP (default: 0) resolver dnsmasq print-config Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0) resolver dnsmasq detect [--json] List dnsmasq instances, their DNS endpoints and which one keen-pbr uses hash-password [--update] Generate an authentication password hash; --update writes config.json The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
-	<meta itemprop="wordCount" content="1506">
+	<meta itemprop="wordCount" content="1505">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="keen-pbr CLI usage">
 	<meta name="twitter:description" content="keen-pbr can run the service, inspect live routing state, download list data, and test routing decisions.
 The status, download and test-routing commands talk to the running service. If the service is not running, they fail with exit code 1. Start the service first (on a router it starts with the system).
 Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file (default: &lt;KEEN_PBR_DEFAULT_CONFIG_PATH&gt;) --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug (default: info) --log-target &lt;target&gt; Log destination: stderr, syslog, or both (default: both) --pid-file &lt;path&gt; Override daemon.pid_file when running the service command --crash-report &lt;path&gt; Last-crash report path (default: /tmp/keen-pbr-crash.log) --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service Start the routing service (foreground) status Show routing/firewall status and exit download Download all configured lists to cache and exit test-routing &lt;ip-or-domain&gt; [packet options] Test expected vs actual routing for an IP or domain --proto &lt;tcp|udp|other&gt; Packet protocol --src-addr &lt;ip&gt; Packet source address --src-port &lt;port&gt; Packet source port --dest-port &lt;port&gt; Packet destination port --dscp &lt;0-63&gt; Packet DSCP (default: 0) resolver dnsmasq print-config Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0) resolver dnsmasq detect [--json] List dnsmasq instances, their DNS endpoints and which one keen-pbr uses hash-password [--update] Generate an authentication password hash; --update writes config.json The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
 
-    <link rel="preload" href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" as="style" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
-    <link href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" rel="stylesheet" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
+    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
 
   
 
@@ -1256,9 +1256,7 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 	</tbody>
 </table>
 <h3><code>resolver dnsmasq print-config</code><span class="hx:absolute hx:-mt-20" id="resolver-dnsmasq-print-config"></span>
-    <a href="#resolver-dnsmasq-print-config" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>When <code>dns.resolver_integration: &quot;dnsmasq&quot;</code> is enabled, this command prints the dnsmasq configuration built by keen-pbr. Lists are taken from the cache only; nothing is downloaded. It contains domain-to-server mappings, 
-  <abbr title="An attack in which a public domain resolves to a private address. dnsmasq can block such answers.">DNS rebinding</abbr>
- protection exceptions, and <code>fallback</code> servers.</p>
+    <a href="#resolver-dnsmasq-print-config" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>When <code>dns.resolver_integration: &quot;dnsmasq&quot;</code> is enabled, this command prints the dnsmasq configuration built by keen-pbr. Lists are taken from the cache only; nothing is downloaded. It contains domain-to-server mappings, <abbr title="An attack in which a public domain resolves to a private address. dnsmasq can block such answers.">DNS rebinding</abbr> protection exceptions, and <code>fallback</code> servers.</p>
 <p><strong>Usage:</strong></p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1302,9 +1300,7 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 <li>Always exits with status 0, even on errors; errors are printed as <code># keen-pbr: ...</code> comment lines.</li>
 <li>When <code>resolver_integration: &quot;none&quot;</code> (default), or the config cannot be read, the output is only the <code>server=</code> lines from <code>dnsmasq-fallback.conf</code>; the dynamic sets are filled by interception.</li>
 <li>With <code>&quot;dnsmasq&quot;</code> and no <code>fallback</code> servers, those <code>server=</code> lines are added to the output.</li>
-<li>dnsmasq reads the config via this command (see <code>conf-script=keen-pbr generate-resolver-config dnsmasq</code> in the 
-  <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr>
-).</li>
+<li>dnsmasq reads the config via this command (see <code>conf-script=keen-pbr generate-resolver-config dnsmasq</code> in the <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr>).</li>
 </ul>
 <h3><code>hash-password</code><span class="hx:absolute hx:-mt-20" id="hash-password"></span>
     <a href="#hash-password" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Creates a password hash for logging in to the web UI and API. The command asks for the password twice.</p>
@@ -1340,9 +1336,7 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
   </button>
 </div>
 </div>
-<p>The command lists every dnsmasq instance the platform hook reports: whether it runs, its DNS endpoint and how it was confirmed, listening sockets, whether keen-pbr&rsquo;s 
-  <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr>
- is installed and which configuration it loaded, and any problem. The last line tells which instance keen-pbr selected and how (<code>explicit</code>, <code>adopted</code> or <code>automatic</code>), or why it could not choose.</p>
+<p>The command lists every dnsmasq instance the platform hook reports: whether it runs, its DNS endpoint and how it was confirmed, listening sockets, whether keen-pbr&rsquo;s <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr> is installed and which configuration it loaded, and any problem. The last line tells which instance keen-pbr selected and how (<code>explicit</code>, <code>adopted</code> or <code>automatic</code>), or why it could not choose.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">dnsmasq hook: /usr/lib/keen-pbr/dnsmasq-hook.sh (platform openwrt, binary /usr/sbin/dnsmasq)

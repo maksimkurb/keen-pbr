@@ -276,9 +276,7 @@
 &lt;h2&gt;Router Package Builds&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;router-package-builds&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#router-package-builds&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Router packages are also built in Docker with targets from the root &lt;code&gt;Makefile&lt;/code&gt;. They repeat the GitHub Actions build, and the finished packages appear in &lt;code&gt;build/packages/&lt;/code&gt;.&lt;/p&gt;
 &lt;h3&gt;Entware (for Keenetic and Netcraze routers)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;entware-for-keenetic-and-netcraze-routers&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#entware-for-keenetic-and-netcraze-routers&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Build an 
-  &lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt;
- package:&lt;/p&gt;
+    &lt;a href=&#34;#entware-for-keenetic-and-netcraze-routers&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Build an &lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt; package:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make keenetic-packages &lt;span class=&#34;nv&#34;&gt;KEENETIC_CONFIG&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;mipsel-3.4 &lt;span class=&#34;nv&#34;&gt;KEENETIC_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;current&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
@@ -463,9 +461,7 @@
       <description>
         
         
-        &lt;p&gt;On Keenetic and NetCraze, keen-pbr is installed from 
-  &lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt;
-. Entware is a set of extra programs for the router, installed on a USB drive. Do use a USB drive: that way installing packages and running programs does not wear out the router&amp;rsquo;s built-in memory. You install programs from Entware with the &lt;code&gt;opkg&lt;/code&gt; command over SSH.&lt;/p&gt;
+        &lt;p&gt;On Keenetic and NetCraze, keen-pbr is installed from &lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt;. Entware is a set of extra programs for the router, installed on a USB drive. Do use a USB drive: that way installing packages and running programs does not wear out the router&amp;rsquo;s built-in memory. You install programs from Entware with the &lt;code&gt;opkg&lt;/code&gt; command over SSH.&lt;/p&gt;
 &lt;div class=&#34;hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]&#34;&gt;
 &lt;h3&gt;Install Entware&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-entware&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#install-entware&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;If Entware is already on your router, go to the next step.&lt;/p&gt;
@@ -486,8 +482,7 @@
 &lt;li&gt;Utilities and services / &lt;strong&gt;DNS-over-HTTPS proxy&lt;/strong&gt; (optional, but recommended)&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3&gt;Turn on DNS encryption (recommended)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;turn-on-dns-encryption-recommended&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#turn-on-dns-encryption-recommended&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;abbr title=&#34;DNS over HTTPS: encrypted DNS. The router cannot read these queries.&#34;&gt;DoH&lt;/abbr&gt;
-(DNS-over-HTTPS) and DoT (DNS-over-TLS) send DNS requests in encrypted form. Your provider cannot tamper with the answers, so sites open at the correct addresses.&lt;/p&gt;
+    &lt;a href=&#34;#turn-on-dns-encryption-recommended&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;abbr title=&#34;DNS over HTTPS: encrypted DNS. The router cannot read these queries.&#34;&gt;DoH&lt;/abbr&gt; (DNS-over-HTTPS) and DoT (DNS-over-TLS) send DNS requests in encrypted form. Your provider cannot tamper with the answers, so sites open at the correct addresses.&lt;/p&gt;
 &lt;p&gt;How to set it up: &lt;a href=&#34;https://support.keenetic.com/titan/kn-1811/en/25049.html&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;DoH and DoT proxy servers for DNS requests encryption&lt;/a&gt;.&lt;/p&gt;
 &lt;h3&gt;Install keen-pbr&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-keen-pbr&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#install-keen-pbr&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ol&gt;
@@ -589,11 +584,7 @@
 &lt;/table&gt;
 &lt;h2&gt;RAW or mangle&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;raw-or-mangle&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#raw-or-mangle&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;You do not need to change anything at first: keen-pbr picks a suitable mode itself. This section helps if you assign policies to devices in Keenetic &lt;strong&gt;Connection Policies&lt;/strong&gt;, or if connections through the VPN sometimes drop.&lt;/p&gt;
-&lt;p&gt;keen-pbr marks the packets that must go to a VPN or another channel. This mark is called 
-  &lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;
-. It can be set in one of two firewall tables of the router: RAW or 
-  &lt;abbr title=&#34;The iptables table for changing packet metadata, such as setting a fwmark, before routing.&#34;&gt;mangle&lt;/abbr&gt;
-.&lt;/p&gt;
+&lt;p&gt;keen-pbr marks the packets that must go to a VPN or another channel. This mark is called &lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;. It can be set in one of two firewall tables of the router: RAW or &lt;abbr title=&#34;The iptables table for changing packet metadata, such as setting a fwmark, before routing.&#34;&gt;mangle&lt;/abbr&gt;.&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;
@@ -802,7 +793,7 @@ system configuration save&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;div class=&#34
 &lt;ul&gt;
 &lt;li&gt;one &lt;strong&gt;Interface&lt;/strong&gt; (&lt;code&gt;interface&lt;/code&gt;) outbound for the VPN connection&lt;/li&gt;
 &lt;li&gt;one &lt;strong&gt;Routing table&lt;/strong&gt; (&lt;code&gt;table&lt;/code&gt;) outbound with &lt;code&gt;table: 254&lt;/code&gt; (the system&amp;rsquo;s main routing table) for the normal connection, often &lt;code&gt;wan&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;optionally one &lt;strong&gt;Auto-select (urltest)&lt;/strong&gt; outbound, so keen-pbr picks a working one among several connections&lt;/li&gt;
+&lt;li&gt;optionally one &lt;strong&gt;Auto-select (urltest)&lt;/strong&gt; or &lt;strong&gt;Auto-select (ICMP)&lt;/strong&gt; (&lt;code&gt;icmptest&lt;/code&gt;) outbound, so keen-pbr picks a working one among several connections&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;If you are not sure, start with &lt;strong&gt;Interface&lt;/strong&gt; and come back to the other types later.&lt;/p&gt;
 &lt;h2&gt;Common Example&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;common-example&#34;&gt;&lt;/span&gt;
@@ -1161,9 +1152,7 @@ system configuration save&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;div class=&#34
 					&lt;td&gt;&lt;code&gt;conntrack_on_switch&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;string&lt;/td&gt;
 					&lt;td&gt;no (default: &lt;code&gt;&amp;quot;preserve&amp;quot;&lt;/code&gt;)&lt;/td&gt;
-					&lt;td&gt;What to do with open connections when switching to another link. In the Web UI: &lt;strong&gt;Existing connections on switch&lt;/strong&gt;. &lt;code&gt;&amp;quot;preserve&amp;quot;&lt;/code&gt; (&lt;strong&gt;Keep&lt;/strong&gt;) keeps them on the old link, &lt;code&gt;&amp;quot;delete&amp;quot;&lt;/code&gt; (&lt;strong&gt;Reset&lt;/strong&gt;) deletes their 
-  &lt;abbr title=&#34;Connection tracking: the Linux kernel&amp;#39;s table of open connections. Each entry can carry its own mark (connmark).&#34;&gt;conntrack&lt;/abbr&gt;
- entries so they reconnect. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/advanced/#failover&#34;&gt;Failover&lt;/a&gt;&lt;/td&gt;
+					&lt;td&gt;What to do with open connections when switching to another link. In the Web UI: &lt;strong&gt;Existing connections on switch&lt;/strong&gt;. &lt;code&gt;&amp;quot;preserve&amp;quot;&lt;/code&gt; (&lt;strong&gt;Keep&lt;/strong&gt;) keeps them on the old link, &lt;code&gt;&amp;quot;delete&amp;quot;&lt;/code&gt; (&lt;strong&gt;Reset&lt;/strong&gt;) deletes their &lt;abbr title=&#34;Connection tracking: the Linux kernel&amp;#39;s table of open connections. Each entry can carry its own mark (connmark).&#34;&gt;conntrack&lt;/abbr&gt; entries so they reconnect. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/advanced/#failover&#34;&gt;Failover&lt;/a&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;outbound_groups&lt;/code&gt;&lt;/td&gt;
@@ -1288,21 +1277,13 @@ system configuration save&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;div class=&#34
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;h3&gt;Multipath (&lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt;)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;multipath-strategy-balance&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#multipath-strategy-balance&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;This strategy spreads load across the working links of the first working tier. A link is chosen per new connection, not per request: the whole connection, including HTTP/2 and 
-  &lt;abbr title=&#34;A transport protocol over UDP used by HTTP/3.&#34;&gt;QUIC&lt;/abbr&gt;
-, stays on one link. &lt;code&gt;tolerance_ms&lt;/code&gt; and &lt;code&gt;conntrack_on_switch&lt;/code&gt; are not used with balancing. When a link stops working, 
-  &lt;abbr title=&#34;Connection tracking: the Linux kernel&amp;#39;s table of open connections. Each entry can carry its own mark (connmark).&#34;&gt;conntrack&lt;/abbr&gt;
- entries of its connections are deleted, and new connections are spread across the remaining links.&lt;/p&gt;
+    &lt;a href=&#34;#multipath-strategy-balance&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;This strategy spreads load across the working links of the first working tier. A link is chosen per new connection, not per request: the whole connection, including HTTP/2 and &lt;abbr title=&#34;A transport protocol over UDP used by HTTP/3.&#34;&gt;QUIC&lt;/abbr&gt;, stays on one link. &lt;code&gt;tolerance_ms&lt;/code&gt; and &lt;code&gt;conntrack_on_switch&lt;/code&gt; are not used with balancing. When a link stops working, &lt;abbr title=&#34;Connection tracking: the Linux kernel&amp;#39;s table of open connections. Each entry can carry its own mark (connmark).&#34;&gt;conntrack&lt;/abbr&gt; entries of its connections are deleted, and new connections are spread across the remaining links.&lt;/p&gt;
 &lt;p&gt;With nftables, connections are split exactly by weight. With iptables, a link is picked at random with the right probability, so with only a few connections the shares can differ noticeably from the weights; with many connections they even out. iptables needs the &lt;code&gt;xt_statistic&lt;/code&gt; kernel module; if it is missing, keen-pbr reports it when applying the configuration. This strategy is not available on Keenetic. Balancing is not available with &lt;code&gt;--use-raw-prerouting&lt;/code&gt;.&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
 
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Balancing across several WANs needs
-&lt;abbr title=&#34;Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&amp;#39;s WAN address.&#34;&gt;NAT&lt;/abbr&gt;
-on every uplink, loose &lt;code&gt;rp_filter&lt;/code&gt;, and an
-&lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;
-range that other software does not use. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/multi-wan/&#34;&gt;Multi-WAN Load Balancing&lt;/a&gt; for a complete Debian/iptables setup.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Balancing across several WANs needs &lt;abbr title=&#34;Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&amp;#39;s WAN address.&#34;&gt;NAT&lt;/abbr&gt; on every uplink, loose &lt;code&gt;rp_filter&lt;/code&gt;, and an &lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt; range that other software does not use. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/multi-wan/&#34;&gt;Multi-WAN Load Balancing&lt;/a&gt; for a complete setup for each firewall backend.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 
@@ -1371,9 +1352,7 @@ range that other software does not use. See &lt;a href=&#34;https://keen-pbr.fyi
 &lt;/table&gt;
 &lt;p&gt;An excluded link is shown as &lt;strong&gt;Unavailable&lt;/strong&gt; on the &lt;strong&gt;Routing&lt;/strong&gt; &amp;gt; &lt;strong&gt;Outbounds&lt;/strong&gt; page of the web UI and as &lt;code&gt;unavailable&lt;/code&gt; in &lt;code&gt;GET /api/runtime/outbounds&lt;/code&gt;.&lt;/p&gt;
 &lt;h2&gt;&lt;code&gt;icmptest&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;icmptest&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#icmptest&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Use it instead of &lt;code&gt;urltest&lt;/code&gt; when HTTP checks do not work for you. In the Web UI the type is called &lt;strong&gt;Auto-select (ICMP)&lt;/strong&gt;. A link is checked by pinging a specific address (
-  &lt;abbr title=&#34;Service protocol for network diagnostics. ping uses ICMP Echo.&#34;&gt;ICMP&lt;/abbr&gt;
- Echo). For every link in a group, set &lt;code&gt;target&lt;/code&gt; (in the Web UI, &lt;strong&gt;Ping target&lt;/strong&gt;): the IP address to ping through that link.&lt;/p&gt;
+    &lt;a href=&#34;#icmptest&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Use it instead of &lt;code&gt;urltest&lt;/code&gt; when HTTP checks do not work for you. In the Web UI the type is called &lt;strong&gt;Auto-select (ICMP)&lt;/strong&gt;. A link is checked by pinging a specific address (&lt;abbr title=&#34;Service protocol for network diagnostics. ping uses ICMP Echo.&#34;&gt;ICMP&lt;/abbr&gt; Echo). For every link in a group, set &lt;code&gt;target&lt;/code&gt; (in the Web UI, &lt;strong&gt;Ping target&lt;/strong&gt;): the IP address to ping through that link.&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
@@ -1532,9 +1511,7 @@ range that other software does not use. See &lt;a href=&#34;https://keen-pbr.fyi
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;icmptest&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;Same as &lt;code&gt;urltest&lt;/code&gt;, but channels are checked with ping (
-  &lt;abbr title=&#34;Service protocol for network diagnostics. ping uses ICMP Echo.&#34;&gt;ICMP&lt;/abbr&gt;
-)&lt;/td&gt;
+					&lt;td&gt;Same as &lt;code&gt;urltest&lt;/code&gt;, but channels are checked with ping (&lt;abbr title=&#34;Service protocol for network diagnostics. ping uses ICMP Echo.&#34;&gt;ICMP&lt;/abbr&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
@@ -1546,9 +1523,7 @@ range that other software does not use. See &lt;a href=&#34;https://keen-pbr.fyi
 &lt;li&gt;&lt;strong&gt;Lists&lt;/strong&gt;: the address is in one of the given lists;&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Protocol&lt;/strong&gt;: &lt;code&gt;tcp&lt;/code&gt; or &lt;code&gt;udp&lt;/code&gt;;&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;DSCP&lt;/strong&gt;: a traffic priority tag;&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Source IP&lt;/strong&gt; and &lt;strong&gt;Destination IP&lt;/strong&gt;: an address or subnet (
-  &lt;abbr title=&#34;Subnet notation: an address and prefix length, for example 192.168.1.0/24.&#34;&gt;CIDR&lt;/abbr&gt;
-), optionally negated;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Source IP&lt;/strong&gt; and &lt;strong&gt;Destination IP&lt;/strong&gt;: an address or subnet (&lt;abbr title=&#34;Subnet notation: an address and prefix length, for example 192.168.1.0/24.&#34;&gt;CIDR&lt;/abbr&gt;), optionally negated;&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Source port&lt;/strong&gt; and &lt;strong&gt;Destination port&lt;/strong&gt;: a single port, a list or a range.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;If a rule has several conditions, traffic must match all of them. Rules are checked from top to bottom, and the first matching rule wins. Traffic that matches no rule goes the usual way.&lt;/p&gt;
@@ -1560,12 +1535,8 @@ range that other software does not use. See &lt;a href=&#34;https://keen-pbr.fyi
 &lt;h2&gt;fwmark and conntrack&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;fwmark-and-conntrack&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#fwmark-and-conntrack&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;You will meet these two words in logs and search results when something goes wrong. You normally do not need to configure them.&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;
-  &lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;
-&lt;/strong&gt; is a numeric tag on a packet. keen-pbr puts it on traffic from your lists, and the tag tells the router which outbound to send the packet to. Each outbound has its own tag from the range set in the &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/advanced/#fwmark&#34;&gt;&lt;code&gt;fwmark&lt;/code&gt;&lt;/a&gt; setting.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;
-  &lt;abbr title=&#34;Connection tracking: the Linux kernel&amp;#39;s table of open connections. Each entry can carry its own mark (connmark).&#34;&gt;conntrack&lt;/abbr&gt;
-&lt;/strong&gt; is the router&amp;rsquo;s table of open connections. It keeps all packets of one connection on the same path. When a connection has to move to another channel, keen-pbr clears its entry in this table and the device opens the connection again.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;&lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;&lt;/strong&gt; is a numeric tag on a packet. keen-pbr puts it on traffic from your lists, and the tag tells the router which outbound to send the packet to. Each outbound has its own tag from the range set in the &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/advanced/#fwmark&#34;&gt;&lt;code&gt;fwmark&lt;/code&gt;&lt;/a&gt; setting.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;&lt;abbr title=&#34;Connection tracking: the Linux kernel&amp;#39;s table of open connections. Each entry can carry its own mark (connmark).&#34;&gt;conntrack&lt;/abbr&gt;&lt;/strong&gt; is the router&amp;rsquo;s table of open connections. It keeps all packets of one connection on the same path. When a connection has to move to another channel, keen-pbr clears its entry in this table and the device opens the connection again.&lt;/li&gt;
 &lt;/ul&gt;
 
       </description>
@@ -1631,9 +1602,7 @@ range that other software does not use. See &lt;a href=&#34;https://keen-pbr.fyi
 					&lt;td&gt;&lt;code&gt;ip_cidrs&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;array of string&lt;/td&gt;
 					&lt;td&gt;no&lt;/td&gt;
-					&lt;td&gt;IP addresses and subnets (
-  &lt;abbr title=&#34;Subnet notation: an address and prefix length, for example 192.168.1.0/24.&#34;&gt;CIDR&lt;/abbr&gt;
-) written directly in the config&lt;/td&gt;
+					&lt;td&gt;IP addresses and subnets (&lt;abbr title=&#34;Subnet notation: an address and prefix length, for example 192.168.1.0/24.&#34;&gt;CIDR&lt;/abbr&gt;) written directly in the config&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;file&lt;/code&gt;&lt;/td&gt;
@@ -1645,9 +1614,7 @@ range that other software does not use. See &lt;a href=&#34;https://keen-pbr.fyi
 					&lt;td&gt;&lt;code&gt;ttl_ms&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;no (default: &lt;code&gt;0&lt;/code&gt;)&lt;/td&gt;
-					&lt;td&gt;Minimum time to keep the IP addresses of this list&amp;rsquo;s domains, in milliseconds. In the Web UI: &lt;strong&gt;IP cache duration (ms)&lt;/strong&gt;. If unset or below 1000, &lt;code&gt;intercept.min_ttl_ms&lt;/code&gt; is used. If the 
-  &lt;abbr title=&#34;How long a DNS answer may be cached, in seconds.&#34;&gt;TTL&lt;/abbr&gt;
- in the DNS reply is longer, the address is kept longer, but no more than &lt;code&gt;intercept.max_ttl_ms&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Minimum time to keep the IP addresses of this list&amp;rsquo;s domains, in milliseconds. In the Web UI: &lt;strong&gt;IP cache duration (ms)&lt;/strong&gt;. If unset or below 1000, &lt;code&gt;intercept.min_ttl_ms&lt;/code&gt; is used. If the &lt;abbr title=&#34;How long a DNS answer may be cached, in seconds.&#34;&gt;TTL&lt;/abbr&gt; in the DNS reply is longer, the address is kept longer, but no more than &lt;code&gt;intercept.max_ttl_ms&lt;/code&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;detour&lt;/code&gt;&lt;/td&gt;
@@ -1673,9 +1640,7 @@ range that other software does not use. See &lt;a href=&#34;https://keen-pbr.fyi
     &lt;a href=&#34;#list-file-format&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;A file from &lt;code&gt;url&lt;/code&gt; or &lt;code&gt;file&lt;/code&gt; has one entry per line:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;IPv4 address: &lt;code&gt;93.184.216.34&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;IPv4 
-  &lt;abbr title=&#34;Subnet notation: an address and prefix length, for example 192.168.1.0/24.&#34;&gt;CIDR&lt;/abbr&gt;
-: &lt;code&gt;10.0.0.0/8&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;IPv4 &lt;abbr title=&#34;Subnet notation: an address and prefix length, for example 192.168.1.0/24.&#34;&gt;CIDR&lt;/abbr&gt;: &lt;code&gt;10.0.0.0/8&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;IPv6 address: &lt;code&gt;2606:2800:220:1:248:1893:25c8:1946&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;IPv6 CIDR: &lt;code&gt;2001:db8::/32&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;Domain: &lt;code&gt;example.com&lt;/code&gt; — covers the domain and all its subdomains (&lt;code&gt;*.example.com&lt;/code&gt; is not needed; it is read the same way)&lt;/li&gt;
@@ -2597,9 +2562,7 @@ graph LR;
 					&lt;td&gt;&lt;code&gt;dscp&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;no&lt;/td&gt;
-					&lt;td&gt;
-  &lt;abbr title=&#34;A 6-bit field in the IP header used to mark traffic classes for QoS.&#34;&gt;DSCP&lt;/abbr&gt;
- tag value from &lt;code&gt;1&lt;/code&gt; to &lt;code&gt;63&lt;/code&gt; (&lt;strong&gt;DSCP&lt;/strong&gt;)&lt;/td&gt;
+					&lt;td&gt;&lt;abbr title=&#34;A 6-bit field in the IP header used to mark traffic classes for QoS.&#34;&gt;DSCP&lt;/abbr&gt; tag value from &lt;code&gt;1&lt;/code&gt; to &lt;code&gt;63&lt;/code&gt; (&lt;strong&gt;DSCP&lt;/strong&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;src_port&lt;/code&gt;&lt;/td&gt;
@@ -2861,11 +2824,7 @@ graph LR;
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;h3&gt;DSCP filter — route tagged traffic through VPN&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dscp-filter--route-tagged-traffic-through-vpn&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#dscp-filter--route-tagged-traffic-through-vpn&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;
-  &lt;abbr title=&#34;A 6-bit field in the IP header used to mark traffic classes for QoS.&#34;&gt;DSCP&lt;/abbr&gt;
- (Differentiated Services Code Point) is a 6-bit tag in the IP header. It is usually used for 
-  &lt;abbr title=&#34;Traffic prioritization, for example giving calls priority over downloads.&#34;&gt;QoS&lt;/abbr&gt;
-, but keen-pbr can also use it as a routing selector: tag packets on the client device, then match that tag in a route rule. This is useful for per-application routing when the app does not have stable destination domains, IPs, or ports.&lt;/p&gt;
+    &lt;a href=&#34;#dscp-filter--route-tagged-traffic-through-vpn&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;abbr title=&#34;A 6-bit field in the IP header used to mark traffic classes for QoS.&#34;&gt;DSCP&lt;/abbr&gt; (Differentiated Services Code Point) is a 6-bit tag in the IP header. It is usually used for &lt;abbr title=&#34;Traffic prioritization, for example giving calls priority over downloads.&#34;&gt;QoS&lt;/abbr&gt;, but keen-pbr can also use it as a routing selector: tag packets on the client device, then match that tag in a route rule. This is useful for per-application routing when the app does not have stable destination domains, IPs, or ports.&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
@@ -2907,9 +2866,7 @@ graph LR;
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;&lt;code&gt;AppPathNameMatchCondition&lt;/code&gt; can be an executable name such as &lt;code&gt;zoom.exe&lt;/code&gt; or a full application path. Windows then tags matching application traffic with 
-  &lt;abbr title=&#34;A 6-bit field in the IP header used to mark traffic classes for QoS.&#34;&gt;DSCP&lt;/abbr&gt;
- &lt;code&gt;46&lt;/code&gt;, and keen-pbr can route it with a rule containing &lt;code&gt;&amp;quot;dscp&amp;quot;: 46&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;AppPathNameMatchCondition&lt;/code&gt; can be an executable name such as &lt;code&gt;zoom.exe&lt;/code&gt; or a full application path. Windows then tags matching application traffic with &lt;abbr title=&#34;A 6-bit field in the IP header used to mark traffic classes for QoS.&#34;&gt;DSCP&lt;/abbr&gt; &lt;code&gt;46&lt;/code&gt;, and keen-pbr can route it with a rule containing &lt;code&gt;&amp;quot;dscp&amp;quot;: 46&lt;/code&gt;.&lt;/p&gt;
 &lt;h4&gt;Linux: tag traffic from a user&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;linux-tag-traffic-from-a-user&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#linux-tag-traffic-from-a-user&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h4&gt;&lt;p&gt;On Linux, you can tag packets created by a specific local user. Replace &lt;code&gt;john&lt;/code&gt; in the examples below with the user that runs the application you want to route.&lt;/p&gt;
 &lt;p&gt;With nftables:&lt;/p&gt;
@@ -3145,7 +3102,7 @@ graph LR;
 &lt;li&gt;to resolve the domains of some lists through a separate DNS server. For example, a CDN (content delivery network) should answer for your VPN&amp;rsquo;s region, or the domains resolve only inside the VPN;&lt;/li&gt;
 &lt;li&gt;to set your own default DNS servers for the whole network right in keen-pbr.&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;Both work only through dnsmasq. If neither fits you, leave the &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt; switch off. If you upgraded from 3.3.x, the switch is already on: turn it off if you do not need dnsmasq (see &lt;a href=&#34;https://keen-pbr.fyi/docs/changelog/#upgrading-from-33x&#34;&gt;Upgrading from 3.3.x&lt;/a&gt;).&lt;/p&gt;
+&lt;p&gt;Both work only through dnsmasq. If neither fits you, leave the &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt; switch off. If you upgraded from 3.3.x, the switch is already on: turn it off if you do not need dnsmasq (see &lt;a href=&#34;https://keen-pbr.fyi/docs/changelog/#upgrading-from-33x&#34;&gt;Breaking Changes in 3.4.0&lt;/a&gt;).&lt;/p&gt;
 &lt;p&gt;How to install dnsmasq and how to roll back: &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/keenetic/#dnsmasq&#34;&gt;Keenetic&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/openwrt/#dnsmasq&#34;&gt;OpenWrt&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/debian/#dnsmasq&#34;&gt;Debian&lt;/a&gt;.&lt;/p&gt;
 &lt;h2&gt;How to check that DNS goes through the router&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-to-check-that-dns-goes-through-the-router&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#how-to-check-that-dns-goes-through-the-router&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Interception sees only the DNS queries that pass through the router. If a device uses DoH or its own DNS server, keen-pbr can recognise part of the domains only through L7.&lt;/p&gt;
@@ -3302,9 +3259,7 @@ graph LR;
 &lt;ul&gt;
 &lt;li&gt;At most one server may use &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;address&lt;/code&gt; is not set for it.&lt;/li&gt;
-&lt;li&gt;keen-pbr reads the servers that are not tied to a domain from the &lt;strong&gt;System&lt;/strong&gt; proxy policy. If any of them are encrypted (
-  &lt;abbr title=&#34;DNS over HTTPS: encrypted DNS. The router cannot read these queries.&#34;&gt;DoH&lt;/abbr&gt;
-/DoT), all encrypted servers are used in order. Otherwise, all plain servers are used in order.&lt;/li&gt;
+&lt;li&gt;keen-pbr reads the servers that are not tied to a domain from the &lt;strong&gt;System&lt;/strong&gt; proxy policy. If any of them are encrypted (&lt;abbr title=&#34;DNS over HTTPS: encrypted DNS. The router cannot read these queries.&#34;&gt;DoH&lt;/abbr&gt;/DoT), all encrypted servers are used in order. Otherwise, all plain servers are used in order.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2&gt;Field reference&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;field-reference&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#field-reference&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;The &lt;code&gt;dns&lt;/code&gt; section in &lt;code&gt;config.json&lt;/code&gt;:&lt;/p&gt;
@@ -3397,9 +3352,7 @@ graph LR;
     &lt;a href=&#34;#dns-interception&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Interception is on by default. Settings: &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;Domain-based routing&lt;/strong&gt;. It learns the IP addresses of domains from your lists:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;DNS&lt;/strong&gt;: keen-pbr briefly holds a DNS reply passing through the router, adds its addresses to the list&amp;rsquo;s set, and only then lets the reply reach the client. This way even the first connection to a site takes the right route.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;L7&lt;/strong&gt;: keen-pbr reads the site name at the start of TLS, HTTP and 
-  &lt;abbr title=&#34;A transport protocol over UDP used by HTTP/3.&#34;&gt;QUIC&lt;/abbr&gt;
- connections. This helps when a device uses encrypted DNS.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;L7&lt;/strong&gt;: keen-pbr reads the site name at the start of TLS, HTTP and &lt;abbr title=&#34;A transport protocol over UDP used by HTTP/3.&#34;&gt;QUIC&lt;/abbr&gt; connections. This helps when a device uses encrypted DNS. The first connection to the site then breaks, and the browser or app reconnects over the right route.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;Change these settings only when the defaults do not suit you. The &lt;code&gt;intercept&lt;/code&gt; section in &lt;code&gt;config.json&lt;/code&gt;:&lt;/p&gt;
 &lt;table&gt;
@@ -3422,9 +3375,7 @@ graph LR;
 					&lt;td&gt;&lt;code&gt;min_ttl_ms&lt;/code&gt; / &lt;code&gt;max_ttl_ms&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;300000&lt;/code&gt; / &lt;code&gt;86400000&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;How long to keep an address in a dynamic set: no less and no more than this, in milliseconds (rounded to seconds). Within these bounds the 
-  &lt;abbr title=&#34;How long a DNS answer may be cached, in seconds.&#34;&gt;TTL&lt;/abbr&gt;
- from the DNS reply is used (&lt;strong&gt;Minimum TTL&lt;/strong&gt;, &lt;strong&gt;Maximum TTL&lt;/strong&gt;)&lt;/td&gt;
+					&lt;td&gt;How long to keep an address in a dynamic set: no less and no more than this, in milliseconds (rounded to seconds). Within these bounds the &lt;abbr title=&#34;How long a DNS answer may be cached, in seconds.&#34;&gt;TTL&lt;/abbr&gt; from the DNS reply is used (&lt;strong&gt;Minimum TTL&lt;/strong&gt;, &lt;strong&gt;Maximum TTL&lt;/strong&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;dns.enabled&lt;/code&gt;&lt;/td&gt;
@@ -3436,9 +3387,7 @@ graph LR;
 					&lt;td&gt;&lt;code&gt;dns.queue_num&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;9053&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;
-  &lt;abbr title=&#34;A netfilter mechanism that passes packets to a user-space program and waits for its verdict. keen-pbr uses it to hold DNS replies briefly.&#34;&gt;NFQUEUE&lt;/abbr&gt;
- number. Change it only if another program uses it (&lt;strong&gt;NFQUEUE number&lt;/strong&gt;)&lt;/td&gt;
+					&lt;td&gt;&lt;abbr title=&#34;A netfilter mechanism that passes packets to a user-space program and waits for its verdict. keen-pbr uses it to hold DNS replies briefly.&#34;&gt;NFQUEUE&lt;/abbr&gt; number. Change it only if another program uses it (&lt;strong&gt;NFQUEUE number&lt;/strong&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;dns.hold_timeout_ms&lt;/code&gt;&lt;/td&gt;
@@ -3462,9 +3411,7 @@ graph LR;
 					&lt;td&gt;&lt;code&gt;l7.nflog_group&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;9054&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;
-  &lt;abbr title=&#34;A netfilter mechanism that sends copies of packets to a user-space program without delaying them.&#34;&gt;NFLOG&lt;/abbr&gt;
- group number. Change it only if another program uses it (&lt;strong&gt;NFLOG group&lt;/strong&gt;)&lt;/td&gt;
+					&lt;td&gt;&lt;abbr title=&#34;A netfilter mechanism that sends copies of packets to a user-space program without delaying them.&#34;&gt;NFLOG&lt;/abbr&gt; group number. Change it only if another program uses it (&lt;strong&gt;NFLOG group&lt;/strong&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;l7.tls&lt;/code&gt; / &lt;code&gt;http&lt;/code&gt; / &lt;code&gt;quic&lt;/code&gt;&lt;/td&gt;
@@ -3522,9 +3469,7 @@ graph LR;
 					&lt;td&gt;&lt;code&gt;uci:cfg01411c&lt;/code&gt;, &lt;code&gt;uci:guest&lt;/code&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
-					&lt;td&gt;Keenetic (
-  &lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt;
-)&lt;/td&gt;
+					&lt;td&gt;Keenetic (&lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt;)&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;entware:default&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;entware:default&lt;/code&gt;&lt;/td&gt;
 			&lt;/tr&gt;
@@ -3538,20 +3483,14 @@ graph LR;
 &lt;p&gt;The instance is picked in this order:&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;Explicit&lt;/strong&gt;: &lt;code&gt;dns.dnsmasq_instance&lt;/code&gt; is set. If no such instance exists, keen-pbr reports &lt;code&gt;DNSMASQ_INSTANCE_NOT_FOUND&lt;/code&gt; and changes nothing.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Adopted&lt;/strong&gt;: the field is empty and keen-pbr&amp;rsquo;s 
-  &lt;abbr title=&#34;A small extra configuration file that a program reads in addition to its main config.&#34;&gt;drop-in&lt;/abbr&gt;
- is already installed in exactly one instance. That instance keeps being used. If the drop-in is found in several instances, selection stops with &lt;code&gt;DNSMASQ_INSTANCE_AMBIGUOUS&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Adopted&lt;/strong&gt;: the field is empty and keen-pbr&amp;rsquo;s &lt;abbr title=&#34;A small extra configuration file that a program reads in addition to its main config.&#34;&gt;drop-in&lt;/abbr&gt; is already installed in exactly one instance. That instance keeps being used. If the drop-in is found in several instances, selection stops with &lt;code&gt;DNSMASQ_INSTANCE_AMBIGUOUS&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Automatic&lt;/strong&gt;: the field is empty, nothing is installed yet, and exactly one enabled instance has DNS (&lt;code&gt;port&lt;/code&gt; is not &lt;code&gt;0&lt;/code&gt;). With none, the result is &lt;code&gt;DNSMASQ_NO_DNS_INSTANCE&lt;/code&gt;; with several, &lt;code&gt;DNSMASQ_INSTANCE_AMBIGUOUS&lt;/code&gt;.&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;When the choice is ambiguous, keen-pbr does not guess: it modifies nothing and leaves existing drop-ins alone. Run &lt;code&gt;keen-pbr resolver dnsmasq detect&lt;/code&gt; to see the candidates, then set it under &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;Local DNS server management&lt;/strong&gt; &amp;gt; &lt;strong&gt;dnsmasq instance&lt;/strong&gt; (or &lt;code&gt;dns.dnsmasq_instance&lt;/code&gt; in &lt;code&gt;config.json&lt;/code&gt;). If keen-pbr&amp;rsquo;s drop-in is also installed in an instance that is not selected, &lt;code&gt;detect&lt;/code&gt; and the logs show a warning. Delete the drop-in file named in the warning and restart that dnsmasq instance.&lt;/p&gt;
 &lt;h4&gt;DNS endpoint detection&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dns-endpoint-detection&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#dns-endpoint-detection&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h4&gt;&lt;p&gt;keen-pbr finds the address the selected dnsmasq answers on by itself: it reads the configuration dnsmasq actually loaded and checks the address with a DNS query. If dnsmasq does not serve DNS (&lt;code&gt;port=0&lt;/code&gt;, no DNS socket, or another 
-  &lt;abbr title=&#34;An isolated copy of the Linux network stack with its own interfaces, routes and firewall.&#34;&gt;network namespace&lt;/abbr&gt;
-), keen-pbr reports an error instead of guessing &lt;code&gt;127.0.0.1:53&lt;/code&gt;.&lt;/p&gt;
+    &lt;a href=&#34;#dns-endpoint-detection&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h4&gt;&lt;p&gt;keen-pbr finds the address the selected dnsmasq answers on by itself: it reads the configuration dnsmasq actually loaded and checks the address with a DNS query. If dnsmasq does not serve DNS (&lt;code&gt;port=0&lt;/code&gt;, no DNS socket, or another &lt;abbr title=&#34;An isolated copy of the Linux network stack with its own interfaces, routes and firewall.&#34;&gt;network namespace&lt;/abbr&gt;), keen-pbr reports an error instead of guessing &lt;code&gt;127.0.0.1:53&lt;/code&gt;.&lt;/p&gt;
 &lt;h4&gt;Checks before every restart&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;checks-before-every-restart&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#checks-before-every-restart&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h4&gt;&lt;p&gt;Before restarting dnsmasq, keen-pbr checks the new settings with &lt;code&gt;dnsmasq --test&lt;/code&gt; on your current dnsmasq configuration plus keen-pbr&amp;rsquo;s 
-  &lt;abbr title=&#34;A small extra configuration file that a program reads in addition to its main config.&#34;&gt;drop-in&lt;/abbr&gt;
-. It also checks once that your dnsmasq build supports &lt;code&gt;conf-script&lt;/code&gt;.&lt;/p&gt;
+    &lt;a href=&#34;#checks-before-every-restart&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h4&gt;&lt;p&gt;Before restarting dnsmasq, keen-pbr checks the new settings with &lt;code&gt;dnsmasq --test&lt;/code&gt; on your current dnsmasq configuration plus keen-pbr&amp;rsquo;s &lt;abbr title=&#34;A small extra configuration file that a program reads in addition to its main config.&#34;&gt;drop-in&lt;/abbr&gt;. It also checks once that your dnsmasq build supports &lt;code&gt;conf-script&lt;/code&gt;.&lt;/p&gt;
 &lt;p&gt;If a check fails, &lt;strong&gt;dnsmasq is not restarted and keeps its old settings&lt;/strong&gt;. The error code and the dnsmasq output are shown in the web UI and in &lt;code&gt;/api/health/service&lt;/code&gt;; fix the problem and apply the configuration again.&lt;/p&gt;
 &lt;p&gt;Each check runs the config generator, so before each apply the system log shows an extra &lt;code&gt;generate-resolver-config dnsmasq: pid ..., parent ... (dnsmasq)&lt;/code&gt; block. This is expected.&lt;/p&gt;
 &lt;h4&gt;Errors&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;errors&#34;&gt;&lt;/span&gt;
@@ -3607,9 +3546,7 @@ graph LR;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;DNSMASQ_OTHER_NETNS&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;dnsmasq runs in another 
-  &lt;abbr title=&#34;An isolated copy of the Linux network stack with its own interfaces, routes and firewall.&#34;&gt;network namespace&lt;/abbr&gt;
-.&lt;/td&gt;
+					&lt;td&gt;dnsmasq runs in another &lt;abbr title=&#34;An isolated copy of the Linux network stack with its own interfaces, routes and firewall.&#34;&gt;network namespace&lt;/abbr&gt;.&lt;/td&gt;
 					&lt;td&gt;Not supported; run dnsmasq in the router&amp;rsquo;s main namespace.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
@@ -3624,9 +3561,7 @@ graph LR;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;DNSMASQ_DROPIN_NOT_LOADED&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;The running dnsmasq does not read the directory keen-pbr&amp;rsquo;s 
-  &lt;abbr title=&#34;A small extra configuration file that a program reads in addition to its main config.&#34;&gt;drop-in&lt;/abbr&gt;
- goes to (or a &lt;code&gt;conf-dir&lt;/code&gt; filter rejects the file name).&lt;/td&gt;
+					&lt;td&gt;The running dnsmasq does not read the directory keen-pbr&amp;rsquo;s &lt;abbr title=&#34;A small extra configuration file that a program reads in addition to its main config.&#34;&gt;drop-in&lt;/abbr&gt; goes to (or a &lt;code&gt;conf-dir&lt;/code&gt; filter rejects the file name).&lt;/td&gt;
 					&lt;td&gt;Add the directory to the &lt;code&gt;conf-dir&lt;/code&gt; of that instance, or relax the filter.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
@@ -3677,9 +3612,7 @@ graph LR;
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;h3&gt;How it works&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-it-works&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#how-it-works&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;One 
-  &lt;abbr title=&#34;A small extra configuration file that a program reads in addition to its main config.&#34;&gt;drop-in&lt;/abbr&gt;
- line in the dnsmasq configuration makes dnsmasq run keen-pbr at every start and get the per-list rules and default DNS servers from it.&lt;/p&gt;
+    &lt;a href=&#34;#how-it-works&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;One &lt;abbr title=&#34;A small extra configuration file that a program reads in addition to its main config.&#34;&gt;drop-in&lt;/abbr&gt; line in the dnsmasq configuration makes dnsmasq run keen-pbr at every start and get the per-list rules and default DNS servers from it.&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;With &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt; on, dnsmasq is restarted when this data changes (list update, settings change, or once after keen-pbr starts), and only after the checks described in &lt;a href=&#34;#checks-before-every-restart&#34;&gt;Checks before every restart&lt;/a&gt; have passed.&lt;/li&gt;
 &lt;li&gt;With it off, dnsmasq gets the servers from the &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt; file (Keenetic: &lt;code&gt;/opt/etc/keen-pbr/&lt;/code&gt;, Debian and OpenWrt: &lt;code&gt;/etc/keen-pbr/&lt;/code&gt;). They are added to dnsmasq&amp;rsquo;s own servers; clear the file to avoid that. On OpenWrt the file is empty by default.&lt;/li&gt;
@@ -3689,9 +3622,7 @@ graph LR;
     &lt;a href=&#34;#on-stop-disable-or-uninstall&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Stopping keen-pbr&lt;/strong&gt;: dnsmasq is not restarted; per-list DNS servers keep working, also after a dnsmasq or router restart.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Disabling the feature&lt;/strong&gt; (&lt;code&gt;resolver_integration: &amp;quot;none&amp;quot;&lt;/code&gt;): keen-pbr restarts dnsmasq, which then uses the servers from &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt;. On OpenWrt the server list returns to &lt;code&gt;/etc/config/dhcp&lt;/code&gt;. If you turned it off by editing the config while keen-pbr was stopped, the first start restarts dnsmasq once. To check the result, see &lt;a href=&#34;https://keen-pbr.fyi/docs/cli/#resolver-dnsmasq-detect&#34;&gt;&lt;code&gt;resolver dnsmasq detect&lt;/code&gt;&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;dnsmasq is not running&lt;/strong&gt;: keen-pbr never starts a stopped dnsmasq. If dnsmasq crashes on a system without a service supervisor (
-  &lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt;
-), start it manually; keen-pbr re-applies its configuration once dnsmasq is running again.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;dnsmasq is not running&lt;/strong&gt;: keen-pbr never starts a stopped dnsmasq. If dnsmasq crashes on a system without a service supervisor (&lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt;), start it manually; keen-pbr re-applies its configuration once dnsmasq is running again.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;dnsmasq loses the config&lt;/strong&gt; (restarted with other settings): keen-pbr restarts it at most 3 times (immediately, then after 5 and 10 minutes) and then pauses automatic repair; &lt;code&gt;state&lt;/code&gt; in &lt;code&gt;/api/health/service&lt;/code&gt; shows &lt;code&gt;reconciling&lt;/code&gt; or &lt;code&gt;error&lt;/code&gt; with the reason. Applying the configuration or restarting keen-pbr re-arms it. A dnsmasq that is running but does not answer the config check is never restarted.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Uninstalling the package&lt;/strong&gt;: keen-pbr removes its entry from dnsmasq, returns the OpenWrt server list, and restarts dnsmasq. This works even when keen-pbr itself is broken, because the removal scripts never run it. If dnsmasq would be left without any upstream DNS server (it has &lt;code&gt;no-resolv&lt;/code&gt; and no &lt;code&gt;server=&lt;/code&gt; line of its own), the servers from &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt; stay in a block marked &lt;code&gt;keen-pbr fallback upstream&lt;/code&gt; in &lt;code&gt;/opt/etc/dnsmasq.conf&lt;/code&gt; (Keenetic) or &lt;code&gt;/etc/dnsmasq.conf&lt;/code&gt; (Debian). Replace them with your own. Firewall rules left behind by a keen-pbr that crashed are removed as well.&lt;/li&gt;
 &lt;/ul&gt;
@@ -3896,9 +3827,7 @@ graph LR;
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;h3&gt;&lt;code&gt;resolver dnsmasq print-config&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;resolver-dnsmasq-print-config&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#resolver-dnsmasq-print-config&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;When &lt;code&gt;dns.resolver_integration: &amp;quot;dnsmasq&amp;quot;&lt;/code&gt; is enabled, this command prints the dnsmasq configuration built by keen-pbr. Lists are taken from the cache only; nothing is downloaded. It contains domain-to-server mappings, 
-  &lt;abbr title=&#34;An attack in which a public domain resolves to a private address. dnsmasq can block such answers.&#34;&gt;DNS rebinding&lt;/abbr&gt;
- protection exceptions, and &lt;code&gt;fallback&lt;/code&gt; servers.&lt;/p&gt;
+    &lt;a href=&#34;#resolver-dnsmasq-print-config&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;When &lt;code&gt;dns.resolver_integration: &amp;quot;dnsmasq&amp;quot;&lt;/code&gt; is enabled, this command prints the dnsmasq configuration built by keen-pbr. Lists are taken from the cache only; nothing is downloaded. It contains domain-to-server mappings, &lt;abbr title=&#34;An attack in which a public domain resolves to a private address. dnsmasq can block such answers.&#34;&gt;DNS rebinding&lt;/abbr&gt; protection exceptions, and &lt;code&gt;fallback&lt;/code&gt; servers.&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;Usage:&lt;/strong&gt;&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -3942,9 +3871,7 @@ graph LR;
 &lt;li&gt;Always exits with status 0, even on errors; errors are printed as &lt;code&gt;# keen-pbr: ...&lt;/code&gt; comment lines.&lt;/li&gt;
 &lt;li&gt;When &lt;code&gt;resolver_integration: &amp;quot;none&amp;quot;&lt;/code&gt; (default), or the config cannot be read, the output is only the &lt;code&gt;server=&lt;/code&gt; lines from &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt;; the dynamic sets are filled by interception.&lt;/li&gt;
 &lt;li&gt;With &lt;code&gt;&amp;quot;dnsmasq&amp;quot;&lt;/code&gt; and no &lt;code&gt;fallback&lt;/code&gt; servers, those &lt;code&gt;server=&lt;/code&gt; lines are added to the output.&lt;/li&gt;
-&lt;li&gt;dnsmasq reads the config via this command (see &lt;code&gt;conf-script=keen-pbr generate-resolver-config dnsmasq&lt;/code&gt; in the 
-  &lt;abbr title=&#34;A small extra configuration file that a program reads in addition to its main config.&#34;&gt;drop-in&lt;/abbr&gt;
-).&lt;/li&gt;
+&lt;li&gt;dnsmasq reads the config via this command (see &lt;code&gt;conf-script=keen-pbr generate-resolver-config dnsmasq&lt;/code&gt; in the &lt;abbr title=&#34;A small extra configuration file that a program reads in addition to its main config.&#34;&gt;drop-in&lt;/abbr&gt;).&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3&gt;&lt;code&gt;hash-password&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;hash-password&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#hash-password&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Creates a password hash for logging in to the web UI and API. The command asks for the password twice.&lt;/p&gt;
@@ -3980,9 +3907,7 @@ graph LR;
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;The command lists every dnsmasq instance the platform hook reports: whether it runs, its DNS endpoint and how it was confirmed, listening sockets, whether keen-pbr&amp;rsquo;s 
-  &lt;abbr title=&#34;A small extra configuration file that a program reads in addition to its main config.&#34;&gt;drop-in&lt;/abbr&gt;
- is installed and which configuration it loaded, and any problem. The last line tells which instance keen-pbr selected and how (&lt;code&gt;explicit&lt;/code&gt;, &lt;code&gt;adopted&lt;/code&gt; or &lt;code&gt;automatic&lt;/code&gt;), or why it could not choose.&lt;/p&gt;
+&lt;p&gt;The command lists every dnsmasq instance the platform hook reports: whether it runs, its DNS endpoint and how it was confirmed, listening sockets, whether keen-pbr&amp;rsquo;s &lt;abbr title=&#34;A small extra configuration file that a program reads in addition to its main config.&#34;&gt;drop-in&lt;/abbr&gt; is installed and which configuration it loaded, and any problem. The last line tells which instance keen-pbr selected and how (&lt;code&gt;explicit&lt;/code&gt;, &lt;code&gt;adopted&lt;/code&gt; or &lt;code&gt;automatic&lt;/code&gt;), or why it could not choose.&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;dnsmasq hook: /usr/lib/keen-pbr/dnsmasq-hook.sh (platform openwrt, binary /usr/sbin/dnsmasq)
@@ -4476,9 +4401,7 @@ graph LR;
 &lt;/div&gt;
 &lt;p&gt;Start &lt;code&gt;keen-pbr&lt;/code&gt; with &lt;code&gt;--no-api&lt;/code&gt; to disable the API regardless of the config. See &lt;a href=&#34;https://keen-pbr.fyi/docs/rest-api/&#34;&gt;REST API&lt;/a&gt; for endpoint documentation and runtime controls.&lt;/p&gt;
 &lt;h2&gt;fwmark&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;fwmark&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#fwmark&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Sets the range of 
-  &lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;
- values. A fwmark is a label keen-pbr puts on a packet so the system sends it to the right routing table (the table holding one outbound&amp;rsquo;s routes). See &lt;a href=&#34;https://keen-pbr.fyi/docs/concepts/#fwmark-and-conntrack&#34;&gt;fwmark and conntrack&lt;/a&gt;.&lt;/p&gt;
+    &lt;a href=&#34;#fwmark&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Sets the range of &lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt; values. A fwmark is a label keen-pbr puts on a packet so the system sends it to the right routing table (the table holding one outbound&amp;rsquo;s routes). See &lt;a href=&#34;https://keen-pbr.fyi/docs/concepts/#fwmark-and-conntrack&#34;&gt;fwmark and conntrack&lt;/a&gt;.&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;
@@ -4592,24 +4515,12 @@ graph LR;
 &lt;li&gt;off (the default): traffic falls back to the ISP&amp;rsquo;s default gateway, bypassing the VPN;&lt;/li&gt;
 &lt;li&gt;on: traffic is blocked (&lt;code&gt;strict_enforcement_action&lt;/code&gt; decides how).&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;To switch traffic to a backup link, create one &lt;code&gt;urltest&lt;/code&gt; outbound and put both interfaces in it. &lt;code&gt;conntrack_on_switch&lt;/code&gt; controls what happens to open connections when &lt;code&gt;urltest&lt;/code&gt; moves to a faster link: &lt;code&gt;preserve&lt;/code&gt; (the default) keeps them on the old link, &lt;code&gt;delete&lt;/code&gt; deletes their 
-  &lt;abbr title=&#34;Connection tracking: the Linux kernel&amp;#39;s table of open connections. Each entry can carry its own mark (connmark).&#34;&gt;conntrack&lt;/abbr&gt;
- entries, so applications reconnect through the new one. When the selected link stops working, conntrack entries of its connections are always deleted.&lt;/p&gt;
+&lt;p&gt;To switch traffic to a backup link, create one &lt;code&gt;urltest&lt;/code&gt; (or &lt;code&gt;icmptest&lt;/code&gt;) outbound and put both interfaces in it. &lt;code&gt;conntrack_on_switch&lt;/code&gt; controls what happens to open connections when it moves to a faster link: &lt;code&gt;preserve&lt;/code&gt; (the default) keeps them on the old link, &lt;code&gt;delete&lt;/code&gt; deletes their &lt;abbr title=&#34;Connection tracking: the Linux kernel&amp;#39;s table of open connections. Each entry can carry its own mark (connmark).&#34;&gt;conntrack&lt;/abbr&gt; entries, so applications reconnect through the new one. When the selected link stops working, conntrack entries of its connections are always deleted.&lt;/p&gt;
 &lt;h2&gt;Good to know&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;good-to-know&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#good-to-know&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ul&gt;
 &lt;li&gt;With &lt;code&gt;ipv6_enabled: false&lt;/code&gt;, IPv6 traffic flows as usual, bypassing keen-pbr.&lt;/li&gt;
-&lt;li&gt;keen-pbr learns domain IPs from ordinary DNS replies passing through the router, even when a client uses a third-party DNS server. If a device uses encrypted DNS (
-  &lt;abbr title=&#34;DNS over HTTPS: encrypted DNS. The router cannot read these queries.&#34;&gt;DoH&lt;/abbr&gt;
-, 
-  &lt;abbr title=&#34;DNS over TLS: encrypted DNS. The router cannot read these queries.&#34;&gt;DoT&lt;/abbr&gt;
-), keen-pbr learns the site&amp;rsquo;s address only from the connection itself (the server name in TLS, HTTP or 
-  &lt;abbr title=&#34;A transport protocol over UDP used by HTTP/3.&#34;&gt;QUIC&lt;/abbr&gt;
-), and the first connections may bypass the VPN. To avoid this, turn off &amp;ldquo;secure DNS&amp;rdquo; on the device and set up DoH/DoT on the router itself.&lt;/li&gt;
-&lt;li&gt;When a learned domain IP expires from a list, new connections take a different route, while connections that are already open keep their route, because their 
-  &lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;
- is stored in 
-  &lt;abbr title=&#34;Connection tracking: the Linux kernel&amp;#39;s table of open connections. Each entry can carry its own mark (connmark).&#34;&gt;conntrack&lt;/abbr&gt;
-.&lt;/li&gt;
+&lt;li&gt;keen-pbr learns domain IPs from ordinary DNS replies passing through the router, even when a client uses a third-party DNS server. If a device uses encrypted DNS (&lt;abbr title=&#34;DNS over HTTPS: encrypted DNS. The router cannot read these queries.&#34;&gt;DoH&lt;/abbr&gt;, &lt;abbr title=&#34;DNS over TLS: encrypted DNS. The router cannot read these queries.&#34;&gt;DoT&lt;/abbr&gt;), keen-pbr learns the site&amp;rsquo;s address only from the connection itself (the server name in TLS, HTTP or &lt;abbr title=&#34;A transport protocol over UDP used by HTTP/3.&#34;&gt;QUIC&lt;/abbr&gt;), and the first connections may bypass the VPN. To avoid this, turn off &amp;ldquo;secure DNS&amp;rdquo; on the device and set up DoH/DoT on the router itself.&lt;/li&gt;
+&lt;li&gt;When a learned domain IP expires from a list, new connections take a different route, while connections that are already open keep their route, because their &lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt; is stored in &lt;abbr title=&#34;Connection tracking: the Linux kernel&amp;#39;s table of open connections. Each entry can carry its own mark (connmark).&#34;&gt;conntrack&lt;/abbr&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;keen-pbr download&lt;/code&gt; downloads lists into the cache. To make the running service use them, run &lt;code&gt;keen-pbr download --reload&lt;/code&gt; or restart the service.&lt;/li&gt;
 &lt;li&gt;If keen-pbr stopped after a crash, do not change &lt;code&gt;fwmark.mask&lt;/code&gt; before the next start: otherwise it will not recognise its old rules and cannot remove them. If that has already happened, reboot the router.&lt;/li&gt;
 &lt;/ul&gt;
@@ -4874,9 +4785,7 @@ graph LR;
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;p&gt;&lt;code&gt;status&lt;/code&gt; is &lt;code&gt;running&lt;/code&gt;, &lt;code&gt;degraded&lt;/code&gt; (DNS interception is enabled but unavailable) or &lt;code&gt;stopped&lt;/code&gt;.&lt;/p&gt;
-&lt;p&gt;When interception is enabled, the response includes an &lt;code&gt;intercept&lt;/code&gt; object: whether DNS interception (&lt;code&gt;dns_hold_active&lt;/code&gt;) and traffic analysis (&lt;code&gt;l7_active&lt;/code&gt;) are active, the kernel features available (&lt;code&gt;nfqueue&lt;/code&gt;, &lt;code&gt;nflog&lt;/code&gt;, &lt;code&gt;connbytes&lt;/code&gt;, &lt;code&gt;addrtype&lt;/code&gt;), and counters of processed packets, errors and queue overruns (
-  &lt;abbr title=&#34;A netfilter mechanism that passes packets to a user-space program and waits for its verdict. keen-pbr uses it to hold DNS replies briefly.&#34;&gt;NFQUEUE&lt;/abbr&gt;
-/NFLOG). These values are mostly useful for diagnostics.&lt;/p&gt;
+&lt;p&gt;When interception is enabled, the response includes an &lt;code&gt;intercept&lt;/code&gt; object: whether DNS interception (&lt;code&gt;dns_hold_active&lt;/code&gt;) and traffic analysis (&lt;code&gt;l7_active&lt;/code&gt;) are active, the kernel features available (&lt;code&gt;nfqueue&lt;/code&gt;, &lt;code&gt;nflog&lt;/code&gt;, &lt;code&gt;connbytes&lt;/code&gt;, &lt;code&gt;addrtype&lt;/code&gt;), and counters of processed packets, errors and queue overruns (&lt;abbr title=&#34;A netfilter mechanism that passes packets to a user-space program and waits for its verdict. keen-pbr uses it to hold DNS replies briefly.&#34;&gt;NFQUEUE&lt;/abbr&gt;/NFLOG). These values are mostly useful for diagnostics.&lt;/p&gt;
 &lt;p&gt;For channel state (health, latency) see &lt;code&gt;GET /api/runtime/outbounds&lt;/code&gt;.&lt;/p&gt;
 &lt;h2&gt;GET /metrics&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;get-metrics&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#get-metrics&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Returns metrics in Prometheus text format 0.0.4. Prometheus requests this address periodically (a scrape) and stores the values. Authentication is the same as for the API: use Basic authentication or the current Bearer token. If metrics are unavailable, the response is &lt;code&gt;503&lt;/code&gt;:&lt;/p&gt;
@@ -4976,9 +4885,7 @@ graph LR;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;keen_pbr_probe_packets_sent_total&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;counter&lt;/td&gt;
-					&lt;td&gt;
-  &lt;abbr title=&#34;Service protocol for network diagnostics. ping uses ICMP Echo.&#34;&gt;ICMP&lt;/abbr&gt;
- echo requests sent. &lt;code&gt;type=&amp;quot;icmptest&amp;quot;&lt;/code&gt; only.&lt;/td&gt;
+					&lt;td&gt;&lt;abbr title=&#34;Service protocol for network diagnostics. ping uses ICMP Echo.&#34;&gt;ICMP&lt;/abbr&gt; echo requests sent. &lt;code&gt;type=&amp;quot;icmptest&amp;quot;&lt;/code&gt; only.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;keen_pbr_probe_packets_received_total&lt;/code&gt;&lt;/td&gt;
@@ -5543,7 +5450,7 @@ probe completed yet. In Grafana this shows up as a gap, never as a &lt;code&gt;0
 &lt;p&gt;If applying failed after the file was saved, &lt;code&gt;GET /api/health/service&lt;/code&gt; shows &lt;code&gt;rollback_available: true&lt;/code&gt;. The file stays new. To return to the previous config, call &lt;code&gt;POST /api/config/rollback&lt;/code&gt; (&lt;code&gt;409&lt;/code&gt; if there is nothing to roll back or another operation is running). &lt;code&gt;POST /api/config/discard&lt;/code&gt; only drops an unsaved draft; it changes neither the file nor routing.&lt;/p&gt;
 &lt;hr&gt;
 &lt;h2&gt;GET /api/runtime/outbounds&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;get-apiruntimeoutbounds&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#get-apiruntimeoutbounds&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Returns the current state of outbounds: which channel a urltest group has selected right now (the group picks the channel with the lowest latency on its own), whether an interface is reachable, and whether it was switched off after a series of failures.&lt;/p&gt;
+    &lt;a href=&#34;#get-apiruntimeoutbounds&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Returns the current state of outbounds: which channel a urltest or icmptest group has selected right now (the group picks the channel with the lowest latency on its own), whether an interface is reachable, and whether it was switched off after a series of failures.&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;curl http://127.0.0.1:12121/api/runtime/outbounds&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
@@ -5596,7 +5503,7 @@ probe completed yet. In Grafana this shows up as a gap, never as a &lt;code&gt;0
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;type&lt;/code&gt;: &lt;code&gt;interface&lt;/code&gt;, &lt;code&gt;table&lt;/code&gt;, &lt;code&gt;blackhole&lt;/code&gt;, &lt;code&gt;ignore&lt;/code&gt;, &lt;code&gt;urltest&lt;/code&gt; or &lt;code&gt;icmptest&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;Outbound &lt;code&gt;status&lt;/code&gt;: &lt;code&gt;healthy&lt;/code&gt; (working), &lt;code&gt;degraded&lt;/code&gt; (partly working), &lt;code&gt;unavailable&lt;/code&gt; (no usable path), &lt;code&gt;unknown&lt;/code&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;status&lt;/code&gt; in &lt;code&gt;interfaces&lt;/code&gt;: &lt;code&gt;active&lt;/code&gt; (traffic goes through it), &lt;code&gt;backup&lt;/code&gt; (standby), &lt;code&gt;degraded&lt;/code&gt;, &lt;code&gt;unavailable&lt;/code&gt; (switched off after a series of failures), &lt;code&gt;unknown&lt;/code&gt;. In a urltest group the selected channel is &lt;code&gt;active&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;status&lt;/code&gt; in &lt;code&gt;interfaces&lt;/code&gt;: &lt;code&gt;active&lt;/code&gt; (traffic goes through it), &lt;code&gt;backup&lt;/code&gt; (standby), &lt;code&gt;degraded&lt;/code&gt;, &lt;code&gt;unavailable&lt;/code&gt; (switched off after a series of failures), &lt;code&gt;unknown&lt;/code&gt;. In a urltest or icmptest group the selected channel is &lt;code&gt;active&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;Optional fields: &lt;code&gt;latency_ms&lt;/code&gt;, &lt;code&gt;probe_target&lt;/code&gt;, &lt;code&gt;detail&lt;/code&gt; and packet counters.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;hr&gt;
@@ -5620,9 +5527,7 @@ probe completed yet. In Grafana this shows up as a gap, never as a &lt;code&gt;0
 &lt;/div&gt;
 &lt;p&gt;The optional packet fields (&lt;code&gt;proto&lt;/code&gt;: &lt;code&gt;tcp&lt;/code&gt;, &lt;code&gt;udp&lt;/code&gt;, or &lt;code&gt;other&lt;/code&gt;; &lt;code&gt;dest_port&lt;/code&gt;,
 &lt;code&gt;src_addr&lt;/code&gt;, &lt;code&gt;src_port&lt;/code&gt;, and &lt;code&gt;dscp&lt;/code&gt;) let you test rules that filter by port,
-address, or 
-  &lt;abbr title=&#34;A 6-bit field in the IP header used to mark traffic classes for QoS.&#34;&gt;DSCP&lt;/abbr&gt;
-. Without them, only list membership of the target is checked.&lt;/p&gt;
+address, or &lt;abbr title=&#34;A 6-bit field in the IP header used to mark traffic classes for QoS.&#34;&gt;DSCP&lt;/abbr&gt;. Without them, only list membership of the target is checked.&lt;/p&gt;
 &lt;h3&gt;Response&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;response-4&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#response-4&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -5768,11 +5673,7 @@ address, or
     &lt;a href=&#34;#get-apidnstest&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Streams interception events as Server-Sent Events (the server sends events as they happen). &lt;code&gt;HELLO&lt;/code&gt; comes first. The DNS check in the web interface uses this stream: it requests a special marker domain (&lt;code&gt;check.keen-pbr.fyi&lt;/code&gt;) and waits for it to appear in the stream.&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;show=keen-pbr&lt;/code&gt; (default): only marker events. The stream closes when the matching marker arrives. Pass &lt;code&gt;domain=&amp;lt;marker&amp;gt;&lt;/code&gt; to keep your check separate from others.&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;show=all&lt;/code&gt; (or &lt;code&gt;show=full&lt;/code&gt;): the stream stays open and shows DNS queries, TLS 
-  &lt;abbr title=&#34;The site name a client sends unencrypted at the start of a TLS connection.&#34;&gt;SNI&lt;/abbr&gt;
-, HTTP Host, 
-  &lt;abbr title=&#34;A transport protocol over UDP used by HTTP/3.&#34;&gt;QUIC&lt;/abbr&gt;
- Initial and markers, including domains that are not in any list.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;show=all&lt;/code&gt; (or &lt;code&gt;show=full&lt;/code&gt;): the stream stays open and shows DNS queries, TLS &lt;abbr title=&#34;The site name a client sends unencrypted at the start of a TLS connection.&#34;&gt;SNI&lt;/abbr&gt;, HTTP Host, &lt;abbr title=&#34;A transport protocol over UDP used by HTTP/3.&#34;&gt;QUIC&lt;/abbr&gt; Initial and markers, including domains that are not in any list.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;&lt;code&gt;show=all&lt;/code&gt; exposes the traffic of every client, so it works only when API authentication is on. Without it the response is &lt;code&gt;403&lt;/code&gt;. The default view is always available. An invalid &lt;code&gt;show&lt;/code&gt; or &lt;code&gt;domain&lt;/code&gt; returns &lt;code&gt;400&lt;/code&gt;.&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
@@ -5881,7 +5782,7 @@ address, or
     &lt;strong class=&#34;hx:text-lg&#34;&gt;What &lt;code&gt;reapply-firewall&lt;/code&gt; does&lt;/strong&gt;
   &lt;/summary&gt;
   &lt;div class=&#34;hx:p-2 hx:overflow-hidden&#34;&gt;
-    On Keenetic there is also &lt;code&gt;/opt/etc/init.d/S80keen-pbr reapply-firewall&lt;/code&gt;. It re-verifies the routing tables and starts the &lt;code&gt;urltest&lt;/code&gt; channel checks immediately, but does not re-download lists.
+    On Keenetic there is also &lt;code&gt;/opt/etc/init.d/S80keen-pbr reapply-firewall&lt;/code&gt;. It re-verifies the routing tables and starts the &lt;code&gt;urltest&lt;/code&gt; and &lt;code&gt;icmptest&lt;/code&gt; channel checks immediately, but does not re-download lists.
   &lt;/div&gt;
 &lt;/details&gt;
 &lt;h2&gt;What happens if a remote list URL is unreachable at startup?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;what-happens-if-a-remote-list-url-is-unreachable-at-startup&#34;&gt;&lt;/span&gt;
@@ -5889,6 +5790,7 @@ address, or
 &lt;h2&gt;How does the urltest outbound select the best link?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-does-the-urltest-outbound-select-the-best-link&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#how-does-the-urltest-outbound-select-the-best-link&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Every &lt;code&gt;interval_ms&lt;/code&gt;, keen-pbr sends an HTTP request to the configured &lt;code&gt;url&lt;/code&gt; through each link and measures the round-trip latency. With &lt;code&gt;strategy: &amp;quot;priority&amp;quot;&lt;/code&gt;, the link with the lowest latency is selected. If the new best link is faster than the current one by less than &lt;code&gt;tolerance_ms&lt;/code&gt;, keen-pbr does not switch. Links are checked group by group: the next group in &lt;code&gt;outbound_groups&lt;/code&gt; is used only when no link in the previous one works.&lt;/p&gt;
 &lt;p&gt;If a link fails &lt;code&gt;failure_threshold&lt;/code&gt; checks in a row, keen-pbr stops using it for &lt;code&gt;timeout_ms&lt;/code&gt;, then tries it again with a few checks. This keeps traffic from bouncing between links while one of them is unstable.&lt;/p&gt;
+&lt;p&gt;The &lt;code&gt;icmptest&lt;/code&gt; outbound works the same way, but checks each link with a ping to its &lt;code&gt;target&lt;/code&gt; address instead of an HTTP request.&lt;/p&gt;
 &lt;h2&gt;Can I route DNS queries through a VPN?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;can-i-route-dns-queries-through-a-vpn&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#can-i-route-dns-queries-through-a-vpn&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Yes. Use the &lt;code&gt;detour&lt;/code&gt; field in &lt;code&gt;dns.servers&lt;/code&gt; to bind DNS queries for that server to a specific outbound:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
@@ -5918,9 +5820,7 @@ address, or
 &lt;ul&gt;
 &lt;li&gt;IPv4 address: &lt;code&gt;93.184.216.34&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;IPv6 address: &lt;code&gt;2606:2800:220:1:248:1893:25c8:1946&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;
-  &lt;abbr title=&#34;Subnet notation: an address and prefix length, for example 192.168.1.0/24.&#34;&gt;CIDR&lt;/abbr&gt;
-: &lt;code&gt;10.0.0.0/8&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;abbr title=&#34;Subnet notation: an address and prefix length, for example 192.168.1.0/24.&#34;&gt;CIDR&lt;/abbr&gt;: &lt;code&gt;10.0.0.0/8&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;Domain: &lt;code&gt;example.com&lt;/code&gt; (automatically includes all sub-domains)
 &lt;ul&gt;
 &lt;li&gt;entries like &lt;code&gt;*.example.com&lt;/code&gt; work the same way as &lt;code&gt;example.com&lt;/code&gt;&lt;/li&gt;
@@ -6394,7 +6294,7 @@ address, or
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;url&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/apple&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;c1&#34;&gt;// Optional outbound used to download this list.
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;c1&#34;&gt;// Interface, table and urltest outbounds are supported.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;c1&#34;&gt;// Interface, table, urltest and icmptest outbounds are supported.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;c1&#34;&gt;// Default: null (use the system&amp;#39;s normal routing)
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;detour&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;auto_select&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
@@ -6468,14 +6368,14 @@ address, or
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;10.8.0.1:5353&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Optional outbound used to contact this DNS server.
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Supported: interface, table, urltest outbounds.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Supported: interface, table, urltest, icmptest outbounds.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Not allowed: blackhole, ignore.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Default: use the system&amp;#39;s normal routing.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;detour&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn&amp;#34;&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// DNS server reached through a urltest outbound.
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// DNS server reached through a urltest (or icmptest) outbound.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;auto_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;[2606:4700:4700::1111]:53&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;detour&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;auto_select&amp;#34;&lt;/span&gt;
@@ -6720,7 +6620,7 @@ address, or
 &lt;/div&gt;
 &lt;h2&gt;Notes&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;notes&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#notes&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ul&gt;
-&lt;li&gt;&lt;code&gt;dns.servers[].detour&lt;/code&gt; supports &lt;code&gt;interface&lt;/code&gt;, &lt;code&gt;table&lt;/code&gt;, and &lt;code&gt;urltest&lt;/code&gt; outbounds, but not &lt;code&gt;blackhole&lt;/code&gt; or &lt;code&gt;ignore&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;dns.servers[].detour&lt;/code&gt; supports &lt;code&gt;interface&lt;/code&gt;, &lt;code&gt;table&lt;/code&gt;, &lt;code&gt;urltest&lt;/code&gt;, and &lt;code&gt;icmptest&lt;/code&gt; outbounds, but not &lt;code&gt;blackhole&lt;/code&gt; or &lt;code&gt;ignore&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;lists[].detour&lt;/code&gt; is useful when a remote list should be downloaded through a VPN or other non-default path.&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;route.rules[]&lt;/code&gt; must include at least one matching condition: &lt;code&gt;list&lt;/code&gt;, &lt;code&gt;dscp&lt;/code&gt;, &lt;code&gt;src_port&lt;/code&gt;, &lt;code&gt;dest_port&lt;/code&gt;, &lt;code&gt;src_addr&lt;/code&gt;, &lt;code&gt;dest_addr&lt;/code&gt;, or &lt;code&gt;default_gateway&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;dns.rules[].allow_domain_rebinding&lt;/code&gt; is mainly for internal domains that intentionally resolve to private IP ranges.&lt;/li&gt;
@@ -6738,58 +6638,31 @@ address, or
       <description>
         
         
-        &lt;p&gt;This page is for a Debian or Ubuntu host connected to two internet providers, where new connections should be spread between them (multi-WAN). It describes the &lt;code&gt;iptables&lt;/code&gt; firewall backend.&lt;/p&gt;
+        &lt;p&gt;This page is for a router or host connected to two or more internet providers, where new connections should be spread between them (multi-WAN).&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
 
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Load balancing is &lt;strong&gt;not available on Keenetic&lt;/strong&gt;: the Keenetic build does not support it and rejects a configuration with &lt;code&gt;&amp;quot;strategy&amp;quot;: &amp;quot;balance&amp;quot;&lt;/code&gt;. Use the router&amp;rsquo;s own multipath there. The &lt;code&gt;nftables&lt;/code&gt; backend (OpenWrt 24+ with fw4, or any host with &lt;code&gt;nft&lt;/code&gt;) supports balancing as well, see &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/outbounds/#urltest&#34;&gt;Outbounds&lt;/a&gt;. The step-by-step guide below targets iptables on Debian/Ubuntu, and the
-&lt;abbr title=&#34;Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&amp;#39;s WAN address.&#34;&gt;NAT&lt;/abbr&gt;
-, &lt;code&gt;rp_filter&lt;/code&gt; and
-&lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;
-(a numeric mark on a packet) notes apply to every backend.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Load balancing is &lt;strong&gt;not available on Keenetic&lt;/strong&gt;: the Keenetic build does not support it and rejects a configuration with &lt;code&gt;&amp;quot;strategy&amp;quot;: &amp;quot;balance&amp;quot;&lt;/code&gt;. Use the router&amp;rsquo;s own multipath there.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 
 &lt;h2&gt;How it works&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-it-works&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#how-it-works&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;A &lt;code&gt;urltest&lt;/code&gt; or &lt;code&gt;icmptest&lt;/code&gt; outbound with &lt;code&gt;&amp;quot;strategy&amp;quot;: &amp;quot;balance&amp;quot;&lt;/code&gt; picks one of its working links for every &lt;strong&gt;new&lt;/strong&gt; connection, in proportion to the link&amp;rsquo;s &lt;code&gt;weight&lt;/code&gt; (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again.&lt;/p&gt;
-&lt;p&gt;You set up two things on the system yourself: 
-  &lt;abbr title=&#34;Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&amp;#39;s WAN address.&#34;&gt;NAT&lt;/abbr&gt;
- on every provider and &lt;code&gt;rp_filter&lt;/code&gt; (see below).&lt;/p&gt;
-&lt;h2&gt;Choose the iptables backend&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;choose-the-iptables-backend&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#choose-the-iptables-backend&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;With &lt;code&gt;&amp;quot;firewall_backend&amp;quot;: &amp;quot;auto&amp;quot;&lt;/code&gt; (the default) keen-pbr uses nftables when the &lt;code&gt;nft&lt;/code&gt; binary exists and falls back to iptables otherwise. Debian and Ubuntu install &lt;code&gt;nftables&lt;/code&gt; by default, so to use iptables you must ask for it explicitly:&lt;/p&gt;
-&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;daemon&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;firewall_backend&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;iptables&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Copy code&#34;
-    aria-label=&#34;Copy code&#34;
-    data-copied-label=&#34;Copied!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
-&lt;p&gt;Allowed values are &lt;code&gt;auto&lt;/code&gt;, &lt;code&gt;iptables&lt;/code&gt; and &lt;code&gt;nftables&lt;/code&gt;. Choose iptables when the host already runs an iptables-based stack (Docker, ufw, fail2ban), so all firewall rules live in one place. Both &lt;code&gt;iptables-nft&lt;/code&gt; (the Debian default) and &lt;code&gt;iptables-legacy&lt;/code&gt; (&lt;code&gt;update-alternatives --config iptables&lt;/code&gt;) work.&lt;/p&gt;
-&lt;p&gt;Balancing on iptables uses the kernel module &lt;code&gt;xt_statistic&lt;/code&gt;, which is part of the stock Debian/Ubuntu kernel. keen-pbr checks it once at service start. If the module does not work, a config with &lt;code&gt;&amp;quot;strategy&amp;quot;: &amp;quot;balance&amp;quot;&lt;/code&gt; is rejected with an error that names &lt;code&gt;xt_statistic&lt;/code&gt;, and the firewall is left unchanged. iptables balancing is also not available with &lt;code&gt;--use-raw-prerouting&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;You need to set up &lt;abbr title=&#34;Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&amp;#39;s WAN address.&#34;&gt;NAT&lt;/abbr&gt; on every provider and &lt;code&gt;rp_filter&lt;/code&gt; on the system (see below).&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
 
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;iptables picks a link randomly with the configured probability, so over a small number of connections the split is only approximate. The &lt;code&gt;default_gateway&lt;/code&gt; route rule field works only with nftables, so on iptables use explicit rules such as &lt;code&gt;dest_addr&lt;/code&gt; (see the example below).&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;With the &lt;code&gt;iptables&lt;/code&gt; backend, links are picked at random with the configured probability, so over a small number of connections the shares are only approximate. The &lt;code&gt;iptables&lt;/code&gt; backend needs the &lt;code&gt;xt_statistic&lt;/code&gt; kernel module, and the &lt;code&gt;default_gateway&lt;/code&gt; route rule field works only with &lt;code&gt;nftables&lt;/code&gt;. You normally do not need to change &lt;code&gt;firewall_backend&lt;/code&gt;: keen-pbr picks the backend that fits the system.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 
 &lt;h2&gt;Example&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;example&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#example&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Two uplinks, &lt;code&gt;eth1&lt;/code&gt; (30% of new connections) and &lt;code&gt;eth2&lt;/code&gt; (70%), LAN on &lt;code&gt;eth0&lt;/code&gt;. If connections from the host itself should be balanced too, turn on &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Process router&amp;rsquo;s own traffic&lt;/strong&gt; (shown in &lt;strong&gt;Advanced&lt;/strong&gt; settings mode) (&lt;code&gt;iproute.process_router_traffic&lt;/code&gt;); by default only forwarded LAN traffic is balanced. The LAN interfaces go in &lt;strong&gt;Processed (inbound) interfaces&lt;/strong&gt; (&lt;code&gt;route.inbound_interfaces&lt;/code&gt;).&lt;/p&gt;
+    &lt;a href=&#34;#example&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Two uplinks, &lt;code&gt;eth1&lt;/code&gt; (30% of new connections) and &lt;code&gt;eth2&lt;/code&gt; (70%), LAN on &lt;code&gt;eth0&lt;/code&gt;. If connections from the host itself should be balanced too, turn on &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Process router&amp;rsquo;s own traffic&lt;/strong&gt; (shown in &lt;strong&gt;Advanced&lt;/strong&gt; settings mode); by default only traffic from LAN devices is balanced. The LAN interfaces go in &lt;strong&gt;Processed (inbound) interfaces&lt;/strong&gt;.&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;/etc/keen-pbr/config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;daemon&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;firewall_backend&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;iptables&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;outbounds&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;interface&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;wan1&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;interface&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;eth1&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;gateway&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;192.0.2.1&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;interface&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;wan2&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;interface&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;eth2&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;gateway&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;198.51.100.1&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
@@ -6838,21 +6711,22 @@ address, or
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Use &lt;code&gt;icmptest&lt;/code&gt; instead of &lt;code&gt;urltest&lt;/code&gt; if you prefer 
-  &lt;abbr title=&#34;Service protocol for network diagnostics. ping uses ICMP Echo.&#34;&gt;ICMP&lt;/abbr&gt;
- probes; every link then needs a &lt;code&gt;target&lt;/code&gt; address (see &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/outbounds/#icmptest&#34;&gt;Outbounds&lt;/a&gt;).&lt;/p&gt;
+&lt;p&gt;Use &lt;code&gt;icmptest&lt;/code&gt; instead of &lt;code&gt;urltest&lt;/code&gt; if you prefer &lt;abbr title=&#34;Service protocol for network diagnostics. ping uses ICMP Echo.&#34;&gt;ICMP&lt;/abbr&gt; probes; every link then needs a &lt;code&gt;target&lt;/code&gt; address (see &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/outbounds/#icmptest&#34;&gt;Outbounds&lt;/a&gt;).&lt;/p&gt;
 &lt;h2&gt;Required system setup&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;required-system-setup&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#required-system-setup&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;h3&gt;1. NAT on every WAN&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;1-nat-on-every-wan&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#1-nat-on-every-wan&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;
-  &lt;abbr title=&#34;Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&amp;#39;s WAN address.&#34;&gt;NAT&lt;/abbr&gt;
- is &lt;strong&gt;mandatory on every WAN interface&lt;/strong&gt;. Without it, a packet leaves toward the second provider with an address from your local network, the reply never comes back, and the connection hangs. Health checks still pass, because they use the interface&amp;rsquo;s own address. This applies to the host&amp;rsquo;s own traffic too.&lt;/p&gt;
+    &lt;a href=&#34;#1-nat-on-every-wan&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;abbr title=&#34;Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&amp;#39;s WAN address.&#34;&gt;NAT&lt;/abbr&gt; is &lt;strong&gt;mandatory on every WAN interface&lt;/strong&gt;. Without it, a packet leaves toward the second provider with an address from your local network, the reply never comes back, and the connection hangs. Link checks still pass, so the problem is easy to miss. This applies to the host&amp;rsquo;s own traffic too.&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+In &lt;strong&gt;Network&lt;/strong&gt; &amp;gt; &lt;strong&gt;Firewall&lt;/strong&gt; &amp;gt; &lt;strong&gt;Zones&lt;/strong&gt;, enable &lt;strong&gt;Masquerading&lt;/strong&gt; on every zone that contains an uplink (by default, the &lt;code&gt;wan&lt;/code&gt; zone).&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+Add a &lt;code&gt;masquerade&lt;/code&gt; rule for both interfaces, for example in &lt;code&gt;/etc/nftables.conf&lt;/code&gt;:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;sudo iptables -t nat -A POSTROUTING -o eth1 -j MASQUERADE
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;sudo iptables -t nat -A POSTROUTING -o eth2 -j MASQUERADE
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# IPv6, only if you balance IPv6 and use NAT66&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;sudo ip6tables -t nat -A POSTROUTING -o eth1 -j MASQUERADE
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;sudo ip6tables -t nat -A POSTROUTING -o eth2 -j MASQUERADE&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;/etc/nftables.conf&lt;/div&gt;&lt;div&gt;&lt;pre&gt;&lt;code&gt;table inet multiwan_nat {
+  chain postrouting {
+    type nat hook postrouting priority srcnat; policy accept;
+    oifname { &amp;#34;eth1&amp;#34;, &amp;#34;eth2&amp;#34; } masquerade
+  }
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;
@@ -6864,9 +6738,25 @@ address, or
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Make the rules persistent, for example with &lt;code&gt;iptables-persistent&lt;/code&gt; (&lt;code&gt;sudo apt install iptables-persistent&lt;/code&gt;, then &lt;code&gt;sudo netfilter-persistent save&lt;/code&gt;), or add the equivalent &lt;code&gt;*nat&lt;/code&gt; lines to &lt;code&gt;/etc/ufw/before.rules&lt;/code&gt; if you use ufw. If NAT on the host is managed through nftables, add a &lt;code&gt;masquerade&lt;/code&gt; rule for both interfaces to a &lt;code&gt;nat&lt;/code&gt; type &lt;code&gt;postrouting&lt;/code&gt; chain.&lt;/p&gt;
-&lt;h3&gt;2. Reverse path filter (rp_filter)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;2-reverse-path-filter-rp_filter&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#2-reverse-path-filter-rp_filter&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;The kernel&amp;rsquo;s strict filter (&lt;code&gt;rp_filter=1&lt;/code&gt;) drops a reply that arrives on a different interface than the one the kernel would use to send a packet to that address. With two providers, replies from the second one look exactly like that. The systemd default is &lt;code&gt;2&lt;/code&gt; (loose mode), which works. Check it and fix it if needed:&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+Add &lt;code&gt;MASQUERADE&lt;/code&gt; rules and make them persistent, for example with &lt;code&gt;iptables-persistent&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;sudo iptables -t nat -A POSTROUTING -o eth1 -j MASQUERADE
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;sudo iptables -t nat -A POSTROUTING -o eth2 -j MASQUERADE&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;h3&gt;2. rp_filter&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;2-rp_filter&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#2-rp_filter&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;The strict reverse path check (&lt;code&gt;rp_filter=1&lt;/code&gt;) drops replies from the second provider. Loose mode (&lt;code&gt;2&lt;/code&gt;) is needed. Check the values and fix them if needed:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;sysctl net.ipv4.conf.all.rp_filter net.ipv4.conf.eth1.rp_filter net.ipv4.conf.eth2.rp_filter
@@ -6884,26 +6774,10 @@ address, or
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;The kernel uses the larger of the &lt;code&gt;all&lt;/code&gt; value and the per-interface value.&lt;/p&gt;
-&lt;h2&gt;Marks (fwmark) set by other programs&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;marks-fwmark-set-by-other-programs&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#marks-fwmark-set-by-other-programs&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Packet marks are set not only by keen-pbr but also by Docker, WireGuard (&lt;code&gt;0xca6c&lt;/code&gt;), Tailscale and 
-  &lt;abbr title=&#34;Traffic prioritization, for example giving calls priority over downloads.&#34;&gt;QoS&lt;/abbr&gt;
- scripts. By default keen-pbr leaves a packet that already carries a foreign mark alone entirely, including balancing. In the web UI this is the &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Skip packets that are already marked&lt;/strong&gt; switch (&lt;code&gt;daemon.skip_marked_packets&lt;/code&gt;). Turn it off to let keen-pbr route such packets too, but then it can override marks that other software relies on:&lt;/p&gt;
-&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;daemon&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;skip_marked_packets&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;kc&#34;&gt;false&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Copy code&#34;
-    aria-label=&#34;Copy code&#34;
-    data-copied-label=&#34;Copied!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
-&lt;p&gt;If another program writes marks into the same bits as keen-pbr, the link choice gets overwritten. Then move keen-pbr&amp;rsquo;s marks to bits nobody uses. The default is &lt;code&gt;fwmark.mask&lt;/code&gt; &lt;code&gt;0x00FF0000&lt;/code&gt; and &lt;code&gt;fwmark.start&lt;/code&gt; &lt;code&gt;0x00010000&lt;/code&gt;; every routed outbound uses two values. The mask must be made of consecutive whole hex &lt;code&gt;F&lt;/code&gt; digits (for example &lt;code&gt;0xFF000000&lt;/code&gt;):&lt;/p&gt;
+&lt;p&gt;On OpenWrt, put the same three lines in &lt;code&gt;/etc/sysctl.conf&lt;/code&gt; and run &lt;code&gt;/etc/init.d/sysctl restart&lt;/code&gt;.&lt;/p&gt;
+&lt;h2&gt;If other programs on the router use packet marks&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;if-other-programs-on-the-router-use-packet-marks&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#if-other-programs-on-the-router-use-packet-marks&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Packet marks are set not only by keen-pbr but also by Docker, WireGuard, Tailscale, &lt;abbr title=&#34;Traffic prioritization, for example giving calls priority over downloads.&#34;&gt;QoS&lt;/abbr&gt; scripts and mwan3 on OpenWrt. By default keen-pbr leaves packets with a foreign mark alone, so they are not balanced. This is controlled by the &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Skip packets that are already marked&lt;/strong&gt; switch.&lt;/p&gt;
+&lt;p&gt;If the link choice gets overwritten by foreign marks, the status page shows an &lt;code&gt;fwmark_mask_conflict&lt;/code&gt; warning. Then move keen-pbr&amp;rsquo;s marks to bits nobody uses:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
@@ -6923,52 +6797,37 @@ address, or
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;To see what is already in use, run &lt;code&gt;ip rule show&lt;/code&gt; and &lt;code&gt;sudo iptables -t mangle -S | grep -i mark&lt;/code&gt;. If the mask does not have enough values for all your outbounds, keen-pbr rejects the configuration. The status page (web UI, &lt;code&gt;keen-pbr status&lt;/code&gt;, &lt;code&gt;GET /api/health/routing&lt;/code&gt;) warns about missing 
-  &lt;abbr title=&#34;Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&amp;#39;s WAN address.&#34;&gt;NAT&lt;/abbr&gt;
-, strict &lt;code&gt;rp_filter&lt;/code&gt;, and firewall or &lt;code&gt;ip rule&lt;/code&gt; rules of other programs that use bits inside &lt;code&gt;fwmark.mask&lt;/code&gt; (&lt;code&gt;fwmark_mask_conflict&lt;/code&gt;). These are warnings only and do not block applying the configuration.&lt;/p&gt;
-&lt;p&gt;Tailscale is a special case: moving the mask does not help, see &lt;a href=&#34;https://keen-pbr.fyi/docs/troubleshooting/#tailscale&#34;&gt;Routing breaks when Tailscale is enabled&lt;/a&gt;.&lt;/p&gt;
-&lt;h2&gt;Known limitation: inbound connections on the second WAN&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;known-limitation-inbound-connections-on-the-second-wan&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#known-limitation-inbound-connections-on-the-second-wan&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Balancing works only for connections opened by devices in your network (and by the host itself, if enabled). Incoming connections to the host on the second WAN (SSH, port forwards) get their reply via the main default route, so it leaves through the wrong uplink. keen-pbr does not handle this yet. As a manual workaround, set a 
-  &lt;abbr title=&#34;Connection mark: a mark stored on a conntrack entry. keen-pbr copies the fwmark into it so every packet of a connection follows the same route.&#34;&gt;connmark&lt;/abbr&gt;
- on incoming connections per interface with &lt;code&gt;CONNMARK&lt;/code&gt;, restore it into the 
-  &lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;
- of replies in &lt;code&gt;mangle OUTPUT&lt;/code&gt;, and add an &lt;code&gt;ip rule fwmark ... lookup &amp;lt;table&amp;gt;&lt;/code&gt; for a table whose default route is that WAN. Use fwmark values outside &lt;code&gt;fwmark.mask&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;This does not help with Tailscale, see &lt;a href=&#34;https://keen-pbr.fyi/docs/troubleshooting/#tailscale&#34;&gt;Routing breaks when Tailscale is enabled&lt;/a&gt;.&lt;/p&gt;
+&lt;h2&gt;Limitation: inbound connections on the second WAN&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;limitation-inbound-connections-on-the-second-wan&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#limitation-inbound-connections-on-the-second-wan&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Balancing works only for connections opened by devices in your network (and by the host itself, if enabled). Incoming connections on the second WAN (SSH, port forwards) get their reply via the main connection, that is, through the other provider, and may not work.&lt;/p&gt;
 &lt;h2&gt;Troubleshooting&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;troubleshooting&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#troubleshooting&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;
 					&lt;th&gt;Symptom&lt;/th&gt;
-					&lt;th&gt;Likely cause and check&lt;/th&gt;
+					&lt;th&gt;What to check&lt;/th&gt;
 			&lt;/tr&gt;
 	&lt;/thead&gt;
 	&lt;tbody&gt;
 			&lt;tr&gt;
-					&lt;td&gt;Connections hang when they go to one WAN, health checks are fine&lt;/td&gt;
-					&lt;td&gt;Missing 
-  &lt;abbr title=&#34;Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&amp;#39;s WAN address.&#34;&gt;NAT&lt;/abbr&gt;
- on that WAN: &lt;code&gt;sudo iptables -t nat -S POSTROUTING&lt;/code&gt; must list a &lt;code&gt;MASQUERADE&lt;/code&gt; for each WAN.&lt;/td&gt;
+					&lt;td&gt;Some connections hang, link checks are fine&lt;/td&gt;
+					&lt;td&gt;&lt;abbr title=&#34;Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&amp;#39;s WAN address.&#34;&gt;NAT&lt;/abbr&gt; is enabled on every WAN.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;Packets leave but replies never arrive&lt;/td&gt;
-					&lt;td&gt;Strict &lt;code&gt;rp_filter&lt;/code&gt;: the effective value (&lt;code&gt;all&lt;/code&gt; vs. per-interface, the larger wins) must be &lt;code&gt;2&lt;/code&gt; or &lt;code&gt;0&lt;/code&gt;.&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;rp_filter&lt;/code&gt; is &lt;code&gt;2&lt;/code&gt; or &lt;code&gt;0&lt;/code&gt; (the larger of the &lt;code&gt;all&lt;/code&gt; and per-interface values wins).&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;All traffic uses one WAN&lt;/td&gt;
-					&lt;td&gt;Marks set by other programs (&lt;strong&gt;Skip packets that are already marked&lt;/strong&gt;), a 
-  &lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;
- mask collision (the health page shows a &lt;code&gt;fwmark_mask_conflict&lt;/code&gt; warning naming the rule), or the other WAN is unhealthy. Inspect &lt;code&gt;sudo iptables -t mangle -S&lt;/code&gt; and the outbound status in the web UI or API.&lt;/td&gt;
+					&lt;td&gt;The other WAN is unhealthy (status on the &lt;strong&gt;Routing&lt;/strong&gt; &amp;gt; &lt;strong&gt;Outbounds&lt;/strong&gt; page) or foreign marks (see above).&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;Config is rejected with a message about &lt;code&gt;xt_statistic&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;sudo modprobe xt_statistic&lt;/code&gt;, then restart the service.&lt;/td&gt;
 			&lt;/tr&gt;
-			&lt;tr&gt;
-					&lt;td&gt;No iptables rules, &lt;code&gt;nft&lt;/code&gt; rules appear instead&lt;/td&gt;
-					&lt;td&gt;&lt;code&gt;firewall_backend&lt;/code&gt; is &lt;code&gt;auto&lt;/code&gt; and &lt;code&gt;nft&lt;/code&gt; is installed: set it to &lt;code&gt;iptables&lt;/code&gt;.&lt;/td&gt;
-			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
-&lt;p&gt;Logs go to syslog (systemd journal on Debian). Use &lt;code&gt;--log-level verbose&lt;/code&gt; or &lt;code&gt;debug&lt;/code&gt; for more detail, see &lt;a href=&#34;https://keen-pbr.fyi/docs/cli/&#34;&gt;CLI&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Logs go to syslog (&lt;code&gt;logread&lt;/code&gt; on OpenWrt). Use &lt;code&gt;--log-level verbose&lt;/code&gt; or &lt;code&gt;debug&lt;/code&gt; for more detail, see &lt;a href=&#34;https://keen-pbr.fyi/docs/cli/&#34;&gt;CLI&lt;/a&gt;.&lt;/p&gt;
 
       </description>
     </item>
@@ -7544,16 +7403,14 @@ address, or
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;If you see &lt;code&gt;Connection refused&lt;/code&gt;, the resolver is not running or is not listening on &lt;code&gt;127.0.0.1:53&lt;/code&gt;. Check its service and log: 
-  &lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt;
- &lt;code&gt;dnsmasq&lt;/code&gt; on Keenetic, &lt;code&gt;dnsmasq&lt;/code&gt; on OpenWrt and Debian, or the built-in Keenetic DNS proxy.&lt;/p&gt;
+&lt;p&gt;If you see &lt;code&gt;Connection refused&lt;/code&gt;, the resolver is not running or is not listening on &lt;code&gt;127.0.0.1:53&lt;/code&gt;. Check its service and log: &lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt; &lt;code&gt;dnsmasq&lt;/code&gt; on Keenetic, &lt;code&gt;dnsmasq&lt;/code&gt; on OpenWrt and Debian, or the built-in Keenetic DNS proxy.&lt;/p&gt;
 &lt;p&gt;On Keenetic, if client DNS queries do not reach Entware &lt;code&gt;dnsmasq&lt;/code&gt;, check the &lt;code&gt;opkg dns-override&lt;/code&gt; setting. The commands &lt;code&gt;opkg dns-override&lt;/code&gt; and &lt;code&gt;system configuration save&lt;/code&gt; are run in the router&amp;rsquo;s web console at &lt;code&gt;http://my.keenetic.net/a&lt;/code&gt;, not over SSH. Details are in &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/keenetic/&#34;&gt;installing on Keenetic&lt;/a&gt;.&lt;/p&gt;
 &lt;details class=&#34;hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group&#34; &gt;
   &lt;summary class=&#34;hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[&#39;&#39;] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90&#34;&gt;
     &lt;strong class=&#34;hx:text-lg&#34;&gt;After upgrading from an older keen-pbr version&lt;/strong&gt;
   &lt;/summary&gt;
   &lt;div class=&#34;hx:p-2 hx:overflow-hidden&#34;&gt;
-    After the upgrade, dnsmasq management stays enabled; see &lt;a href=&#34;https://keen-pbr.fyi/docs/changelog/#upgrading-from-33x&#34;&gt;Upgrading from 3.3.x&lt;/a&gt;. If dnsmasq does not start after you removed keen-pbr manually, make sure its configuration has no leftover &lt;code&gt;conf-script=...keen-pbr...&lt;/code&gt; line.
+    After the upgrade, dnsmasq management stays enabled; see &lt;a href=&#34;https://keen-pbr.fyi/docs/changelog/#upgrading-from-33x&#34;&gt;Breaking Changes in 3.4.0&lt;/a&gt;. If dnsmasq does not start after you removed keen-pbr manually, make sure its configuration has no leftover &lt;code&gt;conf-script=...keen-pbr...&lt;/code&gt; line.
   &lt;/div&gt;
 &lt;/details&gt;
 &lt;h2&gt;Websites Are Not Opening: &lt;code&gt;DNS_PROBE_FINISHED_NXDOMAIN&lt;/code&gt; / &lt;code&gt;ERR_NAME_NOT_RESOLVED&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;websites-are-not-opening-dns_probe_finished_nxdomain--err_name_not_resolved&#34;&gt;&lt;/span&gt;
@@ -7565,9 +7422,7 @@ address, or
 &lt;li&gt;If a DNS server in &lt;strong&gt;DNS&lt;/strong&gt; &amp;gt; &lt;strong&gt;DNS servers&lt;/strong&gt; has a channel set (&lt;code&gt;detour&lt;/code&gt; in JSON), check that this outbound is &amp;ldquo;Healthy&amp;rdquo; in the &lt;strong&gt;Outbounds&lt;/strong&gt; panel.&lt;/li&gt;
 &lt;/ol&gt;
 &lt;h2&gt;Websites Are Not Opening: &lt;code&gt;DNS_PROBE_FINISHED_BAD_CONFIG&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;websites-are-not-opening-dns_probe_finished_bad_config&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#websites-are-not-opening-dns_probe_finished_bad_config&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;This usually means the resolver is not running or could not apply its configuration. Check the resolver&amp;rsquo;s service and log: 
-  &lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt;
- &lt;code&gt;dnsmasq&lt;/code&gt; on Keenetic, &lt;code&gt;dnsmasq&lt;/code&gt; on OpenWrt and Debian. Then check the &lt;strong&gt;Domain-based routing&lt;/strong&gt; panel on the &lt;strong&gt;Dashboard&lt;/strong&gt; page.&lt;/p&gt;
+    &lt;a href=&#34;#websites-are-not-opening-dns_probe_finished_bad_config&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;This usually means the resolver is not running or could not apply its configuration. Check the resolver&amp;rsquo;s service and log: &lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt; &lt;code&gt;dnsmasq&lt;/code&gt; on Keenetic, &lt;code&gt;dnsmasq&lt;/code&gt; on OpenWrt and Debian. Then check the &lt;strong&gt;Domain-based routing&lt;/strong&gt; panel on the &lt;strong&gt;Dashboard&lt;/strong&gt; page.&lt;/p&gt;
 &lt;h2&gt;Per-list DNS servers do not work&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;per-list-dns-servers-do-not-work&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#per-list-dns-servers-do-not-work&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;Symptom:&lt;/strong&gt; domains from a list should resolve through the chosen DNS server, but resolve through the default one.&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;In the web interface.&lt;/strong&gt;&lt;/p&gt;
@@ -7638,9 +7493,7 @@ address, or
     &lt;strong class=&#34;hx:text-lg&#34;&gt;Look at the firewall rules directly&lt;/strong&gt;
   &lt;/summary&gt;
   &lt;div class=&#34;hx:p-2 hx:overflow-hidden&#34;&gt;
-    &lt;p&gt;&lt;code&gt;keen-pbr&lt;/code&gt; creates its own chain or table &lt;code&gt;KeenPbrTable&lt;/code&gt;. Traffic enters it, is matched against the lists, and gets a packet mark (
-&lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;
-), which the system uses to choose a routing table.&lt;/p&gt;
+    &lt;p&gt;&lt;code&gt;keen-pbr&lt;/code&gt; creates its own chain or table &lt;code&gt;KeenPbrTable&lt;/code&gt;. Traffic enters it, is matched against the lists, and gets a packet mark (&lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;), which the system uses to choose a routing table.&lt;/p&gt;
 &lt;div class=&#34;hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain&#34;&gt;
   &lt;div class=&#34;hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800&#34; role=&#34;tablist&#34; data-tab-group=&#34;iptables / ipset,nftables / nftset,Debian&#34;&gt;&lt;button class=&#34;hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset&#34; id=&#34;tabs-tab-tabs-01-0&#34; role=&#34;tab&#34; type=&#34;button&#34; aria-controls=&#34;tabs-panel-tabs-01-0&#34; aria-selected=&#34;true&#34; tabindex=&#34;0&#34; data-state=&#34;selected&#34;&gt;&lt;span class=&#34;hx:inline-flex hx:items-center hx:gap-1.5&#34;&gt;&lt;span&gt;iptables / ipset&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;&lt;button class=&#34;hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset&#34; id=&#34;tabs-tab-tabs-01-1&#34; role=&#34;tab&#34; type=&#34;button&#34; aria-controls=&#34;tabs-panel-tabs-01-1&#34; aria-selected=&#34;false&#34; tabindex=&#34;-1&#34;&gt;&lt;span class=&#34;hx:inline-flex hx:items-center hx:gap-1.5&#34;&gt;&lt;span&gt;nftables / nftset&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;&lt;button class=&#34;hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset&#34; id=&#34;tabs-tab-tabs-01-2&#34; role=&#34;tab&#34; type=&#34;button&#34; aria-controls=&#34;tabs-panel-tabs-01-2&#34; aria-selected=&#34;false&#34; tabindex=&#34;-1&#34;&gt;&lt;span class=&#34;hx:inline-flex hx:items-center hx:gap-1.5&#34;&gt;&lt;span&gt;Debian&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;
 &lt;/div&gt;
@@ -7736,9 +7589,7 @@ address, or
 &lt;/details&gt;
 &lt;p&gt;&lt;strong&gt;Fix.&lt;/strong&gt; If &lt;code&gt;KeenPbrTable&lt;/code&gt; is missing, click &lt;strong&gt;Restart&lt;/strong&gt; in the status bar and read the log. The cause is usually an unavailable backend, missing permissions, missing packages, or a configuration error.&lt;/p&gt;
 &lt;h2&gt;Routing Tables and &lt;code&gt;fwmark&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;routing-tables-and-fwmark&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#routing-tables-and-fwmark&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;Symptom:&lt;/strong&gt; the firewall sets a packet mark (
-  &lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;
-), but the site loads forever or opens through your ISP. The system must see the mark, apply an &lt;code&gt;ip rule&lt;/code&gt;, and send the packet to the routing table of the right outbound.&lt;/p&gt;
+    &lt;a href=&#34;#routing-tables-and-fwmark&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;Symptom:&lt;/strong&gt; the firewall sets a packet mark (&lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;), but the site loads forever or opens through your ISP. The system must see the mark, apply an &lt;code&gt;ip rule&lt;/code&gt;, and send the packet to the routing table of the right outbound.&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;In the web interface.&lt;/strong&gt; In the &lt;strong&gt;Diagnostics&lt;/strong&gt; panel, look for &amp;ldquo;Routing tables do not match&amp;rdquo; and &amp;ldquo;Policy rules do not match&amp;rdquo;.&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;Commands.&lt;/strong&gt;&lt;/p&gt;
 &lt;ol&gt;
@@ -7810,14 +7661,8 @@ address, or
 &lt;p&gt;&lt;strong&gt;Fix.&lt;/strong&gt; If the table is empty, the interface is not found, or the rule points the wrong way, click &lt;strong&gt;Restart&lt;/strong&gt; in the status bar. If that does not help, check the outbound name and interface name, and mark conflicts (see &amp;ldquo;Low-Level Routing Conflicts&amp;rdquo;).&lt;/p&gt;
 &lt;h2&gt;Routing Breaks When Tailscale Is Enabled&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;tailscale&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#tailscale&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Tailscale reserves &lt;code&gt;0x00FF0000&lt;/code&gt;, which overlaps the default keen-pbr mask, and
-restores 
-  &lt;abbr title=&#34;Connection mark: a mark stored on a conntrack entry. keen-pbr copies the fwmark into it so every packet of a connection follows the same route.&#34;&gt;connmark&lt;/abbr&gt;
- from 
-  &lt;abbr title=&#34;Connection tracking: the Linux kernel&amp;#39;s table of open connections. Each entry can carry its own mark (connmark).&#34;&gt;conntrack&lt;/abbr&gt;
-, fully overwriting the packet&amp;rsquo;s
-
-  &lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;
-. Moving keen-pbr to a different fwmark range does not stop Tailscale from erasing it.&lt;/p&gt;
+restores &lt;abbr title=&#34;Connection mark: a mark stored on a conntrack entry. keen-pbr copies the fwmark into it so every packet of a connection follows the same route.&#34;&gt;connmark&lt;/abbr&gt; from &lt;abbr title=&#34;Connection tracking: the Linux kernel&amp;#39;s table of open connections. Each entry can carry its own mark (connmark).&#34;&gt;conntrack&lt;/abbr&gt;, fully overwriting the packet&amp;rsquo;s
+&lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;. Moving keen-pbr to a different fwmark range does not stop Tailscale from erasing it.&lt;/p&gt;
 &lt;p&gt;Disable Tailscale&amp;rsquo;s netfilter integration:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -7833,9 +7678,7 @@ restores
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;After that, firewall and 
-  &lt;abbr title=&#34;Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&amp;#39;s WAN address.&#34;&gt;NAT&lt;/abbr&gt;
- rules must be configured separately, especially if
+&lt;p&gt;After that, firewall and &lt;abbr title=&#34;Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&amp;#39;s WAN address.&#34;&gt;NAT&lt;/abbr&gt; rules must be configured separately, especially if
 Tailscale runs as a subnet router or exit node.&lt;/p&gt;
 &lt;h2&gt;Interfaces and VPN Tunnels&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;interfaces-and-vpn-tunnels&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#interfaces-and-vpn-tunnels&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;Symptom:&lt;/strong&gt; DNS, firewall and routing look right, but traffic does not go through the VPN.&lt;/p&gt;
@@ -7998,9 +7841,7 @@ Tailscale runs as a subnet router or exit node.&lt;/p&gt;
 &lt;li&gt;Run &lt;code&gt;keen-pbr status&lt;/code&gt; and check whether firewall rules were created for this routing rule.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2&gt;Low-Level Routing Conflicts&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;low-level-routing-conflicts&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#low-level-routing-conflicts&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;If another program on the router also sets packet marks (
-  &lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;
-) or manages &lt;code&gt;ip rule&lt;/code&gt;, packets can go the wrong way or be dropped. The message &amp;ldquo;A foreign rule uses packet mark bits reserved for keen-pbr&amp;rdquo; in the &lt;strong&gt;Diagnostics&lt;/strong&gt; panel warns about this.&lt;/p&gt;
+    &lt;a href=&#34;#low-level-routing-conflicts&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;If another program on the router also sets packet marks (&lt;abbr title=&#34;Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.&#34;&gt;fwmark&lt;/abbr&gt;) or manages &lt;code&gt;ip rule&lt;/code&gt;, packets can go the wrong way or be dropped. The message &amp;ldquo;A foreign rule uses packet mark bits reserved for keen-pbr&amp;rdquo; in the &lt;strong&gt;Diagnostics&lt;/strong&gt; panel warns about this.&lt;/p&gt;
 &lt;p&gt;Check for conflicts:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -8186,61 +8027,87 @@ Tailscale runs as a subnet router or exit node.&lt;/p&gt;
 &lt;h2&gt;3.4.0&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;v3-4-0&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#v3-4-0&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;h3&gt;What&amp;rsquo;s new&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;whats-new&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#whats-new&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;Domain lists work without a resolver setup.&lt;/strong&gt; keen-pbr reads DNS replies passing through the router and the site names in TLS, HTTP and QUIC connections, and fills the sets of your lists itself. The first connection to a site already takes the right route. If the kernel lacks a feature, only that part (DNS or connections) is turned off, and the status page says why. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#dns-interception&#34;&gt;DNS&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;dnsmasq is optional.&lt;/strong&gt; It is needed only for separate DNS servers for some lists or for your own default DNS servers. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#do-i-need-dnsmasq&#34;&gt;Do I need dnsmasq?&lt;/a&gt;. keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and repairs it when it loses the config. New command: &lt;code&gt;keen-pbr resolver dnsmasq detect&lt;/code&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Load balancing across several links&lt;/strong&gt; (&lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt; in a &lt;code&gt;urltest&lt;/code&gt; outbound) with a weight for each link. A connection stays on the link it started on. It is not available in the Keenetic build. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/multi-wan/&#34;&gt;Multi-WAN Load Balancing&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Automatic gateway detection&lt;/strong&gt; for interface outbounds (&lt;code&gt;&amp;quot;gateway&amp;quot;: &amp;quot;auto&amp;quot;&lt;/code&gt;), and editing the default gateway in the Web UI. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/outbounds/#interface&#34;&gt;interface&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;All internet traffic through failover or balancing&lt;/strong&gt;: the new &lt;code&gt;default_gateway&lt;/code&gt; route rule condition (nftables only). See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/route-rules/#failover-or-balancing-for-all-internet-traffic&#34;&gt;Route rules&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;New Web UI&lt;/strong&gt;: compact overview, live table of current requests, request log with explained badges and filters, a diagnostics panel (kernel checks first), redesigned outbound editor, updates over a live stream instead of polling, better mobile layout, and a settings page that shows the daemon&amp;rsquo;s defaults.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Health checks&lt;/strong&gt; warn about missing NAT or strict &lt;code&gt;rp_filter&lt;/code&gt; on balanced links, foreign fwmarks that overlap &lt;code&gt;fwmark.mask&lt;/code&gt;, and missing iptables extensions. &lt;code&gt;keen-pbr status&lt;/code&gt; shows the same issue list as the Web UI.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Prometheus endpoint&lt;/strong&gt; &lt;code&gt;GET /metrics&lt;/code&gt; with probe latency, link selection, list updates, balance and interception counters, plus a Grafana dashboard and alert examples. See &lt;a href=&#34;https://keen-pbr.fyi/docs/rest-api/#get-metrics&#34;&gt;REST API&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;&lt;code&gt;keen-pbr test-routing&lt;/code&gt;&lt;/strong&gt; takes packet criteria (protocol, ports, addresses, DSCP) and runs in the daemon, the same way as the routing test in the Web UI.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;The router&amp;rsquo;s own traffic is left alone by default.&lt;/strong&gt; Route rules apply to devices in your network. To include the router, set &lt;code&gt;iproute.process_router_traffic&lt;/code&gt; to &lt;code&gt;true&lt;/code&gt;. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/advanced/#iproute&#34;&gt;iproute&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;The default config&lt;/strong&gt; ships a rule that keeps local networks out of tunnels.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;The &amp;ldquo;What&amp;rsquo;s new?&amp;rdquo; button&lt;/strong&gt; in the Web UI opens this page.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Domain lists work without a resolver setup.&lt;/strong&gt;&lt;br&gt;
+keen-pbr reads DNS replies passing through the router and the site names in TLS, HTTP and QUIC connections, and fills the sets of your lists itself. If a device looks up the site over plain DNS, the very first connection already takes the right route. If the device uses encrypted DNS, keen-pbr learns the site only from its name at the start of the connection. That first connection breaks, and the browser or app reconnects, this time over the right route. If the kernel lacks a feature, only that part (DNS or connections) is turned off, and the status page says why. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#dns-interception&#34;&gt;DNS&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;dnsmasq is optional.&lt;/strong&gt;&lt;br&gt;
+You need it only for &lt;abbr title=&#34;A setup where domains from different lists are resolved through different DNS servers.&#34;&gt;split DNS&lt;/abbr&gt; (different DNS servers depending on the domain) or to set DNS servers for the whole network right in keen-pbr. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#do-i-need-dnsmasq&#34;&gt;Do I need dnsmasq?&lt;/a&gt;. keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and repairs it when it loses the config. New command: &lt;code&gt;keen-pbr resolver dnsmasq detect&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Load balancing across several links.&lt;/strong&gt; &lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+A &lt;code&gt;urltest&lt;/code&gt; or &lt;code&gt;icmptest&lt;/code&gt; outbound with &lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt; spreads connections across links, each with its own weight. A connection stays on the link it started on. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/multi-wan/&#34;&gt;Multi-WAN Load Balancing&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Automatic gateway detection.&lt;/strong&gt;&lt;br&gt;
+An &lt;code&gt;interface&lt;/code&gt; outbound can use &lt;code&gt;&amp;quot;gateway&amp;quot;: &amp;quot;auto&amp;quot;&lt;/code&gt;, and the default gateway can now be edited in the Web UI. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/outbounds/#interface&#34;&gt;interface&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;All internet traffic through failover or balancing.&lt;/strong&gt; &lt;span class=&#34;only-badges&#34; title=&#34;Only for nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+The new &lt;code&gt;default_gateway&lt;/code&gt; route rule condition. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/route-rules/#failover-or-balancing-for-all-internet-traffic&#34;&gt;Route rules&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;New Web UI.&lt;/strong&gt;&lt;br&gt;
+Compact overview, live table of current requests, request log with explained badges and filters, a diagnostics panel (kernel checks first), redesigned outbound editor, updates over a live stream instead of polling, better mobile layout, and a settings page that shows the daemon&amp;rsquo;s defaults.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Health checks.&lt;/strong&gt;&lt;br&gt;
+keen-pbr warns about missing NAT or strict &lt;code&gt;rp_filter&lt;/code&gt; on balanced links, foreign fwmarks that overlap &lt;code&gt;fwmark.mask&lt;/code&gt;, and missing iptables extensions. &lt;code&gt;keen-pbr status&lt;/code&gt; shows the same issue list as the Web UI.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Prometheus endpoint.&lt;/strong&gt;&lt;br&gt;
+&lt;code&gt;GET /metrics&lt;/code&gt; reports probe latency, link selection, list updates, balance and interception counters. A Grafana dashboard and alert examples are included. See &lt;a href=&#34;https://keen-pbr.fyi/docs/rest-api/#get-metrics&#34;&gt;REST API&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Packet criteria in &lt;code&gt;keen-pbr test-routing&lt;/code&gt;.&lt;/strong&gt;&lt;br&gt;
+The command takes protocol, ports, addresses and DSCP, and runs in the daemon, the same way as the routing test in the Web UI.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;The router&amp;rsquo;s own traffic is left alone by default.&lt;/strong&gt;&lt;br&gt;
+Route rules apply to devices in your network. To include the router, set &lt;code&gt;iproute.process_router_traffic&lt;/code&gt; to &lt;code&gt;true&lt;/code&gt;. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/advanced/#iproute&#34;&gt;iproute&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Local networks rule in the default config.&lt;/strong&gt;&lt;br&gt;
+It keeps local networks out of tunnels.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;The &amp;ldquo;What&amp;rsquo;s new?&amp;rdquo; button.&lt;/strong&gt;&lt;br&gt;
+It opens this page from the Web UI.&lt;/li&gt;
 &lt;li&gt;Lists that failed to download at start are retried in the background.&lt;/li&gt;
 &lt;li&gt;Removing the package also removes leftover firewall rules and dnsmasq files.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3&gt;Fixes&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;fixes&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#fixes&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
-&lt;li&gt;&lt;code&gt;urltest&lt;/code&gt; and &lt;code&gt;icmptest&lt;/code&gt; groups accepted members of any type, although only &lt;code&gt;interface&lt;/code&gt; and &lt;code&gt;table&lt;/code&gt; work. Other types now fail config validation. A &lt;code&gt;blackhole&lt;/code&gt; member was never selected: keen-pbr skips it and logs a warning. You do not need it to block traffic: when no link works, traffic is blocked anyway.&lt;/li&gt;
-&lt;li&gt;Automatic list updates stopped after the first list change that affected routing. They now keep running on schedule.&lt;/li&gt;
-&lt;li&gt;New devices could not get an address over DHCP when a route rule matched all UDP traffic.&lt;/li&gt;
-&lt;li&gt;With &lt;code&gt;inbound_interfaces&lt;/code&gt; set, the router&amp;rsquo;s own traffic skipped route rules even when it should have matched.&lt;/li&gt;
-&lt;li&gt;When several DNS rules named the same list, only the first rule&amp;rsquo;s server was used. Now dnsmasq gets the servers of every rule and switches between them.&lt;/li&gt;
-&lt;li&gt;On Keenetic, a burst of route changes on WAN DHCP renewal could leave routing built from a half-updated table.&lt;/li&gt;
-&lt;li&gt;After a power loss a list cache file could be left empty.&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;keen-pbr status&lt;/code&gt; reported every &lt;code&gt;urltest&lt;/code&gt; and &lt;code&gt;icmptest&lt;/code&gt; rule as an error.&lt;/li&gt;
-&lt;li&gt;The Web UI dropped &lt;code&gt;conntrack_on_switch&lt;/code&gt;, &lt;code&gt;strict_enforcement_action&lt;/code&gt; and the &lt;code&gt;urltest&lt;/code&gt; probe timeout when saving an outbound.&lt;/li&gt;
-&lt;li&gt;A DNS server with &lt;code&gt;detour&lt;/code&gt; through a tunnel did not answer: queries entered the tunnel with the ISP address. They now use the tunnel address (for servers with an IPv4 address).&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;urltest&lt;/code&gt; and &lt;code&gt;icmptest&lt;/code&gt; groups now accept only &lt;code&gt;interface&lt;/code&gt; and &lt;code&gt;table&lt;/code&gt; members: other types never worked and now fail config validation. A &lt;code&gt;blackhole&lt;/code&gt; member was never selected; keen-pbr now skips it and logs a warning. You do not need it to block traffic: when no link works, traffic is blocked anyway.&lt;/li&gt;
+&lt;li&gt;Fixed automatic list updates stopping after the first list change that affected routing. Lists now update on schedule.&lt;/li&gt;
+&lt;li&gt;Fixed new devices not getting an address over DHCP when a route rule matches all UDP traffic.&lt;/li&gt;
+&lt;li&gt;Fixed the router&amp;rsquo;s own traffic skipping route rules when &lt;code&gt;inbound_interfaces&lt;/code&gt; is set.&lt;/li&gt;
+&lt;li&gt;When several DNS rules name the same list, dnsmasq now gets the servers of every rule and switches between them. Before, only the first rule&amp;rsquo;s server was used.&lt;/li&gt;
+&lt;li&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt; Fixed routing being built from a half-updated route table when routes change one after another during a WAN DHCP renewal.&lt;/li&gt;
+&lt;li&gt;Fixed a list cache file being left empty after a power loss.&lt;/li&gt;
+&lt;li&gt;Fixed &lt;code&gt;keen-pbr status&lt;/code&gt; reporting every &lt;code&gt;urltest&lt;/code&gt; and &lt;code&gt;icmptest&lt;/code&gt; rule as an error.&lt;/li&gt;
+&lt;li&gt;The Web UI now keeps &lt;code&gt;conntrack_on_switch&lt;/code&gt;, &lt;code&gt;strict_enforcement_action&lt;/code&gt; and the &lt;code&gt;urltest&lt;/code&gt; probe timeout when saving an outbound.&lt;/li&gt;
+&lt;li&gt;Fixed DNS servers with &lt;code&gt;detour&lt;/code&gt; through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address).&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h3&gt;Upgrading from 3.3.x&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;upgrading-from-33x&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#upgrading-from-33x&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;After the upgrade, dnsmasq management stays on, as in 3.3.x. If you do not need it, turn off &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt; in the Web UI (&lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;Local DNS server management&lt;/strong&gt;) and follow the rollback steps: &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/keenetic/#dnsmasq-rollback&#34;&gt;Keenetic&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/openwrt/#dnsmasq-rollback&#34;&gt;OpenWrt&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/debian/#dnsmasq-rollback&#34;&gt;Debian&lt;/a&gt;. Without it, DNS rules and default DNS servers stop working.&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;Keenetic.&lt;/strong&gt; keen-pbr 3.3.x installed &lt;code&gt;dnsmasq-full&lt;/code&gt; as a dependency, and opkg may remove it during the upgrade. If it is gone, the Web UI opens a window with two ways out: install it again with &lt;code&gt;opkg install dnsmasq-full&lt;/code&gt;, or turn off &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt;.&lt;/p&gt;
-&lt;p&gt;Check after the upgrade:&lt;/p&gt;
+&lt;h3&gt;Breaking Changes&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;upgrading-from-33x&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#upgrading-from-33x&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt; &lt;strong&gt;Before the upgrade.&lt;/strong&gt; keen-pbr 3.3.x depended on &lt;code&gt;dnsmasq&lt;/code&gt;, so apt marked it as automatically installed, and &lt;code&gt;apt autoremove&lt;/code&gt; may remove it. If you need dnsmasq, first run:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;sudo apt-mark manual dnsmasq&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt; &lt;strong&gt;Before the upgrade.&lt;/strong&gt; keen-pbr 3.3.x installed &lt;code&gt;dnsmasq-full&lt;/code&gt; as a dependency, and opkg may remove it during the upgrade. If you need dnsmasq, first run over SSH:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;opkg flag user dnsmasq-full&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt; If the package is already gone and you turned on &lt;code&gt;opkg dns-override&lt;/code&gt;, devices in your network are left without DNS: the router still hands their queries to dnsmasq, which is gone. The keen-pbr Web UI offers two ways out:&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;Keenetic: kernel modules.&lt;/strong&gt; Domains are now detected by interception. Install the &lt;strong&gt;Netfilter Subsystem Kernel Modules&lt;/strong&gt; component if you have not. Then open the status page in the Web UI and run the DNS check.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Keenetic: iptables only.&lt;/strong&gt; The Keenetic build always uses iptables. A config with &lt;code&gt;daemon.firewall_backend: &amp;quot;nftables&amp;quot;&lt;/code&gt; or &lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt; does not pass validation there.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Debian 11 (bullseye)&lt;/strong&gt; is no longer supported.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Changed defaults.&lt;/strong&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;code&gt;daemon.clear_dynamic_sets_on_apply&lt;/code&gt; is now &lt;code&gt;false&lt;/code&gt;: domain addresses survive a config apply.&lt;/li&gt;
-&lt;li&gt;A list&amp;rsquo;s &lt;code&gt;ttl_ms&lt;/code&gt; is now a lower bound; the upper bound is &lt;code&gt;intercept.max_ttl_ms&lt;/code&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;iproute.process_router_traffic&lt;/code&gt; is &lt;code&gt;false&lt;/code&gt;: route rules apply to devices in your network, not to the router&amp;rsquo;s own traffic.&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;--log-target&lt;/code&gt; is &lt;code&gt;both&lt;/code&gt; for every command. The packaged service files pass &lt;code&gt;--log-target syslog&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Keep dnsmasq.&lt;/strong&gt;&lt;br&gt;
+Install it again with &lt;code&gt;opkg install dnsmasq-full&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Go without dnsmasq.&lt;/strong&gt;&lt;br&gt;
+Turn off &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt;. Then, in the router&amp;rsquo;s web console (&lt;a href=&#34;http://my.keenetic.net/a&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net/a&lt;/a&gt;), run &lt;code&gt;no opkg dns-override&lt;/code&gt; and &lt;code&gt;system configuration save&lt;/code&gt;, and reboot the router.&lt;/li&gt;
 &lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Ignored fields.&lt;/strong&gt; &lt;code&gt;dns.system_resolver&lt;/code&gt;, &lt;code&gt;dns.dns_test_server&lt;/code&gt; (use &lt;code&gt;intercept.dns.marker&lt;/code&gt;) and &lt;code&gt;daemon.resolver_ready_timeout_seconds&lt;/code&gt; no longer do anything; the log warns if they are set. The old &lt;code&gt;outbounds&lt;/code&gt;, &lt;code&gt;candidates&lt;/code&gt; and &lt;code&gt;weight&lt;/code&gt; fields in &lt;code&gt;outbound_groups&lt;/code&gt; are replaced by &lt;code&gt;members&lt;/code&gt;; old configs keep working, and keen-pbr rewrites them once, keeping a copy in &lt;code&gt;&amp;lt;config&amp;gt;.bak-pre-members&lt;/code&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;New field &lt;code&gt;version&lt;/code&gt;.&lt;/strong&gt; It records which keen-pbr version the config was written for. keen-pbr sets it when you save from the Web UI. Keep it if you edit the file by hand.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;DNS check domain.&lt;/strong&gt; To check DNS by hand, run &lt;code&gt;nslookup check.keen-pbr.fyi&lt;/code&gt; instead of &lt;code&gt;nslookup check.keen.pbr&lt;/code&gt;. See &lt;a href=&#34;https://keen-pbr.fyi/docs/troubleshooting/&#34;&gt;Troubleshooting&lt;/a&gt;.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;If you use scripts or other programs with keen-pbr:&lt;/p&gt;
+&lt;p&gt;After the upgrade, dnsmasq management stays on, as in 3.3.x. If you do not need it, turn off &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt; in the Web UI (&lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;Local DNS server management&lt;/strong&gt;) and follow the rollback steps: &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/keenetic/#dnsmasq-rollback&#34;&gt;Keenetic&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/openwrt/#dnsmasq-rollback&#34;&gt;OpenWrt&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/debian/#dnsmasq-rollback&#34;&gt;Debian&lt;/a&gt;. Without it, DNS rules and default DNS servers stop working.&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;code&gt;keen-pbr resolver-config-hash&lt;/code&gt; does nothing and always succeeds.&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;keen-pbr generate-resolver-config&lt;/code&gt; takes &lt;code&gt;dnsmasq&lt;/code&gt; instead of &lt;code&gt;dnsmasq-ipset&lt;/code&gt; and &lt;code&gt;dnsmasq-nftset&lt;/code&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;keen-pbr status&lt;/code&gt; exits with code 1 when any check failed or any issue is an error.&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;GET /api/dns/test?show=all&lt;/code&gt; (and &lt;code&gt;show=full&lt;/code&gt;) works only with API authentication turned on.&lt;/li&gt;
-&lt;li&gt;New endpoints: &lt;code&gt;GET /metrics&lt;/code&gt;, &lt;code&gt;GET /api/health/issues&lt;/code&gt;, &lt;code&gt;GET /api/config/defaults&lt;/code&gt;. &lt;code&gt;GET /api/status/events&lt;/code&gt; also sends issues, routing health, authentication state and config changes.&lt;/li&gt;
+&lt;li&gt;First release. Follow-up builds fixed &lt;code&gt;download&lt;/code&gt; messages for local lists, the default dnsmasq config, and the installer, which no longer replaces an existing &lt;code&gt;dnsmasq.conf&lt;/code&gt;.&lt;/li&gt;
 &lt;/ul&gt;
 
       </description>

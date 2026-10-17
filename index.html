@@ -31,15 +31,15 @@
 	<meta itemprop="description" content="Policy-based routing for Linux routers Send selected traffic through a VPN, your provider, or your own channels. Works on Keenetic®, NetCraze®, OpenWrt routers and on Debian. Get Started Selective Routing Route traffic based on domain lists, IP CIDRs, ports, and addresses. First-match rule evaluation with normal system routing for unmatched traffic.
 google.com internal.site WAN Corp VPN Web Interface Manage routing rules, monitor outbound health, and reload configuration from a clean browser-based dashboard — no SSH required.
 keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks and active routes running Core service DNS check Outbounds health">
-	<meta itemprop="wordCount" content="259">
+	<meta itemprop="wordCount" content="263">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="keen-pbr">
 	<meta name="twitter:description" content="Policy-based routing for Linux routers Send selected traffic through a VPN, your provider, or your own channels. Works on Keenetic®, NetCraze®, OpenWrt routers and on Debian. Get Started Selective Routing Route traffic based on domain lists, IP CIDRs, ports, and addresses. First-match rule evaluation with normal system routing for unmatched traffic.
 google.com internal.site WAN Corp VPN Web Interface Manage routing rules, monitor outbound health, and reload configuration from a clean browser-based dashboard — no SSH required.
 keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks and active routes running Core service DNS check Outbounds health">
 
-    <link rel="preload" href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" as="style" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
-    <link href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" rel="stylesheet" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
+    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
 
   
 
@@ -861,7 +861,7 @@ keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks 
 <div class="hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:dark:border-neutral-800 hx:aspect-auto hx:max-md:min-h-[280px]" style="background: radial-gradient(ellipse at 50% 80%,rgba(239,68,68,0.15),hsla(0,0%,100%,0));display:flex;flex-direction:column;">
 <div class="hx:relative hx:w-full hx:p-6" style="flex:1;display:flex;flex-direction:column;">
 <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2">Failover &amp; Health Checks</h3>
-<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">The urltest type checks your channels and picks the one with the lowest latency (within tolerance) or spreads connections between them. An unstable channel is temporarily excluded so traffic does not jump back and forth.</p>
+<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">The urltest and icmptest types check your channels and picks the one with the lowest latency (within tolerance) or spreads connections between them. An unstable channel is temporarily excluded so traffic does not jump back and forth.</p>
 <div style="flex:1;"></div>
 <div class="hx:mt-4">
   <div style="border:1.5px solid rgba(128,128,128,0.25);border-radius:10px;padding:8px 10px;background:rgba(128,128,128,0.06);">
@@ -931,7 +931,7 @@ keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks 
         <span class="hx:pr-2"><svg height=1.5rem xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg></span>
         <span>Multiple Outbound Types</span>
       </h3>
-      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Send traffic to a specific interface, through the normal provider connection, or block it. The <code>urltest</code> type picks the best of several channels on its own.</p>
+      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Send traffic to a specific interface, through the normal provider connection, or block it. The <code>urltest</code> and <code>icmptest</code> types pick the best of several channels on its own.</p>
     </div></a>
 
   <a

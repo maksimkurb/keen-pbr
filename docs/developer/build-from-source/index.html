@@ -76,8 +76,8 @@ Prerequisites Requirement Version C&#43;&#43; compiler C&#43;&#43;17 support (GC
 	<meta name="twitter:description" content="This page is for developers and package maintainers who want to build keen-pbr from source. If you just need a ready-made package, see installation.
 Prerequisites Requirement Version C&#43;&#43; compiler C&#43;&#43;17 support (GCC 8.4&#43;, Clang 9&#43;) CMake 3.14&#43; Make any pkg-config any git any Docker with Buildx (for package builds) any Dependencies Some libraries are bundled in the repository as git submodules (the third_party folder); the rest come from system packages during the CMake build. For a host build, install the development headers of the system libraries (on Debian and Ubuntu: libcurl4-openssl-dev, libnl-3-dev, libnl-route-3-dev, zlib1g-dev).">
 
-    <link rel="preload" href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" as="style" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
-    <link href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" rel="stylesheet" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
+    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
 
   
 
@@ -1333,9 +1333,7 @@ Prerequisites Requirement Version C&#43;&#43; compiler C&#43;&#43;17 support (GC
 <h2>Router Package Builds<span class="hx:absolute hx:-mt-20" id="router-package-builds"></span>
     <a href="#router-package-builds" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Router packages are also built in Docker with targets from the root <code>Makefile</code>. They repeat the GitHub Actions build, and the finished packages appear in <code>build/packages/</code>.</p>
 <h3>Entware (for Keenetic and Netcraze routers)<span class="hx:absolute hx:-mt-20" id="entware-for-keenetic-and-netcraze-routers"></span>
-    <a href="#entware-for-keenetic-and-netcraze-routers" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Build an 
-  <abbr title="A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.">Entware</abbr>
- package:</p>
+    <a href="#entware-for-keenetic-and-netcraze-routers" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Build an <abbr title="A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.">Entware</abbr> package:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make keenetic-packages <span class="nv">KEENETIC_CONFIG</span><span class="o">=</span>mipsel-3.4 <span class="nv">KEENETIC_VERSION</span><span class="o">=</span>current</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">

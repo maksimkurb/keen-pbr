@@ -75,15 +75,15 @@ This is a full reload: it re-downloads all remote lists and re-applies the firew
 	<meta itemprop="description" content="What firewall backend will be used? It depends on daemon.firewall_backend. The default is &#34;auto&#34;: keen-pbr uses nftables if the nft command is available, and iptables/ipset otherwise. On Keenetic, iptables/ipset is always used.
 How do I reload lists without restarting the service? Run the command for your platform:
 Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr reload bashservice keen-pbr reload bashsystemctl reload keen-pbr This is a full reload: it re-downloads all remote lists and re-applies the firewall and routing rules.">
-	<meta itemprop="wordCount" content="601">
+	<meta itemprop="wordCount" content="625">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="FAQ">
 	<meta name="twitter:description" content="What firewall backend will be used? It depends on daemon.firewall_backend. The default is &#34;auto&#34;: keen-pbr uses nftables if the nft command is available, and iptables/ipset otherwise. On Keenetic, iptables/ipset is always used.
 How do I reload lists without restarting the service? Run the command for your platform:
 Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr reload bashservice keen-pbr reload bashsystemctl reload keen-pbr This is a full reload: it re-downloads all remote lists and re-applies the firewall and routing rules.">
 
-    <link rel="preload" href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" as="style" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
-    <link href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" rel="stylesheet" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
+    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
 
   
 
@@ -1157,7 +1157,7 @@ Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr reload bashserv
     <strong class="hx:text-lg">What <code>reapply-firewall</code> does</strong>
   </summary>
   <div class="hx:p-2 hx:overflow-hidden">
-    On Keenetic there is also <code>/opt/etc/init.d/S80keen-pbr reapply-firewall</code>. It re-verifies the routing tables and starts the <code>urltest</code> channel checks immediately, but does not re-download lists.
+    On Keenetic there is also <code>/opt/etc/init.d/S80keen-pbr reapply-firewall</code>. It re-verifies the routing tables and starts the <code>urltest</code> and <code>icmptest</code> channel checks immediately, but does not re-download lists.
   </div>
 </details>
 <h2>What happens if a remote list URL is unreachable at startup?<span class="hx:absolute hx:-mt-20" id="what-happens-if-a-remote-list-url-is-unreachable-at-startup"></span>
@@ -1165,6 +1165,7 @@ Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr reload bashserv
 <h2>How does the urltest outbound select the best link?<span class="hx:absolute hx:-mt-20" id="how-does-the-urltest-outbound-select-the-best-link"></span>
     <a href="#how-does-the-urltest-outbound-select-the-best-link" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Every <code>interval_ms</code>, keen-pbr sends an HTTP request to the configured <code>url</code> through each link and measures the round-trip latency. With <code>strategy: &quot;priority&quot;</code>, the link with the lowest latency is selected. If the new best link is faster than the current one by less than <code>tolerance_ms</code>, keen-pbr does not switch. Links are checked group by group: the next group in <code>outbound_groups</code> is used only when no link in the previous one works.</p>
 <p>If a link fails <code>failure_threshold</code> checks in a row, keen-pbr stops using it for <code>timeout_ms</code>, then tries it again with a few checks. This keeps traffic from bouncing between links while one of them is unstable.</p>
+<p>The <code>icmptest</code> outbound works the same way, but checks each link with a ping to its <code>target</code> address instead of an HTTP request.</p>
 <h2>Can I route DNS queries through a VPN?<span class="hx:absolute hx:-mt-20" id="can-i-route-dns-queries-through-a-vpn"></span>
     <a href="#can-i-route-dns-queries-through-a-vpn" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Yes. Use the <code>detour</code> field in <code>dns.servers</code> to bind DNS queries for that server to a specific outbound:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1194,9 +1195,7 @@ Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr reload bashserv
 <ul>
 <li>IPv4 address: <code>93.184.216.34</code></li>
 <li>IPv6 address: <code>2606:2800:220:1:248:1893:25c8:1946</code></li>
-<li>
-  <abbr title="Subnet notation: an address and prefix length, for example 192.168.1.0/24.">CIDR</abbr>
-: <code>10.0.0.0/8</code></li>
+<li><abbr title="Subnet notation: an address and prefix length, for example 192.168.1.0/24.">CIDR</abbr>: <code>10.0.0.0/8</code></li>
 <li>Domain: <code>example.com</code> (automatically includes all sub-domains)
 <ul>
 <li>entries like <code>*.example.com</code> work the same way as <code>example.com</code></li>

@@ -34,14 +34,14 @@ In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick 
 	<meta itemprop="name" content="Route Rules">
 	<meta itemprop="description" content="A route rule links a condition (“traffic to sites from this list”) with an outbound (“send it through this channel”). An outbound is a channel for traffic: a VPN, your ISP connection or a block; see Outbounds.
 In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick a Rule type, set the conditions and the Outbound, then click Apply in the draft bar. To turn a rule off temporarily, clear the Enable rule switch.">
-	<meta itemprop="wordCount" content="1756">
+	<meta itemprop="wordCount" content="1755">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Route Rules">
 	<meta name="twitter:description" content="A route rule links a condition (“traffic to sites from this list”) with an outbound (“send it through this channel”). An outbound is a channel for traffic: a VPN, your ISP connection or a block; see Outbounds.
 In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick a Rule type, set the conditions and the Outbound, then click Apply in the draft bar. To turn a rule off temporarily, clear the Enable rule switch.">
 
-    <link rel="preload" href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" as="style" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
-    <link href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" rel="stylesheet" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
+    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
 
   
 
@@ -1251,9 +1251,7 @@ In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick 
 					<td><code>dscp</code></td>
 					<td>integer</td>
 					<td>no</td>
-					<td>
-  <abbr title="A 6-bit field in the IP header used to mark traffic classes for QoS.">DSCP</abbr>
- tag value from <code>1</code> to <code>63</code> (<strong>DSCP</strong>)</td>
+					<td><abbr title="A 6-bit field in the IP header used to mark traffic classes for QoS.">DSCP</abbr> tag value from <code>1</code> to <code>63</code> (<strong>DSCP</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>src_port</code></td>
@@ -1515,11 +1513,7 @@ In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick 
 </div>
 </div>
 <h3>DSCP filter — route tagged traffic through VPN<span class="hx:absolute hx:-mt-20" id="dscp-filter--route-tagged-traffic-through-vpn"></span>
-    <a href="#dscp-filter--route-tagged-traffic-through-vpn" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>
-  <abbr title="A 6-bit field in the IP header used to mark traffic classes for QoS.">DSCP</abbr>
- (Differentiated Services Code Point) is a 6-bit tag in the IP header. It is usually used for 
-  <abbr title="Traffic prioritization, for example giving calls priority over downloads.">QoS</abbr>
-, but keen-pbr can also use it as a routing selector: tag packets on the client device, then match that tag in a route rule. This is useful for per-application routing when the app does not have stable destination domains, IPs, or ports.</p>
+    <a href="#dscp-filter--route-tagged-traffic-through-vpn" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><abbr title="A 6-bit field in the IP header used to mark traffic classes for QoS.">DSCP</abbr> (Differentiated Services Code Point) is a 6-bit tag in the IP header. It is usually used for <abbr title="Traffic prioritization, for example giving calls priority over downloads.">QoS</abbr>, but keen-pbr can also use it as a routing selector: tag packets on the client device, then match that tag in a route rule. This is useful for per-application routing when the app does not have stable destination domains, IPs, or ports.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1561,9 +1555,7 @@ In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick 
   </button>
 </div>
 </div>
-<p><code>AppPathNameMatchCondition</code> can be an executable name such as <code>zoom.exe</code> or a full application path. Windows then tags matching application traffic with 
-  <abbr title="A 6-bit field in the IP header used to mark traffic classes for QoS.">DSCP</abbr>
- <code>46</code>, and keen-pbr can route it with a rule containing <code>&quot;dscp&quot;: 46</code>.</p>
+<p><code>AppPathNameMatchCondition</code> can be an executable name such as <code>zoom.exe</code> or a full application path. Windows then tags matching application traffic with <abbr title="A 6-bit field in the IP header used to mark traffic classes for QoS.">DSCP</abbr> <code>46</code>, and keen-pbr can route it with a rule containing <code>&quot;dscp&quot;: 46</code>.</p>
 <h4>Linux: tag traffic from a user<span class="hx:absolute hx:-mt-20" id="linux-tag-traffic-from-a-user"></span>
     <a href="#linux-tag-traffic-from-a-user" class="subheading-anchor" aria-label="Permalink for this section"></a></h4><p>On Linux, you can tag packets created by a specific local user. Replace <code>john</code> in the examples below with the user that runs the application you want to route.</p>
 <p>With nftables:</p>

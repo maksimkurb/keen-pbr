@@ -11,7 +11,7 @@ Domains from your lists work without any DNS setup. keen-pbr itself reads the pl
 - to resolve the domains of some lists through a separate DNS server. For example, a CDN (content delivery network) should answer for your VPN's region, or the domains resolve only inside the VPN;
 - to set your own default DNS servers for the whole network right in keen-pbr.
 
-Both work only through dnsmasq. If neither fits you, leave the **Manage dnsmasq configuration** switch off. If you upgraded from 3.3.x, the switch is already on: turn it off if you do not need dnsmasq (see [Upgrading from 3.3.x]({{< relref "/docs/changelog#upgrading-from-33x" >}})).
+Both work only through dnsmasq. If neither fits you, leave the **Manage dnsmasq configuration** switch off. If you upgraded from 3.3.x, the switch is already on: turn it off if you do not need dnsmasq (see [Breaking Changes in 3.4.0]({{< relref "/docs/changelog#upgrading-from-33x" >}})).
 
 How to install dnsmasq and how to roll back: [Keenetic]({{< relref "/docs/getting-started/installation/keenetic#dnsmasq" >}}), [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt#dnsmasq" >}}), [Debian]({{< relref "/docs/getting-started/installation/debian#dnsmasq" >}}).
 
@@ -163,7 +163,7 @@ Rule (`rules[]` element):
 Interception is on by default. Settings: **General** > **Settings** > **Domain-based routing**. It learns the IP addresses of domains from your lists:
 
 - **DNS**: keen-pbr briefly holds a DNS reply passing through the router, adds its addresses to the list's set, and only then lets the reply reach the client. This way even the first connection to a site takes the right route.
-- **L7**: keen-pbr reads the site name at the start of TLS, HTTP and {{< term "QUIC" >}} connections. This helps when a device uses encrypted DNS.
+- **L7**: keen-pbr reads the site name at the start of TLS, HTTP and {{< term "QUIC" >}} connections. This helps when a device uses encrypted DNS. The first connection to the site then breaks, and the browser or app reconnects over the right route.
 
 Change these settings only when the defaults do not suit you. The `intercept` section in `config.json`:
 

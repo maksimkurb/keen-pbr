@@ -37,15 +37,15 @@ Some of these settings are in the web UI: General &gt; Settings &gt; General, Li
 	<meta itemprop="description" content="Most users can skip this page.
 These settings are for advanced setups and service-level tuning: daemon, api, fwmark, iproute, and lists_autoupdate.
 Some of these settings are in the web UI: General &gt; Settings &gt; General, Lists autoupdate and Advanced routing settings. The low-level fields appear after you switch Settings mode to Advanced. This page describes every config.json field; next to a field you will find where it is in the UI.">
-	<meta itemprop="wordCount" content="1582">
+	<meta itemprop="wordCount" content="1579">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Advanced">
 	<meta name="twitter:description" content="Most users can skip this page.
 These settings are for advanced setups and service-level tuning: daemon, api, fwmark, iproute, and lists_autoupdate.
 Some of these settings are in the web UI: General &gt; Settings &gt; General, Lists autoupdate and Advanced routing settings. The low-level fields appear after you switch Settings mode to Advanced. This page describes every config.json field; next to a field you will find where it is in the UI.">
 
-    <link rel="preload" href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" as="style" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
-    <link href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" rel="stylesheet" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
+    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
 
   
 
@@ -1279,9 +1279,7 @@ Some of these settings are in the web UI: General &gt; Settings &gt; General, Li
 </div>
 <p>Start <code>keen-pbr</code> with <code>--no-api</code> to disable the API regardless of the config. See <a href="/docs/rest-api/">REST API</a> for endpoint documentation and runtime controls.</p>
 <h2>fwmark<span class="hx:absolute hx:-mt-20" id="fwmark"></span>
-    <a href="#fwmark" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Sets the range of 
-  <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
- values. A fwmark is a label keen-pbr puts on a packet so the system sends it to the right routing table (the table holding one outbound&rsquo;s routes). See <a href="/docs/concepts/#fwmark-and-conntrack">fwmark and conntrack</a>.</p>
+    <a href="#fwmark" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Sets the range of <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr> values. A fwmark is a label keen-pbr puts on a packet so the system sends it to the right routing table (the table holding one outbound&rsquo;s routes). See <a href="/docs/concepts/#fwmark-and-conntrack">fwmark and conntrack</a>.</p>
 <table>
 	<thead>
 			<tr>
@@ -1395,24 +1393,12 @@ Some of these settings are in the web UI: General &gt; Settings &gt; General, Li
 <li>off (the default): traffic falls back to the ISP&rsquo;s default gateway, bypassing the VPN;</li>
 <li>on: traffic is blocked (<code>strict_enforcement_action</code> decides how).</li>
 </ul>
-<p>To switch traffic to a backup link, create one <code>urltest</code> outbound and put both interfaces in it. <code>conntrack_on_switch</code> controls what happens to open connections when <code>urltest</code> moves to a faster link: <code>preserve</code> (the default) keeps them on the old link, <code>delete</code> deletes their 
-  <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
- entries, so applications reconnect through the new one. When the selected link stops working, conntrack entries of its connections are always deleted.</p>
+<p>To switch traffic to a backup link, create one <code>urltest</code> (or <code>icmptest</code>) outbound and put both interfaces in it. <code>conntrack_on_switch</code> controls what happens to open connections when it moves to a faster link: <code>preserve</code> (the default) keeps them on the old link, <code>delete</code> deletes their <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr> entries, so applications reconnect through the new one. When the selected link stops working, conntrack entries of its connections are always deleted.</p>
 <h2>Good to know<span class="hx:absolute hx:-mt-20" id="good-to-know"></span>
     <a href="#good-to-know" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><ul>
 <li>With <code>ipv6_enabled: false</code>, IPv6 traffic flows as usual, bypassing keen-pbr.</li>
-<li>keen-pbr learns domain IPs from ordinary DNS replies passing through the router, even when a client uses a third-party DNS server. If a device uses encrypted DNS (
-  <abbr title="DNS over HTTPS: encrypted DNS. The router cannot read these queries.">DoH</abbr>
-, 
-  <abbr title="DNS over TLS: encrypted DNS. The router cannot read these queries.">DoT</abbr>
-), keen-pbr learns the site&rsquo;s address only from the connection itself (the server name in TLS, HTTP or 
-  <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr>
-), and the first connections may bypass the VPN. To avoid this, turn off &ldquo;secure DNS&rdquo; on the device and set up DoH/DoT on the router itself.</li>
-<li>When a learned domain IP expires from a list, new connections take a different route, while connections that are already open keep their route, because their 
-  <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
- is stored in 
-  <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
-.</li>
+<li>keen-pbr learns domain IPs from ordinary DNS replies passing through the router, even when a client uses a third-party DNS server. If a device uses encrypted DNS (<abbr title="DNS over HTTPS: encrypted DNS. The router cannot read these queries.">DoH</abbr>, <abbr title="DNS over TLS: encrypted DNS. The router cannot read these queries.">DoT</abbr>), keen-pbr learns the site&rsquo;s address only from the connection itself (the server name in TLS, HTTP or <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr>), and the first connections may bypass the VPN. To avoid this, turn off &ldquo;secure DNS&rdquo; on the device and set up DoH/DoT on the router itself.</li>
+<li>When a learned domain IP expires from a list, new connections take a different route, while connections that are already open keep their route, because their <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr> is stored in <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>.</li>
 <li><code>keen-pbr download</code> downloads lists into the cache. To make the running service use them, run <code>keen-pbr download --reload</code> or restart the service.</li>
 <li>If keen-pbr stopped after a crash, do not change <code>fwmark.mask</code> before the next start: otherwise it will not recognise its old rules and cannot remove them. If that has already happened, reboot the router.</li>
 </ul>

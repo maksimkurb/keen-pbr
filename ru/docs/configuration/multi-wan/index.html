@@ -9,24 +9,20 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Балансировка нагрузки между несколькими WAN – keen-pbr</title>
-  <meta name="description" content="Эта страница для тех, у кого к хосту на Debian или Ubuntu подключены два интернет-провайдера и новые соединения нужно распределить между ними (multi-WAN). Описан firewall-бэкенд iptables.
-Балансировка нагрузки недоступна на Keenetic: сборка для Keenetic её не поддерживает и не примет конфигурацию с &#34;strategy&#34;: &#34;balance&#34;. На этих устройствах используйте собственный multipath роутера. Бэкенд nftables (OpenWrt 24&#43; с fw4 или любой хост с nft) тоже поддерживает балансировку, см. Outbounds. Пошаговое руководство ниже рассчитано на iptables в Debian/Ubuntu, а заметки про NAT , rp_filter и fwmark (числовую метку на пакете) применимы к любому бэкенду. Как это работает Outbound urltest или icmptest с &#34;strategy&#34;: &#34;balance&#34; выбирает один из рабочих каналов для каждого нового соединения пропорционально их weight (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/multi-wan/" itemprop="url" />
+  <meta name="description" content="Эта страница для роутера или хоста, к которому подключены два и более интернет-провайдера и новые соединения нужно распределить между ними (multi-WAN).
+Балансировка нагрузки недоступна на Keenetic: сборка для Keenetic её не поддерживает и не примет конфигурацию с &#34;strategy&#34;: &#34;balance&#34;. На этих устройствах включите многопутевую передачу в профиле подключения. Как это работает Outbound urltest или icmptest с &#34;strategy&#34;: &#34;balance&#34; выбирает один из рабочих каналов для каждого нового соединения пропорционально их weight (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/multi-wan/" itemprop="url" />
 
 <meta property="og:title" content="Балансировка нагрузки между несколькими WAN">
 <meta
   property="og:description"
   content="
     
-      Эта страница для тех, у кого к хосту на Debian или Ubuntu подключены два интернет-провайдера и новые соединения нужно распределить между ними (multi-WAN). Описан firewall-бэкенд iptables.
+      Эта страница для роутера или хоста, к которому подключены два и более интернет-провайдера и новые соединения нужно распределить между ними (multi-WAN).
 
   
 
   
-    Балансировка нагрузки недоступна на Keenetic: сборка для Keenetic её не поддерживает и не примет конфигурацию с &quot;strategy&quot;: &quot;balance&quot;. На этих устройствах используйте собственный multipath роутера. Бэкенд nftables (OpenWrt 24&#43; с fw4 или любой хост с nft) тоже поддерживает балансировку, см. Outbounds. Пошаговое руководство ниже рассчитано на iptables в Debian/Ubuntu, а заметки про
-NAT
-, rp_filter и
-fwmark
-(числовую метку на пакете) применимы к любому бэкенду.
+    Балансировка нагрузки недоступна на Keenetic: сборка для Keenetic её не поддерживает и не примет конфигурацию с &quot;strategy&quot;: &quot;balance&quot;. На этих устройствах включите многопутевую передачу в профиле подключения.
   
 
 
@@ -45,16 +41,16 @@ fwmark
 
 
 	<meta itemprop="name" content="Балансировка нагрузки между несколькими WAN">
-	<meta itemprop="description" content="Эта страница для тех, у кого к хосту на Debian или Ubuntu подключены два интернет-провайдера и новые соединения нужно распределить между ними (multi-WAN). Описан firewall-бэкенд iptables.
-Балансировка нагрузки недоступна на Keenetic: сборка для Keenetic её не поддерживает и не примет конфигурацию с &#34;strategy&#34;: &#34;balance&#34;. На этих устройствах используйте собственный multipath роутера. Бэкенд nftables (OpenWrt 24&#43; с fw4 или любой хост с nft) тоже поддерживает балансировку, см. Outbounds. Пошаговое руководство ниже рассчитано на iptables в Debian/Ubuntu, а заметки про NAT , rp_filter и fwmark (числовую метку на пакете) применимы к любому бэкенду. Как это работает Outbound urltest или icmptest с &#34;strategy&#34;: &#34;balance&#34; выбирает один из рабочих каналов для каждого нового соединения пропорционально их weight (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.">
-	<meta itemprop="wordCount" content="1183">
+	<meta itemprop="description" content="Эта страница для роутера или хоста, к которому подключены два и более интернет-провайдера и новые соединения нужно распределить между ними (multi-WAN).
+Балансировка нагрузки недоступна на Keenetic: сборка для Keenetic её не поддерживает и не примет конфигурацию с &#34;strategy&#34;: &#34;balance&#34;. На этих устройствах включите многопутевую передачу в профиле подключения. Как это работает Outbound urltest или icmptest с &#34;strategy&#34;: &#34;balance&#34; выбирает один из рабочих каналов для каждого нового соединения пропорционально их weight (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.">
+	<meta itemprop="wordCount" content="729">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Балансировка нагрузки между несколькими WAN">
-	<meta name="twitter:description" content="Эта страница для тех, у кого к хосту на Debian или Ubuntu подключены два интернет-провайдера и новые соединения нужно распределить между ними (multi-WAN). Описан firewall-бэкенд iptables.
-Балансировка нагрузки недоступна на Keenetic: сборка для Keenetic её не поддерживает и не примет конфигурацию с &#34;strategy&#34;: &#34;balance&#34;. На этих устройствах используйте собственный multipath роутера. Бэкенд nftables (OpenWrt 24&#43; с fw4 или любой хост с nft) тоже поддерживает балансировку, см. Outbounds. Пошаговое руководство ниже рассчитано на iptables в Debian/Ubuntu, а заметки про NAT , rp_filter и fwmark (числовую метку на пакете) применимы к любому бэкенду. Как это работает Outbound urltest или icmptest с &#34;strategy&#34;: &#34;balance&#34; выбирает один из рабочих каналов для каждого нового соединения пропорционально их weight (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.">
+	<meta name="twitter:description" content="Эта страница для роутера или хоста, к которому подключены два и более интернет-провайдера и новые соединения нужно распределить между ними (multi-WAN).
+Балансировка нагрузки недоступна на Keenetic: сборка для Keenetic её не поддерживает и не примет конфигурацию с &#34;strategy&#34;: &#34;balance&#34;. На этих устройствах включите многопутевую передачу в профиле подключения. Как это работает Outbound urltest или icmptest с &#34;strategy&#34;: &#34;balance&#34; выбирает один из рабочих каналов для каждого нового соединения пропорционально их weight (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.">
 
-    <link rel="preload" href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" as="style" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
-    <link href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" rel="stylesheet" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
+    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
 
   
 
@@ -384,12 +380,6 @@ fwmark
             </li>
           <li>
               <a
-                href="#%d0%b2%d1%8b%d0%b1%d0%be%d1%80-%d0%b1%d1%8d%d0%ba%d0%b5%d0%bd%d0%b4%d0%b0-iptables"
-                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Выбор бэкенда iptables</a>
-            </li>
-          <li>
-              <a
                 href="#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >Пример</a>
@@ -402,15 +392,15 @@ fwmark
             </li>
           <li>
               <a
-                href="#%d0%bc%d0%b5%d1%82%d0%ba%d0%b8-fwmark-%d0%bf%d0%be%d1%81%d1%82%d0%b0%d0%b2%d0%bb%d0%b5%d0%bd%d0%bd%d1%8b%d0%b5-%d0%b4%d1%80%d1%83%d0%b3%d0%b8%d0%bc%d0%b8-%d0%bf%d1%80%d0%be%d0%b3%d1%80%d0%b0%d0%bc%d0%bc%d0%b0%d0%bc%d0%b8"
+                href="#%d0%b5%d1%81%d0%bb%d0%b8-%d0%bd%d0%b0-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%b5-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d1%8e%d1%82-%d0%b4%d1%80%d1%83%d0%b3%d0%b8%d0%b5-%d0%bf%d1%80%d0%be%d0%b3%d1%80%d0%b0%d0%bc%d0%bc%d1%8b-%d1%81-%d0%bc%d0%b5%d1%82%d0%ba%d0%b0%d0%bc%d0%b8"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Метки (fwmark), поставленные другими программами</a>
+              >Если на роутере работают другие программы с метками</a>
             </li>
           <li>
               <a
-                href="#%d0%b8%d0%b7%d0%b2%d0%b5%d1%81%d1%82%d0%bd%d0%be%d0%b5-%d0%be%d0%b3%d1%80%d0%b0%d0%bd%d0%b8%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%b2%d1%85%d0%be%d0%b4%d1%8f%d1%89%d0%b8%d0%b5-%d1%81%d0%be%d0%b5%d0%b4%d0%b8%d0%bd%d0%b5%d0%bd%d0%b8%d1%8f-%d0%bd%d0%b0-%d0%b2%d1%82%d0%be%d1%80%d0%be%d0%bc-wan"
+                href="#%d0%be%d0%b3%d1%80%d0%b0%d0%bd%d0%b8%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%b2%d1%85%d0%be%d0%b4%d1%8f%d1%89%d0%b8%d0%b5-%d1%81%d0%be%d0%b5%d0%b4%d0%b8%d0%bd%d0%b5%d0%bd%d0%b8%d1%8f-%d0%bd%d0%b0-%d0%b2%d1%82%d0%be%d1%80%d0%be%d0%bc-wan"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Известное ограничение: входящие соединения на втором WAN</a>
+              >Ограничение: входящие соединения на втором WAN</a>
             </li>
           <li>
               <a
@@ -473,18 +463,6 @@ fwmark
               
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
     <a
-      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
-      hx:hextra-focus-visible-inset
-        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
-      href="/ru/docs/changelog/"
-      
-    >
-      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
-    </a>
-  </div>
-              
-            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
-    <a
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
       hx:hextra-focus-visible-inset
         hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
@@ -510,6 +488,18 @@ fwmark
               
             </li></ul>
       </div>
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Список изменений</span>
+    </a>
+  </div>
+              
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
     <a
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
@@ -783,17 +773,6 @@ fwmark
   </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
     <a
-      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
-      hx:hextra-focus-visible-inset
-        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
-      href="/ru/docs/changelog/"
-      
-    >
-      <span class="hx:min-w-0 [word-break:break-word]">История изменений</span>
-    </a>
-  </div></li>
-            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
-    <a
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
       hx:hextra-focus-visible-inset
         hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
@@ -818,6 +797,17 @@ fwmark
               
             </li></ul>
       </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/changelog/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Список изменений</span>
+    </a>
+  </div></li>
             <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
     <a
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
@@ -943,10 +933,6 @@ fwmark
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b2%d1%8b%d0%b1%d0%be%d1%80-%d0%b1%d1%8d%d0%ba%d0%b5%d0%bd%d0%b4%d0%b0-iptables">Выбор бэкенда iptables
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80">Пример
         </a>
       </li>
@@ -959,15 +945,15 @@ fwmark
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#2-%d0%be%d0%b1%d1%80%d0%b0%d1%82%d0%bd%d1%8b%d0%b9-%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-%d0%bf%d1%83%d1%82%d0%b8-rp_filter">2. Обратный фильтр пути (rp_filter)
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#2-rp_filter">2. rp_filter
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%bc%d0%b5%d1%82%d0%ba%d0%b8-fwmark-%d0%bf%d0%be%d1%81%d1%82%d0%b0%d0%b2%d0%bb%d0%b5%d0%bd%d0%bd%d1%8b%d0%b5-%d0%b4%d1%80%d1%83%d0%b3%d0%b8%d0%bc%d0%b8-%d0%bf%d1%80%d0%be%d0%b3%d1%80%d0%b0%d0%bc%d0%bc%d0%b0%d0%bc%d0%b8">Метки (fwmark), поставленные другими программами
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b5%d1%81%d0%bb%d0%b8-%d0%bd%d0%b0-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%b5-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d1%8e%d1%82-%d0%b4%d1%80%d1%83%d0%b3%d0%b8%d0%b5-%d0%bf%d1%80%d0%be%d0%b3%d1%80%d0%b0%d0%bc%d0%bc%d1%8b-%d1%81-%d0%bc%d0%b5%d1%82%d0%ba%d0%b0%d0%bc%d0%b8">Если на роутере работают другие программы с метками
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b8%d0%b7%d0%b2%d0%b5%d1%81%d1%82%d0%bd%d0%be%d0%b5-%d0%be%d0%b3%d1%80%d0%b0%d0%bd%d0%b8%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%b2%d1%85%d0%be%d0%b4%d1%8f%d1%89%d0%b8%d0%b5-%d1%81%d0%be%d0%b5%d0%b4%d0%b8%d0%bd%d0%b5%d0%bd%d0%b8%d1%8f-%d0%bd%d0%b0-%d0%b2%d1%82%d0%be%d1%80%d0%be%d0%bc-wan">Известное ограничение: входящие соединения на втором WAN
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d0%b3%d1%80%d0%b0%d0%bd%d0%b8%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%b2%d1%85%d0%be%d0%b4%d1%8f%d1%89%d0%b8%d0%b5-%d1%81%d0%be%d0%b5%d0%b4%d0%b8%d0%bd%d0%b5%d0%bd%d0%b8%d1%8f-%d0%bd%d0%b0-%d0%b2%d1%82%d0%be%d1%80%d0%be%d0%bc-wan">Ограничение: входящие соединения на втором WAN
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1057,58 +1043,31 @@ fwmark
     </div>
           </div>
           
-          <p>Эта страница для тех, у кого к хосту на Debian или Ubuntu подключены два интернет-провайдера и новые соединения нужно распределить между ними (multi-WAN). Описан firewall-бэкенд <code>iptables</code>.</p>
+          <p>Эта страница для роутера или хоста, к которому подключены два и более интернет-провайдера и новые соединения нужно распределить между ними (multi-WAN).</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Балансировка нагрузки <strong>недоступна на Keenetic</strong>: сборка для Keenetic её не поддерживает и не примет конфигурацию с <code>&quot;strategy&quot;: &quot;balance&quot;</code>. На этих устройствах используйте собственный multipath роутера. Бэкенд <code>nftables</code> (OpenWrt 24+ с fw4 или любой хост с <code>nft</code>) тоже поддерживает балансировку, см. <a href="/ru/docs/configuration/outbounds/#urltest">Outbounds</a>. Пошаговое руководство ниже рассчитано на iptables в Debian/Ubuntu, а заметки про
-<abbr title="Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.">NAT</abbr>
-, <code>rp_filter</code> и
-<abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
-(числовую метку на пакете) применимы к любому бэкенду.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Балансировка нагрузки <strong>недоступна на Keenetic</strong>: сборка для Keenetic её не поддерживает и не примет конфигурацию с <code>&quot;strategy&quot;: &quot;balance&quot;</code>. На этих устройствах включите многопутевую передачу в профиле подключения.</div>
   </div>
 </div>
 
 <h2>Как это работает<span class="hx:absolute hx:-mt-20" id="как-это-работает"></span>
     <a href="#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Outbound <code>urltest</code> или <code>icmptest</code> с <code>&quot;strategy&quot;: &quot;balance&quot;</code> выбирает один из рабочих каналов для каждого <strong>нового</strong> соединения пропорционально их <code>weight</code> (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.</p>
-<p>Две вещи в системе вы настраиваете сами: 
-  <abbr title="Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.">NAT</abbr>
- на каждом провайдере и <code>rp_filter</code> (см. ниже).</p>
-<h2>Выбор бэкенда iptables<span class="hx:absolute hx:-mt-20" id="выбор-бэкенда-iptables"></span>
-    <a href="#%d0%b2%d1%8b%d0%b1%d0%be%d1%80-%d0%b1%d1%8d%d0%ba%d0%b5%d0%bd%d0%b4%d0%b0-iptables" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>При <code>&quot;firewall_backend&quot;: &quot;auto&quot;</code> (по умолчанию) keen-pbr использует nftables, если есть бинарный файл <code>nft</code>, и переключается на iptables в противном случае. Debian и Ubuntu по умолчанию устанавливают <code>nftables</code>, поэтому для использования iptables его нужно выбрать явно:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;daemon&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;firewall_backend&#34;</span><span class="p">:</span> <span class="s2">&#34;iptables&#34;</span> <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Допустимые значения: <code>auto</code>, <code>iptables</code> и <code>nftables</code>. Выбирайте iptables, если на хосте уже работает стек на основе iptables (Docker, ufw, fail2ban), чтобы все правила firewall находились в одном месте. Работают оба варианта: <code>iptables-nft</code> (по умолчанию в Debian) и <code>iptables-legacy</code> (<code>update-alternatives --config iptables</code>).</p>
-<p>Балансировка на iptables использует модуль ядра <code>xt_statistic</code>, который входит в стандартное ядро Debian/Ubuntu. keen-pbr проверяет его один раз при запуске сервиса. Если модуль не работает, конфигурация с <code>&quot;strategy&quot;: &quot;balance&quot;</code> отклоняется с ошибкой, в которой назван <code>xt_statistic</code>, а firewall остаётся без изменений. Балансировка на iptables также недоступна с <code>--use-raw-prerouting</code>.</p>
+<p>В системе вам нужно настроить <abbr title="Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.">NAT</abbr> на каждом провайдере и <code>rp_filter</code> (см. ниже).</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">iptables выбирает канал случайно с заданной вероятностью, поэтому на небольшом числе соединений распределение получается приблизительным. Поле <code>default_gateway</code> в правилах маршрутизации работает только с nftables, поэтому на iptables используйте явные правила, например <code>dest_addr</code> (см. пример ниже).</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">На бэкенде <code>iptables</code> каналы выбираются случайно с заданной вероятностью, поэтому на небольшом числе соединений доли получаются приблизительными. Бэкенду <code>iptables</code> нужен модуль ядра <code>xt_statistic</code>, а поле <code>default_gateway</code> в правилах маршрутизации работает только с <code>nftables</code>. Менять <code>firewall_backend</code> обычно не нужно: keen-pbr сам выбирает подходящий бэкенд.</div>
   </div>
 </div>
 
 <h2>Пример<span class="hx:absolute hx:-mt-20" id="пример"></span>
-    <a href="#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Два подключения: <code>eth1</code> (30% новых соединений) и <code>eth2</code> (70%), LAN на <code>eth0</code>. Если соединения самого хоста тоже нужно балансировать, включите <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Общие</strong> &gt; <strong>Обрабатывать собственный трафик роутера</strong> (виден в режиме настроек <strong>Продвинутый</strong>) (<code>iproute.process_router_traffic</code>); по умолчанию балансируется только транзитный трафик LAN. Интерфейсы LAN задаются в поле <strong>Обрабатываемые (входящие) интерфейсы</strong> (<code>route.inbound_interfaces</code>).</p>
+    <a href="#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Два подключения: <code>eth1</code> (30% новых соединений) и <code>eth2</code> (70%), LAN на <code>eth0</code>. Если соединения самого хоста тоже нужно балансировать, включите <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Общие</strong> &gt; <strong>Обрабатывать собственный трафик роутера</strong> (виден в режиме настроек <strong>Продвинутый</strong>); по умолчанию балансируется только трафик устройств из LAN. Интерфейсы LAN задаются в поле <strong>Обрабатываемые (входящие) интерфейсы</strong>.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">/etc/keen-pbr/config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;daemon&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;firewall_backend&#34;</span><span class="p">:</span> <span class="s2">&#34;iptables&#34;</span> <span class="p">},</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;outbounds&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;interface&#34;</span><span class="p">,</span> <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;wan1&#34;</span><span class="p">,</span> <span class="nt">&#34;interface&#34;</span><span class="p">:</span> <span class="s2">&#34;eth1&#34;</span><span class="p">,</span> <span class="nt">&#34;gateway&#34;</span><span class="p">:</span> <span class="s2">&#34;192.0.2.1&#34;</span> <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;interface&#34;</span><span class="p">,</span> <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;wan2&#34;</span><span class="p">,</span> <span class="nt">&#34;interface&#34;</span><span class="p">:</span> <span class="s2">&#34;eth2&#34;</span><span class="p">,</span> <span class="nt">&#34;gateway&#34;</span><span class="p">:</span> <span class="s2">&#34;198.51.100.1&#34;</span> <span class="p">},</span>
@@ -1160,16 +1119,19 @@ fwmark
 <p>Используйте <code>icmptest</code> вместо <code>urltest</code>, если предпочитаете ICMP-проверки; тогда для каждого канала нужен адрес <code>target</code> (см. <a href="/ru/docs/configuration/outbounds/#icmptest">Outbounds</a>).</p>
 <h2>Обязательная настройка системы<span class="hx:absolute hx:-mt-20" id="обязательная-настройка-системы"></span>
     <a href="#%d0%be%d0%b1%d1%8f%d0%b7%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%b0%d1%8f-%d0%bd%d0%b0%d1%81%d1%82%d1%80%d0%be%d0%b9%d0%ba%d0%b0-%d1%81%d0%b8%d1%81%d1%82%d0%b5%d0%bc%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><h3>1. NAT на каждом WAN<span class="hx:absolute hx:-mt-20" id="1-nat-на-каждом-wan"></span>
-    <a href="#1-nat-%d0%bd%d0%b0-%d0%ba%d0%b0%d0%b6%d0%b4%d0%be%d0%bc-wan" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>
-  <abbr title="Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.">NAT</abbr>
- <strong>обязателен на каждом WAN-интерфейсе</strong>. Без него пакет уходит ко второму провайдеру с адресом из вашей локальной сети, ответ на него не возвращается, и соединение зависает. Проверки работоспособности при этом проходят, потому что используют адрес самого интерфейса. Это касается и трафика самого хоста.</p>
+    <a href="#1-nat-%d0%bd%d0%b0-%d0%ba%d0%b0%d0%b6%d0%b4%d0%be%d0%bc-wan" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p><abbr title="Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.">NAT</abbr> <strong>обязателен на каждом WAN-интерфейсе</strong>. Без него пакет уходит ко второму провайдеру с адресом из вашей локальной сети, ответ не возвращается, и соединение зависает. Проверки каналов при этом проходят, поэтому проблему легко пропустить. Это касается и трафика самого хоста.</p>
+<p><span class="only-badges" title="Только для OpenWrt"><span class="only-badge only-badge--openwrt">OpenWrt</span></span><br>
+В <strong>Network</strong> &gt; <strong>Firewall</strong> &gt; <strong>Zones</strong> включите <strong>Masquerading</strong> для каждой зоны, в которой есть подключение к провайдеру (по умолчанию это зона <code>wan</code>).</p>
+<p><span class="only-badges" title="Только для nftables"><span class="only-badge only-badge--nftables">nftables</span></span><br>
+Добавьте <code>masquerade</code> для обоих интерфейсов, например в <code>/etc/nftables.conf</code>:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">sudo iptables -t nat -A POSTROUTING -o eth1 -j MASQUERADE
-</span></span><span class="line"><span class="cl">sudo iptables -t nat -A POSTROUTING -o eth2 -j MASQUERADE
-</span></span><span class="line"><span class="cl"><span class="c1"># IPv6, только если вы балансируете IPv6 и используете NAT66</span>
-</span></span><span class="line"><span class="cl">sudo ip6tables -t nat -A POSTROUTING -o eth1 -j MASQUERADE
-</span></span><span class="line"><span class="cl">sudo ip6tables -t nat -A POSTROUTING -o eth2 -j MASQUERADE</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">/etc/nftables.conf</div><div><pre><code>table inet multiwan_nat {
+  chain postrouting {
+    type nat hook postrouting priority srcnat; policy accept;
+    oifname { &#34;eth1&#34;, &#34;eth2&#34; } masquerade
+  }
+}</code></pre></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1181,9 +1143,25 @@ fwmark
   </button>
 </div>
 </div>
-<p>Сделайте правила постоянными, например с помощью <code>iptables-persistent</code> (<code>sudo apt install iptables-persistent</code>, затем <code>sudo netfilter-persistent save</code>), либо добавьте эквивалентные строки <code>*nat</code> в <code>/etc/ufw/before.rules</code>, если используете ufw. Если NAT на хосте управляется через nftables, добавьте <code>masquerade</code> для обоих интерфейсов в цепочку <code>postrouting</code> типа <code>nat</code>.</p>
-<h3>2. Обратный фильтр пути (rp_filter)<span class="hx:absolute hx:-mt-20" id="2-обратный-фильтр-пути-rp_filter"></span>
-    <a href="#2-%d0%be%d0%b1%d1%80%d0%b0%d1%82%d0%bd%d1%8b%d0%b9-%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-%d0%bf%d1%83%d1%82%d0%b8-rp_filter" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Строгий фильтр ядра (<code>rp_filter=1</code>) выбрасывает ответ, который пришёл не через тот интерфейс, через который ядро само отправило бы пакет этому адресу. При двух провайдерах ответы второго как раз такие. Значение по умолчанию в systemd — <code>2</code> (нестрогий режим), и оно работает. Проверьте и при необходимости исправьте:</p>
+<p><span class="only-badges" title="Только для iptables"><span class="only-badge only-badge--iptables">iptables</span></span><br>
+Добавьте правила <code>MASQUERADE</code> и сохраните их, например через <code>iptables-persistent</code>:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">sudo iptables -t nat -A POSTROUTING -o eth1 -j MASQUERADE
+</span></span><span class="line"><span class="cl">sudo iptables -t nat -A POSTROUTING -o eth2 -j MASQUERADE</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<h3>2. rp_filter<span class="hx:absolute hx:-mt-20" id="2-rp_filter"></span>
+    <a href="#2-rp_filter" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Строгая проверка обратного пути (<code>rp_filter=1</code>) отбрасывает ответы второго провайдера. Нужен нестрогий режим (<code>2</code>). Проверьте значения и при необходимости исправьте:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">sysctl net.ipv4.conf.all.rp_filter net.ipv4.conf.eth1.rp_filter net.ipv4.conf.eth2.rp_filter
@@ -1201,26 +1179,10 @@ fwmark
   </button>
 </div>
 </div>
-<p>Ядро использует большее из значений <code>all</code> и значения для конкретного интерфейса.</p>
-<h2>Метки (fwmark), поставленные другими программами<span class="hx:absolute hx:-mt-20" id="метки-fwmark-поставленные-другими-программами"></span>
-    <a href="#%d0%bc%d0%b5%d1%82%d0%ba%d0%b8-fwmark-%d0%bf%d0%be%d1%81%d1%82%d0%b0%d0%b2%d0%bb%d0%b5%d0%bd%d0%bd%d1%8b%d0%b5-%d0%b4%d1%80%d1%83%d0%b3%d0%b8%d0%bc%d0%b8-%d0%bf%d1%80%d0%be%d0%b3%d1%80%d0%b0%d0%bc%d0%bc%d0%b0%d0%bc%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Метки на пакетах ставят не только keen-pbr, но и Docker, WireGuard (<code>0xca6c</code>), Tailscale, скрипты 
-  <abbr title="Приоритизация трафика, например звонки важнее загрузок.">QoS</abbr>
-. По умолчанию keen-pbr полностью пропускает пакет, у которого уже есть чужая метка, включая балансировку. В веб-интерфейсе это переключатель <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Общие</strong> &gt; <strong>Не обрабатывать маркированные пакеты</strong> (<code>daemon.skip_marked_packets</code>). Если выключить его, keen-pbr будет маршрутизировать и такие пакеты, но может перезаписать метки, на которые полагается другое ПО:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span> <span class="nt">&#34;daemon&#34;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&#34;skip_marked_packets&#34;</span><span class="p">:</span> <span class="kc">false</span> <span class="p">}</span> <span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Если другая программа пишет метки в те же биты, что и keen-pbr, выбор канала сбивается. Тогда перенесите метки keen-pbr в биты, которые никто не использует. По умолчанию это <code>fwmark.mask</code> равный <code>0x00FF0000</code> и <code>fwmark.start</code> равный <code>0x00010000</code>; каждому маршрутизируемому outbound нужно два значения. Маска должна состоять из идущих подряд целых шестнадцатеричных цифр <code>F</code> (например, <code>0xFF000000</code>):</p>
+<p>На OpenWrt добавьте эти же три строки в <code>/etc/sysctl.conf</code> и выполните <code>/etc/init.d/sysctl restart</code>.</p>
+<h2>Если на роутере работают другие программы с метками<span class="hx:absolute hx:-mt-20" id="если-на-роутере-работают-другие-программы-с-метками"></span>
+    <a href="#%d0%b5%d1%81%d0%bb%d0%b8-%d0%bd%d0%b0-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%b5-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d1%8e%d1%82-%d0%b4%d1%80%d1%83%d0%b3%d0%b8%d0%b5-%d0%bf%d1%80%d0%be%d0%b3%d1%80%d0%b0%d0%bc%d0%bc%d1%8b-%d1%81-%d0%bc%d0%b5%d1%82%d0%ba%d0%b0%d0%bc%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Метки на пакетах ставят не только keen-pbr, но и Docker, WireGuard, Tailscale, скрипты <abbr title="Приоритизация трафика, например звонки важнее загрузок.">QoS</abbr> и mwan3 на OpenWrt. По умолчанию keen-pbr не трогает пакеты с чужой меткой, и они не балансируются. Это управляется переключателем <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Общие</strong> &gt; <strong>Не обрабатывать маркированные пакеты</strong>.</p>
+<p>Если выбор канала сбивается из-за чужих меток, предупреждение <code>fwmark_mask_conflict</code> появится на странице состояния. Тогда перенесите метки keen-pbr в свободные биты:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1240,50 +1202,37 @@ fwmark
   </button>
 </div>
 </div>
-<p>Проверить, что уже используется, можно через <code>ip rule show</code> и <code>sudo iptables -t mangle -S | grep -i mark</code>. Если в маске не хватает значений для всех ваших outbound, keen-pbr не примет конфигурацию. Страница состояния (веб-интерфейс, <code>keen-pbr status</code>, <code>GET /api/health/routing</code>) предупреждает об отсутствующем 
-  <abbr title="Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.">NAT</abbr>
-, строгом <code>rp_filter</code>, а также о правилах firewall и <code>ip rule</code> других программ, которые используют биты внутри <code>fwmark.mask</code> (<code>fwmark_mask_conflict</code>). Это только предупреждения, применять конфигурацию они не мешают.</p>
-<p>Tailscale — особый случай: перенос маски не поможет, см. <a href="/ru/docs/troubleshooting/#tailscale">Маршрутизация ломается при включённом Tailscale</a>.</p>
-<h2>Известное ограничение: входящие соединения на втором WAN<span class="hx:absolute hx:-mt-20" id="известное-ограничение-входящие-соединения-на-втором-wan"></span>
-    <a href="#%d0%b8%d0%b7%d0%b2%d0%b5%d1%81%d1%82%d0%bd%d0%be%d0%b5-%d0%be%d0%b3%d1%80%d0%b0%d0%bd%d0%b8%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%b2%d1%85%d0%be%d0%b4%d1%8f%d1%89%d0%b8%d0%b5-%d1%81%d0%be%d0%b5%d0%b4%d0%b8%d0%bd%d0%b5%d0%bd%d0%b8%d1%8f-%d0%bd%d0%b0-%d0%b2%d1%82%d0%be%d1%80%d0%be%d0%bc-wan" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Балансировка работает только для соединений, которые открывают устройства вашей сети (и, если включено, сам хост). Входящие соединения ко второму провайдеру (SSH, проброс портов) получают ответ через основной маршрут по умолчанию, то есть через неправильное подключение. keen-pbr пока это не обрабатывает. Обойти это можно вручную: ставьте входящим соединениям 
-  <abbr title="Метка соединения в записи conntrack. keen-pbr копирует в неё fwmark, чтобы все пакеты соединения шли одним маршрутом.">connmark</abbr>
- по интерфейсу через <code>CONNMARK</code>, восстанавливайте его в 
-  <abbr title="Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.">fwmark</abbr>
- ответов в <code>mangle OUTPUT</code> и добавьте <code>ip rule fwmark ... lookup &lt;table&gt;</code> для таблицы, у которой маршрут по умолчанию идёт через этот WAN. Используйте значения fwmark вне <code>fwmark.mask</code>.</p>
+<p>С Tailscale это не поможет, см. <a href="/ru/docs/troubleshooting/#tailscale">Маршрутизация ломается при включённом Tailscale</a>.</p>
+<h2>Ограничение: входящие соединения на втором WAN<span class="hx:absolute hx:-mt-20" id="ограничение-входящие-соединения-на-втором-wan"></span>
+    <a href="#%d0%be%d0%b3%d1%80%d0%b0%d0%bd%d0%b8%d1%87%d0%b5%d0%bd%d0%b8%d0%b5-%d0%b2%d1%85%d0%be%d0%b4%d1%8f%d1%89%d0%b8%d0%b5-%d1%81%d0%be%d0%b5%d0%b4%d0%b8%d0%bd%d0%b5%d0%bd%d0%b8%d1%8f-%d0%bd%d0%b0-%d0%b2%d1%82%d0%be%d1%80%d0%be%d0%bc-wan" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Балансировка работает только для соединений, которые открывают устройства вашей сети (и сам хост, если включено). Входящие соединения ко второму провайдеру (SSH, проброс портов) получают ответ через основное подключение, то есть через другого провайдера, и могут не работать.</p>
 <h2>Устранение неполадок<span class="hx:absolute hx:-mt-20" id="устранение-неполадок"></span>
     <a href="#%d1%83%d1%81%d1%82%d1%80%d0%b0%d0%bd%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bd%d0%b5%d0%bf%d0%be%d0%bb%d0%b0%d0%b4%d0%be%d0%ba" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><table>
 	<thead>
 			<tr>
 					<th>Симптом</th>
-					<th>Вероятная причина и проверка</th>
+					<th>Что проверить</th>
 			</tr>
 	</thead>
 	<tbody>
 			<tr>
-					<td>Соединения зависают, когда идут через один WAN, проверки работоспособности в порядке</td>
-					<td>Отсутствует 
-  <abbr title="Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.">NAT</abbr>
- на этом WAN: <code>sudo iptables -t nat -S POSTROUTING</code> должен показывать <code>MASQUERADE</code> для каждого WAN.</td>
+					<td>Часть соединений зависает, проверки каналов в порядке</td>
+					<td><abbr title="Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.">NAT</abbr> включён на каждом WAN.</td>
 			</tr>
 			<tr>
 					<td>Пакеты уходят, но ответы не приходят</td>
-					<td>Строгий <code>rp_filter</code>: действующее значение (<code>all</code> или для интерфейса, побеждает большее) должно быть <code>2</code> или <code>0</code>.</td>
+					<td><code>rp_filter</code> равен <code>2</code> или <code>0</code> (побеждает большее из значений <code>all</code> и интерфейса).</td>
 			</tr>
 			<tr>
 					<td>Весь трафик идёт через один WAN</td>
-					<td>Метки от других программ (<strong>Не обрабатывать маркированные пакеты</strong>), конфликт маски fwmark (страница состояния покажет предупреждение <code>fwmark_mask_conflict</code> с указанием правила) или второй WAN нездоров. Проверьте <code>sudo iptables -t mangle -S</code> и статус outbound в веб-интерфейсе или API.</td>
+					<td>Второй WAN нездоров (статус на странице <strong>Маршрутизация</strong> &gt; <strong>Outbounds</strong>) или метки других программ (см. выше).</td>
 			</tr>
 			<tr>
 					<td>Конфигурация отклонена с сообщением о <code>xt_statistic</code></td>
 					<td><code>sudo modprobe xt_statistic</code>, затем перезапустите сервис.</td>
 			</tr>
-			<tr>
-					<td>Нет правил iptables, вместо них появляются правила <code>nft</code></td>
-					<td><code>firewall_backend</code> равен <code>auto</code>, и <code>nft</code> установлен: установите <code>iptables</code>.</td>
-			</tr>
 	</tbody>
 </table>
-<p>Логи пишутся в syslog (в Debian — в systemd journal). Для более подробного вывода используйте <code>--log-level verbose</code> или <code>debug</code>, см. <a href="/ru/docs/cli/">CLI</a>.</p>
+<p>Логи пишутся в syslog (на OpenWrt — <code>logread</code>). Для более подробного вывода используйте <code>--log-level verbose</code> или <code>debug</code>, см. <a href="/ru/docs/cli/">CLI</a>.</p>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

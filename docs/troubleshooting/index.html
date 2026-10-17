@@ -38,15 +38,15 @@ Quick check in the web interface
 	<meta itemprop="description" content="Start with the General &gt; Dashboard page in the web interface: it shows whether the service is running and what exactly is broken. If that is not enough, read the system log: keen-pbr writes the reason for every error there.
 Each section below follows the same order: symptom, check in the web interface, check by command, fix.
 Quick check in the web interface Open http://&lt;router-ip&gt;:12121/ and go to General &gt; Dashboard.">
-	<meta itemprop="wordCount" content="3921">
+	<meta itemprop="wordCount" content="3914">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Troubleshooting">
 	<meta name="twitter:description" content="Start with the General &gt; Dashboard page in the web interface: it shows whether the service is running and what exactly is broken. If that is not enough, read the system log: keen-pbr writes the reason for every error there.
 Each section below follows the same order: symptom, check in the web interface, check by command, fix.
 Quick check in the web interface Open http://&lt;router-ip&gt;:12121/ and go to General &gt; Dashboard.">
 
-    <link rel="preload" href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" as="style" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
-    <link href="/css/compiled/main.min.ceae69f3d09d5373d02077f9b3b35cdff5e999c78c597328b68a168e5bca8a94.css" rel="stylesheet" integrity="sha256-zq5p89CdU3PQIHf5s7Nc3/XpmceMWXMotooWjlvKipQ=" />
+    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
 
   
 
@@ -1714,16 +1714,14 @@ Quick check in the web interface Open http://&lt;router-ip&gt;:12121/ and go to 
   </button>
 </div>
 </div>
-<p>If you see <code>Connection refused</code>, the resolver is not running or is not listening on <code>127.0.0.1:53</code>. Check its service and log: 
-  <abbr title="A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.">Entware</abbr>
- <code>dnsmasq</code> on Keenetic, <code>dnsmasq</code> on OpenWrt and Debian, or the built-in Keenetic DNS proxy.</p>
+<p>If you see <code>Connection refused</code>, the resolver is not running or is not listening on <code>127.0.0.1:53</code>. Check its service and log: <abbr title="A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.">Entware</abbr> <code>dnsmasq</code> on Keenetic, <code>dnsmasq</code> on OpenWrt and Debian, or the built-in Keenetic DNS proxy.</p>
 <p>On Keenetic, if client DNS queries do not reach Entware <code>dnsmasq</code>, check the <code>opkg dns-override</code> setting. The commands <code>opkg dns-override</code> and <code>system configuration save</code> are run in the router&rsquo;s web console at <code>http://my.keenetic.net/a</code>, not over SSH. Details are in <a href="/docs/getting-started/installation/keenetic/">installing on Keenetic</a>.</p>
 <details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
   <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
     <strong class="hx:text-lg">After upgrading from an older keen-pbr version</strong>
   </summary>
   <div class="hx:p-2 hx:overflow-hidden">
-    After the upgrade, dnsmasq management stays enabled; see <a href="/docs/changelog/#upgrading-from-33x">Upgrading from 3.3.x</a>. If dnsmasq does not start after you removed keen-pbr manually, make sure its configuration has no leftover <code>conf-script=...keen-pbr...</code> line.
+    After the upgrade, dnsmasq management stays enabled; see <a href="/docs/changelog/#upgrading-from-33x">Breaking Changes in 3.4.0</a>. If dnsmasq does not start after you removed keen-pbr manually, make sure its configuration has no leftover <code>conf-script=...keen-pbr...</code> line.
   </div>
 </details>
 <h2>Websites Are Not Opening: <code>DNS_PROBE_FINISHED_NXDOMAIN</code> / <code>ERR_NAME_NOT_RESOLVED</code><span class="hx:absolute hx:-mt-20" id="websites-are-not-opening-dns_probe_finished_nxdomain--err_name_not_resolved"></span>
@@ -1735,9 +1733,7 @@ Quick check in the web interface Open http://&lt;router-ip&gt;:12121/ and go to 
 <li>If a DNS server in <strong>DNS</strong> &gt; <strong>DNS servers</strong> has a channel set (<code>detour</code> in JSON), check that this outbound is &ldquo;Healthy&rdquo; in the <strong>Outbounds</strong> panel.</li>
 </ol>
 <h2>Websites Are Not Opening: <code>DNS_PROBE_FINISHED_BAD_CONFIG</code><span class="hx:absolute hx:-mt-20" id="websites-are-not-opening-dns_probe_finished_bad_config"></span>
-    <a href="#websites-are-not-opening-dns_probe_finished_bad_config" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>This usually means the resolver is not running or could not apply its configuration. Check the resolver&rsquo;s service and log: 
-  <abbr title="A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.">Entware</abbr>
- <code>dnsmasq</code> on Keenetic, <code>dnsmasq</code> on OpenWrt and Debian. Then check the <strong>Domain-based routing</strong> panel on the <strong>Dashboard</strong> page.</p>
+    <a href="#websites-are-not-opening-dns_probe_finished_bad_config" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>This usually means the resolver is not running or could not apply its configuration. Check the resolver&rsquo;s service and log: <abbr title="A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.">Entware</abbr> <code>dnsmasq</code> on Keenetic, <code>dnsmasq</code> on OpenWrt and Debian. Then check the <strong>Domain-based routing</strong> panel on the <strong>Dashboard</strong> page.</p>
 <h2>Per-list DNS servers do not work<span class="hx:absolute hx:-mt-20" id="per-list-dns-servers-do-not-work"></span>
     <a href="#per-list-dns-servers-do-not-work" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><strong>Symptom:</strong> domains from a list should resolve through the chosen DNS server, but resolve through the default one.</p>
 <p><strong>In the web interface.</strong></p>
@@ -1808,9 +1804,7 @@ Quick check in the web interface Open http://&lt;router-ip&gt;:12121/ and go to 
     <strong class="hx:text-lg">Look at the firewall rules directly</strong>
   </summary>
   <div class="hx:p-2 hx:overflow-hidden">
-    <p><code>keen-pbr</code> creates its own chain or table <code>KeenPbrTable</code>. Traffic enters it, is matched against the lists, and gets a packet mark (
-<abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
-), which the system uses to choose a routing table.</p>
+    <p><code>keen-pbr</code> creates its own chain or table <code>KeenPbrTable</code>. Traffic enters it, is matched against the lists, and gets a packet mark (<abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>), which the system uses to choose a routing table.</p>
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
   <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="iptables / ipset,nftables / nftset,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-0" role="tab" type="button" aria-controls="tabs-panel-tabs-01-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>iptables / ipset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-1" role="tab" type="button" aria-controls="tabs-panel-tabs-01-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>nftables / nftset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-01-2" role="tab" type="button" aria-controls="tabs-panel-tabs-01-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
 </div>
@@ -1906,9 +1900,7 @@ Quick check in the web interface Open http://&lt;router-ip&gt;:12121/ and go to 
 </details>
 <p><strong>Fix.</strong> If <code>KeenPbrTable</code> is missing, click <strong>Restart</strong> in the status bar and read the log. The cause is usually an unavailable backend, missing permissions, missing packages, or a configuration error.</p>
 <h2>Routing Tables and <code>fwmark</code><span class="hx:absolute hx:-mt-20" id="routing-tables-and-fwmark"></span>
-    <a href="#routing-tables-and-fwmark" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><strong>Symptom:</strong> the firewall sets a packet mark (
-  <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
-), but the site loads forever or opens through your ISP. The system must see the mark, apply an <code>ip rule</code>, and send the packet to the routing table of the right outbound.</p>
+    <a href="#routing-tables-and-fwmark" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><strong>Symptom:</strong> the firewall sets a packet mark (<abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>), but the site loads forever or opens through your ISP. The system must see the mark, apply an <code>ip rule</code>, and send the packet to the routing table of the right outbound.</p>
 <p><strong>In the web interface.</strong> In the <strong>Diagnostics</strong> panel, look for &ldquo;Routing tables do not match&rdquo; and &ldquo;Policy rules do not match&rdquo;.</p>
 <p><strong>Commands.</strong></p>
 <ol>
@@ -1980,14 +1972,8 @@ Quick check in the web interface Open http://&lt;router-ip&gt;:12121/ and go to 
 <p><strong>Fix.</strong> If the table is empty, the interface is not found, or the rule points the wrong way, click <strong>Restart</strong> in the status bar. If that does not help, check the outbound name and interface name, and mark conflicts (see &ldquo;Low-Level Routing Conflicts&rdquo;).</p>
 <h2>Routing Breaks When Tailscale Is Enabled<span class="hx:absolute hx:-mt-20" id="tailscale"></span>
     <a href="#tailscale" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Tailscale reserves <code>0x00FF0000</code>, which overlaps the default keen-pbr mask, and
-restores 
-  <abbr title="Connection mark: a mark stored on a conntrack entry. keen-pbr copies the fwmark into it so every packet of a connection follows the same route.">connmark</abbr>
- from 
-  <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>
-, fully overwriting the packet&rsquo;s
-
-  <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
-. Moving keen-pbr to a different fwmark range does not stop Tailscale from erasing it.</p>
+restores <abbr title="Connection mark: a mark stored on a conntrack entry. keen-pbr copies the fwmark into it so every packet of a connection follows the same route.">connmark</abbr> from <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr>, fully overwriting the packet&rsquo;s
+<abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>. Moving keen-pbr to a different fwmark range does not stop Tailscale from erasing it.</p>
 <p>Disable Tailscale&rsquo;s netfilter integration:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -2003,9 +1989,7 @@ restores
   </button>
 </div>
 </div>
-<p>After that, firewall and 
-  <abbr title="Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&#39;s WAN address.">NAT</abbr>
- rules must be configured separately, especially if
+<p>After that, firewall and <abbr title="Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&#39;s WAN address.">NAT</abbr> rules must be configured separately, especially if
 Tailscale runs as a subnet router or exit node.</p>
 <h2>Interfaces and VPN Tunnels<span class="hx:absolute hx:-mt-20" id="interfaces-and-vpn-tunnels"></span>
     <a href="#interfaces-and-vpn-tunnels" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><strong>Symptom:</strong> DNS, firewall and routing look right, but traffic does not go through the VPN.</p>
@@ -2168,9 +2152,7 @@ Tailscale runs as a subnet router or exit node.</p>
 <li>Run <code>keen-pbr status</code> and check whether firewall rules were created for this routing rule.</li>
 </ul>
 <h2>Low-Level Routing Conflicts<span class="hx:absolute hx:-mt-20" id="low-level-routing-conflicts"></span>
-    <a href="#low-level-routing-conflicts" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>If another program on the router also sets packet marks (
-  <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>
-) or manages <code>ip rule</code>, packets can go the wrong way or be dropped. The message &ldquo;A foreign rule uses packet mark bits reserved for keen-pbr&rdquo; in the <strong>Diagnostics</strong> panel warns about this.</p>
+    <a href="#low-level-routing-conflicts" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>If another program on the router also sets packet marks (<abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr>) or manages <code>ip rule</code>, packets can go the wrong way or be dropped. The message &ldquo;A foreign rule uses packet mark bits reserved for keen-pbr&rdquo; in the <strong>Diagnostics</strong> panel warns about this.</p>
 <p>Check for conflicts:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
