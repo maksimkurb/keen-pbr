@@ -55,8 +55,8 @@ Commands:
 | `--pid-file <path>` | Путь к PID-файлу (файлу с номером процесса сервиса). Заменяет `daemon.pid_file` из конфига; только для `service`. |
 | `--crash-report <path>` | Куда записать отчёт о последнем аварийном завершении. По умолчанию `/tmp/keen-pbr-crash.log`. |
 | `--no-api` | Отключить REST API, даже если он включён в конфиге. |
-| `--use-raw-prerouting` | Использовать raw {{< term "PREROUTING" >}} для классификации пересылаемого IPv4-трафика; доступно только с iptables. |
-| `--use-raw6-prerouting` | Использовать raw PREROUTING для классификации пересылаемого IPv6-трафика; доступно только с iptables. |
+| `--use-raw-prerouting` | Использовать raw {{< term "PREROUTING" >}} для классификации пересылаемого IPv4-трафика. {{< only iptables >}} |
+| `--use-raw6-prerouting` | Использовать raw PREROUTING для классификации пересылаемого IPv6-трафика. {{< only iptables >}} |
 | `--version` | Вывести версию и выйти. |
 | `--help` | Вывести справку и выйти. |
 

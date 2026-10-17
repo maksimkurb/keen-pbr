@@ -110,11 +110,11 @@ In the rule form in the Web UI you can add these conditions: **Lists**, **Protoc
 | `dest_port` | string | no | Only these destination ports (**Destination port**) |
 | `src_addr` | string | no | Only these source addresses: the devices or subnets the traffic comes from (**Source addresses**) |
 | `dest_addr` | string | no | Only these destination addresses (**Destination addresses**) |
-| `default_gateway` | `"ipv4"` or `"ipv6"` | no | All internet traffic that would otherwise go through the router's main gateway (except local network addresses). In the Web UI: **Rule type** > **IPv4 default gateway** / **IPv6 default gateway**. nftables only. Put these rules last |
+| `default_gateway` | `"ipv4"` or `"ipv6"` | no | All internet traffic that would otherwise go through the router's main gateway (except local network addresses). In the Web UI: **Rule type** > **IPv4 default gateway** / **IPv6 default gateway**. {{< only nftables >}} Put these rules last |
 
 ## Failover or balancing for all internet traffic {#failover-or-balancing-for-all-internet-traffic}
 
-Use this to send all internet traffic through an auto-select outbound (`urltest` or `icmptest`): if the main link fails, traffic switches to a backup, and with `balance` it is spread across several links. Add one `default_gateway` rule for IPv4 and one for IPv6 at the end of the rule list. This works only with nftables; with iptables the configuration fails validation. Addresses on your local network keep normal routing.
+Use this to send all internet traffic through an auto-select outbound (`urltest` or `icmptest`): if the main link fails, traffic switches to a backup, and with `balance` it is spread across several links. {{< only nftables >}} Add one `default_gateway` rule for IPv4 and one for IPv6 at the end of the rule list. With iptables (and on Keenetic) the configuration fails validation. Addresses on your local network keep normal routing.
 
 By default these rules apply only to traffic from devices on your network. To include the router's own traffic, turn on **General** > **Settings** > **General** > **Process router's own traffic** (`iproute.process_router_traffic: true`).
 

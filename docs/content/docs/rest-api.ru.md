@@ -80,6 +80,7 @@ keen-pbr hash-password
 | `GET /api/runtime/outbounds`, `/api/runtime/interfaces` | Текущее состояние outbounds и список системных интерфейсов. |
 | `GET /api/health/routing`, `POST /api/routing/test` | Диагностика маршрутизации и firewall и проверка маршрута для конкретного домена или IP-адреса. |
 | `POST /api/lists/refresh` | Обновление одного или всех удалённых списков URL. |
+| `GET /api/keenetic/dns-proxies`, `POST /api/keenetic/dns-proxies/refresh` | Группы DNS-прокси Keenetic с их вышестоящими серверами и повторное чтение с роутера. {{< only keenetic >}} |
 | `GET /api/dns/test` | Поток событий перехвата DNS и TLS/QUIC-трафика либо проверка DNS в веб-интерфейсе. |
 | `GET /api/diagnostics/command-failure` | Журнал недавних сбоев системных команд. |
 | `GET /metrics` | Метрики Prometheus в текстовом формате. |
@@ -194,7 +195,7 @@ curl -u admin:password http://127.0.0.1:12121/metrics
 
 ### Балансировка и маркированные пакеты
 
-Эти метрики есть только при firewall-бэкенде iptables. Если данных нет, серия не публикуется. После перестроения правил firewall счётчики начинаются с нуля.
+{{< only iptables >}} Эти метрики есть только при этом firewall-бэкенде. Если данных нет, серия не публикуется. После перестроения правил firewall счётчики начинаются с нуля.
 
 | Метрика | Тип | Метки | Смысл |
 |---|---|---|---|
