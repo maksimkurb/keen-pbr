@@ -334,16 +334,21 @@ void collect_outbound_issues(const std::vector<api::RuntimeOutboundStateElement>
 void collect_keenetic_dns_issues(const std::vector<KeeneticDnsMissingInput>& missing,
                                  std::vector<api::HealthIssue>& issues) {
     for (const auto& entry : missing) {
+        std::string joined;
+        for (const auto& upstream : entry.upstreams) {
+            joined += joined.empty() ? "" : ", ";
+            joined += upstream;
+        }
         auto issue = make_issue("keenetic-dns-" + entry.tag,
                                 entry.block ? api::Severity::ERROR : api::Severity::WARNING,
-                                api::Code::KEENETIC_DNS_POLICY_MISSING,
-                                "Keenetic DNS policy not found");
-        issue.params = {{"tag", entry.tag}, {"policy", entry.policy},
-                        {"mode", entry.block ? "block" : "system"}};
-        issue.detail_code = entry.block ? api::DetailCode::KEENETIC_DNS_POLICY_BLOCKED
-                                        : api::DetailCode::KEENETIC_DNS_POLICY_SYSTEM;
-        issue.detail = "`" + entry.tag + "`: " + entry.policy +
-                       (entry.block ? " — queries blocked" : " — using System");
+                                api::Code::KEENETIC_DNS_UPSTREAM_MISSING,
+                                "Keenetic DNS upstream not found");
+        issue.params = {{"tag", entry.tag}, {"upstreams", joined},
+                        {"mode", entry.block ? "block" : "partial"}};
+        issue.detail_code = entry.block ? api::DetailCode::KEENETIC_DNS_UPSTREAM_BLOCKED
+                                        : api::DetailCode::KEENETIC_DNS_UPSTREAM_PARTIAL;
+        issue.detail = "`" + entry.tag + "`: " + joined +
+                       (entry.block ? " — queries blocked" : " — using the remaining upstreams");
         issues.push_back(std::move(issue));
     }
 }

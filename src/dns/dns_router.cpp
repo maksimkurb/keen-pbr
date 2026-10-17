@@ -1,16 +1,9 @@
 #include "dns_router.hpp"
 #include "keenetic_dns.hpp"
-#include "../config/config_defaults.hpp"
-
-#include <algorithm>
 
 namespace keen_pbr3 {
 
 namespace {
-
-api::KeeneticOnMissing on_missing_of(const DnsServer& server) {
-    return server.keenetic_on_missing.value_or(config_defaults::keenetic_on_missing);
-}
 
 const KeeneticDnsProxy* find_proxy(const KeeneticDnsSnapshot& snapshot, const std::string& name) {
     for (const auto& proxy : snapshot.proxies) {
@@ -19,6 +12,32 @@ const KeeneticDnsProxy* find_proxy(const KeeneticDnsSnapshot& snapshot, const st
         }
     }
     return nullptr;
+}
+
+bool looks_like_ipv4(const std::string& address) {
+    return address.find(':') == std::string::npos || address.find(':') == address.rfind(':');
+}
+
+std::string protocol_kind(api::KeeneticDnsProtocol protocol) {
+    switch (protocol) {
+        case api::KeeneticDnsProtocol::DO_H: return "DoH";
+        case api::KeeneticDnsProtocol::DO_T: return "DoT";
+        case api::KeeneticDnsProtocol::PLAIN: break;
+    }
+    return "Plain";
+}
+
+std::vector<KeeneticDnsProxyUpstream> selected_upstreams(const DnsServer& server) {
+    std::vector<KeeneticDnsProxyUpstream> selected;
+    for (const auto& upstream : server.keenetic_upstreams.value_or(
+             std::vector<api::KeeneticDnsProxyUpstreamElement>{})) {
+        selected.push_back({protocol_kind(upstream.protocol), upstream.target});
+    }
+    return selected;
+}
+
+bool is_keenetic_server(const DnsServer& server) {
+    return server.type.value_or(api::DnsServerType::STATIC) == api::DnsServerType::KEENETIC;
 }
 
 // "Keenetic System, DoH https://dns.example/dns-query" for a System upstream.
@@ -40,35 +59,40 @@ std::string system_upstream_note(const KeeneticDnsSnapshot* snapshot, const std:
     return note;
 }
 
-// "Keenetic group "VPN Only" (Policy0)", or "Keenetic group Policy0" without a description.
-std::string policy_note(const KeeneticDnsSnapshot* snapshot, const std::string& policy) {
-    const KeeneticDnsProxy* proxy = snapshot != nullptr ? find_proxy(*snapshot, policy) : nullptr;
-    if (proxy == nullptr || proxy->description.empty()) {
-        return "Keenetic group " + policy;
+std::string balancer_note(const KeeneticDnsSnapshot* snapshot,
+                          const std::vector<std::string>& addresses) {
+    std::string note = "Keenetic System, balanced across " + std::to_string(addresses.size());
+    for (size_t i = 0; i < addresses.size(); ++i) {
+        note += i == 0 ? ": " : ", ";
+        std::string label = addresses[i];
+        if (snapshot != nullptr) {
+            for (const auto& upstream : snapshot->upstreams) {
+                if (upstream.address == addresses[i]) {
+                    label = upstream.kind + " " + keenetic_upstream_target(upstream);
+                    break;
+                }
+            }
+        }
+        note += label;
     }
-    return "Keenetic group \"" + proxy->description + "\" (" + policy + ")";
+    return note;
 }
 
 } // namespace
 
-std::vector<MissingKeeneticPolicy> find_missing_keenetic_policies(const DnsConfig& dns_config) {
-    std::vector<MissingKeeneticPolicy> missing;
-    const auto snapshot = peek_keenetic_dns_cache();
-    if (!snapshot.has_value() || !snapshot->snapshot.has_value()) {
+std::vector<MissingKeeneticUpstreams> find_missing_keenetic_upstreams(const DnsConfig& dns_config) {
+    std::vector<MissingKeeneticUpstreams> missing;
+    const auto cache = peek_keenetic_dns_cache();
+    if (!cache.has_value() || !cache->snapshot.has_value()) {
         return missing;
     }
     for (const auto& server : dns_config.servers.value_or(std::vector<DnsServer>{})) {
-        const std::string policy = server.keenetic_policy.value_or("");
-        if (server.type.value_or(api::DnsServerType::STATIC) != api::DnsServerType::KEENETIC ||
-            is_keenetic_system_policy(policy)) {
+        if (!is_keenetic_server(server)) {
             continue;
         }
-        const auto& proxies = snapshot->snapshot->proxies;
-        const bool present = std::any_of(proxies.begin(), proxies.end(), [&](const KeeneticDnsProxy& proxy) {
-            return proxy.name == policy && proxy.listen_port != 0;
-        });
-        if (!present) {
-            missing.push_back({server.tag, policy, on_missing_of(server)});
+        const auto resolution = resolve_keenetic_upstreams(*cache->snapshot, selected_upstreams(server));
+        if (!resolution.missing.empty()) {
+            missing.push_back({server.tag, resolution.missing, resolution.addresses.empty()});
         }
     }
     return missing;
@@ -79,38 +103,46 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config) {
     for (const auto& server : dns_config.servers.value_or(std::vector<DnsServer>{})) {
         const auto server_type = server.type.value_or(api::DnsServerType::STATIC);
         if (server_type == api::DnsServerType::KEENETIC) {
-            const std::string policy = server.keenetic_policy.value_or("");
-            const KeeneticPolicyResolution resolution = resolve_keenetic_dns_policy(policy);
-            std::vector<std::string> addresses = resolution.addresses;
-            if (is_keenetic_system_policy(policy)) {
-                system_tags_.insert(server.tag);
-            }
-            if (resolution.missing) {
-                const auto mode = on_missing_of(server);
-                missing_policies_.push_back({server.tag, policy, mode});
-                if (mode == api::KeeneticOnMissing::SYSTEM) {
-                    addresses = resolve_keenetic_dns_addresses();
-                    system_tags_.insert(server.tag);
-                } else {
-                    addresses.clear();
-                    blocked_tags_.insert(server.tag);
-                }
+            const auto selected = selected_upstreams(server);
+            const KeeneticUpstreamResolution resolution = resolve_keenetic_dns_upstreams(selected);
+            if (!resolution.missing.empty()) {
+                missing_upstreams_.push_back(
+                    {server.tag, resolution.missing, resolution.addresses.empty()});
             }
             const auto cache = peek_keenetic_dns_cache();
             const KeeneticDnsSnapshot* snapshot =
                 cache.has_value() && cache->snapshot.has_value() ? &*cache->snapshot : nullptr;
-            const bool via_system = system_tags_.count(server.tag) != 0;
             servers_[server.tag];  // a blocked tag is known, with no servers
-            for (const auto& resolved_address : addresses) {
-                DnsServerConfig& resolved = servers_[server.tag].emplace_back(
-                    parse_dns_server(server.tag, resolved_address, server.detour));
-                resolved.note = via_system ? system_upstream_note(snapshot, resolved_address)
-                                           : policy_note(snapshot, policy);
-                if (via_system && resolution.missing) {
-                    resolved.note += " (Keenetic group " + policy + " is missing)";
+            if (resolution.addresses.empty()) {
+                blocked_tags_.insert(server.tag);  // nothing to forward to
+            } else if (selected.size() >= 2) {
+                // One server= row per list: dnsmasq stores a record per domain
+                // and server, so the balancer stands in for all upstreams.
+                DnsBalancerGroup group;
+                group.port = static_cast<std::uint16_t>(kDnsBalancerBasePort + balancer_groups_.size());
+                for (const auto& address : resolution.addresses) {
+                    if (looks_like_ipv4(address)) {
+                        const ParsedDnsAddress parsed = parse_dns_address_str(address);
+                        group.upstreams.push_back({parsed.ip, parsed.port});
+                    }
+                }
+                DnsServerConfig& resolved = servers_[server.tag].emplace_back(parse_dns_server(
+                    server.tag, std::string(kDnsBalancerAddress) + ":" + std::to_string(group.port),
+                    std::nullopt));
+                resolved.note = balancer_note(snapshot, resolution.addresses);
+                balancer_groups_.push_back(std::move(group));
+            } else {
+                for (const auto& resolved_address : resolution.addresses) {
+                    DnsServerConfig& resolved = servers_[server.tag].emplace_back(
+                        parse_dns_server(server.tag, resolved_address, server.detour));
+                    resolved.note = system_upstream_note(snapshot, resolved_address);
                 }
             }
-            if (via_system && !system_seen_ && snapshot != nullptr) {
+            const bool serves = blocked_tags_.count(server.tag) == 0;
+            if (serves) {
+                system_tags_.insert(server.tag);
+            }
+            if (serves && !system_seen_ && snapshot != nullptr) {
                 system_seen_ = true;
                 system_static_entries_ = snapshot->static_entries;
                 if (const KeeneticDnsProxy* system = find_proxy(*snapshot, kKeeneticSystemPolicy)) {

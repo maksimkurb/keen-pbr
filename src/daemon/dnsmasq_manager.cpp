@@ -84,6 +84,7 @@ DnsmasqManager::DnsmasqManager(std::string hook_path,
         : DnsmasqCapabilityFn([](const std::string& p) { return probe_dnsmasq_capabilities(p); });
     preflight_fn_ = deps.preflight ? std::move(deps.preflight)
         : DnsmasqPreflightFn([](const DnsmasqInstance& i) { return run_dnsmasq_preflight(i); });
+    balancer_groups_ = std::move(deps.balancer_groups);
     if (!timing_.sleep) {
         timing_.sleep = [](std::chrono::milliseconds d) { std::this_thread::sleep_for(d); };
     }
@@ -170,6 +171,9 @@ void DnsmasqManager::sync_from_config(const Config& config, const CacheManager& 
         // The registry resolves type=keenetic servers and is only needed (and
         // allowed to fail) when the integration is on.
         const DnsServerRegistry registry(dnsmasq_integration_enabled(config) ? dns : DnsConfig{});
+        if (balancer_groups_) {
+            balancer_groups_(registry.balancer_groups());
+        }
         ListStreamer streamer(cache);
         sync(config, registry, streamer, explicit_apply, reason);
     } catch (const std::exception& error) {

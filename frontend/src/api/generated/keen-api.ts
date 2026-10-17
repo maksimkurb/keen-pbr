@@ -1355,9 +1355,9 @@ export const usePostListsRefresh = <TError = ErrorResponse,
     }
 
 /**
- * Returns the Keenetic DNS proxy groups (System, Policy0, ...) with their upstreams, as last read from the router. The router is read when nothing has been read yet. Answers 503 on builds without Keenetic API support.
+ * Returns the Keenetic built-in DNS proxy (`System`) with its upstreams, as last read from the router. The router is read when nothing has been read yet. Answers 503 on builds without Keenetic API support.
 
- * @summary Keenetic DNS proxy groups
+ * @summary Keenetic built-in DNS proxy
  */
 export type getKeeneticDnsProxiesResponse200 = {
   data: KeeneticDnsProxiesResponse
@@ -1460,7 +1460,7 @@ export function useGetKeeneticDnsProxies<TData = Awaited<ReturnType<typeof getKe
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Keenetic DNS proxy groups
+ * @summary Keenetic built-in DNS proxy
  */
 
 export function useGetKeeneticDnsProxies<TData = Awaited<ReturnType<typeof getKeeneticDnsProxies>>, TError = ErrorResponse>(
@@ -1480,9 +1480,9 @@ export function useGetKeeneticDnsProxies<TData = Awaited<ReturnType<typeof getKe
 
 
 /**
- * Reads the DNS proxy groups from the router right away. When the groups changed, the dnsmasq config is regenerated. If the router cannot be read, the previously read groups are returned together with `error`.
+ * Reads the built-in DNS proxy from the router right away. When it changed, the dnsmasq config is regenerated. If the router cannot be read, the previous read is returned together with `error`.
 
- * @summary Re-read the Keenetic DNS proxy groups
+ * @summary Re-read the Keenetic built-in DNS proxy
  */
 export type postKeeneticDnsProxiesRefreshResponse200 = {
   data: KeeneticDnsProxiesResponse
@@ -1562,7 +1562,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type PostKeeneticDnsProxiesRefreshMutationError = ErrorResponse
 
     /**
- * @summary Re-read the Keenetic DNS proxy groups
+ * @summary Re-read the Keenetic built-in DNS proxy
  */
 export const usePostKeeneticDnsProxiesRefresh = <TError = ErrorResponse,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postKeeneticDnsProxiesRefresh>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}

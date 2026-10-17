@@ -20,7 +20,6 @@ namespace keen_pbr3 {
 namespace {
 
 constexpr const char* kRciDnsProxyEndpoint = "http://127.0.0.1:79/rci/show/dns-proxy";
-constexpr const char* kRciPolicyEndpoint = "http://127.0.0.1:79/rci/show/rc/ip/policy";
 constexpr auto kKeeneticDnsCacheTtl = std::chrono::minutes(5);
 
 struct KeeneticDnsCacheState {
@@ -48,15 +47,6 @@ FetchFn& keenetic_dns_fetch_fn() {
         HttpClient client;
         client.set_timeout(std::chrono::seconds(3));
         return client.download(kRciDnsProxyEndpoint);
-    };
-    return fetch_fn;
-}
-
-FetchFn& keenetic_policy_fetch_fn() {
-    static FetchFn fetch_fn = []() {
-        HttpClient client;
-        client.set_timeout(std::chrono::seconds(3));
-        return client.download(kRciPolicyEndpoint);
     };
     return fetch_fn;
 }
@@ -145,16 +135,14 @@ ParsedDnsServerLine parse_dns_server_line(const std::string& line) {
         parsed.kind = "DoT";
         const auto suffix_pos = comment.find('@');
         parsed.target = comment.substr(0, suffix_pos);
-    } else if (comment.rfind("tls.", 0) == 0) {
+    } else if (comment.rfind("tls.", 0) == 0 ||
+               (comment.find('@') != std::string::npos &&
+                comment.find("://") == std::string::npos)) {
         parsed.is_encrypted = true;
         parsed.kind = "DoT";
+        // "8.8.8.8@dns.google": the address is part of the identity, two
+        // upstreams can share a name.
         parsed.target = comment;
-    } else if (comment.find('@') != std::string::npos &&
-               comment.find("://") == std::string::npos) {
-        parsed.is_encrypted = true;
-        parsed.kind = "DoT";
-        const auto suffix_pos = comment.find('@');
-        parsed.target = "tls://" + comment.substr(suffix_pos + 1);
     } else {
         parsed.kind = "Plain";
     }
@@ -233,41 +221,15 @@ struct ParsedProxyConfig {
     std::vector<ParsedDnsServerLine> unscoped_encrypted_servers;
     std::vector<KeeneticStaticDnsEntry> static_entries;
     std::vector<KeeneticDnsDomainServers> domain_servers;
-    uint16_t udp_port{0};
 };
 
-uint16_t parse_dns_udp_port_line(const std::string& line) {
-    constexpr const char* kPrefix = "dns_udp_port = ";
-    if (line.rfind(kPrefix, 0) != 0) {
-        return 0;
-    }
-    const std::string value = trim_copy(line.substr(std::char_traits<char>::length(kPrefix)));
-    if (value.empty() || value.size() > 5) {
-        return 0;
-    }
-    unsigned long port = 0;
-    for (const char c : value) {
-        if (c < '0' || c > '9') {
-            return 0;
-        }
-        port = port * 10 + static_cast<unsigned long>(c - '0');
-    }
-    return port <= 65535 ? static_cast<uint16_t>(port) : uint16_t{0};
-}
-
-// Reads one proxy-config text. `strict` (the System group, which keen-pbr
-// uses directly) rejects invalid addresses; other groups only skip such lines.
-ParsedProxyConfig parse_proxy_config(const std::string& config, bool strict) {
+// Reads the System proxy-config text; invalid addresses are rejected.
+ParsedProxyConfig parse_proxy_config(const std::string& config) {
     ParsedProxyConfig parsed;
     std::istringstream in(config);
     std::string line;
     while (std::getline(in, line)) {
         const std::string trimmed = trim_copy(line);
-
-        if (const uint16_t port = parse_dns_udp_port_line(trimmed); port != 0) {
-            parsed.udp_port = port;
-            continue;
-        }
 
         const ParsedStaticDnsLine static_parsed = parse_static_dns_line(trimmed);
         if (!static_parsed.domain.empty() || !static_parsed.address.empty()) {
@@ -277,9 +239,6 @@ ParsedProxyConfig parse_proxy_config(const std::string& config, bool strict) {
             try {
                 (void)parse_dns_address_str(static_parsed.address);
             } catch (const DnsError& e) {
-                if (!strict) {
-                    continue;
-                }
                 throw KeeneticDnsError(
                     "RCI returned invalid static dns address '" + static_parsed.address + "': " + e.what());
             }
@@ -298,9 +257,6 @@ ParsedProxyConfig parse_proxy_config(const std::string& config, bool strict) {
         try {
             (void)parse_dns_address_str(server.address);
         } catch (const DnsError& e) {
-            if (!strict) {
-                continue;
-            }
             throw KeeneticDnsError(
                 "RCI returned invalid dns_server address '" + server.address + "': " + e.what());
         }
@@ -360,24 +316,22 @@ KeeneticDnsSnapshot extract_keenetic_dns_snapshot_from_rci(const std::string& re
             continue;
         }
         const std::string name = name_it->get<std::string>();
-        const bool is_system = name == kKeeneticSystemPolicy;
-
-        const auto cfg_it = entry.find("proxy-config");
-        if (cfg_it == entry.end() || !cfg_it->is_string()) {
-            if (is_system) {
-                throw KeeneticDnsError(
-                    "RCI response has 'System' DNS proxy but missing string field 'proxy-config'");
-            }
+        if (name != kKeeneticSystemPolicy || system_found) {
             continue;
         }
 
-        ParsedProxyConfig parsed = parse_proxy_config(cfg_it->get<std::string>(), is_system);
+        const auto cfg_it = entry.find("proxy-config");
+        if (cfg_it == entry.end() || !cfg_it->is_string()) {
+            throw KeeneticDnsError(
+                "RCI response has 'System' DNS proxy but missing string field 'proxy-config'");
+        }
+
+        ParsedProxyConfig parsed = parse_proxy_config(cfg_it->get<std::string>());
         const std::vector<ParsedDnsServerLine> selected = collect_selected_keenetic_dns_servers(
             parsed.unscoped_plaintext_servers, parsed.unscoped_encrypted_servers);
 
         KeeneticDnsProxy proxy;
         proxy.name = name;
-        proxy.listen_port = parsed.udp_port;
         proxy.upstreams.reserve(selected.size());
         for (const auto& server : selected) {
             proxy.upstreams.push_back(
@@ -386,11 +340,9 @@ KeeneticDnsSnapshot extract_keenetic_dns_snapshot_from_rci(const std::string& re
         proxy.domain_servers = std::move(parsed.domain_servers);
         snapshot.proxies.push_back(std::move(proxy));
 
-        if (is_system && !system_found) {
-            system_found = true;
-            system_servers = selected;
-            snapshot.static_entries = std::move(parsed.static_entries);
-        }
+        system_found = true;
+        system_servers = selected;
+        snapshot.static_entries = std::move(parsed.static_entries);
     }
 
     if (!system_found) {
@@ -408,46 +360,6 @@ KeeneticDnsSnapshot extract_keenetic_dns_snapshot_from_rci(const std::string& re
         snapshot.upstreams.push_back({server.address, server.kind, server.target});
     }
     return snapshot;
-}
-
-void apply_keenetic_policy_descriptions(KeeneticDnsSnapshot& snapshot,
-                                        const std::string& policy_listing_body) {
-    nlohmann::json doc;
-    try {
-        doc = nlohmann::json::parse(policy_listing_body);
-    } catch (const std::exception& e) {
-        throw KeeneticDnsError(std::string("Failed to parse RCI policy listing: ") + e.what());
-    }
-    if (!doc.is_object()) {
-        throw KeeneticDnsError("RCI policy listing is not a JSON object");
-    }
-    for (auto& proxy : snapshot.proxies) {
-        const auto it = doc.find(proxy.name);
-        if (it == doc.end() || !it->is_object()) {
-            continue;
-        }
-        const auto description_it = it->find("description");
-        if (description_it != it->end() && description_it->is_string()) {
-            proxy.description = description_it->get<std::string>();
-        }
-        proxy.route_interfaces.clear();
-        const auto permit_it = it->find("permit");
-        if (proxy.name != kKeeneticSystemPolicy && permit_it != it->end() &&
-            permit_it->is_array()) {
-            for (const auto& permit : *permit_it) {
-                if (!permit.is_object()) {
-                    continue;
-                }
-                const auto enabled_it = permit.find("enabled");
-                const auto interface_it = permit.find("interface");
-                if (enabled_it != permit.end() && enabled_it->is_boolean() &&
-                    enabled_it->get<bool>() && interface_it != permit.end() &&
-                    interface_it->is_string()) {
-                    proxy.route_interfaces.push_back(interface_it->get<std::string>());
-                }
-            }
-        }
-    }
 }
 
 KeeneticDnsCacheView refresh_keenetic_dns_cache(bool force_refresh) {
@@ -480,23 +392,6 @@ KeeneticDnsCacheView refresh_keenetic_dns_cache(bool force_refresh) {
     try {
         const std::string response = keenetic_dns_fetch_fn()();
         KeeneticDnsSnapshot snapshot = extract_keenetic_dns_snapshot_from_rci(response);
-        // Names are decoration: when the policy listing cannot be read the
-        // snapshot is still good and keeps the descriptions it already had.
-        try {
-            apply_keenetic_policy_descriptions(snapshot, keenetic_policy_fetch_fn()());
-        } catch (const std::exception&) {
-            if (cache.snapshot.has_value()) {
-                for (auto& proxy : snapshot.proxies) {
-                    for (const auto& old_proxy : cache.snapshot->proxies) {
-                        if (old_proxy.name == proxy.name) {
-                            proxy.description = old_proxy.description;
-                            proxy.route_interfaces = old_proxy.route_interfaces;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
         const bool changed = !cache.snapshot.has_value() || !(*cache.snapshot == snapshot);
         cache.snapshot = std::move(snapshot);
         cache.fetched_at = now;
@@ -557,25 +452,38 @@ std::vector<std::string> resolve_keenetic_dns_addresses(bool force_refresh) {
     throw KeeneticDnsError(result.error);
 }
 
-KeeneticPolicyResolution resolve_keenetic_dns_policy(const std::string& policy) {
-    KeeneticPolicyResolution resolution;
-    if (is_keenetic_system_policy(policy)) {
-        resolution.addresses = resolve_keenetic_dns_addresses();
+KeeneticUpstreamResolution resolve_keenetic_upstreams(
+    const KeeneticDnsSnapshot& snapshot,
+    const std::vector<KeeneticDnsProxyUpstream>& selected) {
+    KeeneticUpstreamResolution resolution;
+    if (selected.empty()) {
+        resolution.addresses = snapshot.addresses;
         return resolution;
     }
+    for (const auto& wanted : selected) {
+        const auto found = std::find_if(
+            snapshot.upstreams.begin(), snapshot.upstreams.end(),
+            [&](const KeeneticDnsUpstreamEntry& upstream) {
+                return upstream.kind == wanted.kind &&
+                       keenetic_upstream_target(upstream) == wanted.target;
+            });
+        if (found == snapshot.upstreams.end()) {
+            resolution.missing.push_back(wanted);
+        } else if (std::find(resolution.addresses.begin(), resolution.addresses.end(),
+                             found->address) == resolution.addresses.end()) {
+            resolution.addresses.push_back(found->address);
+        }
+    }
+    return resolution;
+}
 
+KeeneticUpstreamResolution resolve_keenetic_dns_upstreams(
+    const std::vector<KeeneticDnsProxyUpstream>& selected) {
     const KeeneticDnsCacheView view = refresh_keenetic_dns_cache(false);
     if (!view.snapshot.has_value()) {
         throw KeeneticDnsError(view.error);
     }
-    for (const auto& proxy : view.snapshot->proxies) {
-        if (proxy.name == policy && proxy.listen_port != 0) {
-            resolution.addresses.push_back("127.0.0.1:" + std::to_string(proxy.listen_port));
-            return resolution;
-        }
-    }
-    resolution.missing = true;
-    return resolution;
+    return resolve_keenetic_upstreams(*view.snapshot, selected);
 }
 
 std::vector<KeeneticStaticDnsEntry> get_keenetic_static_dns_entries() {
@@ -611,11 +519,6 @@ void set_keenetic_dns_fetcher_for_tests(KeeneticDnsFetchFn fetcher) {
     keenetic_dns_fetch_fn() = std::move(fetcher);
 }
 
-void set_keenetic_policy_fetcher_for_tests(KeeneticDnsFetchFn fetcher) {
-    std::lock_guard<std::mutex> lock(keenetic_dns_cache_mutex());
-    keenetic_policy_fetch_fn() = std::move(fetcher);
-}
-
 void set_keenetic_dns_now_fn_for_tests(KeeneticDnsNowFn now_fn) {
     std::lock_guard<std::mutex> lock(keenetic_dns_cache_mutex());
     keenetic_dns_now_fn() = std::move(now_fn);
@@ -628,9 +531,6 @@ void reset_keenetic_dns_test_state() {
         HttpClient client;
         client.set_timeout(std::chrono::seconds(3));
         return client.download(kRciDnsProxyEndpoint);
-    };
-    keenetic_policy_fetch_fn() = []() -> std::string {
-        throw HttpError("policy listing is not available in tests");
     };
     keenetic_dns_now_fn() = []() {
         return std::chrono::steady_clock::now();

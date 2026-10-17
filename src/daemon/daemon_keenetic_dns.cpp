@@ -84,10 +84,10 @@ KeeneticDnsCacheView Daemon::refresh_keenetic_dns_now() {
     if (!view.error.empty()) {
         // One line per outage, not one per poll.
         if (!keenetic_dns_poll_failing_.exchange(true, std::memory_order_acq_rel)) {
-            log.warn("Keenetic DNS proxy groups cannot be read: {}", view.error);
+            log.warn("Keenetic DNS upstreams cannot be read: {}", view.error);
         }
     } else if (keenetic_dns_poll_failing_.exchange(false, std::memory_order_acq_rel)) {
-        log.info("Keenetic DNS proxy groups can be read again");
+        log.info("Keenetic DNS upstreams can be read again");
     }
     if (view.status == KeeneticDnsRefreshStatus::UPDATED) {
         post_control_task([this] { on_keenetic_dns_changed(); }, "keenetic-dns-changed");
@@ -95,14 +95,27 @@ KeeneticDnsCacheView Daemon::refresh_keenetic_dns_now() {
     return view;
 }
 
+DnsmasqManagerDeps Daemon::make_dnsmasq_deps() {
+    DnsmasqManagerDeps deps;
+    deps.balancer_groups = [this](const std::vector<DnsBalancerGroup>& groups) {
+        const std::vector<std::uint16_t> failed = dns_balancer_.configure(groups);
+        for (const std::uint16_t port : failed) {
+            Logger::instance().warn("DNS balancer cannot listen on {}:{}; the DNS servers "
+                                    "balancing Keenetic upstreams will not answer",
+                                    kDnsBalancerAddress, port);
+        }
+    };
+    return deps;
+}
+
 void Daemon::on_keenetic_dns_changed() {
-    Logger::instance().info("Keenetic DNS proxy groups changed");
+    Logger::instance().info("Keenetic DNS upstreams changed");
     // The content hash makes this a no-op when the generated config is the same.
     if (dnsmasq_integration_enabled(config_)) {
         schedule_dnsmasq_sync("keenetic dns changed", /*explicit_apply=*/false);
     }
 #ifdef WITH_API
-    // A policy may have appeared or disappeared.
+    // An upstream may have appeared or disappeared.
     if (status_stream_) {
         status_stream_->reconcile(StatusUpdate::Issues);
     }

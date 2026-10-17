@@ -262,11 +262,11 @@ export const enTranslation = {
       outboundUnavailable: "{{tag}} is unavailable",
       outboundDegraded: "{{tag}} is degraded",
       groupMembersFailing: "{{tag}}: failing members: {{count}}",
-      keeneticDnsPolicyMissing: "Keenetic DNS proxy group not found",
-      keeneticDnsPolicyBlocked:
-        "{{tag}}: group {{policy}} no longer exists, requests are blocked",
-      keeneticDnsPolicySystem:
-        "{{tag}}: group {{policy}} no longer exists, System DNS is used",
+      keeneticDnsUpstreamMissing: "Keenetic DNS server not found",
+      keeneticDnsUpstreamBlocked:
+        "{{tag}}: {{upstreams}} is no longer set in Keenetic, requests are blocked",
+      keeneticDnsUpstreamPartial:
+        "{{tag}}: {{upstreams}} is no longer set in Keenetic, the other selected servers are used",
       hostWarning: {
         nat_missing: "{{interface}}: no NAT (MASQUERADE/SNAT) for this WAN",
         nat_partial: "{{interface}}: NAT covers only some source subnets",
@@ -966,30 +966,21 @@ export const enTranslation = {
     },
   },
   keeneticDns: {
-    systemGroup: "System",
     notFound: "{{name}} (not found)",
-    policy: {
-      label: "DNS proxy group",
-      hint: "The Keenetic DNS proxy group that answers requests to this server. System is the router's regular DNS.",
+    upstreams: {
+      label: "Upstream servers",
+      hint: "Servers of the Keenetic built-in DNS this server uses. If none is selected, all of them are used. The servers are set in the Keenetic web interface (Network Rules -> Internet safety -> DNS Configuration); if DoT or DoH servers are set there, only they are used.",
+      none: "Keenetic has no upstream servers set.",
+      balanced:
+        "Requests are spread over the selected servers in turn. If one stops answering, the next one takes over.",
     },
-    upstreams: "Upstream servers of the group",
-    noUpstreams: "The group has no upstream servers.",
-    via: "Via: {{interfaces}}",
     domainServers: {
       title: "For specific domains",
-      hint: "These servers are set in the general DNS settings of Keenetic, not in the policy.",
+      hint: "These servers are set in the general DNS settings of Keenetic.",
     },
     openSettings: "Open Keenetic DNS settings",
-    refresh: "Refresh now",
-    loadError: "Could not read DNS proxy groups from the router: {{message}}",
-    onMissing: {
-      label: "If the group disappears",
-      hint: "What to do with requests to this server when the group is deleted in the Keenetic settings.",
-      options: {
-        block: "Block requests",
-        system: "Use System DNS",
-      },
-    },
+    refresh: "Sync with Keenetic",
+    loadError: "Could not read DNS servers from the router: {{message}}",
   },
   pages: {
     security: {
@@ -1144,7 +1135,7 @@ export const enTranslation = {
       title: "DNS Servers",
       description: "Upstream DNS servers used for domain name resolution.",
       keeneticAddress: "Keenetic built-in DNS",
-      keeneticPolicyAddress: "Keenetic: {{name}}",
+      keeneticUpstreamsAddress: "Keenetic: {{upstreams}}",
       actions: {
         add: "Add DNS server",
       },
@@ -1207,15 +1198,6 @@ export const enTranslation = {
         typeOptions: {
           keenetic: "Keenetic DNS",
           static: "Plaintext DNS",
-        },
-        keeneticNotice: {
-          description:
-            "Configure DNS servers in the Keenetic web interface for this mode.",
-          openLink: "Go to settings",
-          navigation:
-            "Go to Network Rules -> Internet safety -> DNS Configuration (Russian UI: Сетевые правила -> Интернет-фильтры -> Настройка DNS).",
-          dotDohOnly:
-            "If any DoT or DoH servers are configured there, only those servers will be used.",
         },
         address: "Address",
         addressPlaceholder: "1.1.1.1 or [2606:4700::1111]:53",

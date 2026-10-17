@@ -1,4 +1,3 @@
-import { ExternalLink } from "lucide-react"
 import { useMemo } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
@@ -6,7 +5,7 @@ import { useLocation } from "wouter"
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { DnsServer } from "@/api/generated/model/dnsServer"
-import type { DnsServerKeeneticOnMissing } from "@/api/generated/model/dnsServerKeeneticOnMissing"
+import type { KeeneticDnsProxyUpstream } from "@/api/generated/model/keeneticDnsProxyUpstream"
 import { DnsServerType } from "@/api/generated/model/dnsServerType"
 import { usePostConfigMutation } from "@/api/mutations"
 import { useGetConfig } from "@/api/queries"
@@ -18,7 +17,7 @@ import {
   FieldHint,
   FieldLabel,
 } from "@/components/shared/field"
-import { KeeneticPolicyFields } from "@/components/shared/keenetic-policy-fields"
+import { KeeneticUpstreamFields } from "@/components/shared/keenetic-upstream-fields"
 import { OutboundSelect } from "@/components/shared/outbound-select"
 import { UpsertPage } from "@/components/shared/upsert-page"
 import { ServerValidationAlert } from "@/components/shared/server-validation-alert"
@@ -36,7 +35,6 @@ import {
 import i18n from "@/i18n"
 import { useDraftForm } from "@/lib/draft-form"
 import { PLATFORM_DEVELOPMENT, PLATFORM_KEENETIC } from "@/lib/platform"
-import { KEENETIC_SYSTEM_POLICY } from "@/lib/keenetic-dns"
 import { getTagNameValidationError } from "@/lib/tag-name-validation"
 
 type DnsServerDraft = {
@@ -44,10 +42,8 @@ type DnsServerDraft = {
   type: typeof DnsServerType.static | typeof DnsServerType.keenetic
   address: string
   detour: string
-  // "" is the System group.
-  keenetic_policy: string
-  // "" is untouched: the daemon's default applies and nothing is written.
-  keenetic_on_missing: DnsServerKeeneticOnMissing | ""
+  // Empty is every upstream of the Keenetic built-in DNS; nothing is written.
+  keenetic_upstreams: KeeneticDnsProxyUpstream[]
 }
 
 const emptyDnsServerDraft: DnsServerDraft = {
@@ -55,8 +51,7 @@ const emptyDnsServerDraft: DnsServerDraft = {
   type: DnsServerType.static,
   address: "",
   detour: "",
-  keenetic_policy: "",
-  keenetic_on_missing: "",
+  keenetic_upstreams: [],
 }
 
 export function DnsServerUpsertPage({
@@ -226,16 +221,14 @@ function DnsServerForm({
     }
 
     const normalizedDetour = isKeeneticDns ? "" : value.detour.trim()
-    // Only a group other than System has something to decide.
-    const keeneticPolicy = isKeeneticDns ? value.keenetic_policy.trim() : ""
+    const keeneticUpstreams = isKeeneticDns ? value.keenetic_upstreams : []
     const nextServer: DnsServer = {
       tag: normalizedTag,
       type: value.type,
       ...(normalizedAddress ? { address: normalizedAddress } : {}),
       ...(normalizedDetour ? { detour: normalizedDetour } : {}),
-      ...(keeneticPolicy ? { keenetic_policy: keeneticPolicy } : {}),
-      ...(keeneticPolicy && value.keenetic_on_missing
-        ? { keenetic_on_missing: value.keenetic_on_missing }
+      ...(keeneticUpstreams.length > 0
+        ? { keenetic_upstreams: keeneticUpstreams }
         : {}),
     }
 
@@ -327,65 +320,10 @@ function DnsServerForm({
         ) : null}
 
         {isKeeneticDns ? (
-          <Field>
-            <FieldContent>
-              <Alert>
-                <AlertDescription className="space-y-2">
-                  <p className="flex flex-wrap items-center gap-2">
-                    <span>
-                      {t(
-                        "pages.dnsServerUpsert.fields.keeneticNotice.description"
-                      )}
-                    </span>
-                    <Button
-                      onClick={() =>
-                        window.open(
-                          "http://my.keenetic.net/internet-filter/dns-configuration",
-                          "_blank",
-                          "noopener,noreferrer"
-                        )
-                      }
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      {t(
-                        "pages.dnsServerUpsert.fields.keeneticNotice.openLink"
-                      )}
-                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                    </Button>
-                  </p>
-                  <p>
-                    {t(
-                      "pages.dnsServerUpsert.fields.keeneticNotice.navigation"
-                    )}
-                  </p>
-                  <p>
-                    {t(
-                      "pages.dnsServerUpsert.fields.keeneticNotice.dotDohOnly"
-                    )}
-                  </p>
-                </AlertDescription>
-              </Alert>
-            </FieldContent>
-          </Field>
-        ) : null}
-
-        {isKeeneticDns ? (
-          <KeeneticPolicyFields
-            onMissing={values.keenetic_on_missing}
-            onMissingError={form.errorFor("keenetic_on_missing")}
-            onOnMissingChange={(value) =>
-              form.setValue("keenetic_on_missing", value)
-            }
-            onPolicyChange={(policy) => {
-              form.setValue("keenetic_policy", policy)
-              if (!policy) {
-                form.setValue("keenetic_on_missing", "")
-              }
-            }}
-            policy={values.keenetic_policy}
-            policyError={form.errorFor("keenetic_policy")}
+          <KeeneticUpstreamFields
+            error={form.errorFor("keenetic_upstreams")}
+            onChange={(selected) => form.setValue("keenetic_upstreams", selected)}
+            selected={values.keenetic_upstreams}
           />
         ) : null}
 
@@ -481,11 +419,7 @@ function getDnsServerDraft(server?: DnsServer): DnsServerDraft {
     type: server.type ?? DnsServerType.static,
     address: server.address ?? "",
     detour: server.detour ?? "",
-    keenetic_policy:
-      server.keenetic_policy === KEENETIC_SYSTEM_POLICY
-        ? ""
-        : (server.keenetic_policy ?? ""),
-    keenetic_on_missing: server.keenetic_on_missing ?? "",
+    keenetic_upstreams: server.keenetic_upstreams ?? [],
   }
 }
 

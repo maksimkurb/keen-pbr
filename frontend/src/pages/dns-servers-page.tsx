@@ -9,6 +9,7 @@ import type { getConfigResponse } from "@/api/generated/keen-api"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { DnsRule } from "@/api/generated/model/dnsRule"
 import { DnsServerType } from "@/api/generated/model/dnsServerType"
+import type { KeeneticDnsProxyUpstream } from "@/api/generated/model/keeneticDnsProxyUpstream"
 import {
   useConfigMutationPending,
   usePostConfigMutation,
@@ -32,11 +33,7 @@ import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { useRowSelection } from "@/hooks/use-row-selection"
-import {
-  keeneticProxyLabel,
-  supportsKeeneticDns,
-  useKeeneticDnsProxies,
-} from "@/lib/keenetic-dns"
+import { keeneticUpstreamLabel, supportsKeeneticDns } from "@/lib/keenetic-dns"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -67,20 +64,13 @@ export function DnsServersPage() {
   const hasKeeneticServers = dnsServers.some(
     (server) => server.type === DnsServerType.keenetic
   )
-  const keeneticProxies = useKeeneticDnsProxies(hasKeeneticServers).proxies
 
-  const keeneticAddress = (policy: string | undefined) => {
-    if (!policy || policy === "System") {
-      return t("pages.dnsServers.keeneticAddress")
-    }
-    const proxy = keeneticProxies?.find((candidate) => candidate.name === policy)
-    const name = proxy
-      ? keeneticProxyLabel(proxy)
-      : keeneticProxies
-        ? t("keeneticDns.notFound", { name: policy })
-        : policy
-    return t("pages.dnsServers.keeneticPolicyAddress", { name })
-  }
+  const keeneticAddress = (upstreams: KeeneticDnsProxyUpstream[] | undefined) =>
+    upstreams && upstreams.length > 0
+      ? t("pages.dnsServers.keeneticUpstreamsAddress", {
+          upstreams: upstreams.map(keeneticUpstreamLabel).join(", "),
+        })
+      : t("pages.dnsServers.keeneticAddress")
 
   const deleteServer = (serverTag: string) => {
     if (!config) {
@@ -143,7 +133,7 @@ export function DnsServersPage() {
       <PageHeader
         actions={
           effectiveResolverIntegration(config) === "dnsmasq" ? (
-            <>
+            <div className="flex items-center gap-2">
               {hasKeeneticServers && supportsKeeneticDns ? (
                 <>
                   <KeeneticDnsSettingsLink />
@@ -163,7 +153,7 @@ export function DnsServersPage() {
                 icon={<Plus className="size-4" />}
                 onClick={() => navigate("/dns-servers/create")}
               />
-            </>
+            </div>
           ) : null
         }
         description={t("pages.dnsServers.description")}
@@ -227,7 +217,7 @@ export function DnsServersPage() {
                 key={`${server.tag}-address`}
               >
                 {server.type === DnsServerType.keenetic
-                  ? keeneticAddress(server.keenetic_policy)
+                  ? keeneticAddress(server.keenetic_upstreams)
                   : server.address}
               </span>,
               <Badge

@@ -119,6 +119,10 @@ struct DnsmasqManagerDeps {
     DnsmasqDetectFn detect;           // default: DnsmasqDetector(hook_path).detect
     DnsmasqCapabilityFn capability;   // default: probe_dnsmasq_capabilities(path)
     DnsmasqPreflightFn preflight;     // default: run_dnsmasq_preflight(inst)
+    // Told the DNS balancer groups the registry of every sync_from_config()
+    // run needs (empty when none), before dnsmasq gets the config that
+    // points at them.  Default: nobody listens.
+    std::function<void(const std::vector<DnsBalancerGroup>&)> balancer_groups;
 };
 
 struct DnsmasqTiming {
@@ -260,6 +264,7 @@ private:
     DnsmasqDetectFn detect_;
     DnsmasqCapabilityFn capability_fn_;
     DnsmasqPreflightFn preflight_fn_;
+    std::function<void(const std::vector<DnsBalancerGroup>&)> balancer_groups_;
     DnsmasqTiming timing_;
     std::atomic<bool> check_armed_{false};
 

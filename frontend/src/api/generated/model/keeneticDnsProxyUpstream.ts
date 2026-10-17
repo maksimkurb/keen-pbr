@@ -9,6 +9,7 @@ import type { KeeneticDnsProtocol } from './keeneticDnsProtocol';
 
 export interface KeeneticDnsProxyUpstream {
   protocol: KeeneticDnsProtocol;
-  /** URI of a DoH/DoT upstream, address of a plain one. */
+  /** URI of a DoH upstream, `address@name` of a DoT one, address of a plain one.
+   */
   target: string;
 }

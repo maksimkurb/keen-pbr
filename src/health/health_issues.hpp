@@ -9,11 +9,12 @@
 
 namespace keen_pbr3 {
 
-// A type=keenetic DNS server whose Keenetic DNS proxy group is gone from the router.
+// A type=keenetic DNS server that selects upstreams the Keenetic built-in DNS
+// no longer has.
 struct KeeneticDnsMissingInput {
     std::string tag;
-    std::string policy;
-    bool block{true};  // true: queries are blocked; false: the System upstreams are used
+    std::vector<std::string> upstreams;  // "DoT 8.8.8.8@dns.google", the missing ones
+    bool block{true};  // true: none is left, queries are blocked; false: the others are used
 };
 
 // Inputs of the overview health verdict. Null pointers mean "not available".

@@ -2,6 +2,7 @@
 
 #include "../cmd/test_routing.hpp"
 #include "../config/config.hpp"
+#include "../dns/dns_balancer.hpp"
 #include "../dns/keenetic_dns.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_counters.hpp"
@@ -345,7 +346,7 @@ private:
   // cancels it.  Control-thread only.
   void start_dnsmasq_check();
   void stop_dnsmasq_check();
-  // Keenetic DNS proxy groups: a repeating tick (control thread) reads them
+  // Keenetic built-in DNS upstreams: a repeating tick (control thread) reads them
   // from the router when someone watches the dashboard or the last read is
   // old, and re-syncs dnsmasq when they changed.
   void start_keenetic_dns_poll();
@@ -356,6 +357,8 @@ private:
   // Forced read; on a change posts on_keenetic_dns_changed().  Blocking, any thread.
   KeeneticDnsCacheView refresh_keenetic_dns_now();
   void on_keenetic_dns_changed();
+  // Deps of dnsmasq_manager_: lets its sync configure dns_balancer_.
+  DnsmasqManagerDeps make_dnsmasq_deps();
   ListsRefreshExecutionResult execute_remote_list_refresh(
       const std::set<std::string> *target_lists = nullptr,
       std::string_view source = "service");
@@ -527,6 +530,10 @@ IcmpTester icmp_tester_;
   // probe cycles that change nothing skip the firewall rebuild. Cleared
   // whenever the configured groups are rebuilt.
   std::map<std::string, BalanceClassifierState> balance_classifier_cache_;
+  // Forwards for DNS servers that balance several Keenetic upstreams; the
+  // dnsmasq sync configures it.  Declared before dnsmasq_manager_, whose
+  // deps point at it.
+  DnsBalancer dns_balancer_;
   // Declared before the executor: queued sync jobs reference it, so the
   // executor must be torn down first.
   DnsmasqManager dnsmasq_manager_;

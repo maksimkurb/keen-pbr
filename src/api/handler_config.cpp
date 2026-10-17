@@ -84,11 +84,6 @@ Config make_config_defaults() {
 
     config.lists_autoupdate.emplace().enabled = d::lists_autoupdate_enabled;
 
-    // dns.servers is a list: its single placeholder entry (empty tag) carries
-    // the defaults of an entry's optional settings.
-    DnsServer& dns_server_defaults = config.dns.emplace().servers.emplace().emplace_back();
-    dns_server_defaults.keenetic_on_missing = d::keenetic_on_missing;
-
     InterceptConfig& intercept = config.intercept.emplace();
     intercept.enabled = d::intercept_enabled;
     intercept.min_ttl_ms = d::intercept_min_ttl_ms;

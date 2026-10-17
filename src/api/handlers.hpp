@@ -98,7 +98,7 @@ struct ApiContext {
     // Classified health issues; unset in fixtures that do not serve them.
     std::function<api::HealthIssuesResponse()> get_health_issues_fn;
 
-    // The Keenetic DNS proxy groups: the cached read (reading the router when
+    // The Keenetic built-in DNS proxy: the cached read (reading the router when
     // nothing is cached) and a forced re-read; unset on builds without
     // USE_KEENETIC_API.
     std::function<KeeneticDnsCacheView()> get_keenetic_dns_proxies_fn;
@@ -224,8 +224,8 @@ struct ApiContext {
 //   POST /api/service/stop    - stop routing runtime
 //   POST /api/service/restart - restart routing runtime
 //   POST /api/lists/refresh   - refresh one or all URL-backed lists
-//   GET  /api/keenetic/dns-proxies - Keenetic DNS proxy groups
-//   POST /api/keenetic/dns-proxies/refresh - re-read them from the router
+//   GET  /api/keenetic/dns-proxies - Keenetic built-in DNS proxy
+//   POST /api/keenetic/dns-proxies/refresh - re-read it from the router
 //   GET  /api/config          - return current config and draft status
 //   POST /api/config          - validate + stage config in memory
 //   POST /api/config/discard  - discard staged config and restore saved config

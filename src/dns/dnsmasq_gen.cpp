@@ -68,17 +68,23 @@ bool is_wildcard_record(const std::string& domain) {
     return domain.size() > 2 && domain.compare(0, 2, "*.") == 0;
 }
 
-// Why the queries of a list are refused: the Keenetic policy of its server is gone.
+// Why the queries of a list are refused: the Keenetic upstreams of its server are gone.
 std::string blocked_reason(const DnsServerRegistry& registry,
                            const std::vector<std::string>& servers) {
     std::string reason;
-    for (const auto& missing : registry.missing_keenetic_policies()) {
-        if (missing.mode != api::KeeneticOnMissing::BLOCK ||
+    for (const auto& missing : registry.missing_keenetic_upstreams()) {
+        if (!missing.blocked ||
             std::find(servers.begin(), servers.end(), missing.tag) == servers.end()) {
             continue;
         }
         reason += reason.empty() ? "" : ", ";
-        reason += "Keenetic policy '" + missing.policy + "' is missing";
+        reason += "Keenetic upstream";
+        reason += missing.upstreams.size() == 1 ? " " : "s ";
+        for (size_t i = 0; i < missing.upstreams.size(); ++i) {
+            reason += (i == 0 ? "'" : ", '") + missing.upstreams[i].kind + " " +
+                      missing.upstreams[i].target + "'";
+        }
+        reason += missing.upstreams.size() == 1 ? " is missing" : " are missing";
     }
     return (reason.empty() ? std::string("DNS server is blocked") : reason) +
            ", queries are blocked";
@@ -176,7 +182,7 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
         std::vector<std::string> addresses;   // their resolved upstreams
         std::vector<std::string> comments;    // what each address is, same order
         bool allow_rebind = false;
-        bool blocked = false;                 // a server of a missing Keenetic policy
+        bool blocked = false;                 // a server whose Keenetic upstreams are all gone
     };
     std::map<std::string, ListUpstreams> dns_lists;
     for (const auto& rule : dns_config_.rules.value_or(std::vector<DnsRule>{})) {
@@ -220,7 +226,7 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
         }
 
         const bool allow_domain_rebinding = upstreams.allow_rebind;
-        // Nothing but missing Keenetic policies: an address-less server= row
+        // Nothing but missing Keenetic upstreams: an address-less server= row
         // makes dnsmasq refuse the domains instead of sending them to the
         // default upstream.
         const bool block_queries = upstreams.addresses.empty() && upstreams.blocked;

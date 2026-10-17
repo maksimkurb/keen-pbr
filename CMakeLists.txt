@@ -343,6 +343,7 @@ set(SOURCES
   src/firewall/firewall_verifier.cpp
   src/dns/dns_server.cpp
   src/dns/keenetic_dns.cpp
+  src/dns/dns_balancer.cpp
   src/dns/dns_wire.cpp
   src/dns/dns_txt_probe.cpp
   src/dns/dns_client.cpp

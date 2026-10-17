@@ -27,5 +27,5 @@ export const HealthIssueCode = {
   outbound_unavailable: 'outbound_unavailable',
   outbound_degraded: 'outbound_degraded',
   group_members_failing: 'group_members_failing',
-  keenetic_dns_policy_missing: 'keenetic_dns_policy_missing',
+  keenetic_dns_upstream_missing: 'keenetic_dns_upstream_missing',
 } as const;

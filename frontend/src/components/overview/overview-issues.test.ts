@@ -65,25 +65,29 @@ describe("mapHealthIssues", () => {
     expect(issue.title).toBe('overview.issues.outboundDegraded {"tag":"vpn"}')
   })
 
-  test("translates a missing Keenetic DNS group", () => {
+  test("translates a missing Keenetic DNS upstream", () => {
     const [issue] = mapHealthIssues(
       [
         {
           key: "keenetic-dns-vpn_dns",
           severity: "error",
-          code: "keenetic_dns_policy_missing",
-          detail_code: "keenetic_dns_policy_blocked",
-          params: { tag: "vpn_dns", policy: "Policy3", mode: "block" },
-          title: "Keenetic DNS policy not found",
-          detail: "`vpn_dns`: Policy3 — queries blocked",
+          code: "keenetic_dns_upstream_missing",
+          detail_code: "keenetic_dns_upstream_blocked",
+          params: {
+            tag: "vpn_dns",
+            upstreams: "DoT 8.8.8.8@dns.google",
+            mode: "block",
+          },
+          title: "Keenetic DNS upstream not found",
+          detail: "`vpn_dns`: DoT 8.8.8.8@dns.google — queries blocked",
         },
       ],
       t
     )
     expect(issue.tone).toBe("bad")
-    expect(issue.title).toBe("overview.issues.keeneticDnsPolicyMissing")
+    expect(issue.title).toBe("overview.issues.keeneticDnsUpstreamMissing")
     expect(issue.detail).toBe(
-      'overview.issues.keeneticDnsPolicyBlocked {"tag":"vpn_dns","policy":"Policy3"}'
+      'overview.issues.keeneticDnsUpstreamBlocked {"tag":"vpn_dns","upstreams":"DoT 8.8.8.8@dns.google"}'
     )
   })
 })

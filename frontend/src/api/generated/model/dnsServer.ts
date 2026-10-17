@@ -5,8 +5,8 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
-import type { DnsServerKeeneticOnMissing } from './dnsServerKeeneticOnMissing';
 import type { DnsServerType } from './dnsServerType';
+import type { KeeneticDnsProxyUpstream } from './keeneticDnsProxyUpstream';
 
 export interface DnsServer {
   /** Unique identifier for this DNS server. Must match `^[a-z][a-z0-9_]*$`, be at most 24 characters, and be unique within `dns.servers`.
@@ -19,10 +19,7 @@ export interface DnsServer {
   address?: string;
   /** Outbound tag to use when querying this DNS server. */
   detour?: string;
-  /** Keenetic DNS proxy group whose upstreams answer the queries sent to this server, for example `Policy0`. Only valid for `type=keenetic`. Unset or `System` means the router's regular DNS settings. Cannot be combined with `detour`.
+  /** Upstreams of the Keenetic built-in DNS this server uses. Only valid for `type=keenetic`. Unset or empty means all of them. Two or more are balanced round-robin, a dead one is skipped. An upstream is identified by its protocol and target, the same values `GET /api/keenetic/dns-proxies` returns for System.
    */
-  keenetic_policy?: string;
-  /** What happens when `keenetic_policy` no longer exists on the router. `block` leaves the domains routed to this server unresolved, `system` uses the System upstreams instead. Only valid for `type=keenetic`.
-   */
-  keenetic_on_missing?: DnsServerKeeneticOnMissing;
+  keenetic_upstreams?: KeeneticDnsProxyUpstream[];
 }

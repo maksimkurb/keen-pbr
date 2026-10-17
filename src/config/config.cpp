@@ -3,6 +3,7 @@
 #include "config_defaults.hpp"
 #include "dnsmasq_selector.hpp"
 #include "icmptest_limits.hpp"
+#include "../dns/dns_balancer.hpp"
 #include "routing_state.hpp"
 #include "../util/system_info.hpp"
 #include "../util/firewall_backend_utils.hpp"
@@ -1748,6 +1749,7 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
         const auto& dns_servers = cfg.dns->servers.value_or(std::vector<DnsServer>{});
         std::set<std::string> dns_server_tags;
         std::set<std::string> dns_server_identities;
+        size_t balanced_keenetic_servers = 0;
         for (size_t srv_index = 0; srv_index < dns_servers.size(); ++srv_index) {
             const auto& srv = dns_servers[srv_index];
             const std::string srv_path = json_index_path("dns.servers", srv_index);
@@ -1759,49 +1761,62 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
 
             const auto srv_type = srv.type.value_or(api::DnsServerType::STATIC);
             const std::string srv_addr = srv.address.value_or("");
-            // An unset keenetic_policy is the System group.
-            const std::string srv_policy =
-                srv.keenetic_policy.value_or("").empty()
-                    ? std::string("System")
-                    : *srv.keenetic_policy;
+            const auto selected_upstreams =
+                srv.keenetic_upstreams.value_or(std::vector<api::KeeneticDnsProxyUpstreamElement>{});
+            std::string selection_identity;
+            if (srv_type == api::DnsServerType::KEENETIC) {
+                std::vector<std::string> keys;
+                for (const auto& upstream : selected_upstreams) {
+                    keys.push_back(std::to_string(static_cast<int>(upstream.protocol)) + "=" +
+                                   upstream.target);
+                }
+                std::sort(keys.begin(), keys.end());
+                for (const auto& key : keys) selection_identity += key + ";";
+            }
             const std::string srv_identity =
-                std::to_string(static_cast<int>(srv_type)) + "|" + srv_addr + "|" +
-                (srv_type == api::DnsServerType::KEENETIC ? srv_policy : std::string());
+                std::to_string(static_cast<int>(srv_type)) + "|" + srv_addr + "|" + selection_identity;
             if (!dns_server_identities.insert(srv_identity).second) {
                 add_issue(issues, srv_path,
                           "DNS server \"" + srv.tag +
-                              "\" duplicates an existing DNS server definition (same type/address/keenetic_policy)");
+                              "\" duplicates an existing DNS server definition (same type/address/keenetic_upstreams)");
             }
 
-            if (srv_type != api::DnsServerType::KEENETIC) {
-                if (srv.keenetic_policy.has_value()) {
-                    add_issue(issues, srv_path + ".keenetic_policy",
-                              "dns.servers[\"" + srv.tag +
-                                  "\"].keenetic_policy is only valid for type='keenetic'");
-                }
-                if (srv.keenetic_on_missing.has_value()) {
-                    add_issue(issues, srv_path + ".keenetic_on_missing",
-                              "dns.servers[\"" + srv.tag +
-                                  "\"].keenetic_on_missing is only valid for type='keenetic'");
-                }
+            if (srv_type != api::DnsServerType::KEENETIC && srv.keenetic_upstreams.has_value()) {
+                add_issue(issues, srv_path + ".keenetic_upstreams",
+                          "dns.servers[\"" + srv.tag +
+                              "\"].keenetic_upstreams is only valid for type='keenetic'");
             }
 
             if (srv_type == api::DnsServerType::KEENETIC) {
-                if (srv.keenetic_policy.has_value() && !srv.keenetic_policy->empty()) {
-                    const std::string& policy = *srv.keenetic_policy;
-                    const bool valid_policy_name =
-                        std::isalpha(static_cast<unsigned char>(policy.front())) != 0 &&
-                        std::all_of(policy.begin(), policy.end(), [](char c) {
-                            return std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_';
-                        });
-                    if (!valid_policy_name) {
-                        add_issue(issues, srv_path + ".keenetic_policy",
+                std::set<std::string> seen_upstreams;
+                for (size_t up_index = 0; up_index < selected_upstreams.size(); ++up_index) {
+                    const auto& upstream = selected_upstreams[up_index];
+                    const std::string up_path = json_index_path(srv_path + ".keenetic_upstreams", up_index);
+                    if (upstream.target.empty()) {
+                        add_issue(issues, up_path + ".target",
                                   "dns.servers[\"" + srv.tag +
-                                      "\"].keenetic_policy must start with a letter and contain only letters, digits and '_'");
-                    } else if (policy != "System" && srv.detour.has_value()) {
+                                      "\"].keenetic_upstreams[" + std::to_string(up_index) +
+                                      "].target must not be empty");
+                    } else if (!seen_upstreams
+                                    .insert(std::to_string(static_cast<int>(upstream.protocol)) +
+                                            "=" + upstream.target)
+                                    .second) {
+                        add_issue(issues, up_path,
+                                  "dns.servers[\"" + srv.tag +
+                                      "\"].keenetic_upstreams lists the same upstream twice");
+                    }
+                }
+                if (selected_upstreams.size() >= 2) {
+                    ++balanced_keenetic_servers;
+                    if (balanced_keenetic_servers > kDnsBalancerMaxGroups) {
+                        add_issue(issues, srv_path + ".keenetic_upstreams",
+                                  "At most " + std::to_string(kDnsBalancerMaxGroups) +
+                                      " DNS servers can select two or more Keenetic upstreams");
+                    }
+                    if (srv.detour.has_value()) {
                         add_issue(issues, srv_path + ".detour",
                                   "dns.servers[\"" + srv.tag +
-                                      "\"].detour must not be set together with a Keenetic policy: the policy already defines how DNS is routed");
+                                      "\"].detour must not be set together with two or more keenetic_upstreams");
                     }
                 }
 #ifndef USE_KEENETIC_API

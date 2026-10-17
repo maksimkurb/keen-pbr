@@ -45,16 +45,10 @@ KeeneticDnsCacheView make_view() {
     KeeneticDnsSnapshot snapshot;
     KeeneticDnsProxy system;
     system.name = "System";
-    system.listen_port = 53;
-    system.upstreams.push_back({"Plain", "198.51.100.10"});
-    KeeneticDnsProxy policy;
-    policy.name = "Policy0";
-    policy.description = "VPN Only";
-    policy.listen_port = 41100;
-    policy.route_interfaces = {"Wireguard1"};
-    policy.domain_servers.push_back({"beeline.ru", {"85.21.192.5", "213.234.192.7"}});
-    policy.upstreams.push_back({"DoH", "https://dns.example/dns-query"});
-    snapshot.proxies = {system, policy};
+    system.upstreams.push_back({"DoT", "8.8.8.8@dns.google"});
+    system.upstreams.push_back({"DoH", "https://dns.example/dns-query"});
+    system.domain_servers.push_back({"beeline.ru", {"85.21.192.5", "213.234.192.7"}});
+    snapshot.proxies = {system};
 
     KeeneticDnsCacheView view;
     view.status = KeeneticDnsRefreshStatus::UNCHANGED;
@@ -86,7 +80,7 @@ struct ServerFixture {
 
 } // namespace
 
-TEST_CASE("keenetic dns handler: GET returns the cached proxy groups") {
+TEST_CASE("keenetic dns handler: GET returns the cached System proxy") {
     ServerFixture fixture;
     fixture.ctx.get_keenetic_dns_proxies_fn = [] { return make_view(); };
     fixture.start();
@@ -100,19 +94,13 @@ TEST_CASE("keenetic dns handler: GET returns the cached proxy groups") {
     const auto body = nlohmann::json::parse(response->body);
     CHECK(body["fetched_at"] == "2026-04-05T12:34:56Z");
     CHECK_FALSE(body.contains("error"));
-    REQUIRE(body["proxies"].size() == 2);
+    REQUIRE(body["proxies"].size() == 1);
     CHECK(body["proxies"][0]["name"] == "System");
-    CHECK_FALSE(body["proxies"][0].contains("description"));
-    CHECK(body["proxies"][0]["upstreams"][0]["protocol"] == "Plain");
-    CHECK_FALSE(body["proxies"][0].contains("route_interfaces"));
-    CHECK_FALSE(body["proxies"][0].contains("domain_servers"));
-    CHECK(body["proxies"][1]["description"] == "VPN Only");
-    CHECK(body["proxies"][1]["port"] == 41100);
-    CHECK(body["proxies"][1]["upstreams"][0]["protocol"] == "DoH");
-    CHECK(body["proxies"][1]["upstreams"][0]["target"] == "https://dns.example/dns-query");
-    CHECK(body["proxies"][1]["route_interfaces"] == nlohmann::json::array({"Wireguard1"}));
-    CHECK(body["proxies"][1]["domain_servers"][0]["domain"] == "beeline.ru");
-    CHECK(body["proxies"][1]["domain_servers"][0]["addresses"].size() == 2);
+    CHECK(body["proxies"][0]["upstreams"][0]["protocol"] == "DoT");
+    CHECK(body["proxies"][0]["upstreams"][0]["target"] == "8.8.8.8@dns.google");
+    CHECK(body["proxies"][0]["upstreams"][1]["protocol"] == "DoH");
+    CHECK(body["proxies"][0]["domain_servers"][0]["domain"] == "beeline.ru");
+    CHECK(body["proxies"][0]["domain_servers"][0]["addresses"].size() == 2);
 }
 
 TEST_CASE("keenetic dns handler: failed refresh keeps the cached data and reports the error") {
@@ -133,7 +121,7 @@ TEST_CASE("keenetic dns handler: failed refresh keeps the cached data and report
     CHECK(response->status == 200);
     const auto body = nlohmann::json::parse(response->body);
     CHECK(body["error"] == "RCI is down");
-    CHECK(body["proxies"].size() == 2);
+    CHECK(body["proxies"].size() == 1);
 }
 
 TEST_CASE("keenetic dns handler: nothing cached and a failed read is a 502") {

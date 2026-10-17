@@ -30,6 +30,7 @@ add_executable(keen-pbr-tests
   test_dnsmasq_real.cpp
   test_test_routing.cpp
   test_keenetic_dns.cpp
+  test_dns_balancer.cpp
   test_dns_wire.cpp
   test_dns_txt_probe.cpp
   test_dns_client.cpp
@@ -158,6 +159,7 @@ add_executable(keen-pbr-tests
   ../src/dns/dnsmasq_gen.cpp
   ../src/dns/dns_server.cpp
   ../src/dns/keenetic_dns.cpp
+  ../src/dns/dns_balancer.cpp
   ../src/dns/dns_wire.cpp
   ../src/dns/dns_txt_probe.cpp
   ../src/dns/dns_client.cpp

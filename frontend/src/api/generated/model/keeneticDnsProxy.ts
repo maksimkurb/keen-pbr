@@ -9,17 +9,10 @@ import type { KeeneticDnsDomainServers } from './keeneticDnsDomainServers';
 import type { KeeneticDnsProxyUpstream } from './keeneticDnsProxyUpstream';
 
 export interface KeeneticDnsProxy {
-  /** Name of the DNS proxy group, as used in `keenetic_policy`. */
+  /** Name of the DNS proxy, always `System`. */
   name: string;
-  /** Name given to the policy on the router. */
-  description?: string;
-  /** Port the group's DNS proxy listens on. */
-  port?: number;
   upstreams: KeeneticDnsProxyUpstream[];
-  /** Servers the group uses only for the names under one domain. They are not part of `upstreams`.
+  /** Servers the proxy uses only for the names under one domain. They are not part of `upstreams`.
    */
   domain_servers?: KeeneticDnsDomainServers[];
-  /** Interfaces the policy routes its traffic through. Empty for the System group.
-   */
-  route_interfaces?: string[];
 }

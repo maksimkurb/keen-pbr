@@ -220,7 +220,7 @@ Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts)
       outbound_marks_(allocate_outbound_marks(
           config_.fwmark.value_or(FwmarkConfig{}),
           config_.outbounds.value_or(std::vector<Outbound>{}))),
-      dnsmasq_manager_(KEEN_PBR_DNSMASQ_HOOK),
+      dnsmasq_manager_(KEEN_PBR_DNSMASQ_HOOK, make_dnsmasq_deps()),
       routing_runtime_active_(true) {
   if (opts_.use_raw_prerouting || opts_.use_raw6_prerouting) {
     const auto raw_mode = firewall_->raw_prerouting_mode();
@@ -270,6 +270,7 @@ Daemon::~Daemon() {
     lifecycle_executor_.shutdown();
     routing_test_executor_.shutdown();
     blocking_executor_.shutdown();
+    dns_balancer_.stop();
     if (rollback_config_fd_ >= 0) {
       close(rollback_config_fd_);
       rollback_config_fd_ = -1;
@@ -706,11 +707,15 @@ Daemon::health_issues_from(const ServiceHealthState &service,
   if (service.dnsmasq) inputs.dnsmasq = &*service.dnsmasq;
   inputs.dnsmasq_setup_docs_url = dnsmasq_setup_docs_url(service.os_type);
   inputs.outbounds = &outbounds.outbounds;
-  for (const auto &missing : find_missing_keenetic_policies(
+  for (const auto &missing : find_missing_keenetic_upstreams(
            config_store_.active_config().dns.value_or(DnsConfig{}))) {
-    inputs.keenetic_dns_missing.push_back(
-        {missing.tag, missing.policy,
-         missing.mode == api::KeeneticOnMissing::BLOCK});
+    KeeneticDnsMissingInput input;
+    input.tag = missing.tag;
+    input.block = missing.blocked;
+    for (const auto &upstream : missing.upstreams) {
+      input.upstreams.push_back(upstream.kind + " " + upstream.target);
+    }
+    inputs.keenetic_dns_missing.push_back(std::move(input));
   }
   return collect_health_issues(inputs);
 }

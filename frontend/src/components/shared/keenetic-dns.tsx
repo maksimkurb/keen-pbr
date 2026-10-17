@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next"
 import type { ApiError } from "@/api/client"
 import type { KeeneticDnsProxy } from "@/api/generated/model/keeneticDnsProxy"
 import { usePostKeeneticDnsProxiesRefreshMutation } from "@/api/mutations"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   KEENETIC_DNS_SETTINGS_PATH,
@@ -12,12 +11,12 @@ import {
 } from "@/lib/keenetic-web-url"
 
 /**
- * Re-reads the DNS proxy groups from the router. A failed read keeps the
- * groups shown so far; `onResult` gets the reason it failed, if it did.
+ * Re-reads the Keenetic built-in DNS from the router. A failed read keeps the
+ * upstreams shown so far; `onResult` gets the reason it failed, if it did.
  */
 export function KeeneticDnsRefreshButton({
   onResult,
-  size = "sm",
+  size = "default",
 }: {
   onResult?: (error: string | undefined) => void
   size?: "sm" | "default"
@@ -65,7 +64,6 @@ export function KeeneticDnsSettingsLink() {
           "noopener,noreferrer"
         )
       }
-      size="sm"
       type="button"
       variant="outline"
     >
@@ -76,73 +74,39 @@ export function KeeneticDnsSettingsLink() {
 }
 
 /**
- * Read-only details of one DNS proxy group: its upstream servers, the
- * interfaces its policy routes through (when it has encrypted upstreams) and
- * the servers it uses for single domains.
+ * Read-only list of the servers the Keenetic built-in DNS uses for single
+ * domains only. Renders nothing when there are none.
  */
-export function KeeneticProxyDetails({
+export function KeeneticDnsDomainServers({
   proxy,
-  isSystem,
 }: {
   proxy: KeeneticDnsProxy
-  isSystem: boolean
 }) {
   const { t } = useTranslation()
-  const encrypted = proxy.upstreams.some(
-    (upstream) => upstream.protocol !== "Plain"
-  )
-  const routeInterfaces = proxy.route_interfaces ?? []
   const domainServers = proxy.domain_servers ?? []
+  if (domainServers.length === 0) {
+    return null
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <p className="text-sm font-medium">{t("keeneticDns.upstreams")}</p>
-        {proxy.upstreams.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t("keeneticDns.noUpstreams")}
-          </p>
-        ) : (
-          <ul className="space-y-1.5">
-            {proxy.upstreams.map((upstream, index) => (
-              <li
-                className="flex flex-wrap items-center gap-2 text-sm"
-                key={`${upstream.protocol}-${upstream.target}-${index}`}
-              >
-                <Badge variant="secondary">{upstream.protocol}</Badge>
-                <span className="min-w-0 break-all">{upstream.target}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {!isSystem && encrypted && routeInterfaces.length > 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t("keeneticDns.via", { interfaces: routeInterfaces.join(", ") })}
-          </p>
-        ) : null}
-      </div>
-
-      {domainServers.length > 0 ? (
-        <div className="space-y-2">
-          <p className="text-sm font-medium">
-            {t("keeneticDns.domainServers.title")}
-          </p>
-          <ul className="space-y-1">
-            {domainServers.map((entry) => (
-              <li className="text-sm" key={entry.domain}>
-                <span className="font-medium">{entry.domain}</span>
-                <span className="text-muted-foreground">
-                  {" → "}
-                  {entry.addresses.join(", ")}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="text-sm text-muted-foreground">
-            {t("keeneticDns.domainServers.hint")}
-          </p>
-        </div>
-      ) : null}
+    <div className="space-y-2">
+      <p className="text-sm font-medium">
+        {t("keeneticDns.domainServers.title")}
+      </p>
+      <ul className="space-y-1">
+        {domainServers.map((entry) => (
+          <li className="text-sm" key={entry.domain}>
+            <span className="font-medium">{entry.domain}</span>
+            <span className="text-muted-foreground">
+              {" → "}
+              {entry.addresses.join(", ")}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-sm text-muted-foreground">
+        {t("keeneticDns.domainServers.hint")}
+      </p>
     </div>
   )
 }

@@ -44,7 +44,6 @@ export * from './dnsmasqHealthProbeStatus';
 export * from './dnsmasqHealthState';
 export * from './dnsRule';
 export * from './dnsServer';
-export * from './dnsServerKeeneticOnMissing';
 export * from './dnsServerType';
 export * from './dnsSystemResolver';
 export * from './dnsTestGapEvent';

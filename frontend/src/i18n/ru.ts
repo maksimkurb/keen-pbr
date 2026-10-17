@@ -267,11 +267,11 @@ export const ruTranslation = {
       outboundUnavailable: "{{tag}} недоступен",
       outboundDegraded: "{{tag}} работает с перебоями",
       groupMembersFailing: "{{tag}}: неисправных участников: {{count}}",
-      keeneticDnsPolicyMissing: "Группа DNS-прокси Keenetic не найдена",
-      keeneticDnsPolicyBlocked:
-        "{{tag}}: группы {{policy}} больше нет, запросы блокируются",
-      keeneticDnsPolicySystem:
-        "{{tag}}: группы {{policy}} больше нет, используется DNS System",
+      keeneticDnsUpstreamMissing: "DNS-сервер Keenetic не найден",
+      keeneticDnsUpstreamBlocked:
+        "{{tag}}: {{upstreams}} больше нет в настройках Keenetic, запросы блокируются",
+      keeneticDnsUpstreamPartial:
+        "{{tag}}: {{upstreams}} больше нет в настройках Keenetic, используются остальные выбранные серверы",
       hostWarning: {
         nat_missing: "{{interface}}: для этого WAN нет NAT (MASQUERADE/SNAT)",
         nat_partial: "{{interface}}: NAT покрывает только часть подсетей",
@@ -990,30 +990,21 @@ export const ruTranslation = {
     },
   },
   keeneticDns: {
-    systemGroup: "System",
-    notFound: "{{name}} (не найдена)",
-    policy: {
-      label: "Группа DNS-прокси",
-      hint: "Группа DNS-прокси Keenetic, которая отвечает на запросы к этому серверу. System — обычный DNS роутера.",
+    notFound: "{{name}} (не найден)",
+    upstreams: {
+      label: "Вышестоящие серверы",
+      hint: "Серверы встроенного DNS Keenetic, которые использует этот сервер. Если не выбран ни один, используются все. Серверы задаются в веб-интерфейсе Keenetic (Сетевые правила -> Интернет-фильтры -> Настройка DNS); если там настроены DoT или DoH, используются только они.",
+      none: "В Keenetic не задано ни одного вышестоящего сервера.",
+      balanced:
+        "Запросы распределяются по выбранным серверам по очереди. Если один перестаёт отвечать, его заменяет следующий.",
     },
-    upstreams: "Вышестоящие серверы группы",
-    noUpstreams: "В группе нет вышестоящих серверов.",
-    via: "Через: {{interfaces}}",
     domainServers: {
       title: "Для отдельных доменов",
-      hint: "Эти серверы заданы в общих настройках DNS Keenetic, а не в политике.",
+      hint: "Эти серверы заданы в общих настройках DNS Keenetic.",
     },
     openSettings: "Открыть настройки DNS Keenetic",
-    refresh: "Обновить сейчас",
-    loadError: "Не удалось прочитать группы DNS-прокси с роутера: {{message}}",
-    onMissing: {
-      label: "Если группа исчезнет",
-      hint: "Что делать с запросами к этому серверу, если группу удалили в настройках Keenetic.",
-      options: {
-        block: "Блокировать запросы",
-        system: "Использовать DNS System",
-      },
-    },
+    refresh: "Синхронизировать с Keenetic",
+    loadError: "Не удалось прочитать DNS-серверы с роутера: {{message}}",
   },
   pages: {
     security: {
@@ -1173,7 +1164,7 @@ export const ruTranslation = {
       title: "DNS-серверы",
       description: "Вышестоящие DNS-серверы для разрешения доменных имён.",
       keeneticAddress: "Встроенный DNS Keenetic",
-      keeneticPolicyAddress: "Keenetic: {{name}}",
+      keeneticUpstreamsAddress: "Keenetic: {{upstreams}}",
       actions: {
         add: "Добавить DNS-сервер",
       },
@@ -1236,15 +1227,6 @@ export const ruTranslation = {
         typeOptions: {
           keenetic: "Keenetic DNS",
           static: "DNS без шифрования",
-        },
-        keeneticNotice: {
-          description:
-            "Для этого режима DNS-серверы нужно настроить в веб-интерфейсе Keenetic.",
-          openLink: "Перейти к настройке",
-          navigation:
-            "Перейдите в Сетевые правила -> Интернет-фильтры -> Настройка DNS.",
-          dotDohOnly:
-            "Если там настроены DoT или DoH серверы, будут использоваться только они.",
         },
         address: "Адрес",
         addressPlaceholder: "1.1.1.1 или [2606:4700::1111]:53",

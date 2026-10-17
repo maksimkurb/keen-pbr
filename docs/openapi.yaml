@@ -248,16 +248,16 @@ paths:
 
   /api/keenetic/dns-proxies:
     get:
-      summary: Keenetic DNS proxy groups
+      summary: Keenetic built-in DNS proxy
       description: >
-        Returns the Keenetic DNS proxy groups (System, Policy0, ...) with their
-        upstreams, as last read from the router. The router is read when
+        Returns the Keenetic built-in DNS proxy (`System`) with its upstreams,
+        as last read from the router. The router is read when
         nothing has been read yet. Answers 503 on builds without Keenetic API
         support.
       operationId: getKeeneticDnsProxies
       responses:
         "200":
-          description: DNS proxy groups
+          description: The Keenetic built-in DNS proxy
           content:
             application/json:
               schema:
@@ -277,15 +277,15 @@ paths:
 
   /api/keenetic/dns-proxies/refresh:
     post:
-      summary: Re-read the Keenetic DNS proxy groups
+      summary: Re-read the Keenetic built-in DNS proxy
       description: >
-        Reads the DNS proxy groups from the router right away. When the groups
+        Reads the built-in DNS proxy from the router right away. When it
         changed, the dnsmasq config is regenerated. If the router cannot be
-        read, the previously read groups are returned together with `error`.
+        read, the previous read is returned together with `error`.
       operationId: postKeeneticDnsProxiesRefresh
       responses:
         "200":
-          description: DNS proxy groups
+          description: The Keenetic built-in DNS proxy
           content:
             application/json:
               schema:
@@ -1412,22 +1412,16 @@ components:
           type: string
           description: Outbound tag to use when querying this DNS server.
           example: "vpn"
-        keenetic_policy:
-          type: string
+        keenetic_upstreams:
+          type: array
           description: >
-            Keenetic DNS proxy group whose upstreams answer the queries sent to
-            this server, for example `Policy0`. Only valid for
-            `type=keenetic`. Unset or `System` means the router's regular DNS
-            settings. Cannot be combined with `detour`.
-          example: "Policy0"
-        keenetic_on_missing:
-          type: string
-          enum: [block, system]
-          description: >
-            What happens when `keenetic_policy` no longer exists on the
-            router. `block` leaves the domains routed to this server
-            unresolved, `system` uses the System upstreams instead. Only valid
-            for `type=keenetic`.
+            Upstreams of the Keenetic built-in DNS this server uses. Only valid
+            for `type=keenetic`. Unset or empty means all of them. Two or more
+            are balanced round-robin, a dead one is skipped. An upstream is
+            identified by its protocol and target, the same values
+            `GET /api/keenetic/dns-proxies` returns for System.
+          items:
+            $ref: "#/components/schemas/KeeneticDnsProxyUpstream"
 
     DnsRule:
       type: object
@@ -3081,7 +3075,9 @@ components:
           $ref: "#/components/schemas/KeeneticDnsProtocol"
         target:
           type: string
-          description: URI of a DoH/DoT upstream, address of a plain one.
+          description: >
+            URI of a DoH upstream, `address@name` of a DoT one, address of a
+            plain one.
           example: "https://dns10.quad9.net/dns-query"
 
     KeeneticDnsDomainServers:
@@ -3103,16 +3099,8 @@ components:
       properties:
         name:
           type: string
-          description: Name of the DNS proxy group, as used in `keenetic_policy`.
-          example: "Policy0"
-        description:
-          type: string
-          description: Name given to the policy on the router.
-          example: "VPN Only"
-        port:
-          type: integer
-          description: Port the group's DNS proxy listens on.
-          example: 41100
+          description: Name of the DNS proxy, always `System`.
+          example: "System"
         upstreams:
           type: array
           items:
@@ -3120,18 +3108,10 @@ components:
         domain_servers:
           type: array
           description: >
-            Servers the group uses only for the names under one domain. They
+            Servers the proxy uses only for the names under one domain. They
             are not part of `upstreams`.
           items:
             $ref: "#/components/schemas/KeeneticDnsDomainServers"
-        route_interfaces:
-          type: array
-          description: >
-            Interfaces the policy routes its traffic through. Empty for the
-            System group.
-          items:
-            type: string
-          example: ["Wireguard1"]
 
     KeeneticDnsProxiesResponse:
       type: object
@@ -3563,7 +3543,7 @@ components:
         - outbound_unavailable
         - outbound_degraded
         - group_members_failing
-        - keenetic_dns_policy_missing
+        - keenetic_dns_upstream_missing
 
     HealthIssueDetailCode:
       type: string
@@ -3575,8 +3555,8 @@ components:
         - xt_extension_unused
         - kernel_check_failed
         - dnsmasq_dead
-        - keenetic_dns_policy_blocked
-        - keenetic_dns_policy_system
+        - keenetic_dns_upstream_blocked
+        - keenetic_dns_upstream_partial
 
     KernelCheck:
       type: object

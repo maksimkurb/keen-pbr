@@ -1,4 +1,6 @@
 #include <doctest/doctest.h>
+
+#include "../src/dns/dns_balancer.hpp"
 #include <keen-pbr/version.hpp>
 
 #include "../src/config/config.hpp"
@@ -783,26 +785,28 @@ TEST_CASE("dns servers: keenetic type is accepted when KeeneticOS version is tem
 }
 
 #ifdef USE_KEENETIC_API
-TEST_CASE("dns servers: several keenetic type servers may target different policies") {
+TEST_CASE("dns servers: several keenetic type servers may select different upstreams") {
     CHECK_NOTHROW(parse_test_config(R"({
         "dns":{
             "servers":[
                 {"tag":"keen_a","type":"keenetic"},
-                {"tag":"keen_b","type":"keenetic","keenetic_policy":"Policy0"},
-                {"tag":"keen_c","type":"keenetic","keenetic_policy":"Policy1","keenetic_on_missing":"system"}
+                {"tag":"keen_b","type":"keenetic","keenetic_upstreams":[
+                    {"protocol":"DoH","target":"https://dns.google/dns-query"}]},
+                {"tag":"keen_c","type":"keenetic","keenetic_upstreams":[
+                    {"protocol":"DoT","target":"8.8.8.8@dns.google"},
+                    {"protocol":"DoH","target":"https://dns.google/dns-query"}]}
             ],
             "fallback":["keen_a"]
         }
     })"));
 }
 
-TEST_CASE("dns servers: a keenetic policy may be used by one server only") {
-    // An unset policy is the System policy.
+TEST_CASE("dns servers: the same keenetic upstream selection may be used by one server only") {
     CHECK_THROWS_AS(parse_test_config(R"({
         "dns":{
             "servers":[
                 {"tag":"keen_a","type":"keenetic"},
-                {"tag":"keen_b","type":"keenetic","keenetic_policy":"System"}
+                {"tag":"keen_b","type":"keenetic","keenetic_upstreams":[]}
             ],
             "fallback":["keen_a"]
         }
@@ -810,59 +814,84 @@ TEST_CASE("dns servers: a keenetic policy may be used by one server only") {
     CHECK_THROWS_AS(parse_test_config(R"({
         "dns":{
             "servers":[
-                {"tag":"keen_a","type":"keenetic","keenetic_policy":"Policy0"},
-                {"tag":"keen_b","type":"keenetic","keenetic_policy":"Policy0"}
+                {"tag":"keen_a","type":"keenetic","keenetic_upstreams":[
+                    {"protocol":"DoT","target":"8.8.8.8@dns.google"},
+                    {"protocol":"Plain","target":"1.1.1.1"}]},
+                {"tag":"keen_b","type":"keenetic","keenetic_upstreams":[
+                    {"protocol":"Plain","target":"1.1.1.1"},
+                    {"protocol":"DoT","target":"8.8.8.8@dns.google"}]}
             ],
             "fallback":["keen_a"]
         }
     })"), ConfigError);
 }
 
-TEST_CASE("dns servers: keenetic_policy needs a policy name") {
+TEST_CASE("dns servers: keenetic_upstreams items need a target and are unique") {
     const auto issues = validate_issues(R"({
         "dns":{
-            "servers":[{"tag":"keen_a","type":"keenetic","keenetic_policy":"Policy 0!"}],
+            "servers":[{"tag":"keen_a","type":"keenetic","keenetic_upstreams":[
+                {"protocol":"DoT","target":""},
+                {"protocol":"Plain","target":"1.1.1.1"},
+                {"protocol":"Plain","target":"1.1.1.1"}]}],
             "fallback":["keen_a"]
-        }
-    })");
-    REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "dns.servers[0].keenetic_policy");
-}
-
-TEST_CASE("dns servers: a detour cannot be combined with a keenetic policy") {
-    const std::string outbounds =
-        R"("outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],)";
-    const auto policy_issues = validate_issues("{" + outbounds + R"(
-        "dns":{
-            "servers":[{"tag":"keen_a","type":"keenetic","keenetic_policy":"Policy0","detour":"vpn"}],
-            "fallback":["keen_a"]
-        }
-    })");
-    REQUIRE(policy_issues.size() == 1);
-    CHECK(policy_issues[0].path == "dns.servers[0].detour");
-
-    // The System policy is the regular DNS of the router: a detour stays valid.
-    const auto system_issues = validate_issues("{" + outbounds + R"(
-        "dns":{
-            "servers":[{"tag":"keen_a","type":"keenetic","keenetic_policy":"System","detour":"vpn"}],
-            "fallback":["keen_a"]
-        }
-    })");
-    CHECK(system_issues.empty());
-}
-#endif
-
-TEST_CASE("dns servers: keenetic settings are rejected on a static server") {
-    const auto issues = validate_issues(R"({
-        "dns":{
-            "servers":[{"tag":"plain","type":"static","address":"1.1.1.1",
-                        "keenetic_policy":"Policy0","keenetic_on_missing":"block"}],
-            "fallback":["plain"]
         }
     })");
     REQUIRE(issues.size() == 2);
-    CHECK(issues[0].path == "dns.servers[0].keenetic_policy");
-    CHECK(issues[1].path == "dns.servers[0].keenetic_on_missing");
+    CHECK(issues[0].path == "dns.servers[0].keenetic_upstreams[0].target");
+    CHECK(issues[1].path == "dns.servers[0].keenetic_upstreams[2]");
+}
+
+TEST_CASE("dns servers: a detour cannot be combined with several keenetic upstreams") {
+    const std::string outbounds =
+        R"("outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],)";
+    const auto balanced_issues = validate_issues("{" + outbounds + R"(
+        "dns":{
+            "servers":[{"tag":"keen_a","type":"keenetic","detour":"vpn","keenetic_upstreams":[
+                {"protocol":"Plain","target":"1.1.1.1"},
+                {"protocol":"Plain","target":"8.8.8.8"}]}],
+            "fallback":["keen_a"]
+        }
+    })");
+    REQUIRE(balanced_issues.size() == 1);
+    CHECK(balanced_issues[0].path == "dns.servers[0].detour");
+
+    // One upstream (or none) is a direct server entry: a detour stays valid.
+    const auto single_issues = validate_issues("{" + outbounds + R"(
+        "dns":{
+            "servers":[{"tag":"keen_a","type":"keenetic","detour":"vpn","keenetic_upstreams":[
+                {"protocol":"Plain","target":"1.1.1.1"}]}],
+            "fallback":["keen_a"]
+        }
+    })");
+    CHECK(single_issues.empty());
+}
+
+TEST_CASE("dns servers: only so many servers can balance keenetic upstreams") {
+    std::string servers;
+    for (size_t i = 0; i <= kDnsBalancerMaxGroups; ++i) {
+        servers += std::string(i == 0 ? "" : ",") + R"({"tag":"keen_)" + std::to_string(i) +
+                   R"(","type":"keenetic","keenetic_upstreams":[
+                       {"protocol":"Plain","target":"10.0.0.)" + std::to_string(i) + R"("},
+                       {"protocol":"Plain","target":"10.1.0.)" + std::to_string(i) + R"("}]})";
+    }
+    const auto issues = validate_issues(R"({"dns":{"servers":[)" + servers +
+                                        R"(],"fallback":["keen_0"]}})");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "dns.servers[" + std::to_string(kDnsBalancerMaxGroups) +
+                                "].keenetic_upstreams");
+}
+#endif
+
+TEST_CASE("dns servers: keenetic_upstreams is rejected on a static server") {
+    const auto issues = validate_issues(R"({
+        "dns":{
+            "servers":[{"tag":"plain","type":"static","address":"1.1.1.1",
+                        "keenetic_upstreams":[{"protocol":"Plain","target":"1.1.1.1"}]}],
+            "fallback":["plain"]
+        }
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "dns.servers[0].keenetic_upstreams");
 }
 
 TEST_CASE("route rule enabled: parse and serialize cover true false omitted and null") {

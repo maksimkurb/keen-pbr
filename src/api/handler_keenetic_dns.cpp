@@ -47,7 +47,7 @@ void drop_nulls(nlohmann::json& value) {
 std::string response_body(const KeeneticDnsCacheView& view) {
     // A read that failed with nothing cached has nothing to show.
     if (!view.snapshot.has_value()) {
-        throw ApiError(view.error.empty() ? "Keenetic DNS proxy groups are unavailable"
+        throw ApiError(view.error.empty() ? "Keenetic DNS upstreams are unavailable"
                                           : view.error,
                        502);
     }
@@ -56,12 +56,6 @@ std::string response_body(const KeeneticDnsCacheView& view) {
     for (const auto& proxy : view.snapshot->proxies) {
         api::KeeneticDnsProxyElement element;
         element.name = proxy.name;
-        if (!proxy.description.empty()) {
-            element.description = proxy.description;
-        }
-        if (proxy.listen_port != 0) {
-            element.port = proxy.listen_port;
-        }
         for (const auto& upstream : proxy.upstreams) {
             api::KeeneticDnsProxyUpstreamElement upstream_element;
             upstream_element.protocol = upstream_protocol(upstream.kind);
@@ -78,9 +72,6 @@ std::string response_body(const KeeneticDnsCacheView& view) {
             }
             element.domain_servers = std::move(domain_servers);
         }
-        if (!proxy.route_interfaces.empty()) {
-            element.route_interfaces = proxy.route_interfaces;
-        }
         response.proxies.push_back(std::move(element));
     }
     response.fetched_at = iso_timestamp(view.fetched_at_unix);
@@ -95,7 +86,7 @@ std::string response_body(const KeeneticDnsCacheView& view) {
 } // namespace
 
 void register_keenetic_dns_handler(ApiServer& server, ApiContext& ctx) {
-    // GET /api/keenetic/dns-proxies - the DNS proxy groups as last read.
+    // GET /api/keenetic/dns-proxies - the built-in DNS proxy as last read.
     server.get("/api/keenetic/dns-proxies", [&ctx]() -> std::string {
         if (!ctx.get_keenetic_dns_proxies_fn) {
             throw ApiError("Keenetic API is not supported by this build", 503);
