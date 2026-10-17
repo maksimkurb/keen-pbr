@@ -48,7 +48,7 @@
 Название (tag): строчные латинские буквы, цифры и _, начинается с буквы, не длиннее 24 символов (^[a-z][a-z0-9_]*$).
 Большинству пользователей достаточно:
 одного outbound типа Интерфейс (interface) для VPN-соединения одного outbound типа Таблица маршрутизации (table) с table: 254 (основная таблица маршрутизации системы) для обычного соединения, как правило wan при необходимости — одного outbound типа Автовыбор (urltest) или Автовыбор (ICMP) (icmptest), чтобы keen-pbr сам выбирал рабочий из нескольких каналов Если не знаете, с чего начать, возьмите Интерфейс и вернитесь к остальным типам позже.">
-	<meta itemprop="wordCount" content="1686">
+	<meta itemprop="wordCount" content="1684">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Outbounds">
 	<meta name="twitter:description" content="Outbound — канал, через который пойдёт трафик: VPN-интерфейс, обычное соединение провайдера или блокировка. Какой трафик в какой outbound отправить, вы решаете в правилах маршрутизации.
@@ -1439,7 +1439,7 @@
 					<td><code>strategy</code></td>
 					<td>string</td>
 					<td>нет (по умолчанию: <code>&quot;priority&quot;</code>)</td>
-					<td>Как выбирать канал. В веб-интерфейсе: <strong>Стратегия выбора</strong>. <code>&quot;priority&quot;</code> (<strong>Самый быстрый</strong>) — весь трафик идёт через один канал: с самой низкой задержкой в первой рабочей ступени. <code>&quot;balance&quot;</code> (<strong>Многопутевая передача</strong>) — новые соединения распределяются между рабочими каналами по весу (недоступно на Keenetic)</td>
+					<td>Как выбирать канал. В веб-интерфейсе: <strong>Стратегия выбора</strong>. <code>&quot;priority&quot;</code> (<strong>Самый быстрый</strong>) — весь трафик идёт через один канал: с самой низкой задержкой в первой рабочей ступени. <code>&quot;balance&quot;</code> (<strong>Многопутевая передача</strong>) — новые соединения распределяются между рабочими каналами по весу. <span class="only-badges" title="Только для OpenWrt, Debian"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--debian">Debian</span></span></td>
 			</tr>
 			<tr>
 					<td><code>conntrack_on_switch</code></td>
@@ -1548,7 +1548,7 @@
 					<td><code>weight</code></td>
 					<td>integer 1-100</td>
 					<td>нет (по умолчанию: <code>1</code>)</td>
-					<td>Вес канала, в веб-интерфейсе — <strong>Вес</strong>. Нужен только при <code>strategy: &quot;balance&quot;</code>: чем больше вес, тем больше новых соединений получает канал. Каналы с весами 7 и 3 получат 70% и 30% новых соединений, пока оба работают. Если один канал недоступен, его доля делится между остальными. Уже открытые соединения не переносятся</td>
+					<td>Вес канала, в веб-интерфейсе — <strong>Вес</strong>. <span class="only-badges" title="Только для OpenWrt, Debian"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--debian">Debian</span></span> Нужен только при <code>strategy: &quot;balance&quot;</code>: чем больше вес, тем больше новых соединений получает канал. Каналы с весами 7 и 3 получат 70% и 30% новых соединений, пока оба работают. Если один канал недоступен, его доля делится между остальными. Уже открытые соединения не переносятся</td>
 			</tr>
 	</tbody>
 </table>
@@ -1570,8 +1570,10 @@
 </div>
 </div>
 <h3>Многопутевая передача (<code>strategy: &quot;balance&quot;</code>)<span class="hx:absolute hx:-mt-20" id="многопутевая-передача-strategy-balance"></span>
-    <a href="#%d0%bc%d0%bd%d0%be%d0%b3%d0%be%d0%bf%d1%83%d1%82%d0%b5%d0%b2%d0%b0%d1%8f-%d0%bf%d0%b5%d1%80%d0%b5%d0%b4%d0%b0%d1%87%d0%b0-strategy-balance" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Эта стратегия распределяет нагрузку между несколькими работающими каналами первой рабочей ступени. Канал выбирается для каждого нового соединения, а не для каждого запроса: всё соединение, включая HTTP/2 и <abbr title="Транспортный протокол поверх UDP, на нём работает HTTP/3.">QUIC</abbr>, идёт через один канал. <code>tolerance_ms</code> и <code>conntrack_on_switch</code> при балансировке не используются. Если канал перестал работать, записи <abbr title="Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).">conntrack</abbr> его соединений удаляются, а новые соединения распределяются между оставшимися каналами.</p>
-<p>С nftables соединения распределяются точно по весам. С iptables канал выбирается случайно с нужной вероятностью, поэтому на малом числе соединений доли могут заметно отличаться от весов, а на большом выравниваются. Для iptables нужен модуль ядра <code>xt_statistic</code>; если его нет, keen-pbr сообщит об этом при применении конфигурации. На Keenetic эта стратегия недоступна. С <code>--use-raw-prerouting</code> балансировка недоступна.</p>
+    <a href="#%d0%bc%d0%bd%d0%be%d0%b3%d0%be%d0%bf%d1%83%d1%82%d0%b5%d0%b2%d0%b0%d1%8f-%d0%bf%d0%b5%d1%80%d0%b5%d0%b4%d0%b0%d1%87%d0%b0-strategy-balance" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p><span class="only-badges" title="Только для OpenWrt, Debian"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--debian">Debian</span></span><br>
+Эта стратегия распределяет нагрузку между несколькими работающими каналами первой рабочей ступени. Канал выбирается для каждого нового соединения, а не для каждого запроса: всё соединение, включая HTTP/2 и <abbr title="Транспортный протокол поверх UDP, на нём работает HTTP/3.">QUIC</abbr>, идёт через один канал. <code>tolerance_ms</code> и <code>conntrack_on_switch</code> при балансировке не используются. Если канал перестал работать, записи <abbr title="Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).">conntrack</abbr> его соединений удаляются, а новые соединения распределяются между оставшимися каналами.</p>
+<p><span class="only-badges" title="Только для nftables"><span class="only-badge only-badge--nftables">nftables</span></span> Соединения распределяются точно по весам.<br>
+<span class="only-badges" title="Только для iptables"><span class="only-badge only-badge--iptables">iptables</span></span> Канал выбирается случайно с нужной вероятностью, поэтому на малом числе соединений доли могут заметно отличаться от весов, а на большом выравниваются. Для iptables нужен модуль ядра <code>xt_statistic</code>; если его нет, keen-pbr сообщит об этом при применении конфигурации. На Keenetic эта стратегия недоступна. С <code>--use-raw-prerouting</code> балансировка недоступна.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
 

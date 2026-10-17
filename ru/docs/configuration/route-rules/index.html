@@ -58,7 +58,7 @@ config.json{
 В веб-интерфейсе: откройте Маршрутизация &gt; Правила маршрутизации и нажмите Добавить правило маршрутизации. Выберите Тип правила, задайте условия и Outbound, затем нажмите Применить в панели черновика. Чтобы временно отключить правило, снимите переключатель Включить правило.
 Большинству пользователей нужно одно простое правило на каждый список, например:
 config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Правила проверяются сверху вниз, срабатывает первое подходящее. Трафик, который не подошёл ни под одно правило, идёт по обычной маршрутизации роутера.">
-	<meta itemprop="wordCount" content="1594">
+	<meta itemprop="wordCount" content="1593">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Правила маршрутизации">
 	<meta name="twitter:description" content="Правило маршрутизации связывает условие («трафик к сайтам из этого списка») с outbound («отправить через этот канал»). Outbound — канал для трафика: VPN, провайдер или блокировка, см. Outbounds.
@@ -1307,12 +1307,12 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 					<td><code>default_gateway</code></td>
 					<td><code>&quot;ipv4&quot;</code> или <code>&quot;ipv6&quot;</code></td>
 					<td>нет</td>
-					<td>Весь интернет-трафик, который иначе ушёл бы через основной шлюз роутера (кроме адресов локальной сети). В веб-интерфейсе: <strong>Тип правила</strong> &gt; <strong>Шлюз по умолчанию IPv4</strong> / <strong>Шлюз по умолчанию IPv6</strong>. Только nftables. Ставьте такие правила последними</td>
+					<td>Весь интернет-трафик, который иначе ушёл бы через основной шлюз роутера (кроме адресов локальной сети). В веб-интерфейсе: <strong>Тип правила</strong> &gt; <strong>Шлюз по умолчанию IPv4</strong> / <strong>Шлюз по умолчанию IPv6</strong>. <span class="only-badges" title="Только для nftables"><span class="only-badge only-badge--nftables">nftables</span></span> Ставьте такие правила последними</td>
 			</tr>
 	</tbody>
 </table>
 <h2>Резервный канал или балансировка для всего интернета<span class="hx:absolute hx:-mt-20" id="failover-or-balancing-for-all-internet-traffic"></span>
-    <a href="#failover-or-balancing-for-all-internet-traffic" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Это нужно, чтобы весь интернет-трафик шёл через автовыбор (<code>urltest</code> или <code>icmptest</code>): если основной канал упал, трафик переключится на запасной, а при <code>balance</code> распределится между несколькими. Для этого в конец списка правил добавьте по правилу с <code>default_gateway</code> для IPv4 и для IPv6. Работает только с nftables; с iptables конфигурация не пройдёт проверку. Адреса локальной сети остаются на обычной маршрутизации.</p>
+    <a href="#failover-or-balancing-for-all-internet-traffic" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Это нужно, чтобы весь интернет-трафик шёл через автовыбор (<code>urltest</code> или <code>icmptest</code>): если основной канал упал, трафик переключится на запасной, а при <code>balance</code> распределится между несколькими. <span class="only-badges" title="Только для nftables"><span class="only-badge only-badge--nftables">nftables</span></span> Для этого в конец списка правил добавьте по правилу с <code>default_gateway</code> для IPv4 и для IPv6. С iptables (и на Keenetic) конфигурация не пройдёт проверку. Адреса локальной сети остаются на обычной маршрутизации.</p>
 <p>По умолчанию такие правила действуют только на трафик устройств в сети. Чтобы они действовали и на трафик самого роутера, включите <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Общие</strong> &gt; <strong>Обрабатывать собственный трафик роутера</strong> (<code>iproute.process_router_traffic: true</code>).</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 

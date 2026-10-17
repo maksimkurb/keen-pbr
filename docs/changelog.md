@@ -10,6 +10,8 @@ What changed in each keen-pbr release, and what to do when you upgrade.
   keen-pbr reads DNS replies passing through the router and the site names in TLS, HTTP and QUIC connections, and fills the sets of your lists itself. If a device looks up the site over plain DNS, the very first connection already takes the right route. If the device uses encrypted DNS, keen-pbr learns the site only from its name at the start of the connection. That first connection breaks, and the browser or app reconnects, this time over the right route. If the kernel lacks a feature, only that part (DNS or connections) is turned off, and the status page says why. See [DNS]({{< relref "/docs/configuration/dns#dns-interception" >}}).
 - **dnsmasq is optional.**\
   You need it only for {{< term "split DNS" >}} (different DNS servers depending on the domain) or to set DNS servers for the whole network right in keen-pbr. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}). keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and repairs it when it loses the config. New command: `keen-pbr resolver dnsmasq detect`.
+- **Keenetic DNS servers can use a DNS proxy group.** {{< only keenetic >}}\
+  Added a DNS proxy group choice (for example `Policy0`) for DNS servers of type `keenetic`: the domains of a list are resolved through that group's servers. You can now have several servers of type `keenetic`. If the group is deleted on the router, requests are blocked or go through **System**, and the status page shows a problem. The **Refresh now** button re-reads the groups from the router. See [DNS]({{< relref "/docs/configuration/dns#dns-proxy-group" >}}).
 - **Load balancing across several links.** {{< only openwrt debian >}}\
   A `urltest` or `icmptest` outbound with `strategy: "balance"` spreads connections across links, each with its own weight. A connection stays on the link it started on. See [Multi-WAN Load Balancing]({{< relref "/docs/configuration/multi-wan" >}}).
 - **Automatic gateway detection.**\
@@ -45,6 +47,7 @@ What changed in each keen-pbr release, and what to do when you upgrade.
 - Fixed `keen-pbr status` reporting every `urltest` and `icmptest` rule as an error.
 - The Web UI now keeps `conntrack_on_switch`, `strict_enforcement_action` and the `urltest` probe timeout when saving an outbound.
 - Fixed DNS servers with `detour` through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address).
+- {{< only keenetic >}} Fixed Keenetic static DNS records and per-domain DNS servers (for example, for an ISP login page) when a DNS server of type `keenetic` is the default DNS server: such names used to go to the regular upstream servers.
 
 ### Breaking Changes {#upgrading-from-33x}
 

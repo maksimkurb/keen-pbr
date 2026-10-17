@@ -34,7 +34,7 @@ In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick 
 	<meta itemprop="name" content="Route Rules">
 	<meta itemprop="description" content="A route rule links a condition (“traffic to sites from this list”) with an outbound (“send it through this channel”). An outbound is a channel for traffic: a VPN, your ISP connection or a block; see Outbounds.
 In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick a Rule type, set the conditions and the Outbound, then click Apply in the draft bar. To turn a rule off temporarily, clear the Enable rule switch.">
-	<meta itemprop="wordCount" content="1755">
+	<meta itemprop="wordCount" content="1753">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Route Rules">
 	<meta name="twitter:description" content="A route rule links a condition (“traffic to sites from this list”) with an outbound (“send it through this channel”). An outbound is a channel for traffic: a VPN, your ISP connection or a block; see Outbounds.
@@ -1281,12 +1281,12 @@ In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick 
 					<td><code>default_gateway</code></td>
 					<td><code>&quot;ipv4&quot;</code> or <code>&quot;ipv6&quot;</code></td>
 					<td>no</td>
-					<td>All internet traffic that would otherwise go through the router&rsquo;s main gateway (except local network addresses). In the Web UI: <strong>Rule type</strong> &gt; <strong>IPv4 default gateway</strong> / <strong>IPv6 default gateway</strong>. nftables only. Put these rules last</td>
+					<td>All internet traffic that would otherwise go through the router&rsquo;s main gateway (except local network addresses). In the Web UI: <strong>Rule type</strong> &gt; <strong>IPv4 default gateway</strong> / <strong>IPv6 default gateway</strong>. <span class="only-badges" title="Only for nftables"><span class="only-badge only-badge--nftables">nftables</span></span> Put these rules last</td>
 			</tr>
 	</tbody>
 </table>
 <h2>Failover or balancing for all internet traffic<span class="hx:absolute hx:-mt-20" id="failover-or-balancing-for-all-internet-traffic"></span>
-    <a href="#failover-or-balancing-for-all-internet-traffic" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use this to send all internet traffic through an auto-select outbound (<code>urltest</code> or <code>icmptest</code>): if the main link fails, traffic switches to a backup, and with <code>balance</code> it is spread across several links. Add one <code>default_gateway</code> rule for IPv4 and one for IPv6 at the end of the rule list. This works only with nftables; with iptables the configuration fails validation. Addresses on your local network keep normal routing.</p>
+    <a href="#failover-or-balancing-for-all-internet-traffic" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use this to send all internet traffic through an auto-select outbound (<code>urltest</code> or <code>icmptest</code>): if the main link fails, traffic switches to a backup, and with <code>balance</code> it is spread across several links. <span class="only-badges" title="Only for nftables"><span class="only-badge only-badge--nftables">nftables</span></span> Add one <code>default_gateway</code> rule for IPv4 and one for IPv6 at the end of the rule list. With iptables (and on Keenetic) the configuration fails validation. Addresses on your local network keep normal routing.</p>
 <p>By default these rules apply only to traffic from devices on your network. To include the router&rsquo;s own traffic, turn on <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>General</strong> &gt; <strong>Process router&rsquo;s own traffic</strong> (<code>iproute.process_router_traffic: true</code>).</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 

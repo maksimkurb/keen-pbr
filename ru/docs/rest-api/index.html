@@ -51,7 +51,7 @@ REST API доступен, если:
 Prometheus и Grafana показывают состояние VPN-каналов и задержку (см. GET /metrics). Задание cron обновляет списки по расписанию через POST /api/lists/refresh. Скрипт перезапускает маршрутизацию через POST /api/service/restart. Если вы пользуетесь только веб-интерфейсом, эту страницу можно не читать.
 REST API доступен, если:
 Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация В веб-интерфейсе откройте Безопасность &gt; Аутентификация и CORS. Включите Включить аутентификацию, введите Новый пароль и подтвердите его. Если API должен принимать запросы из браузера с другого сайта, добавьте его адрес в Разрешённые источники CORS (по одному в строке). Изменения вступают в силу сразу.">
-	<meta itemprop="wordCount" content="2755">
+	<meta itemprop="wordCount" content="2773">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
 	<meta name="twitter:description" content="REST API нужен, чтобы управлять keen-pbr и следить за ним из скриптов и внешних систем. Например:
@@ -1300,6 +1300,10 @@ REST API доступен, если:
 					<td>Обновление одного или всех удалённых списков URL.</td>
 			</tr>
 			<tr>
+					<td><code>GET /api/keenetic/dns-proxies</code>, <code>POST /api/keenetic/dns-proxies/refresh</code></td>
+					<td>Группы DNS-прокси Keenetic с их вышестоящими серверами и повторное чтение с роутера. <span class="only-badges" title="Только для Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span></td>
+			</tr>
+			<tr>
 					<td><code>GET /api/dns/test</code></td>
 					<td>Поток событий перехвата DNS и TLS/QUIC-трафика либо проверка DNS в веб-интерфейсе.</td>
 			</tr>
@@ -1609,7 +1613,7 @@ REST API доступен, если:
 	</tbody>
 </table>
 <h3>Балансировка и маркированные пакеты<span class="hx:absolute hx:-mt-20" id="балансировка-и-маркированные-пакеты"></span>
-    <a href="#%d0%b1%d0%b0%d0%bb%d0%b0%d0%bd%d1%81%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-%d0%b8-%d0%bc%d0%b0%d1%80%d0%ba%d0%b8%d1%80%d0%be%d0%b2%d0%b0%d0%bd%d0%bd%d1%8b%d0%b5-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Эти метрики есть только при firewall-бэкенде iptables. Если данных нет, серия не публикуется. После перестроения правил firewall счётчики начинаются с нуля.</p>
+    <a href="#%d0%b1%d0%b0%d0%bb%d0%b0%d0%bd%d1%81%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-%d0%b8-%d0%bc%d0%b0%d1%80%d0%ba%d0%b8%d1%80%d0%be%d0%b2%d0%b0%d0%bd%d0%bd%d1%8b%d0%b5-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p><span class="only-badges" title="Только для iptables"><span class="only-badge only-badge--iptables">iptables</span></span> Эти метрики есть только при этом firewall-бэкенде. Если данных нет, серия не публикуется. После перестроения правил firewall счётчики начинаются с нуля.</p>
 <table>
 	<thead>
 			<tr>

@@ -51,7 +51,7 @@ Configuration
 Prometheus and Grafana show VPN channel health and latency (see GET /metrics). A cron job refreshes lists on a schedule through POST /api/lists/refresh. A script restarts routing through POST /api/service/restart. If you only use the web interface, you can skip this page.
 The REST API is available when:
 Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration In the web interface, open Security &gt; Authentication and CORS. Turn on Enable authentication, enter a New password and confirm it. If a website on another address must call the API from a browser, add its address to Allowed CORS origins (one per line). Changes take effect immediately.">
-	<meta itemprop="wordCount" content="3071">
+	<meta itemprop="wordCount" content="3090">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
 	<meta name="twitter:description" content="The REST API lets scripts and external systems control and monitor keen-pbr. For example:
@@ -1300,6 +1300,10 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
 					<td>Refresh one or all remote URL lists.</td>
 			</tr>
 			<tr>
+					<td><code>GET /api/keenetic/dns-proxies</code>, <code>POST /api/keenetic/dns-proxies/refresh</code></td>
+					<td>Keenetic DNS proxy groups with their upstream servers, and a re-read from the router. <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span></td>
+			</tr>
+			<tr>
 					<td><code>GET /api/dns/test</code></td>
 					<td>Stream of DNS and TLS/QUIC interception events, or the DNS check in the web interface.</td>
 			</tr>
@@ -1609,7 +1613,7 @@ probe completed yet. In Grafana this shows up as a gap, never as a <code>0</code
 	</tbody>
 </table>
 <h3>Balancing and marked packets<span class="hx:absolute hx:-mt-20" id="balancing-and-marked-packets"></span>
-    <a href="#balancing-and-marked-packets" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>These metrics exist only with the iptables firewall backend. A series with no data is omitted. Counters restart from zero when the firewall rules are rebuilt.</p>
+    <a href="#balancing-and-marked-packets" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><span class="only-badges" title="Only for iptables"><span class="only-badge only-badge--iptables">iptables</span></span> These metrics exist only with this firewall backend. A series with no data is omitted. Counters restart from zero when the firewall rules are rebuilt.</p>
 <table>
 	<thead>
 			<tr>

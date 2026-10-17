@@ -10,7 +10,8 @@
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Multi-WAN Load Balancing – keen-pbr</title>
   <meta name="description" content="This page is for a router or host connected to two or more internet providers, where new connections should be spread between them (multi-WAN).
-Load balancing is not available on Keenetic: the Keenetic build does not support it and rejects a configuration with &#34;strategy&#34;: &#34;balance&#34;. Use the router’s own multipath there. How it works A urltest or icmptest outbound with &#34;strategy&#34;: &#34;balance&#34; picks one of its working links for every new connection, in proportion to the link’s weight (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/multi-wan/" itemprop="url" />
+Load balancing is not available on Keenetic: the Keenetic build does not support it and rejects a configuration with &#34;strategy&#34;: &#34;balance&#34;. Use the router’s own multipath there. How it works OpenWrtDebian
+A urltest or icmptest outbound with &#34;strategy&#34;: &#34;balance&#34; picks one of its working links for every new connection, in proportion to the link’s weight (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/multi-wan/" itemprop="url" />
 
 <meta property="og:title" content="Multi-WAN Load Balancing">
 <meta
@@ -27,7 +28,8 @@ Load balancing is not available on Keenetic: the Keenetic build does not support
 
 
 How it works
-    A urltest or icmptest outbound with &quot;strategy&quot;: &quot;balance&quot; picks one of its working links for every new connection, in proportion to the link&rsquo;s weight (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again.
+    OpenWrtDebian
+A urltest or icmptest outbound with &quot;strategy&quot;: &quot;balance&quot; picks one of its working links for every new connection, in proportion to the link&rsquo;s weight (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again.
     
   ">
 <meta
@@ -42,12 +44,14 @@ How it works
 
 	<meta itemprop="name" content="Multi-WAN Load Balancing">
 	<meta itemprop="description" content="This page is for a router or host connected to two or more internet providers, where new connections should be spread between them (multi-WAN).
-Load balancing is not available on Keenetic: the Keenetic build does not support it and rejects a configuration with &#34;strategy&#34;: &#34;balance&#34;. Use the router’s own multipath there. How it works A urltest or icmptest outbound with &#34;strategy&#34;: &#34;balance&#34; picks one of its working links for every new connection, in proportion to the link’s weight (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again.">
-	<meta itemprop="wordCount" content="815">
+Load balancing is not available on Keenetic: the Keenetic build does not support it and rejects a configuration with &#34;strategy&#34;: &#34;balance&#34;. Use the router’s own multipath there. How it works OpenWrtDebian
+A urltest or icmptest outbound with &#34;strategy&#34;: &#34;balance&#34; picks one of its working links for every new connection, in proportion to the link’s weight (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again.">
+	<meta itemprop="wordCount" content="813">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Multi-WAN Load Balancing">
 	<meta name="twitter:description" content="This page is for a router or host connected to two or more internet providers, where new connections should be spread between them (multi-WAN).
-Load balancing is not available on Keenetic: the Keenetic build does not support it and rejects a configuration with &#34;strategy&#34;: &#34;balance&#34;. Use the router’s own multipath there. How it works A urltest or icmptest outbound with &#34;strategy&#34;: &#34;balance&#34; picks one of its working links for every new connection, in proportion to the link’s weight (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again.">
+Load balancing is not available on Keenetic: the Keenetic build does not support it and rejects a configuration with &#34;strategy&#34;: &#34;balance&#34;. Use the router’s own multipath there. How it works OpenWrtDebian
+A urltest or icmptest outbound with &#34;strategy&#34;: &#34;balance&#34; picks one of its working links for every new connection, in proportion to the link’s weight (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again.">
 
     <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
     <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
@@ -1053,13 +1057,14 @@ Load balancing is not available on Keenetic: the Keenetic build does not support
 </div>
 
 <h2>How it works<span class="hx:absolute hx:-mt-20" id="how-it-works"></span>
-    <a href="#how-it-works" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>A <code>urltest</code> or <code>icmptest</code> outbound with <code>&quot;strategy&quot;: &quot;balance&quot;</code> picks one of its working links for every <strong>new</strong> connection, in proportion to the link&rsquo;s <code>weight</code> (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again.</p>
+    <a href="#how-it-works" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><span class="only-badges" title="Only for OpenWrt, Debian"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--debian">Debian</span></span><br>
+A <code>urltest</code> or <code>icmptest</code> outbound with <code>&quot;strategy&quot;: &quot;balance&quot;</code> picks one of its working links for every <strong>new</strong> connection, in proportion to the link&rsquo;s <code>weight</code> (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again.</p>
 <p>You need to set up <abbr title="Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&#39;s WAN address.">NAT</abbr> on every provider and <code>rp_filter</code> on the system (see below).</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">With the <code>iptables</code> backend, links are picked at random with the configured probability, so over a small number of connections the shares are only approximate. The <code>iptables</code> backend needs the <code>xt_statistic</code> kernel module, and the <code>default_gateway</code> route rule field works only with <code>nftables</code>. You normally do not need to change <code>firewall_backend</code>: keen-pbr picks the backend that fits the system.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0"><span class="only-badges" title="Only for iptables"><span class="only-badge only-badge--iptables">iptables</span></span> Links are picked at random with the configured probability, so over a small number of connections the shares are only approximate. The <code>iptables</code> backend needs the <code>xt_statistic</code> kernel module, and the <code>default_gateway</code> route rule field works only with <code>nftables</code>. You normally do not need to change <code>firewall_backend</code>: keen-pbr picks the backend that fits the system.</div>
   </div>
 </div>
 

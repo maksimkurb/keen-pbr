@@ -35,7 +35,7 @@
 	<meta itemprop="name" content="DNS">
 	<meta itemprop="description" content="Домены из ваших списков работают без настройки DNS. keen-pbr сам читает обычные DNS-ответы (порт 53), которые проходят через роутер, и имена сайтов в начале TLS-, HTTP- и QUIC-соединений (это называется L7: имя сайта берётся из первых пакетов соединения). Подробности в разделе DNS-перехват.
 Нужен ли dnsmasq? Для маршрутизации нет. Перехват работает с любым резолвером: DNS-прокси Keenetic, unbound, dnsmasq или другим. Если провайдер подменяет DNS-ответы, обычно хватает DoH/DoT на роутере (DoH и DoT — зашифрованный DNS).">
-	<meta itemprop="wordCount" content="2552">
+	<meta itemprop="wordCount" content="2797">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="DNS">
 	<meta name="twitter:description" content="Домены из ваших списков работают без настройки DNS. keen-pbr сам читает обычные DNS-ответы (порт 53), которые проходят через роутер, и имена сайтов в начале TLS-, HTTP- и QUIC-соединений (это называется L7: имя сайта берётся из первых пакетов соединения). Подробности в разделе DNS-перехват.
@@ -967,6 +967,10 @@
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-8 hx:rtl:pr-8 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b3%d1%80%d1%83%d0%bf%d0%bf%d0%b0-dns-%d0%bf%d1%80%d0%be%d0%ba%d1%81%d0%b8">Группа DNS-прокси
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%81%d0%bf%d1%80%d0%b0%d0%b2%d0%be%d1%87%d0%bd%d0%b8%d0%ba-%d0%bf%d0%be%d0%bb%d0%b5%d0%b9">Справочник полей
         </a>
       </li>
@@ -1203,7 +1207,7 @@
 					<td><code>type</code></td>
 					<td>string</td>
 					<td>нет</td>
-					<td>Тип сервера (<strong>Тип DNS</strong>): <code>static</code> (<strong>DNS без шифрования</strong>, по умолчанию) или <code>keenetic</code> (<strong>Keenetic DNS</strong>)</td>
+					<td>Тип сервера (<strong>Тип DNS</strong>): <code>static</code> (<strong>DNS без шифрования</strong>, по умолчанию) или <code>keenetic</code> (<strong>Keenetic DNS</strong>, <span class="only-badges" title="Только для Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>)</td>
 			</tr>
 			<tr>
 					<td><code>address</code></td>
@@ -1216,6 +1220,18 @@
 					<td>string</td>
 					<td>нет</td>
 					<td>Outbound, через который роутер сам отправляет запросы к этому серверу (<strong>Делать запросы через Outbound</strong>)</td>
+			</tr>
+			<tr>
+					<td><code>keenetic_policy</code></td>
+					<td>string</td>
+					<td>нет</td>
+					<td>Группа DNS-прокси Keenetic для <code>type: &quot;keenetic&quot;</code>, например <code>&quot;Policy0&quot;</code> (<strong>Группа DNS-прокси</strong>). Не задано или <code>&quot;System&quot;</code>: обычные настройки DNS роутера. Нельзя сочетать с <code>detour</code>. <span class="only-badges" title="Только для Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span></td>
+			</tr>
+			<tr>
+					<td><code>keenetic_on_missing</code></td>
+					<td>string</td>
+					<td>нет</td>
+					<td>Что делать, если выбранной группы больше нет на роутере (<strong>Если группа исчезнет</strong>): <code>&quot;block&quot;</code> (по умолчанию) или <code>&quot;system&quot;</code>. Только вместе с <code>keenetic_policy</code>. <span class="only-badges" title="Только для Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span></td>
 			</tr>
 	</tbody>
 </table>
@@ -1258,12 +1274,47 @@
 </div>
 </div>
 <h3>Тип «Keenetic DNS»<span class="hx:absolute hx:-mt-20" id="тип-keenetic-dns"></span>
-    <a href="#%d1%82%d0%b8%d0%bf-keenetic-dns" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>На роутерах Keenetic <code>type: &quot;keenetic&quot;</code> берёт DNS-серверы из текущих настроек роутера. Их настраивают в веб-интерфейсе Keenetic: <strong>Сетевые правила</strong> &gt; <strong>Интернет-фильтры</strong> &gt; <strong>Настройка DNS</strong>. Если там заданы DoT или DoH серверы, используются только они.</p>
+    <a href="#%d1%82%d0%b8%d0%bf-keenetic-dns" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p><span class="only-badges" title="Только для Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+На роутерах Keenetic <code>type: &quot;keenetic&quot;</code> берёт DNS-серверы из текущих настроек роутера. Их настраивают в веб-интерфейсе Keenetic: <strong>Сетевые правила</strong> &gt; <strong>Интернет-фильтры</strong> &gt; <strong>Настройка DNS</strong>. Если там заданы DoT или DoH серверы, используются только они.</p>
 <ul>
-<li>Разрешён максимум один сервер с <code>type: &quot;keenetic&quot;</code>.</li>
 <li>Поле <code>address</code> для него не задаётся.</li>
-<li>keen-pbr читает серверы без привязки к домену из политики прокси <strong>System</strong>. Если среди них есть зашифрованные (<abbr title="DNS over HTTPS — зашифрованный DNS. Роутер не может прочитать такие запросы.">DoH</abbr>/DoT), используются все такие серверы по порядку. Иначе по порядку используются все обычные серверы.</li>
+<li>keen-pbr читает серверы без привязки к домену из группы DNS-прокси <strong>System</strong>. Если среди них есть зашифрованные (<abbr title="DNS over HTTPS — зашифрованный DNS. Роутер не может прочитать такие запросы.">DoH</abbr>/DoT), используются все такие серверы по порядку. Иначе по порядку используются все обычные серверы.</li>
 </ul>
+<h4>Группа DNS-прокси<span class="hx:absolute hx:-mt-20" id="группа-dns-прокси"></span>
+    <a href="#%d0%b3%d1%80%d1%83%d0%bf%d0%bf%d0%b0-dns-%d0%bf%d1%80%d0%be%d0%ba%d1%81%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h4><p>По умолчанию запросы идут в обычные настройки DNS роутера (группа <strong>System</strong>). Чтобы использовать другую группу DNS-прокси Keenetic, например <code>Policy0</code>, выберите её в поле <strong>Группа DNS-прокси</strong> (<code>keenetic_policy</code>). Под списком видно, какие вышестоящие серверы (DoH, DoT или обычные) использует выбранная группа и через какие интерфейсы идёт трафик её политики. Отдельно показаны серверы для отдельных доменов (например, провайдера): они заданы в общих настройках DNS Keenetic, и кнопка <strong>Открыть настройки DNS Keenetic</strong> ведёт к ним.</p>
+<p>Серверов с <code>type: &quot;keenetic&quot;</code> может быть несколько, по одному на каждую группу. Так разные списки доменов можно отправить в разные группы.</p>
+<p>Чтобы пользоваться конкретным DoH-сервером, создайте на роутере политику, оставьте в её настройках DNS только этот сервер и выберите её группу в keen-pbr.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;keenetic&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;keenetic_policy&#34;</span><span class="p">:</span> <span class="s2">&#34;Policy0&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Если группу удалили или переименовали на роутере, keen-pbr действует по полю <strong>Если группа исчезнет</strong> (<code>keenetic_on_missing</code>):</p>
+<ul>
+<li><code>&quot;block&quot;</code> (по умолчанию): домены, для которых выбран этот сервер, не разрешаются.</li>
+<li><code>&quot;system&quot;</code>: вместо группы используется <strong>System</strong>.</li>
+</ul>
+<p>На странице состояния при этом появляется проблема «Группа DNS-прокси Keenetic не найдена».</p>
+<p>Изменения в настройках Keenetic keen-pbr подхватывает сам в течение нескольких минут. Кнопка <strong>Обновить сейчас</strong> на странице DNS-серверов и в форме сервера делает это сразу.</p>
 <h2>Справочник полей<span class="hx:absolute hx:-mt-20" id="справочник-полей"></span>
     <a href="#%d1%81%d0%bf%d1%80%d0%b0%d0%b2%d0%be%d1%87%d0%bd%d0%b8%d0%ba-%d0%bf%d0%be%d0%bb%d0%b5%d0%b9" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Секция <code>dns</code> в <code>config.json</code>:</p>
 <table>

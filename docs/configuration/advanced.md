@@ -14,10 +14,10 @@ Controls the PID file path (the file holding the service's process number), the 
 |---|---|---|---|
 | `pid_file` | string | — | Path to write the PID file. Can be overridden with the `--pid-file` flag |
 | `cache_dir` | string | `/var/cache/keen-pbr` | Directory for cached list data |
-| `firewall_backend` | string | `"auto"` | Which firewall to use: `auto` (pick automatically), `iptables`, or `nftables` |
+| `firewall_backend` | string | `"auto"` | Which firewall to use: `auto` (pick automatically), `iptables`, or `nftables` (not on Keenetic) |
 | `clear_dynamic_sets_on_apply` | boolean | `false` | Clear the dynamic sets (domain IP addresses collected from DNS replies and connections) on every config apply or service restart. List refreshes and link switches never clear them. Web UI: **Clear learned domain addresses on apply**. |
-| `ipset_hashsize` | integer | absent | Optional initial hash table size for ipsets created by the iptables backend (default `1024`). Has no effect with nftables. Must be between 1 and 2147483648. Web UI (**Advanced** mode): **IPSet hash table size (ipset hashsize)**. Changing it recreates the sets and empties the dynamic sets. |
-| `ipset_maxelem` | integer | absent | Optional maximum element count for ipsets created by the iptables backend (default `65536`). Has no effect with nftables. Must be between 1 and 4294967295. Web UI: **Maximum entries in ipset (ipset maxelem)**. Changing it recreates the sets and empties the dynamic sets. |
+| `ipset_hashsize` | integer | absent | {{< only iptables >}} Optional initial hash table size for ipsets created by the iptables backend (default `1024`). Has no effect with nftables. Must be between 1 and 2147483648. Web UI (**Advanced** mode): **IPSet hash table size (ipset hashsize)**. Changing it recreates the sets and empties the dynamic sets. |
+| `ipset_maxelem` | integer | absent | {{< only iptables >}} Optional maximum element count for ipsets created by the iptables backend (default `65536`). Has no effect with nftables. Must be between 1 and 4294967295. Web UI: **Maximum entries in ipset (ipset maxelem)**. Changing it recreates the sets and empties the dynamic sets. |
 | `reuse_static_sets_on_runtime_refresh` | boolean | `true` | Do not refill list sets on `SIGUSR1`, `urltest`/`icmptest` switches and interface state changes: only rules are updated, which is faster. If `false`, sets are refilled every time. |
 | `skip_marked_packets` | boolean | `true` | Do not process packets that another program has already marked. Web UI: **Skip packets that are already marked**. |
 | `ipv6_enabled` | boolean | `true` | Route IPv6 traffic. When `false`, IPv6 flows as usual, bypassing keen-pbr. Web UI: **Enable IPv6 support**. |

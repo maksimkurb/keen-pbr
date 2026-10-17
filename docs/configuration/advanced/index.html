@@ -37,7 +37,7 @@ Some of these settings are in the web UI: General &gt; Settings &gt; General, Li
 	<meta itemprop="description" content="Most users can skip this page.
 These settings are for advanced setups and service-level tuning: daemon, api, fwmark, iproute, and lists_autoupdate.
 Some of these settings are in the web UI: General &gt; Settings &gt; General, Lists autoupdate and Advanced routing settings. The low-level fields appear after you switch Settings mode to Advanced. This page describes every config.json field; next to a field you will find where it is in the UI.">
-	<meta itemprop="wordCount" content="1579">
+	<meta itemprop="wordCount" content="1584">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Advanced">
 	<meta name="twitter:description" content="Most users can skip this page.
@@ -1081,7 +1081,7 @@ Some of these settings are in the web UI: General &gt; Settings &gt; General, Li
 					<td><code>firewall_backend</code></td>
 					<td>string</td>
 					<td><code>&quot;auto&quot;</code></td>
-					<td>Which firewall to use: <code>auto</code> (pick automatically), <code>iptables</code>, or <code>nftables</code></td>
+					<td>Which firewall to use: <code>auto</code> (pick automatically), <code>iptables</code>, or <code>nftables</code> (not on Keenetic)</td>
 			</tr>
 			<tr>
 					<td><code>clear_dynamic_sets_on_apply</code></td>
@@ -1093,13 +1093,13 @@ Some of these settings are in the web UI: General &gt; Settings &gt; General, Li
 					<td><code>ipset_hashsize</code></td>
 					<td>integer</td>
 					<td>absent</td>
-					<td>Optional initial hash table size for ipsets created by the iptables backend (default <code>1024</code>). Has no effect with nftables. Must be between 1 and 2147483648. Web UI (<strong>Advanced</strong> mode): <strong>IPSet hash table size (ipset hashsize)</strong>. Changing it recreates the sets and empties the dynamic sets.</td>
+					<td><span class="only-badges" title="Only for iptables"><span class="only-badge only-badge--iptables">iptables</span></span> Optional initial hash table size for ipsets created by the iptables backend (default <code>1024</code>). Has no effect with nftables. Must be between 1 and 2147483648. Web UI (<strong>Advanced</strong> mode): <strong>IPSet hash table size (ipset hashsize)</strong>. Changing it recreates the sets and empties the dynamic sets.</td>
 			</tr>
 			<tr>
 					<td><code>ipset_maxelem</code></td>
 					<td>integer</td>
 					<td>absent</td>
-					<td>Optional maximum element count for ipsets created by the iptables backend (default <code>65536</code>). Has no effect with nftables. Must be between 1 and 4294967295. Web UI: <strong>Maximum entries in ipset (ipset maxelem)</strong>. Changing it recreates the sets and empties the dynamic sets.</td>
+					<td><span class="only-badges" title="Only for iptables"><span class="only-badge only-badge--iptables">iptables</span></span> Optional maximum element count for ipsets created by the iptables backend (default <code>65536</code>). Has no effect with nftables. Must be between 1 and 4294967295. Web UI: <strong>Maximum entries in ipset (ipset maxelem)</strong>. Changing it recreates the sets and empties the dynamic sets.</td>
 			</tr>
 			<tr>
 					<td><code>reuse_static_sets_on_runtime_refresh</code></td>

@@ -49,8 +49,8 @@ The config file is usually `/etc/keen-pbr/config.json` on OpenWrt and Debian, an
 | `--pid-file <path>` | Path to the PID file (the file holding the service's process number). Replaces `daemon.pid_file` from the config; `service` only. |
 | `--crash-report <path>` | Where to write the report about the last crash. Defaults to `/tmp/keen-pbr-crash.log`. |
 | `--no-api` | Disable the REST API even if enabled in config. |
-| `--use-raw-prerouting` | Opt in to raw-table IPv4 forwarded-traffic classification; available only with iptables. |
-| `--use-raw6-prerouting` | Opt in to raw-table IPv6 forwarded-traffic classification; available only with iptables. |
+| `--use-raw-prerouting` | Opt in to raw-table IPv4 forwarded-traffic classification. {{< only iptables >}} |
+| `--use-raw6-prerouting` | Opt in to raw-table IPv6 forwarded-traffic classification. {{< only iptables >}} |
 | `--version` | Print version and exit. |
 | `--help` | Print help and exit. |
 

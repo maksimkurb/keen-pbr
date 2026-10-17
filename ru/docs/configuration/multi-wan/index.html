@@ -10,7 +10,8 @@
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Балансировка нагрузки между несколькими WAN – keen-pbr</title>
   <meta name="description" content="Эта страница для роутера или хоста, к которому подключены два и более интернет-провайдера и новые соединения нужно распределить между ними (multi-WAN).
-Балансировка нагрузки недоступна на Keenetic: сборка для Keenetic её не поддерживает и не примет конфигурацию с &#34;strategy&#34;: &#34;balance&#34;. На этих устройствах включите многопутевую передачу в профиле подключения. Как это работает Outbound urltest или icmptest с &#34;strategy&#34;: &#34;balance&#34; выбирает один из рабочих каналов для каждого нового соединения пропорционально их weight (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/multi-wan/" itemprop="url" />
+Балансировка нагрузки недоступна на Keenetic: сборка для Keenetic её не поддерживает и не примет конфигурацию с &#34;strategy&#34;: &#34;balance&#34;. На этих устройствах включите многопутевую передачу в профиле подключения. Как это работает OpenWrtDebian
+Outbound urltest или icmptest с &#34;strategy&#34;: &#34;balance&#34; выбирает один из рабочих каналов для каждого нового соединения пропорционально их weight (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/multi-wan/" itemprop="url" />
 
 <meta property="og:title" content="Балансировка нагрузки между несколькими WAN">
 <meta
@@ -27,7 +28,8 @@
 
 
 Как это работает
-    Outbound urltest или icmptest с &quot;strategy&quot;: &quot;balance&quot; выбирает один из рабочих каналов для каждого нового соединения пропорционально их weight (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.
+    OpenWrtDebian
+Outbound urltest или icmptest с &quot;strategy&quot;: &quot;balance&quot; выбирает один из рабочих каналов для каждого нового соединения пропорционально их weight (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.
     
   ">
 <meta
@@ -42,12 +44,14 @@
 
 	<meta itemprop="name" content="Балансировка нагрузки между несколькими WAN">
 	<meta itemprop="description" content="Эта страница для роутера или хоста, к которому подключены два и более интернет-провайдера и новые соединения нужно распределить между ними (multi-WAN).
-Балансировка нагрузки недоступна на Keenetic: сборка для Keenetic её не поддерживает и не примет конфигурацию с &#34;strategy&#34;: &#34;balance&#34;. На этих устройствах включите многопутевую передачу в профиле подключения. Как это работает Outbound urltest или icmptest с &#34;strategy&#34;: &#34;balance&#34; выбирает один из рабочих каналов для каждого нового соединения пропорционально их weight (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.">
-	<meta itemprop="wordCount" content="729">
+Балансировка нагрузки недоступна на Keenetic: сборка для Keenetic её не поддерживает и не примет конфигурацию с &#34;strategy&#34;: &#34;balance&#34;. На этих устройствах включите многопутевую передачу в профиле подключения. Как это работает OpenWrtDebian
+Outbound urltest или icmptest с &#34;strategy&#34;: &#34;balance&#34; выбирает один из рабочих каналов для каждого нового соединения пропорционально их weight (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.">
+	<meta itemprop="wordCount" content="728">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Балансировка нагрузки между несколькими WAN">
 	<meta name="twitter:description" content="Эта страница для роутера или хоста, к которому подключены два и более интернет-провайдера и новые соединения нужно распределить между ними (multi-WAN).
-Балансировка нагрузки недоступна на Keenetic: сборка для Keenetic её не поддерживает и не примет конфигурацию с &#34;strategy&#34;: &#34;balance&#34;. На этих устройствах включите многопутевую передачу в профиле подключения. Как это работает Outbound urltest или icmptest с &#34;strategy&#34;: &#34;balance&#34; выбирает один из рабочих каналов для каждого нового соединения пропорционально их weight (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.">
+Балансировка нагрузки недоступна на Keenetic: сборка для Keenetic её не поддерживает и не примет конфигурацию с &#34;strategy&#34;: &#34;balance&#34;. На этих устройствах включите многопутевую передачу в профиле подключения. Как это работает OpenWrtDebian
+Outbound urltest или icmptest с &#34;strategy&#34;: &#34;balance&#34; выбирает один из рабочих каналов для каждого нового соединения пропорционально их weight (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.">
 
     <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
     <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
@@ -1053,13 +1057,14 @@
 </div>
 
 <h2>Как это работает<span class="hx:absolute hx:-mt-20" id="как-это-работает"></span>
-    <a href="#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Outbound <code>urltest</code> или <code>icmptest</code> с <code>&quot;strategy&quot;: &quot;balance&quot;</code> выбирает один из рабочих каналов для каждого <strong>нового</strong> соединения пропорционально их <code>weight</code> (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.</p>
+    <a href="#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><span class="only-badges" title="Только для OpenWrt, Debian"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--debian">Debian</span></span><br>
+Outbound <code>urltest</code> или <code>icmptest</code> с <code>&quot;strategy&quot;: &quot;balance&quot;</code> выбирает один из рабочих каналов для каждого <strong>нового</strong> соединения пропорционально их <code>weight</code> (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.</p>
 <p>В системе вам нужно настроить <abbr title="Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.">NAT</abbr> на каждом провайдере и <code>rp_filter</code> (см. ниже).</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">На бэкенде <code>iptables</code> каналы выбираются случайно с заданной вероятностью, поэтому на небольшом числе соединений доли получаются приблизительными. Бэкенду <code>iptables</code> нужен модуль ядра <code>xt_statistic</code>, а поле <code>default_gateway</code> в правилах маршрутизации работает только с <code>nftables</code>. Менять <code>firewall_backend</code> обычно не нужно: keen-pbr сам выбирает подходящий бэкенд.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0"><span class="only-badges" title="Только для iptables"><span class="only-badge only-badge--iptables">iptables</span></span> Каналы выбираются случайно с заданной вероятностью, поэтому на небольшом числе соединений доли получаются приблизительными. Бэкенду <code>iptables</code> нужен модуль ядра <code>xt_statistic</code>, а поле <code>default_gateway</code> в правилах маршрутизации работает только с <code>nftables</code>. Менять <code>firewall_backend</code> обычно не нужно: keen-pbr сам выбирает подходящий бэкенд.</div>
   </div>
 </div>
 

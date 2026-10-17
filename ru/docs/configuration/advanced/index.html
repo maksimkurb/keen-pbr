@@ -41,7 +41,7 @@ daemon
 Здесь описаны настройки для продвинутых сценариев и на уровне сервиса: daemon, api, fwmark, iproute и lists_autoupdate.
 Часть настроек есть в веб-интерфейсе: Общее &gt; Настройки &gt; Общие, Автообновление списков и Расширенные настройки маршрутизации. Низкоуровневые поля видны после переключения Режим настроек на Продвинутый. Страница описывает все поля config.json; рядом с полем указано, где его найти в интерфейсе.
 daemon Управляет путём к PID-файлу (файлу с номером процесса сервиса), каталогом кэша и общим поведением маршрутизации.">
-	<meta itemprop="wordCount" content="1389">
+	<meta itemprop="wordCount" content="1394">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Расширенные настройки">
 	<meta name="twitter:description" content="Большинству пользователей эта страница не понадобится.
@@ -1086,7 +1086,7 @@ daemon Управляет путём к PID-файлу (файлу с номер
 					<td><code>firewall_backend</code></td>
 					<td>string</td>
 					<td><code>&quot;auto&quot;</code></td>
-					<td>Какой firewall использовать: <code>auto</code> (выбрать автоматически), <code>iptables</code> или <code>nftables</code></td>
+					<td>Какой firewall использовать: <code>auto</code> (выбрать автоматически), <code>iptables</code> или <code>nftables</code> (на Keenetic недоступен)</td>
 			</tr>
 			<tr>
 					<td><code>clear_dynamic_sets_on_apply</code></td>
@@ -1098,13 +1098,13 @@ daemon Управляет путём к PID-файлу (файлу с номер
 					<td><code>ipset_hashsize</code></td>
 					<td>integer</td>
 					<td>отсутствует</td>
-					<td>Необязательный начальный размер хеш-таблицы <abbr title="Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.">ipset</abbr>, создаваемых бэкендом iptables (по умолчанию <code>1024</code>). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. Веб-интерфейс (<strong>Продвинутый</strong> режим): <strong>Размер хеш-таблицы IPSet (ipset hashsize)</strong>. При изменении наборы пересоздаются, а динамические наборы очищаются.</td>
+					<td><span class="only-badges" title="Только для iptables"><span class="only-badge only-badge--iptables">iptables</span></span> Необязательный начальный размер хеш-таблицы <abbr title="Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.">ipset</abbr>, создаваемых бэкендом iptables (по умолчанию <code>1024</code>). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. Веб-интерфейс (<strong>Продвинутый</strong> режим): <strong>Размер хеш-таблицы IPSet (ipset hashsize)</strong>. При изменении наборы пересоздаются, а динамические наборы очищаются.</td>
 			</tr>
 			<tr>
 					<td><code>ipset_maxelem</code></td>
 					<td>integer</td>
 					<td>отсутствует</td>
-					<td>Необязательное максимальное число элементов ipset, создаваемых бэкендом iptables (по умолчанию <code>65536</code>). Не действует с nftables. Допустимый диапазон: от 1 до 4294967295. Веб-интерфейс: <strong>Максимальное количество элементов в ipset (ipset maxelem)</strong>. При изменении наборы пересоздаются, а динамические наборы очищаются.</td>
+					<td><span class="only-badges" title="Только для iptables"><span class="only-badge only-badge--iptables">iptables</span></span> Необязательное максимальное число элементов ipset, создаваемых бэкендом iptables (по умолчанию <code>65536</code>). Не действует с nftables. Допустимый диапазон: от 1 до 4294967295. Веб-интерфейс: <strong>Максимальное количество элементов в ipset (ipset maxelem)</strong>. При изменении наборы пересоздаются, а динамические наборы очищаются.</td>
 			</tr>
 			<tr>
 					<td><code>reuse_static_sets_on_runtime_refresh</code></td>

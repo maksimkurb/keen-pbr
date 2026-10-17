@@ -8,12 +8,13 @@ Load balancing is **not available on Keenetic**: the Keenetic build does not sup
 
 ## How it works
 
+{{< only openwrt debian >}}\
 A `urltest` or `icmptest` outbound with `"strategy": "balance"` picks one of its working links for every **new** connection, in proportion to the link's `weight` (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again.
 
 You need to set up {{< term "NAT" >}} on every provider and `rp_filter` on the system (see below).
 
 {{< callout type="info" >}}
-With the `iptables` backend, links are picked at random with the configured probability, so over a small number of connections the shares are only approximate. The `iptables` backend needs the `xt_statistic` kernel module, and the `default_gateway` route rule field works only with `nftables`. You normally do not need to change `firewall_backend`: keen-pbr picks the backend that fits the system.
+{{< only iptables >}} Links are picked at random with the configured probability, so over a small number of connections the shares are only approximate. The `iptables` backend needs the `xt_statistic` kernel module, and the `default_gateway` route rule field works only with `nftables`. You normally do not need to change `firewall_backend`: keen-pbr picks the backend that fits the system.
 {{< /callout >}}
 
 ## Example

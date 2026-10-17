@@ -75,6 +75,7 @@ The [OpenAPI document](https://github.com/maksimkurb/keen-pbr/blob/main/docs/ope
 | `GET /api/runtime/outbounds`, `/api/runtime/interfaces` | Current outbound state and the list of system interfaces. |
 | `GET /api/health/routing`, `POST /api/routing/test` | Routing and firewall diagnostics, and a route check for a specific domain or IP address. |
 | `POST /api/lists/refresh` | Refresh one or all remote URL lists. |
+| `GET /api/keenetic/dns-proxies`, `POST /api/keenetic/dns-proxies/refresh` | Keenetic DNS proxy groups with their upstream servers, and a re-read from the router. {{< only keenetic >}} |
 | `GET /api/dns/test` | Stream of DNS and TLS/QUIC interception events, or the DNS check in the web interface. |
 | `GET /api/diagnostics/command-failure` | Log of recent system command failures. |
 | `GET /metrics` | Prometheus text metrics. |
@@ -189,7 +190,7 @@ Metrics for DNS interception and traffic (L7) analysis. `path` is `dns` or `l7`.
 
 ### Balancing and marked packets
 
-These metrics exist only with the iptables firewall backend. A series with no data is omitted. Counters restart from zero when the firewall rules are rebuilt.
+{{< only iptables >}} These metrics exist only with this firewall backend. A series with no data is omitted. Counters restart from zero when the firewall rules are rebuilt.
 
 | Metric | Type | Labels | Meaning |
 |---|---|---|---|

@@ -37,7 +37,7 @@ The name (tag) uses lowercase Latin letters, digits and _, starts with a letter,
 	<meta itemprop="description" content="An outbound is a channel that traffic can take: a VPN interface, your ISP connection, or a block. You choose which traffic goes to which outbound in route rules.
 In the Web UI: open Routing &gt; Outbounds, click Add outbound, enter a Name (called tag in the config) and pick a type. Then click Apply in the draft bar.
 The name (tag) uses lowercase Latin letters, digits and _, starts with a letter, and is at most 24 characters long (^[a-z][a-z0-9_]*$).">
-	<meta itemprop="wordCount" content="1901">
+	<meta itemprop="wordCount" content="1898">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Outbounds">
 	<meta name="twitter:description" content="An outbound is a channel that traffic can take: a VPN interface, your ISP connection, or a block. You choose which traffic goes to which outbound in route rules.
@@ -1426,7 +1426,7 @@ The name (tag) uses lowercase Latin letters, digits and _, starts with a letter,
 					<td><code>strategy</code></td>
 					<td>string</td>
 					<td>no (default: <code>&quot;priority&quot;</code>)</td>
-					<td>How to pick a link. In the Web UI: <strong>Selection strategy</strong>. <code>&quot;priority&quot;</code> (<strong>Fastest</strong>): all traffic goes through one link, the one with the lowest latency in the first working tier. <code>&quot;balance&quot;</code> (<strong>Multipath</strong>): new connections are spread across the working links by weight (not available on Keenetic)</td>
+					<td>How to pick a link. In the Web UI: <strong>Selection strategy</strong>. <code>&quot;priority&quot;</code> (<strong>Fastest</strong>): all traffic goes through one link, the one with the lowest latency in the first working tier. <code>&quot;balance&quot;</code> (<strong>Multipath</strong>): new connections are spread across the working links by weight. <span class="only-badges" title="Only for OpenWrt, Debian"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--debian">Debian</span></span></td>
 			</tr>
 			<tr>
 					<td><code>conntrack_on_switch</code></td>
@@ -1535,7 +1535,7 @@ The name (tag) uses lowercase Latin letters, digits and _, starts with a letter,
 					<td><code>weight</code></td>
 					<td>integer 1-100</td>
 					<td>no (default: <code>1</code>)</td>
-					<td>Link weight; in the Web UI, <strong>Weight</strong>. Used only with <code>strategy: &quot;balance&quot;</code>: the higher the weight, the more new connections the link gets. Links with weights 7 and 3 get 70% and 30% of new connections while both work. If one link is down, its share is split among the others. Connections that are already open are not moved</td>
+					<td>Link weight; in the Web UI, <strong>Weight</strong>. <span class="only-badges" title="Only for OpenWrt, Debian"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--debian">Debian</span></span> Used only with <code>strategy: &quot;balance&quot;</code>: the higher the weight, the more new connections the link gets. Links with weights 7 and 3 get 70% and 30% of new connections while both work. If one link is down, its share is split among the others. Connections that are already open are not moved</td>
 			</tr>
 	</tbody>
 </table>
@@ -1557,8 +1557,10 @@ The name (tag) uses lowercase Latin letters, digits and _, starts with a letter,
 </div>
 </div>
 <h3>Multipath (<code>strategy: &quot;balance&quot;</code>)<span class="hx:absolute hx:-mt-20" id="multipath-strategy-balance"></span>
-    <a href="#multipath-strategy-balance" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>This strategy spreads load across the working links of the first working tier. A link is chosen per new connection, not per request: the whole connection, including HTTP/2 and <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr>, stays on one link. <code>tolerance_ms</code> and <code>conntrack_on_switch</code> are not used with balancing. When a link stops working, <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr> entries of its connections are deleted, and new connections are spread across the remaining links.</p>
-<p>With nftables, connections are split exactly by weight. With iptables, a link is picked at random with the right probability, so with only a few connections the shares can differ noticeably from the weights; with many connections they even out. iptables needs the <code>xt_statistic</code> kernel module; if it is missing, keen-pbr reports it when applying the configuration. This strategy is not available on Keenetic. Balancing is not available with <code>--use-raw-prerouting</code>.</p>
+    <a href="#multipath-strategy-balance" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><span class="only-badges" title="Only for OpenWrt, Debian"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--debian">Debian</span></span><br>
+This strategy spreads load across the working links of the first working tier. A link is chosen per new connection, not per request: the whole connection, including HTTP/2 and <abbr title="A transport protocol over UDP used by HTTP/3.">QUIC</abbr>, stays on one link. <code>tolerance_ms</code> and <code>conntrack_on_switch</code> are not used with balancing. When a link stops working, <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr> entries of its connections are deleted, and new connections are spread across the remaining links.</p>
+<p><span class="only-badges" title="Only for nftables"><span class="only-badge only-badge--nftables">nftables</span></span> Connections are split exactly by weight.<br>
+<span class="only-badges" title="Only for iptables"><span class="only-badge only-badge--iptables">iptables</span></span> A link is picked at random with the right probability, so with only a few connections the shares can differ noticeably from the weights; with many connections they even out. iptables needs the <code>xt_statistic</code> kernel module; if it is missing, keen-pbr reports it when applying the configuration. This strategy is not available on Keenetic. Balancing is not available with <code>--use-raw-prerouting</code>.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
 

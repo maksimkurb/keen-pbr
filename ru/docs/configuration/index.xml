@@ -383,7 +383,7 @@
 					&lt;td&gt;&lt;code&gt;strategy&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;string&lt;/td&gt;
 					&lt;td&gt;нет (по умолчанию: &lt;code&gt;&amp;quot;priority&amp;quot;&lt;/code&gt;)&lt;/td&gt;
-					&lt;td&gt;Как выбирать канал. В веб-интерфейсе: &lt;strong&gt;Стратегия выбора&lt;/strong&gt;. &lt;code&gt;&amp;quot;priority&amp;quot;&lt;/code&gt; (&lt;strong&gt;Самый быстрый&lt;/strong&gt;) — весь трафик идёт через один канал: с самой низкой задержкой в первой рабочей ступени. &lt;code&gt;&amp;quot;balance&amp;quot;&lt;/code&gt; (&lt;strong&gt;Многопутевая передача&lt;/strong&gt;) — новые соединения распределяются между рабочими каналами по весу (недоступно на Keenetic)&lt;/td&gt;
+					&lt;td&gt;Как выбирать канал. В веб-интерфейсе: &lt;strong&gt;Стратегия выбора&lt;/strong&gt;. &lt;code&gt;&amp;quot;priority&amp;quot;&lt;/code&gt; (&lt;strong&gt;Самый быстрый&lt;/strong&gt;) — весь трафик идёт через один канал: с самой низкой задержкой в первой рабочей ступени. &lt;code&gt;&amp;quot;balance&amp;quot;&lt;/code&gt; (&lt;strong&gt;Многопутевая передача&lt;/strong&gt;) — новые соединения распределяются между рабочими каналами по весу. &lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;conntrack_on_switch&lt;/code&gt;&lt;/td&gt;
@@ -492,7 +492,7 @@
 					&lt;td&gt;&lt;code&gt;weight&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer 1-100&lt;/td&gt;
 					&lt;td&gt;нет (по умолчанию: &lt;code&gt;1&lt;/code&gt;)&lt;/td&gt;
-					&lt;td&gt;Вес канала, в веб-интерфейсе — &lt;strong&gt;Вес&lt;/strong&gt;. Нужен только при &lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt;: чем больше вес, тем больше новых соединений получает канал. Каналы с весами 7 и 3 получат 70% и 30% новых соединений, пока оба работают. Если один канал недоступен, его доля делится между остальными. Уже открытые соединения не переносятся&lt;/td&gt;
+					&lt;td&gt;Вес канала, в веб-интерфейсе — &lt;strong&gt;Вес&lt;/strong&gt;. &lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt; Нужен только при &lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt;: чем больше вес, тем больше новых соединений получает канал. Каналы с весами 7 и 3 получат 70% и 30% новых соединений, пока оба работают. Если один канал недоступен, его доля делится между остальными. Уже открытые соединения не переносятся&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
@@ -514,8 +514,10 @@
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;h3&gt;Многопутевая передача (&lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt;)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;многопутевая-передача-strategy-balance&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%bc%d0%bd%d0%be%d0%b3%d0%be%d0%bf%d1%83%d1%82%d0%b5%d0%b2%d0%b0%d1%8f-%d0%bf%d0%b5%d1%80%d0%b5%d0%b4%d0%b0%d1%87%d0%b0-strategy-balance&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Эта стратегия распределяет нагрузку между несколькими работающими каналами первой рабочей ступени. Канал выбирается для каждого нового соединения, а не для каждого запроса: всё соединение, включая HTTP/2 и &lt;abbr title=&#34;Транспортный протокол поверх UDP, на нём работает HTTP/3.&#34;&gt;QUIC&lt;/abbr&gt;, идёт через один канал. &lt;code&gt;tolerance_ms&lt;/code&gt; и &lt;code&gt;conntrack_on_switch&lt;/code&gt; при балансировке не используются. Если канал перестал работать, записи &lt;abbr title=&#34;Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).&#34;&gt;conntrack&lt;/abbr&gt; его соединений удаляются, а новые соединения распределяются между оставшимися каналами.&lt;/p&gt;
-&lt;p&gt;С nftables соединения распределяются точно по весам. С iptables канал выбирается случайно с нужной вероятностью, поэтому на малом числе соединений доли могут заметно отличаться от весов, а на большом выравниваются. Для iptables нужен модуль ядра &lt;code&gt;xt_statistic&lt;/code&gt;; если его нет, keen-pbr сообщит об этом при применении конфигурации. На Keenetic эта стратегия недоступна. С &lt;code&gt;--use-raw-prerouting&lt;/code&gt; балансировка недоступна.&lt;/p&gt;
+    &lt;a href=&#34;#%d0%bc%d0%bd%d0%be%d0%b3%d0%be%d0%bf%d1%83%d1%82%d0%b5%d0%b2%d0%b0%d1%8f-%d0%bf%d0%b5%d1%80%d0%b5%d0%b4%d0%b0%d1%87%d0%b0-strategy-balance&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+Эта стратегия распределяет нагрузку между несколькими работающими каналами первой рабочей ступени. Канал выбирается для каждого нового соединения, а не для каждого запроса: всё соединение, включая HTTP/2 и &lt;abbr title=&#34;Транспортный протокол поверх UDP, на нём работает HTTP/3.&#34;&gt;QUIC&lt;/abbr&gt;, идёт через один канал. &lt;code&gt;tolerance_ms&lt;/code&gt; и &lt;code&gt;conntrack_on_switch&lt;/code&gt; при балансировке не используются. Если канал перестал работать, записи &lt;abbr title=&#34;Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).&#34;&gt;conntrack&lt;/abbr&gt; его соединений удаляются, а новые соединения распределяются между оставшимися каналами.&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt; Соединения распределяются точно по весам.&lt;br&gt;
+&lt;span class=&#34;only-badges&#34; title=&#34;Только для iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt; Канал выбирается случайно с нужной вероятностью, поэтому на малом числе соединений доли могут заметно отличаться от весов, а на большом выравниваются. Для iptables нужен модуль ядра &lt;code&gt;xt_statistic&lt;/code&gt;; если его нет, keen-pbr сообщит об этом при применении конфигурации. На Keenetic эта стратегия недоступна. С &lt;code&gt;--use-raw-prerouting&lt;/code&gt; балансировка недоступна.&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
 
@@ -1135,12 +1137,12 @@
 					&lt;td&gt;&lt;code&gt;default_gateway&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;&amp;quot;ipv4&amp;quot;&lt;/code&gt; или &lt;code&gt;&amp;quot;ipv6&amp;quot;&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;нет&lt;/td&gt;
-					&lt;td&gt;Весь интернет-трафик, который иначе ушёл бы через основной шлюз роутера (кроме адресов локальной сети). В веб-интерфейсе: &lt;strong&gt;Тип правила&lt;/strong&gt; &amp;gt; &lt;strong&gt;Шлюз по умолчанию IPv4&lt;/strong&gt; / &lt;strong&gt;Шлюз по умолчанию IPv6&lt;/strong&gt;. Только nftables. Ставьте такие правила последними&lt;/td&gt;
+					&lt;td&gt;Весь интернет-трафик, который иначе ушёл бы через основной шлюз роутера (кроме адресов локальной сети). В веб-интерфейсе: &lt;strong&gt;Тип правила&lt;/strong&gt; &amp;gt; &lt;strong&gt;Шлюз по умолчанию IPv4&lt;/strong&gt; / &lt;strong&gt;Шлюз по умолчанию IPv6&lt;/strong&gt;. &lt;span class=&#34;only-badges&#34; title=&#34;Только для nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt; Ставьте такие правила последними&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;h2&gt;Резервный канал или балансировка для всего интернета&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;failover-or-balancing-for-all-internet-traffic&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#failover-or-balancing-for-all-internet-traffic&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Это нужно, чтобы весь интернет-трафик шёл через автовыбор (&lt;code&gt;urltest&lt;/code&gt; или &lt;code&gt;icmptest&lt;/code&gt;): если основной канал упал, трафик переключится на запасной, а при &lt;code&gt;balance&lt;/code&gt; распределится между несколькими. Для этого в конец списка правил добавьте по правилу с &lt;code&gt;default_gateway&lt;/code&gt; для IPv4 и для IPv6. Работает только с nftables; с iptables конфигурация не пройдёт проверку. Адреса локальной сети остаются на обычной маршрутизации.&lt;/p&gt;
+    &lt;a href=&#34;#failover-or-balancing-for-all-internet-traffic&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Это нужно, чтобы весь интернет-трафик шёл через автовыбор (&lt;code&gt;urltest&lt;/code&gt; или &lt;code&gt;icmptest&lt;/code&gt;): если основной канал упал, трафик переключится на запасной, а при &lt;code&gt;balance&lt;/code&gt; распределится между несколькими. &lt;span class=&#34;only-badges&#34; title=&#34;Только для nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt; Для этого в конец списка правил добавьте по правилу с &lt;code&gt;default_gateway&lt;/code&gt; для IPv4 и для IPv6. С iptables (и на Keenetic) конфигурация не пройдёт проверку. Адреса локальной сети остаются на обычной маршрутизации.&lt;/p&gt;
 &lt;p&gt;По умолчанию такие правила действуют только на трафик устройств в сети. Чтобы они действовали и на трафик самого роутера, включите &lt;strong&gt;Общее&lt;/strong&gt; &amp;gt; &lt;strong&gt;Настройки&lt;/strong&gt; &amp;gt; &lt;strong&gt;Общие&lt;/strong&gt; &amp;gt; &lt;strong&gt;Обрабатывать собственный трафик роутера&lt;/strong&gt; (&lt;code&gt;iproute.process_router_traffic: true&lt;/code&gt;).&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -1743,7 +1745,7 @@
 					&lt;td&gt;&lt;code&gt;type&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;string&lt;/td&gt;
 					&lt;td&gt;нет&lt;/td&gt;
-					&lt;td&gt;Тип сервера (&lt;strong&gt;Тип DNS&lt;/strong&gt;): &lt;code&gt;static&lt;/code&gt; (&lt;strong&gt;DNS без шифрования&lt;/strong&gt;, по умолчанию) или &lt;code&gt;keenetic&lt;/code&gt; (&lt;strong&gt;Keenetic DNS&lt;/strong&gt;)&lt;/td&gt;
+					&lt;td&gt;Тип сервера (&lt;strong&gt;Тип DNS&lt;/strong&gt;): &lt;code&gt;static&lt;/code&gt; (&lt;strong&gt;DNS без шифрования&lt;/strong&gt;, по умолчанию) или &lt;code&gt;keenetic&lt;/code&gt; (&lt;strong&gt;Keenetic DNS&lt;/strong&gt;, &lt;span class=&#34;only-badges&#34; title=&#34;Только для Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;address&lt;/code&gt;&lt;/td&gt;
@@ -1756,6 +1758,18 @@
 					&lt;td&gt;string&lt;/td&gt;
 					&lt;td&gt;нет&lt;/td&gt;
 					&lt;td&gt;Outbound, через который роутер сам отправляет запросы к этому серверу (&lt;strong&gt;Делать запросы через Outbound&lt;/strong&gt;)&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;keenetic_policy&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;string&lt;/td&gt;
+					&lt;td&gt;нет&lt;/td&gt;
+					&lt;td&gt;Группа DNS-прокси Keenetic для &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;, например &lt;code&gt;&amp;quot;Policy0&amp;quot;&lt;/code&gt; (&lt;strong&gt;Группа DNS-прокси&lt;/strong&gt;). Не задано или &lt;code&gt;&amp;quot;System&amp;quot;&lt;/code&gt;: обычные настройки DNS роутера. Нельзя сочетать с &lt;code&gt;detour&lt;/code&gt;. &lt;span class=&#34;only-badges&#34; title=&#34;Только для Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;keenetic_on_missing&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;string&lt;/td&gt;
+					&lt;td&gt;нет&lt;/td&gt;
+					&lt;td&gt;Что делать, если выбранной группы больше нет на роутере (&lt;strong&gt;Если группа исчезнет&lt;/strong&gt;): &lt;code&gt;&amp;quot;block&amp;quot;&lt;/code&gt; (по умолчанию) или &lt;code&gt;&amp;quot;system&amp;quot;&lt;/code&gt;. Только вместе с &lt;code&gt;keenetic_policy&lt;/code&gt;. &lt;span class=&#34;only-badges&#34; title=&#34;Только для Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
@@ -1798,12 +1812,47 @@
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;h3&gt;Тип «Keenetic DNS»&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;тип-keenetic-dns&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d1%82%d0%b8%d0%bf-keenetic-dns&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;На роутерах Keenetic &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt; берёт DNS-серверы из текущих настроек роутера. Их настраивают в веб-интерфейсе Keenetic: &lt;strong&gt;Сетевые правила&lt;/strong&gt; &amp;gt; &lt;strong&gt;Интернет-фильтры&lt;/strong&gt; &amp;gt; &lt;strong&gt;Настройка DNS&lt;/strong&gt;. Если там заданы DoT или DoH серверы, используются только они.&lt;/p&gt;
+    &lt;a href=&#34;#%d1%82%d0%b8%d0%bf-keenetic-dns&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+На роутерах Keenetic &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt; берёт DNS-серверы из текущих настроек роутера. Их настраивают в веб-интерфейсе Keenetic: &lt;strong&gt;Сетевые правила&lt;/strong&gt; &amp;gt; &lt;strong&gt;Интернет-фильтры&lt;/strong&gt; &amp;gt; &lt;strong&gt;Настройка DNS&lt;/strong&gt;. Если там заданы DoT или DoH серверы, используются только они.&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;Разрешён максимум один сервер с &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;Поле &lt;code&gt;address&lt;/code&gt; для него не задаётся.&lt;/li&gt;
-&lt;li&gt;keen-pbr читает серверы без привязки к домену из политики прокси &lt;strong&gt;System&lt;/strong&gt;. Если среди них есть зашифрованные (&lt;abbr title=&#34;DNS over HTTPS — зашифрованный DNS. Роутер не может прочитать такие запросы.&#34;&gt;DoH&lt;/abbr&gt;/DoT), используются все такие серверы по порядку. Иначе по порядку используются все обычные серверы.&lt;/li&gt;
+&lt;li&gt;keen-pbr читает серверы без привязки к домену из группы DNS-прокси &lt;strong&gt;System&lt;/strong&gt;. Если среди них есть зашифрованные (&lt;abbr title=&#34;DNS over HTTPS — зашифрованный DNS. Роутер не может прочитать такие запросы.&#34;&gt;DoH&lt;/abbr&gt;/DoT), используются все такие серверы по порядку. Иначе по порядку используются все обычные серверы.&lt;/li&gt;
 &lt;/ul&gt;
+&lt;h4&gt;Группа DNS-прокси&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;группа-dns-прокси&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%b3%d1%80%d1%83%d0%bf%d0%bf%d0%b0-dns-%d0%bf%d1%80%d0%be%d0%ba%d1%81%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h4&gt;&lt;p&gt;По умолчанию запросы идут в обычные настройки DNS роутера (группа &lt;strong&gt;System&lt;/strong&gt;). Чтобы использовать другую группу DNS-прокси Keenetic, например &lt;code&gt;Policy0&lt;/code&gt;, выберите её в поле &lt;strong&gt;Группа DNS-прокси&lt;/strong&gt; (&lt;code&gt;keenetic_policy&lt;/code&gt;). Под списком видно, какие вышестоящие серверы (DoH, DoT или обычные) использует выбранная группа и через какие интерфейсы идёт трафик её политики. Отдельно показаны серверы для отдельных доменов (например, провайдера): они заданы в общих настройках DNS Keenetic, и кнопка &lt;strong&gt;Открыть настройки DNS Keenetic&lt;/strong&gt; ведёт к ним.&lt;/p&gt;
+&lt;p&gt;Серверов с &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt; может быть несколько, по одному на каждую группу. Так разные списки доменов можно отправить в разные группы.&lt;/p&gt;
+&lt;p&gt;Чтобы пользоваться конкретным DoH-сервером, создайте на роутере политику, оставьте в её настройках DNS только этот сервер и выберите её группу в keen-pbr.&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;servers&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;keenetic&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;keenetic_policy&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;Policy0&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Если группу удалили или переименовали на роутере, keen-pbr действует по полю &lt;strong&gt;Если группа исчезнет&lt;/strong&gt; (&lt;code&gt;keenetic_on_missing&lt;/code&gt;):&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;&amp;quot;block&amp;quot;&lt;/code&gt; (по умолчанию): домены, для которых выбран этот сервер, не разрешаются.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;&amp;quot;system&amp;quot;&lt;/code&gt;: вместо группы используется &lt;strong&gt;System&lt;/strong&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;На странице состояния при этом появляется проблема «Группа DNS-прокси Keenetic не найдена».&lt;/p&gt;
+&lt;p&gt;Изменения в настройках Keenetic keen-pbr подхватывает сам в течение нескольких минут. Кнопка &lt;strong&gt;Обновить сейчас&lt;/strong&gt; на странице DNS-серверов и в форме сервера делает это сразу.&lt;/p&gt;
 &lt;h2&gt;Справочник полей&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;справочник-полей&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d1%81%d0%bf%d1%80%d0%b0%d0%b2%d0%be%d1%87%d0%bd%d0%b8%d0%ba-%d0%bf%d0%be%d0%bb%d0%b5%d0%b9&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Секция &lt;code&gt;dns&lt;/code&gt; в &lt;code&gt;config.json&lt;/code&gt;:&lt;/p&gt;
 &lt;table&gt;
@@ -2216,7 +2265,7 @@
 					&lt;td&gt;&lt;code&gt;firewall_backend&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;string&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;&amp;quot;auto&amp;quot;&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;Какой firewall использовать: &lt;code&gt;auto&lt;/code&gt; (выбрать автоматически), &lt;code&gt;iptables&lt;/code&gt; или &lt;code&gt;nftables&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Какой firewall использовать: &lt;code&gt;auto&lt;/code&gt; (выбрать автоматически), &lt;code&gt;iptables&lt;/code&gt; или &lt;code&gt;nftables&lt;/code&gt; (на Keenetic недоступен)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;clear_dynamic_sets_on_apply&lt;/code&gt;&lt;/td&gt;
@@ -2228,13 +2277,13 @@
 					&lt;td&gt;&lt;code&gt;ipset_hashsize&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;отсутствует&lt;/td&gt;
-					&lt;td&gt;Необязательный начальный размер хеш-таблицы &lt;abbr title=&#34;Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.&#34;&gt;ipset&lt;/abbr&gt;, создаваемых бэкендом iptables (по умолчанию &lt;code&gt;1024&lt;/code&gt;). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. Веб-интерфейс (&lt;strong&gt;Продвинутый&lt;/strong&gt; режим): &lt;strong&gt;Размер хеш-таблицы IPSet (ipset hashsize)&lt;/strong&gt;. При изменении наборы пересоздаются, а динамические наборы очищаются.&lt;/td&gt;
+					&lt;td&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt; Необязательный начальный размер хеш-таблицы &lt;abbr title=&#34;Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.&#34;&gt;ipset&lt;/abbr&gt;, создаваемых бэкендом iptables (по умолчанию &lt;code&gt;1024&lt;/code&gt;). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. Веб-интерфейс (&lt;strong&gt;Продвинутый&lt;/strong&gt; режим): &lt;strong&gt;Размер хеш-таблицы IPSet (ipset hashsize)&lt;/strong&gt;. При изменении наборы пересоздаются, а динамические наборы очищаются.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;ipset_maxelem&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;отсутствует&lt;/td&gt;
-					&lt;td&gt;Необязательное максимальное число элементов ipset, создаваемых бэкендом iptables (по умолчанию &lt;code&gt;65536&lt;/code&gt;). Не действует с nftables. Допустимый диапазон: от 1 до 4294967295. Веб-интерфейс: &lt;strong&gt;Максимальное количество элементов в ipset (ipset maxelem)&lt;/strong&gt;. При изменении наборы пересоздаются, а динамические наборы очищаются.&lt;/td&gt;
+					&lt;td&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt; Необязательное максимальное число элементов ipset, создаваемых бэкендом iptables (по умолчанию &lt;code&gt;65536&lt;/code&gt;). Не действует с nftables. Допустимый диапазон: от 1 до 4294967295. Веб-интерфейс: &lt;strong&gt;Максимальное количество элементов в ipset (ipset maxelem)&lt;/strong&gt;. При изменении наборы пересоздаются, а динамические наборы очищаются.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;reuse_static_sets_on_runtime_refresh&lt;/code&gt;&lt;/td&gt;
@@ -3373,13 +3422,14 @@
 &lt;/div&gt;
 
 &lt;h2&gt;Как это работает&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;как-это-работает&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Outbound &lt;code&gt;urltest&lt;/code&gt; или &lt;code&gt;icmptest&lt;/code&gt; с &lt;code&gt;&amp;quot;strategy&amp;quot;: &amp;quot;balance&amp;quot;&lt;/code&gt; выбирает один из рабочих каналов для каждого &lt;strong&gt;нового&lt;/strong&gt; соединения пропорционально их &lt;code&gt;weight&lt;/code&gt; (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.&lt;/p&gt;
+    &lt;a href=&#34;#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+Outbound &lt;code&gt;urltest&lt;/code&gt; или &lt;code&gt;icmptest&lt;/code&gt; с &lt;code&gt;&amp;quot;strategy&amp;quot;: &amp;quot;balance&amp;quot;&lt;/code&gt; выбирает один из рабочих каналов для каждого &lt;strong&gt;нового&lt;/strong&gt; соединения пропорционально их &lt;code&gt;weight&lt;/code&gt; (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.&lt;/p&gt;
 &lt;p&gt;В системе вам нужно настроить &lt;abbr title=&#34;Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.&#34;&gt;NAT&lt;/abbr&gt; на каждом провайдере и &lt;code&gt;rp_filter&lt;/code&gt; (см. ниже).&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
 
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;На бэкенде &lt;code&gt;iptables&lt;/code&gt; каналы выбираются случайно с заданной вероятностью, поэтому на небольшом числе соединений доли получаются приблизительными. Бэкенду &lt;code&gt;iptables&lt;/code&gt; нужен модуль ядра &lt;code&gt;xt_statistic&lt;/code&gt;, а поле &lt;code&gt;default_gateway&lt;/code&gt; в правилах маршрутизации работает только с &lt;code&gt;nftables&lt;/code&gt;. Менять &lt;code&gt;firewall_backend&lt;/code&gt; обычно не нужно: keen-pbr сам выбирает подходящий бэкенд.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt; Каналы выбираются случайно с заданной вероятностью, поэтому на небольшом числе соединений доли получаются приблизительными. Бэкенду &lt;code&gt;iptables&lt;/code&gt; нужен модуль ядра &lt;code&gt;xt_statistic&lt;/code&gt;, а поле &lt;code&gt;default_gateway&lt;/code&gt; в правилах маршрутизации работает только с &lt;code&gt;nftables&lt;/code&gt;. Менять &lt;code&gt;firewall_backend&lt;/code&gt; обычно не нужно: keen-pbr сам выбирает подходящий бэкенд.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 
