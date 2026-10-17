@@ -86,7 +86,7 @@ opkg flag user dnsmasq-full
   - `iproute.process_router_traffic` равно `false`: правила маршрутизации действуют на устройства в сети, а не на трафик самого роутера.
   - `--log-target` для всех команд равен `both`. Пакетные файлы сервиса передают `--log-target syslog`.
 - **Поля, которые больше не работают.**\
-  `dns.system_resolver`, `dns.dns_test_server` (используйте `intercept.dns.marker`) и `daemon.resolver_ready_timeout_seconds`; если они заданы, журнал предупредит. Старые поля `outbounds`, `candidates` и `weight` в `outbound_groups` заменены на `members`. Старые конфиги продолжают работать: keen-pbr один раз перепишет их и сохранит копию в `<config>.bak-pre-members`.
+  `dns.system_resolver`, `dns.dns_test_server` (используйте `intercept.dns.marker`) и `daemon.resolver_ready_timeout_seconds`; если они заданы, журнал предупредит. Старые поля `outbounds`, `candidates` и `weight` в `outbound_groups` заменены на `members`. Старые конфиги продолжают работать: keen-pbr один раз перепишет их в новый формат (комментарии и порядок ключей при этом не сохранятся).
 - **Новое поле `version`.**\
   В нём версия keen-pbr, для которой записан конфиг. keen-pbr ставит его, когда вы сохраняете конфиг в веб-интерфейсе. Если правите файл вручную, оставьте его.
 - **Домен для проверки DNS.**\
