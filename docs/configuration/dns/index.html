@@ -35,7 +35,7 @@ Do I need dnsmasq?
 	<meta itemprop="name" content="DNS">
 	<meta itemprop="description" content="Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in DNS interception.
 Do I need dnsmasq? No, not for routing. Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough (DoH and DoT are encrypted DNS).">
-	<meta itemprop="wordCount" content="3248">
+	<meta itemprop="wordCount" content="3243">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="DNS">
 	<meta name="twitter:description" content="Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in DNS interception.
@@ -967,7 +967,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-8 hx:rtl:pr-8 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-proxy-group">DNS proxy group
+        <a class="hx:ltr:pl-8 hx:rtl:pr-8 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#upstream-servers">Upstream servers
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1222,16 +1222,10 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 					<td>Outbound the router itself uses to send queries to this server (<strong>Make requests via Outbound</strong>)</td>
 			</tr>
 			<tr>
-					<td><code>keenetic_policy</code></td>
-					<td>string</td>
+					<td><code>keenetic_upstreams</code></td>
+					<td>array</td>
 					<td>no</td>
-					<td>Keenetic DNS proxy group for <code>type: &quot;keenetic&quot;</code>, for example <code>&quot;Policy0&quot;</code> (<strong>DNS proxy group</strong>). Unset or <code>&quot;System&quot;</code>: the router&rsquo;s regular DNS settings. Cannot be combined with <code>detour</code>. <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span></td>
-			</tr>
-			<tr>
-					<td><code>keenetic_on_missing</code></td>
-					<td>string</td>
-					<td>no</td>
-					<td>What to do when the selected group no longer exists on the router (<strong>If the group disappears</strong>): <code>&quot;block&quot;</code> (default) or <code>&quot;system&quot;</code>. Only together with <code>keenetic_policy</code>. <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span></td>
+					<td>Keenetic DNS servers this server uses (<strong>Upstream servers</strong>). Each item has <code>protocol</code> (<code>&quot;DoT&quot;</code>, <code>&quot;DoH&quot;</code> or <code>&quot;Plain&quot;</code>) and <code>target</code>, as the Web UI shows them. Unset: all of them. Only for <code>type: &quot;keenetic&quot;</code>. With two or more servers it cannot be combined with <code>detour</code>. <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span></td>
 			</tr>
 	</tbody>
 </table>
@@ -1278,21 +1272,27 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 On Keenetic routers, <code>type: &quot;keenetic&quot;</code> takes the DNS servers from the router&rsquo;s current settings. You set them in the Keenetic web interface: <strong>Network rules</strong> &gt; <strong>Internet safety</strong> &gt; <strong>DNS Configuration</strong>. If DoT or DoH servers are set there, only they are used.</p>
 <ul>
 <li><code>address</code> is not set for it.</li>
-<li>keen-pbr reads the servers that are not tied to a domain from the <strong>System</strong> DNS proxy group. If any of them are encrypted (<abbr title="DNS over HTTPS: encrypted DNS. The router cannot read these queries.">DoH</abbr>/DoT), all encrypted servers are used in order. Otherwise, all plain servers are used in order.</li>
+<li>keen-pbr takes the servers that are not tied to a domain. If any of them are encrypted (<abbr title="DNS over HTTPS: encrypted DNS. The router cannot read these queries.">DoH</abbr>/DoT), all encrypted servers are used. Otherwise, all plain servers are used.</li>
 </ul>
-<h4>DNS proxy group<span class="hx:absolute hx:-mt-20" id="dns-proxy-group"></span>
-    <a href="#dns-proxy-group" class="subheading-anchor" aria-label="Permalink for this section"></a></h4><p>By default queries go to the router&rsquo;s regular DNS settings (the <strong>System</strong> group). To use another Keenetic DNS proxy group, for example <code>Policy0</code>, select it in the <strong>DNS proxy group</strong> field (<code>keenetic_policy</code>). The list below the field shows which upstream servers (DoH, DoT or plain) the selected group uses and which interfaces the traffic of its policy takes. Servers for specific domains (your ISP&rsquo;s, for example) are listed separately: they are set in the general DNS settings of Keenetic, and the <strong>Open Keenetic DNS settings</strong> button leads there.</p>
-<p>You can have several servers with <code>type: &quot;keenetic&quot;</code>, one per group. This lets you send different domain lists to different groups.</p>
-<p>To use one specific DoH server, create a policy on the router, leave only that server in its DNS settings, and select its group in keen-pbr.</p>
+<h4>Upstream servers<span class="hx:absolute hx:-mt-20" id="upstream-servers"></span>
+    <a href="#upstream-servers" class="subheading-anchor" aria-label="Permalink for this section"></a></h4><p>By default queries go to all the servers set in Keenetic. To use only some of them, tick them in the <strong>Upstream servers</strong> field (<code>keenetic_upstreams</code>). The list shows the servers set in Keenetic with their type: DoH, DoT or plain. The <strong>Sync with Keenetic</strong> button re-reads the list right away. Servers for specific domains (your ISP&rsquo;s, for example) are listed separately: they are set in the general DNS settings of Keenetic, and the <strong>Open Keenetic DNS settings</strong> button leads there.</p>
+<ul>
+<li>One server ticked: all requests go to it.</li>
+<li>Two or more ticked: requests are spread over them in turn. If a server stops answering, the next one takes over, and the silent one is skipped for a while.</li>
+</ul>
+<p>You can have several servers with <code>type: &quot;keenetic&quot;</code>, for example one for DoT servers and another for DoH servers. This lets you send different domain lists to different servers.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;keenetic_dot&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;keenetic&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;keenetic_policy&#34;</span><span class="p">:</span> <span class="s2">&#34;Policy0&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;keenetic_upstreams&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">          <span class="p">{</span> <span class="nt">&#34;protocol&#34;</span><span class="p">:</span> <span class="s2">&#34;DoT&#34;</span><span class="p">,</span> <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8@dns.google&#34;</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">          <span class="p">{</span> <span class="nt">&#34;protocol&#34;</span><span class="p">:</span> <span class="s2">&#34;DoT&#34;</span><span class="p">,</span> <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.4.4@dns.google&#34;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="p">]</span>
 </span></span><span class="line"><span class="cl">      <span class="p">}</span>
 </span></span><span class="line"><span class="cl">    <span class="p">]</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
@@ -1308,13 +1308,8 @@ On Keenetic routers, <code>type: &quot;keenetic&quot;</code> takes the DNS serve
   </button>
 </div>
 </div>
-<p>If the group is deleted or renamed on the router, keen-pbr follows the <strong>If the group disappears</strong> field (<code>keenetic_on_missing</code>):</p>
-<ul>
-<li><code>&quot;block&quot;</code> (default): the domains this server is selected for are not resolved.</li>
-<li><code>&quot;system&quot;</code>: the <strong>System</strong> group is used instead.</li>
-</ul>
-<p>The status page then shows the problem &ldquo;Keenetic DNS proxy group not found&rdquo;.</p>
-<p>keen-pbr picks up changes in the Keenetic settings on its own within a few minutes. The <strong>Refresh now</strong> button on the DNS servers page and in the server form does it right away.</p>
+<p>If a ticked server is removed in the Keenetic settings, keen-pbr uses the remaining ones. When none is left, the domains this server is selected for are not resolved. The status page shows the problem &ldquo;Keenetic DNS server not found&rdquo; in both cases.</p>
+<p>keen-pbr picks up changes in the Keenetic settings on its own within a few minutes. The <strong>Sync with Keenetic</strong> button on the DNS servers page and in the server form does it right away.</p>
 <h2>Field reference<span class="hx:absolute hx:-mt-20" id="field-reference"></span>
     <a href="#field-reference" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>The <code>dns</code> section in <code>config.json</code>:</p>
 <table>

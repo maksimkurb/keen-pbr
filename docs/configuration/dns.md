@@ -98,8 +98,7 @@ A server name (`tag`) must be unique: lowercase Latin letters, digits and `_`, s
 | `type` | string | no | Server type (**DNS type**): `static` (**Plaintext DNS**, default) or `keenetic` (**Keenetic DNS**, {{< only keenetic >}}) |
 | `address` | string | for `static` | IP address of the DNS server, with optional port, for example `"10.8.0.1"`, `"10.8.0.1:5353"`, `"2001:4860:4860::8888"`, or `"[2001:4860:4860::8888]:5353"` |
 | `detour` | string | no | Outbound the router itself uses to send queries to this server (**Make requests via Outbound**) |
-| `keenetic_policy` | string | no | Keenetic DNS proxy group for `type: "keenetic"`, for example `"Policy0"` (**DNS proxy group**). Unset or `"System"`: the router's regular DNS settings. Cannot be combined with `detour`. {{< only keenetic >}} |
-| `keenetic_on_missing` | string | no | What to do when the selected group no longer exists on the router (**If the group disappears**): `"block"` (default) or `"system"`. Only together with `keenetic_policy`. {{< only keenetic >}} |
+| `keenetic_upstreams` | array | no | Keenetic DNS servers this server uses (**Upstream servers**). Each item has `protocol` (`"DoT"`, `"DoH"` or `"Plain"`) and `target`, as the Web UI shows them. Unset: all of them. Only for `type: "keenetic"`. With two or more servers it cannot be combined with `detour`. {{< only keenetic >}} |
 
 `detour` is useful when a DNS server must be reached through a specific connection, usually the same VPN. It does not affect queries that devices in your network send directly to the same address: route them with a normal route rule.
 
@@ -136,38 +135,37 @@ A server name (`tag`) must be unique: lowercase Latin letters, digits and `_`, s
 On Keenetic routers, `type: "keenetic"` takes the DNS servers from the router's current settings. You set them in the Keenetic web interface: **Network rules** > **Internet safety** > **DNS Configuration**. If DoT or DoH servers are set there, only they are used.
 
 - `address` is not set for it.
-- keen-pbr reads the servers that are not tied to a domain from the **System** DNS proxy group. If any of them are encrypted ({{< term "DoH" >}}/DoT), all encrypted servers are used in order. Otherwise, all plain servers are used in order.
+- keen-pbr takes the servers that are not tied to a domain. If any of them are encrypted ({{< term "DoH" >}}/DoT), all encrypted servers are used. Otherwise, all plain servers are used.
 
-#### DNS proxy group
+#### Upstream servers
 
-By default queries go to the router's regular DNS settings (the **System** group). To use another Keenetic DNS proxy group, for example `Policy0`, select it in the **DNS proxy group** field (`keenetic_policy`). The list below the field shows which upstream servers (DoH, DoT or plain) the selected group uses and which interfaces the traffic of its policy takes. Servers for specific domains (your ISP's, for example) are listed separately: they are set in the general DNS settings of Keenetic, and the **Open Keenetic DNS settings** button leads there.
+By default queries go to all the servers set in Keenetic. To use only some of them, tick them in the **Upstream servers** field (`keenetic_upstreams`). The list shows the servers set in Keenetic with their type: DoH, DoT or plain. The **Sync with Keenetic** button re-reads the list right away. Servers for specific domains (your ISP's, for example) are listed separately: they are set in the general DNS settings of Keenetic, and the **Open Keenetic DNS settings** button leads there.
 
-You can have several servers with `type: "keenetic"`, one per group. This lets you send different domain lists to different groups.
+- One server ticked: all requests go to it.
+- Two or more ticked: requests are spread over them in turn. If a server stops answering, the next one takes over, and the silent one is skipped for a while.
 
-To use one specific DoH server, create a policy on the router, leave only that server in its DNS settings, and select its group in keen-pbr.
+You can have several servers with `type: "keenetic"`, for example one for DoT servers and another for DoH servers. This lets you send different domain lists to different servers.
 
 ```json { filename="config.json" }
 {
   "dns": {
     "servers": [
       {
-        "tag": "vpn_dns",
+        "tag": "keenetic_dot",
         "type": "keenetic",
-        "keenetic_policy": "Policy0"
+        "keenetic_upstreams": [
+          { "protocol": "DoT", "target": "8.8.8.8@dns.google" },
+          { "protocol": "DoT", "target": "8.8.4.4@dns.google" }
+        ]
       }
     ]
   }
 }
 ```
 
-If the group is deleted or renamed on the router, keen-pbr follows the **If the group disappears** field (`keenetic_on_missing`):
+If a ticked server is removed in the Keenetic settings, keen-pbr uses the remaining ones. When none is left, the domains this server is selected for are not resolved. The status page shows the problem "Keenetic DNS server not found" in both cases.
 
-- `"block"` (default): the domains this server is selected for are not resolved.
-- `"system"`: the **System** group is used instead.
-
-The status page then shows the problem "Keenetic DNS proxy group not found".
-
-keen-pbr picks up changes in the Keenetic settings on its own within a few minutes. The **Refresh now** button on the DNS servers page and in the server form does it right away.
+keen-pbr picks up changes in the Keenetic settings on its own within a few minutes. The **Sync with Keenetic** button on the DNS servers page and in the server form does it right away.
 
 ## Field reference
 
