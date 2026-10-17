@@ -180,9 +180,11 @@ std::vector<std::string> config_warnings(const Config& config);
 // --- JSON deserialization and validation ---
 
 Config parse_config(const std::string& json_str);
-// When the config text uses a legacy form that load-time migration rewrites
-// (legacy icmptest probes, group outbounds/candidates/weight), returns the
-// upgraded JSON text; nullopt when nothing changes or the text is not JSON.
+// Runs the format-changing migration steps newer than the config's `version`
+// (a config with no `version` gets all of them: legacy icmptest probes, group
+// outbounds/candidates/weight) and returns the upgraded JSON text; nullopt when
+// nothing changes or the text is not JSON.  Steps that only fill in values for
+// the running process are not applied here, and `version` is not stamped.
 // Pure: callers decide whether to persist it, after parse+validate succeeded.
 std::optional<std::string> upgraded_config_text(const std::string& json_str);
 Config parse_config(std::istream& json_stream);

@@ -16,12 +16,11 @@ void write_config_atomically(const std::string& config_path,
 void write_config_atomically_from_fd(const std::string& config_path,
                                      int source_fd);
 
-// Rewrites a config file whose text used a legacy form migrated at load time
-// (see upgraded_config_text()) into the upgraded form, keeping a one-time
-// backup of the original in `<config>.bak-pre-members` (never overwritten).
-// Call only after the original text parsed AND validated. Comments and key
-// order of the original are not preserved (the backup keeps them). Failures
-// are logged, never thrown. Returns true when the file was rewritten.
+// Rewrites a config file whose text needs a format-changing migration step
+// (see upgraded_config_text()) into the upgraded form. No backup is kept: the
+// router flash is small. Call only after the original text parsed AND
+// validated. Comments and key order of the original are not preserved.
+// Failures are logged, never thrown. Returns true when the file was rewritten.
 bool upgrade_config_file_if_needed(const std::string& config_path,
                                    const std::string& original_text);
 

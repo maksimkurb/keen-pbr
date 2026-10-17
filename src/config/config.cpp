@@ -885,45 +885,77 @@ void migrate_resolver_integration_340(json& root, const std::string& from) {
 
 struct MigrationStep {
     SemVer introduced_in;
-    void (*run)(json& root, const std::string& from);
+    // The step changes the shape of the file (renamed or restructured keys), so
+    // the file on disk is rewritten once.  Other steps only fill in values for
+    // the running process and never touch the file.
+    bool rewrites_format;
+    void (*run)(json& root, std::vector<ConfigValidationIssue>& issues,
+                const std::string& from);
 };
 
+// Steps run in order.  A config with no `version` was written by 3.3.x or
+// older and gets every step.
 const MigrationStep kMigrationSteps[] = {
-    {{3, 4, 0}, &migrate_resolver_integration_340},
+    {{3, 4, 0}, true,
+     [](json& root, std::vector<ConfigValidationIssue>& issues, const std::string&) {
+         migrate_legacy_icmptest(root, issues);
+     }},
+    // Must run after the icmptest step.
+    {{3, 4, 0}, true,
+     [](json& root, std::vector<ConfigValidationIssue>& issues, const std::string&) {
+         migrate_legacy_group_members(root, issues);
+     }},
+    {{3, 4, 0}, false,
+     [](json& root, std::vector<ConfigValidationIssue>&, const std::string& from) {
+         migrate_resolver_integration_340(root, from);
+     }},
 };
 
-// Validates `version`, applies the steps newer than it and stamps the current
-// version.  A newer config is left alone (downgrade) and keeps its version so
+struct ConfigVersion {
+    bool has_version{false};
+    SemVer from{3, 3, 0};  // no version: written before versioning existed
+    std::string text;      // for log messages
+};
+
+// Validates `version`.  nullopt (with an issue) when it is malformed.
+std::optional<ConfigVersion> read_config_version(
+    const json& root, std::vector<ConfigValidationIssue>& issues) {
+    ConfigVersion out;
+    const auto found = root.find("version");
+    out.has_version = found != root.end() && !found->is_null();
+    if (!out.has_version) {
+        out.text = "has no version (written by 3.3.x)";
+        return out;
+    }
+    std::optional<SemVer> parsed;
+    if (found->is_string()) parsed = parse_semver(found->get<std::string>());
+    if (!parsed) {
+        add_issue(issues, "version",
+                  "version must look like 3.4.0 (major.minor.patch)");
+        return std::nullopt;
+    }
+    out.from = *parsed;
+    out.text = "is version " + found->get<std::string>();
+    return out;
+}
+
+bool step_applies(const MigrationStep& step, const ConfigVersion& version) {
+    return !version.has_version || version.from < step.introduced_in;
+}
+
+// Applies the steps newer than `version` and stamps the current version.  A
+// newer config is left alone (downgrade) and keeps its version so
 // config_warnings() can report it.
 void migrate_config_version(json& root,
                             std::vector<ConfigValidationIssue>& issues) {
     if (!root.is_object()) return;
 
-    const auto found = root.find("version");
-    const bool has_version = found != root.end() && !found->is_null();
-    SemVer from{3, 3, 0};  // no version: written before versioning existed
-    if (has_version) {
-        std::optional<SemVer> parsed;
-        if (found->is_string()) parsed = parse_semver(found->get<std::string>());
-        if (!parsed) {
-            add_issue(issues, "version",
-                      "version must look like 3.4.0 (major.minor.patch)");
-            return;
-        }
-        from = *parsed;
-    }
-
-    const SemVer current = current_semver();
-    if (current < from) return;
-
-    const std::string from_text =
-        has_version ? "is version " + found->get<std::string>()
-                    : std::string("has no version (written by 3.3.x)");
+    const auto version = read_config_version(root, issues);
+    if (!version) return;
+    if (current_semver() < version->from) return;
 
     for (const auto& step : kMigrationSteps) {
-        if (!has_version || from < step.introduced_in) {
-            step.run(root, from_text);
-        }
+        if (step_applies(step, *version)) step.run(root, issues, version->text);
     }
     root["version"] = KEEN_PBR3_VERSION_STRING;
 }
@@ -1052,8 +1084,6 @@ Config parse_config_json(json parsed_json) {
     Config cfg;
     std::vector<ConfigValidationIssue> issues;
 
-    migrate_legacy_icmptest(parsed_json, issues);
-    migrate_legacy_group_members(parsed_json, issues);
     migrate_config_version(parsed_json, issues);
 
     validate_optional_hex_string_field(
@@ -1152,8 +1182,13 @@ std::optional<std::string> upgraded_config_text(const std::string& json_str) {
     if (parsed.is_discarded() || !parsed.is_object()) return std::nullopt;
     const json original = parsed;
     std::vector<ConfigValidationIssue> ignored;
-    migrate_legacy_icmptest(parsed, ignored);
-    migrate_legacy_group_members(parsed, ignored);
+    const auto version = read_config_version(parsed, ignored);
+    if (!version || current_semver() < version->from) return std::nullopt;
+    for (const auto& step : kMigrationSteps) {
+        if (step.rewrites_format && step_applies(step, *version)) {
+            step.run(parsed, ignored, version->text);
+        }
+    }
     if (parsed == original) return std::nullopt;
     return parsed.dump(2) + "\n";
 }

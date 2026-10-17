@@ -2120,6 +2120,24 @@ TEST_CASE("upgraded_config_text decides whether the file needs a rewrite") {
     CHECK_FALSE(upgraded_config_text("not json").has_value());
 }
 
+TEST_CASE("format migrations are steps of the config version") {
+    // No version: written by 3.3.x, the legacy form is rewritten.
+    CHECK(upgraded_config_text(kMainFormatConfig).has_value());
+    // A versioned config is already in the current format: nothing is migrated
+    // and the file is not touched.
+    std::string versioned = kMainFormatConfig;
+    versioned.insert(1, R"("version":"3.4.0",)");
+    CHECK_FALSE(upgraded_config_text(versioned).has_value());
+    // A version older than the step still gets it.
+    std::string older = kMainFormatConfig;
+    older.insert(1, R"("version":"3.3.1",)");
+    CHECK(upgraded_config_text(older).has_value());
+    // A newer config (downgrade) is left alone.
+    std::string newer = kMainFormatConfig;
+    newer.insert(1, R"("version":"99.0.0",)");
+    CHECK_FALSE(upgraded_config_text(newer).has_value());
+}
+
 TEST_CASE("canonical members keep order, target and weight") {
     const auto cfg = parse_test_config(R"({"outbounds":[
       {"type":"interface","tag":"a","interface":"eth0"},
@@ -2224,7 +2242,7 @@ TEST_CASE("outbound_group members must be interface or table outbounds") {
     }
 }
 
-TEST_CASE("upgrade_config_file_if_needed rewrites once and keeps the first backup") {
+TEST_CASE("upgrade_config_file_if_needed rewrites once and leaves no backup") {
     namespace fs = std::filesystem;
     const fs::path dir = fs::temp_directory_path() /
                          ("kpbr-upgrade-" + std::to_string(::getpid()));
@@ -2239,16 +2257,16 @@ TEST_CASE("upgrade_config_file_if_needed rewrites once and keeps the first backu
         out << kMainFormatConfig;
     }
     CHECK(upgrade_config_file_if_needed(path, kMainFormatConfig));
-    CHECK(read(path + ".bak-pre-members") == kMainFormatConfig);
+    CHECK_FALSE(fs::exists(path + ".bak-pre-members"));
     const auto upgraded = read(path);
     CHECK(upgraded.find("\"members\"") != std::string::npos);
     CHECK_NOTHROW(parse_test_config(upgraded));
-    // Already upgraded: nothing to do, file and backup untouched.
+    // Already upgraded: nothing to do, file untouched.
     CHECK_FALSE(upgrade_config_file_if_needed(path, upgraded));
     CHECK(read(path) == upgraded);
-    // A later legacy rewrite never overwrites the existing backup.
+    // A later legacy rewrite leaves no backup either.
     CHECK(upgrade_config_file_if_needed(path, R"({"outbounds":[{"type":"urltest","tag":"u","outbound_groups":[{"outbounds":["a"]}]}]})"));
-    CHECK(read(path + ".bak-pre-members") == kMainFormatConfig);
+    CHECK_FALSE(fs::exists(path + ".bak-pre-members"));
     fs::remove_all(dir);
 }
 

@@ -169,16 +169,9 @@ bool upgrade_config_file_if_needed(const std::string& config_path,
     try {
         const auto upgraded = upgraded_config_text(original_text);
         if (!upgraded) return false;
-        const std::string backup_path = config_path + ".bak-pre-members";
-        std::error_code ec;
-        if (!std::filesystem::exists(backup_path, ec)) {
-            write_config_atomically(backup_path, original_text);
-        }
         write_config_atomically(config_path, *upgraded);
-        Logger::instance().info(
-            "Config {} used a legacy outbound_groups format and was upgraded to "
-            "'members' (original kept in {})",
-            config_path, backup_path);
+        Logger::instance().info("Config {} used a legacy format and was upgraded",
+                                config_path);
         return true;
     } catch (const std::exception& error) {
         Logger::instance().warn("Could not upgrade legacy config {}: {}",
