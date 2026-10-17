@@ -2,39 +2,11 @@
 
 [ -n "$IPKG_INSTROOT" ] && exit 0
 
-# keen-pbr 3.3.x depended on dnsmasq, so opkg installed it as a dependency
-# that "opkg autoremove" may delete.  Since 3.4.0 the dependency is gone, but a
-# config written by 3.3.x still manages dnsmasq.  opkg does not tell a
-# postinst the old version, so the check is the config: a 3.3.x config has no
-# "version" field.
+# opkg does not tell a postinst the old version, so the check is the config:
+# a config written by 3.3.x has no "version" field.
 KEEN_PBR_CONFIG="/etc/keen-pbr/config.json"
-KEEN_PBR_OPKG_STATUS="/usr/lib/opkg/status"
-if [ -f "$KEEN_PBR_CONFIG" ] && ! grep -q '"version"' "$KEEN_PBR_CONFIG"; then
-    # Package state is read from opkg's status file: opkg holds its own lock
-    # while this script runs, so calling opkg here would fail.
-    keen_pbr_pkg_installed() {
-        awk -v pkg="$1" '
-            $1 == "Package:" { cur = $2 }
-            $1 == "Status:" && cur == pkg && $NF == "installed" { found = 1 }
-            END { exit found ? 0 : 1 }
-        ' "$KEEN_PBR_OPKG_STATUS" 2>/dev/null
-    }
-    for keen_pbr_dnsmasq_pkg in dnsmasq dnsmasq-full; do
-        if keen_pbr_pkg_installed "$keen_pbr_dnsmasq_pkg"; then
-            # Retry in the background until opkg releases its lock.
-            (
-                keen_pbr_try=0
-                while [ "$keen_pbr_try" -lt 30 ]; do
-                    sleep 2
-                    opkg flag user "$keen_pbr_dnsmasq_pkg" >/dev/null 2>&1 && exit 0
-                    keen_pbr_try=$((keen_pbr_try + 1))
-                done
-            ) >/dev/null 2>&1 &
-        fi
-    done
-    if [ "$PKG_UPGRADE" = "1" ]; then
-        echo "What's new in 3.4.0: https://keen-pbr.fyi/docs/changelog/#v3-4-0"
-    fi
+if [ "$PKG_UPGRADE" = "1" ] && [ -f "$KEEN_PBR_CONFIG" ] && ! grep -q '"version"' "$KEEN_PBR_CONFIG"; then
+    echo "What's new in 3.4.0: https://keen-pbr.fyi/docs/changelog/#v3-4-0"
 fi
 
 # Rewrites keen-pbr's dnsmasq entry in /tmp at boot, before dnsmasq starts.
