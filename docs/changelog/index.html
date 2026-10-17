@@ -102,7 +102,7 @@ The command takes protocol, ports, addresses and DSCP, and runs in the daemon, t
 Route rules apply to devices in your network. To include the router, set iproute.process_router_traffic to true. See iproute. Local networks rule in the default config.
 It keeps local networks out of tunnels. The “What’s new?” button.
 It opens this page from the Web UI. Lists that failed to download at start are retried in the background. Removing the package also removes leftover firewall rules and dnsmasq files. Fixes urltest and icmptest groups now accept only interface and table members: other types never worked and now fail config validation. A blackhole member was never selected; keen-pbr now skips it and logs a warning. You do not need it to block traffic: when no link works, traffic is blocked anyway. Fixed automatic list updates stopping after the first list change that affected routing. Lists now update on schedule. Fixed new devices not getting an address over DHCP when a route rule matches all UDP traffic. Fixed the router’s own traffic skipping route rules when inbound_interfaces is set. When several DNS rules name the same list, dnsmasq now gets the servers of every rule and switches between them. Before, only the first rule’s server was used. Keenetic/NetCraze Fixed routing being built from a half-updated route table when routes change one after another during a WAN DHCP renewal. Fixed a list cache file being left empty after a power loss. Fixed keen-pbr status reporting every urltest and icmptest rule as an error. The Web UI now keeps conntrack_on_switch, strict_enforcement_action and the urltest probe timeout when saving an outbound. Fixed DNS servers with detour through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address). Breaking Changes Debian Before the upgrade. keen-pbr 3.3.x depended on dnsmasq, so apt marked it as automatically installed, and apt autoremove may remove it. If you need dnsmasq, first run:">
-	<meta itemprop="wordCount" content="910">
+	<meta itemprop="wordCount" content="3788">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Changelog">
 	<meta name="twitter:description" content="What changed in each keen-pbr release, and what to do when you upgrade.
@@ -510,6 +510,90 @@ It opens this page from the Web UI. Lists that failed to download at start are r
                 href="#v3-4-0"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >3.4.0</a>
+            </li>
+          <li>
+              <a
+                href="#v3-3-1"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >3.3.1</a>
+            </li>
+          <li>
+              <a
+                href="#v3-3-0"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >3.3.0</a>
+            </li>
+          <li>
+              <a
+                href="#v3-2-1"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >3.2.1</a>
+            </li>
+          <li>
+              <a
+                href="#v3-1-1"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >3.1.1</a>
+            </li>
+          <li>
+              <a
+                href="#v3-1-0"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >3.1.0</a>
+            </li>
+          <li>
+              <a
+                href="#v3-0-7"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >3.0.7 (beta)</a>
+            </li>
+          <li>
+              <a
+                href="#v3-0-6"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >3.0.6 (beta)</a>
+            </li>
+          <li>
+              <a
+                href="#v3-0-4"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >3.0.4 (beta)</a>
+            </li>
+          <li>
+              <a
+                href="#v3-0-3"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >3.0.3 (beta)</a>
+            </li>
+          <li>
+              <a
+                href="#v3-0-2"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >3.0.2 (beta)</a>
+            </li>
+          <li>
+              <a
+                href="#v3-0-1"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >3.0.1 (beta)</a>
+            </li>
+          <li>
+              <a
+                href="#v3-0-0"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >3.0.0 (beta)</a>
+            </li>
+          <li>
+              <a
+                href="#v2"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >keen-pbr 2.x</a>
+            </li>
+          <li>
+              <a
+                href="#v1"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >keenetic-pbr 1.x</a>
             </li>
           </ul>
   
@@ -984,6 +1068,182 @@ It opens this page from the Web UI. Lists that failed to download at start are r
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#upgrading-from-33x">Breaking Changes
         </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v3-3-1">3.3.1
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#whats-new-1">What’s new
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#fixes-1">Fixes
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v3-3-0">3.3.0
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#whats-new-2">What’s new
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#fixes-2">Fixes
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#upgrading-from-32x">Breaking Changes
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v3-2-1">3.2.1
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#whats-new-3">What’s new
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#fixes-3">Fixes
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v3-1-1">3.1.1
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#whats-new-4">What’s new
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#fixes-4">Fixes
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v3-1-0">3.1.0
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#whats-new-5">What’s new
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#fixes-5">Fixes
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v3-0-7">3.0.7 (beta)
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#fixes-6">Fixes
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v3-0-6">3.0.6 (beta)
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#fixes-7">Fixes
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v3-0-4">3.0.4 (beta)
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#whats-new-6">What’s new
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#fixes-8">Fixes
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v3-0-3">3.0.3 (beta)
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#whats-new-7">What’s new
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#fixes-9">Fixes
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v3-0-2">3.0.2 (beta)
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#upgrading-from-301">Breaking Changes
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#fixes-10">Fixes
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v3-0-1">3.0.1 (beta)
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#whats-new-8">What’s new
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#fixes-11">Fixes
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v3-0-0">3.0.0 (beta)
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v2">keen-pbr 2.x
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v2-2-1">2.2.1
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v2-1-4">2.1.4
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v2-0-3">2.0.3
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v2-0-2">2.0.2
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v2-0-1">2.0.1
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v1">keenetic-pbr 1.x
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v1-3-0">1.3.0
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v1-2-0">1.2.0
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v1-0-1">1.0.1
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#v1-0-0">1.0.0
+        </a>
       </li></ul>
       <div class="hx:mt-8 hx:border-t hx:bg-white hx:pt-8 hx:shadow-[0_-12px_16px_white] hx:dark:bg-dark hx:dark:shadow-[0_-12px_16px_#111] hx:sticky hx:bottom-0 hx:flex hx:flex-col hx:items-start hx:gap-2 hx:pb-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-t hx:contrast-more:border-neutral-400 hx:contrast-more:shadow-none hx:contrast-more:dark:border-neutral-400">
         <button id="backToTop" tabindex="-1" onClick="scrollUp();" class="hx:cursor-pointer hx:transition-all hx:duration-75 hx:opacity-0 hx:text-xs hx:font-medium hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-100 hx:contrast-more:text-gray-800 hx:contrast-more:dark:text-gray-50">
@@ -1148,8 +1408,344 @@ Install it again with <code>opkg install dnsmasq-full</code>.</li>
 Turn off <strong>Manage dnsmasq configuration</strong>. Then, in the router&rsquo;s web console (<a href="http://my.keenetic.net/a"target="_blank" rel="noopener">http://my.keenetic.net/a</a>), run <code>no opkg dns-override</code> and <code>system configuration save</code>, and reboot the router.</li>
 </ul>
 <p>After the upgrade, dnsmasq management stays on, as in 3.3.x. If you do not need it, turn off <strong>Manage dnsmasq configuration</strong> in the Web UI (<strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Local DNS server management</strong>) and follow the rollback steps: <a href="/docs/getting-started/installation/keenetic/#dnsmasq-rollback">Keenetic</a>, <a href="/docs/getting-started/installation/openwrt/#dnsmasq-rollback">OpenWrt</a>, <a href="/docs/getting-started/installation/debian/#dnsmasq-rollback">Debian</a>. Without it, DNS rules and default DNS servers stop working.</p>
+<p>What to check after the upgrade:</p>
 <ul>
-<li>First release. Follow-up builds fixed <code>download</code> messages for local lists, the default dnsmasq config, and the installer, which no longer replaces an existing <code>dnsmasq.conf</code>.</li>
+<li><strong>Kernel modules.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+Domains are now detected by interception. If the <strong>Netfilter Subsystem Kernel Modules</strong> and <strong>Xtables-addons Extension Package for Netfilter</strong> components are not installed yet, install them. Then open the status page in the Web UI and run the DNS check.</li>
+<li><strong>iptables only.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+The Keenetic build always works through iptables. A config with <code>daemon.firewall_backend: &quot;nftables&quot;</code> or <code>strategy: &quot;balance&quot;</code> fails validation there.</li>
+<li><strong>Debian 11 (bullseye) is no longer supported.</strong></li>
+<li><strong>A list&rsquo;s <code>ttl_ms</code> is now a minimum time.</strong><br>
+It used to set how long the addresses of a list&rsquo;s domains are kept. Now it is a minimum: if the <abbr title="How long a DNS answer may be cached, in seconds.">TTL</abbr> in the DNS reply is longer, the address is kept longer, but no more than <code>intercept.max_ttl_ms</code>. If <code>ttl_ms</code> is not set, the minimum comes from <code>intercept.min_ttl_ms</code> (5 minutes by default).</li>
+<li><strong>Defaults changed.</strong>
+<ul>
+<li><code>daemon.clear_dynamic_sets_on_apply</code> is now <code>false</code>: domain addresses are kept when a config is applied.</li>
+<li><code>iproute.process_router_traffic</code> is <code>false</code>: route rules apply to devices in your network, not to the router&rsquo;s own traffic.</li>
+<li><code>--log-target</code> is <code>both</code> for all commands. The service package files pass <code>--log-target syslog</code>.</li>
+</ul>
+</li>
+<li><strong>Fields that no longer work.</strong><br>
+<code>dns.system_resolver</code>, <code>dns.dns_test_server</code> (use <code>intercept.dns.marker</code>) and <code>daemon.resolver_ready_timeout_seconds</code>; the log warns if they are set. The old <code>outbounds</code>, <code>candidates</code> and <code>weight</code> fields in <code>outbound_groups</code> are replaced by <code>members</code>. Old configs keep working: keen-pbr rewrites them to the new format once (comments and key order are not kept).</li>
+<li><strong>New <code>version</code> field.</strong><br>
+It holds the keen-pbr version the config was written for. keen-pbr sets it when you save the config in the Web UI. If you edit the file by hand, leave it in place.</li>
+<li><strong>DNS check domain.</strong><br>
+For a manual check, run <code>nslookup check.keen-pbr.fyi</code> instead of <code>nslookup check.keen.pbr</code>. See <a href="/docs/troubleshooting/">Troubleshooting</a>.</li>
+</ul>
+<p>If your scripts or other programs work with keen-pbr:</p>
+<ul>
+<li>The <code>keen-pbr resolver-config-hash</code> command does nothing and always succeeds.</li>
+<li><code>keen-pbr generate-resolver-config</code> accepts <code>dnsmasq</code> instead of <code>dnsmasq-ipset</code> and <code>dnsmasq-nftset</code>.</li>
+<li><code>keen-pbr status</code> exits with code 1 if any check failed or the problems include an error.</li>
+<li><code>GET /api/dns/test?show=all</code> (and <code>show=full</code>) works only when API authentication is enabled.</li>
+<li>New endpoints: <code>GET /metrics</code>, <code>GET /api/health/issues</code>, <code>GET /api/config/defaults</code>. <code>GET /api/status/events</code> also sends problems, routing state, authentication state and config changes.</li>
+</ul>
+<h2>3.3.1<span class="hx:absolute hx:-mt-20" id="v3-3-1"></span>
+    <a href="#v3-3-1" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>25 August 2026</em></p>
+<h3>What&rsquo;s new<span class="hx:absolute hx:-mt-20" id="whats-new-1"></span>
+    <a href="#whats-new-1" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li><strong>Where the log goes.</strong><br>
+The <code>--log-target stderr|syslog|both</code> option. The service writes to syslog by default, commands in a terminal write to stderr.</li>
+</ul>
+<h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-1"></span>
+    <a href="#fixes-1" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li><strong>Switching open connections.</strong><br>
+When the selected link in a <code>urltest</code> or <code>icmptest</code> group stops working, keen-pbr now clears the <abbr title="Connection tracking: the Linux kernel&#39;s table of open connections. Each entry can carry its own mark (connmark).">conntrack</abbr> entries of open connections, and devices reopen them through the new link, over IPv4 and IPv6. Before, connections stayed on the dead link. If the old link still works at the time of the switch, the <code>conntrack_on_switch</code> setting applies.</li>
+<li>Fixed the display of member states in <code>urltest</code> and <code>icmptest</code> groups (primary, backup, flaky, unavailable).</li>
+<li>keen-pbr waits for dnsmasq to be ready for as long as <code>daemon.resolver_ready_timeout_seconds</code> says, not always five seconds.</li>
+</ul>
+<h2>3.3.0<span class="hx:absolute hx:-mt-20" id="v3-3-0"></span>
+    <a href="#v3-3-0" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>21 August 2026</em></p>
+<h3>What&rsquo;s new<span class="hx:absolute hx:-mt-20" id="whats-new-2"></span>
+    <a href="#whats-new-2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li><strong>Large IP lists.</strong><br>
+You can raise the <abbr title="A named set of IP addresses or subnets in the Linux kernel, used by iptables rules to match many addresses at once.">ipset</abbr> size with <code>ipset_hashsize</code> and <code>ipset_maxelem</code>: <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Advanced routing settings</strong>.</li>
+<li>On <code>SIGUSR1</code> keen-pbr no longer reloads the address lists. <code>daemon.reuse_static_sets_on_runtime_refresh: false</code> brings the old behavior back.</li>
+<li><strong>Config rollback.</strong><br>
+If a config fails to apply, you can go back to the previous one.</li>
+<li>The Web UI reconnects by itself when the connection to the router is lost.</li>
+<li><strong>RAW separately for IPv4 and IPv6.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+<code>KEEN_PBR_RAW_PREROUTING</code> values: <code>auto</code>, <code>enable</code>, <code>disable</code>, <code>ipv4-only</code> and <code>ipv6-only</code>. See <a href="/docs/getting-started/installation/keenetic/#raw-or-mangle">RAW or mangle</a>.</li>
+</ul>
+<h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-2"></span>
+    <a href="#fixes-2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li><strong>CPU load at idle.</strong><br>
+Fixed: keen-pbr polled state all the time and used about 20% of the CPU (measured on a mipsel router). The state is now updated on events.</li>
+<li>Removed one cause of the <code>Fatal error: control socket timeout waiting for socket ack</code> error, which kept a large config from applying and dnsmasq from starting on slow routers.</li>
+</ul>
+<h3>Breaking Changes<span class="hx:absolute hx:-mt-20" id="upgrading-from-32x"></span>
+    <a href="#upgrading-from-32x" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li><strong>The <code>enable</code> value for RAW.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+<code>KEEN_PBR_RAW_PREROUTING=enable</code> now requires RAW support for both IPv4 and IPv6. If you need RAW for only one of them, use <code>ipv4-only</code> or <code>ipv6-only</code>.</li>
+</ul>
+<h2>3.2.1<span class="hx:absolute hx:-mt-20" id="v3-2-1"></span>
+    <a href="#v3-2-1" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>15 August 2026. Version 3.2.0 was never released.</em></p>
+<h3>What&rsquo;s new<span class="hx:absolute hx:-mt-20" id="whats-new-3"></span>
+    <a href="#whats-new-3" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li><strong>Password for the Web UI and API.</strong><br>
+Password login, Basic Auth for scripts, and a list of sites the browser may let call the API (CORS). All of it is on the new <strong>Security</strong> page. See <a href="/docs/rest-api/">REST API</a>.</li>
+<li><strong>The <code>icmptest</code> outbound.</strong><br>
+Checks links with a ping (<abbr title="Service protocol for network diagnostics. ping uses ICMP Echo.">ICMP</abbr>) instead of loading a URL. See <a href="/docs/configuration/outbounds/#icmptest">icmptest</a>.</li>
+<li>You can give the router a name, and it is shown in the Web UI.</li>
+<li>The route check in the Web UI was redone. <code>keen-pbr test-routing</code> prints plain text instead of JSON.</li>
+<li>Unapplied config changes can be discarded in the Web UI and through the API.</li>
+<li>The Web UI now has links to the documentation.</li>
+<li>You can change the order of route rules by dragging.</li>
+<li><strong>RAW or mangle.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+In <code>/opt/etc/keen-pbr/defaults</code> you can pick the table in which devices&rsquo; IPv4 traffic is marked. RAW is not flushed when Keenetic rebuilds its firewall and connections do not break, but it works only for devices with the <strong>Default policy</strong>. <abbr title="The iptables table for changing packet metadata, such as setting a fwmark, before routing.">mangle</abbr> suits any policy from <strong>Connection priorities</strong>, but the rules disappear while the firewall is being rebuilt. See <a href="/docs/getting-started/installation/keenetic/#raw-or-mangle">RAW or mangle</a>.</li>
+<li>Packages for Debian 11 (Bullseye), 12 (Bookworm) and 13 (Trixie).</li>
+<li>The full package got smaller.</li>
+<li>The package repository moved from GitHub Pages to a separate paid host, so it is down less often.</li>
+</ul>
+<h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-3"></span>
+    <a href="#fixes-3" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li><strong>Start after a router reboot.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+Fixed: keen-pbr started before <abbr title="The Keenetic router&#39;s built-in configuration API.">RCI</abbr> and might fail to start. The service now waits for RCI. <a href="https://t.me/keen_pbr/1/3041"target="_blank" rel="noopener">Details</a></li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> Fixed rules with a <abbr title="A 6-bit field in the IP header used to mark traffic classes for QoS.">DSCP</abbr> condition: the <code>xt_dscp</code> module is now loaded automatically.</li>
+<li>Fixed a resource leak in the Web UI update stream.</li>
+</ul>
+<h2>3.1.1<span class="hx:absolute hx:-mt-20" id="v3-1-1"></span>
+    <a href="#v3-1-1" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>26 July 2026</em></p>
+<h3>What&rsquo;s new<span class="hx:absolute hx:-mt-20" id="whats-new-4"></span>
+    <a href="#whats-new-4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li>The diagnostics report you download from the Web UI now includes the last system command that failed.</li>
+</ul>
+<h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-4"></span>
+    <a href="#fixes-4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li><span class="only-badges" title="Only for iptables"><span class="only-badge only-badge--iptables">iptables</span></span> Fixed applying iptables rules, which sometimes did not work.</li>
+</ul>
+<h2>3.1.0<span class="hx:absolute hx:-mt-20" id="v3-1-0"></span>
+    <a href="#v3-1-0" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>25 July 2026</em></p>
+<h3>What&rsquo;s new<span class="hx:absolute hx:-mt-20" id="whats-new-5"></span>
+    <a href="#whats-new-5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li><strong>Safe config apply.</strong><br>
+keen-pbr first checks the new config and applies it, waits for dnsmasq to confirm, and only then saves it to disk. If something goes wrong, the file on disk stays as it was.</li>
+<li><strong>Apply without gaps.</strong><br>
+nftables changes in a single transaction, and iptables and ipset are replaced without clearing them first, so traffic does not bypass the rules while a config is applied. keen-pbr removes only its own routes and rules and leaves others alone.</li>
+<li><strong>Strict mode.</strong><br>
+If no link works, traffic is blocked with an <code>unreachable</code> or <code>blackhole</code> route.</li>
+<li>The router&rsquo;s own DNS queries go through <code>detour</code> too.</li>
+<li><strong>The <code>dscp</code> condition in route rules.</strong><br>
+Route by the <abbr title="A 6-bit field in the IP header used to mark traffic classes for QoS.">DSCP</abbr> mark (values 1-63) that a program on a device sets. See the <a href="/docs/configuration/route-rules/#dscp-filter--route-tagged-traffic-through-vpn">DSCP example</a>.</li>
+<li><strong>The <code>conntrack_on_switch</code> setting.</strong><br>
+Sets what <code>urltest</code> does with open connections when the link changes: <code>preserve</code> or <code>delete</code>.</li>
+<li><strong>Strict list checks.</strong><br>
+URL lists are downloaded only over HTTP and HTTPS, redirects included. A local list must be a regular file no larger than the set size. Invalid domains are dropped. If the same list is downloaded several times at once, only one download runs.</li>
+<li><strong>The Web UI updates itself.</strong><br>
+Changes in service, outbound and interface state show up right away, with no page refresh. Diagnostics and the DNS check cannot do this yet.</li>
+<li>On start, stop, restart and config apply you can see which stage the service is in.</li>
+<li><strong>Detailed diagnostics.</strong><br>
+You can see whether the config in memory matches the config on disk, whether dnsmasq got the current config, and which cache files are missing.</li>
+<li><code>keen-pbr status</code> takes its data from the running service.</li>
+<li><strong>Marks in the RAW table.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+Devices&rsquo; IPv4 traffic is marked in the RAW table. Keenetic does not rebuild it, so games and calls drop less often. If RAW is not available, keen-pbr warns you and uses <abbr title="The iptables table for changing packet metadata, such as setting a fwmark, before routing.">mangle</abbr>.</li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> Next to the system interface names, the Web UI shows their names from Keenetic.</li>
+<li>The package now depends on <code>conntrack</code>.</li>
+<li>In the API, the <code>apply</code>, <code>start</code>, <code>stop</code> and <code>restart</code> commands reply with <code>202</code> and an operation number. If such a command is already running, the next one gets <code>409</code>.</li>
+</ul>
+<h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-5"></span>
+    <a href="#fixes-5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li>The route check in the Web UI is faster: up to eight addresses are checked at once.</li>
+<li>Fixed the whole rule being deleted when you removed one list from a rule with several conditions.</li>
+</ul>
+<h2>3.0.7 (beta)<span class="hx:absolute hx:-mt-20" id="v3-0-7"></span>
+    <a href="#v3-0-7" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>29 June 2026</em></p>
+<h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-6"></span>
+    <a href="#fixes-6" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> Fixed the IPv6 support check in iptables mode: keen-pbr could decide that IPv6 is not supported (<a href="https://github.com/maksimkurb/keen-pbr/issues/139"target="_blank" rel="noopener">#139</a>).</li>
+</ul>
+<h2>3.0.6 (beta)<span class="hx:absolute hx:-mt-20" id="v3-0-6"></span>
+    <a href="#v3-0-6" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>3 June 2026. Version 3.0.5 was never released: it had a bug that kept keen-pbr from installing on OpenWrt 25.x.</em></p>
+<h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-7"></span>
+    <a href="#fixes-7" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li>Fixed problems that <code>keen-pbr status</code> reported while everything was fine in the Web UI.</li>
+<li>A <code>urltest</code> link selected for both IPv4 and IPv6 is no longer treated as an error.</li>
+<li><code>keen-pbr status</code> marks rules that pass traffic through unchanged as <code>PASS</code>.</li>
+<li>With IPv6 turned off, <code>keen-pbr status</code> no longer shows IPv6 sets.</li>
+<li><span class="only-badges" title="Only for OpenWrt"><span class="only-badge only-badge--openwrt">OpenWrt</span></span> Fixed the <code>.apk</code> packages and the repository index for OpenWrt 25.x.</li>
+<li>Fixed IPv6 detection with old versions of <code>ip6tables-restore</code> (<a href="https://github.com/maksimkurb/keen-pbr/issues/138"target="_blank" rel="noopener">#138</a>).</li>
+</ul>
+<h2>3.0.4 (beta)<span class="hx:absolute hx:-mt-20" id="v3-0-4"></span>
+    <a href="#v3-0-4" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>27 May 2026</em></p>
+<h3>What&rsquo;s new<span class="hx:absolute hx:-mt-20" id="whats-new-6"></span>
+    <a href="#whats-new-6" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li><strong>The <code>daemon.ipv6_enabled</code> setting.</strong><br>
+For networks without IPv6: with <code>false</code>, keen-pbr creates no IPv6 rules. If IPv6 is on but the system does not support it, keen-pbr says so in the log and works with IPv4 only.</li>
+<li><strong>Config reference check.</strong><br>
+Before applying, keen-pbr finds references that lead nowhere: a rule pointing to a missing list or outbound, a DNS rule pointing to a missing list or server, an <code>interface</code> outbound without an interface, a route check without an address.</li>
+<li>dnsmasq state is checked every 5 seconds instead of 30. When lists or DNS change, keen-pbr reloads dnsmasq and checks the result right away.</li>
+<li><strong>Bulk actions.</strong><br>
+In the Web UI tables you can select several rows and act on all of them at once.</li>
+<li><strong>What changes on delete.</strong><br>
+Before deleting, you can see which rules will be removed and which DNS servers and <code>urltest</code> groups will change.</li>
+<li><strong>Interface picker.</strong><br>
+Shows all known interfaces, whether they are up and their addresses. You can search by address too.</li>
+<li><strong>Detailed route check.</strong><br>
+Shows which rule matched, which outbound and interface were chosen, and which lists the address is in.</li>
+<li>Before you change or delete a list, you can see where else it is used.</li>
+<li>Config validation errors are shown next to the fields when you save.</li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> On start, kernel ipset support is checked. If Netfilter components are missing, the error message is clearer. Messages about loading the <code>xt_multiport</code> module are clearer too.</li>
+</ul>
+<h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-8"></span>
+    <a href="#fixes-8" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li>A URL list with inline entries no longer loses them when it is loaded from the cache.</li>
+<li>Fixed the Web UI on iPhone and in Safari on macOS.</li>
+<li>Fixed interface tracking: after a network error keen-pbr stopped noticing interface changes.</li>
+<li>The reload and stop commands find the service by its PID file and no longer touch other running keen-pbr processes.</li>
+<li>Fixed simultaneous DNS checks that interfered with each other.</li>
+</ul>
+<h2>3.0.3 (beta)<span class="hx:absolute hx:-mt-20" id="v3-0-3"></span>
+    <a href="#v3-0-3" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>10 May 2026</em></p>
+<h3>What&rsquo;s new<span class="hx:absolute hx:-mt-20" id="whats-new-7"></span>
+    <a href="#whats-new-7" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li><strong>The <code>gateway6</code> field.</strong><br>
+Sets the IPv6 gateway of an <code>interface</code> outbound.</li>
+<li><strong>List update errors.</strong><br>
+Shown in the log, through the API and on the lists page.</li>
+<li><strong>List auto-update once a week.</strong><br>
+This is the default in new configs, it used to be once a day. Existing configs keep their schedule.</li>
+<li>A DNS server tag can no longer be changed when editing.</li>
+</ul>
+<h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-9"></span>
+    <a href="#fixes-9" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li><strong>IPv6 leaking past the VPN.</strong><br>
+Fixed: the missing IPv6 routes were added, and for <code>urltest</code> an <code>unreachable</code> route was added for when no link works.</li>
+<li>Fixed checking links over IPv6.</li>
+<li>Fixed keen-pbr crashing when the router has no internet.</li>
+<li>Fixed the handling of the <code>urltest</code> check timeout and the priority of <code>unreachable</code> routes.</li>
+<li><span class="only-badges" title="Only for nftables"><span class="only-badge only-badge--nftables">nftables</span></span> Fixed port forwarding when the request comes from an address in a list.</li>
+<li>Fixed the display of list auto-update: the Web UI showed it as on when it was off.</li>
+<li>The external link icon is now clickable.</li>
+</ul>
+<h2>3.0.2 (beta)<span class="hx:absolute hx:-mt-20" id="v3-0-2"></span>
+    <a href="#v3-0-2" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>26 April 2026</em></p>
+<h3>Breaking Changes<span class="hx:absolute hx:-mt-20" id="upgrading-from-301"></span>
+    <a href="#upgrading-from-301" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li><strong>New repository address.</strong> <span class="only-badges" title="Only for OpenWrt"><span class="only-badge only-badge--openwrt">OpenWrt</span></span><br>
+Packages are now built per CPU architecture, not per router model. If keen-pbr is already installed on OpenWrt, change the repository address in the package manager settings. See <a href="/docs/getting-started/installation/openwrt/">Installing on OpenWrt</a>.</li>
+</ul>
+<h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-10"></span>
+    <a href="#fixes-10" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li>Fixed the <strong>Apply and restart</strong> button in the bottom bar, which sometimes did nothing.</li>
+</ul>
+<h2>3.0.1 (beta)<span class="hx:absolute hx:-mt-20" id="v3-0-1"></span>
+    <a href="#v3-0-1" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>25 April 2026</em></p>
+<h3>What&rsquo;s new<span class="hx:absolute hx:-mt-20" id="whats-new-8"></span>
+    <a href="#whats-new-8" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li>Improved the overview page.</li>
+</ul>
+<h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-11"></span>
+    <a href="#fixes-11" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
+<li><strong>The route check no longer touches the firewall.</strong> <span class="only-badges" title="Only for nftables"><span class="only-badge only-badge--nftables">nftables</span></span><br>
+Before, the route check in the Web UI wiped firewall rules.</li>
+<li>Fixed dnsmasq starting after a router reboot: sometimes it did not start.</li>
+<li><strong>Route check through dnsmasq.</strong><br>
+Addresses are resolved through dnsmasq, not the ISP&rsquo;s DNS. Before, the check could get a reply forged by the ISP and show a wrong route.</li>
+<li><span class="only-badges" title="Only for OpenWrt"><span class="only-badge only-badge--openwrt">OpenWrt</span></span> Fixed nftables rules disappearing.</li>
+<li><strong>fw4 support.</strong> <span class="only-badges" title="Only for OpenWrt"><span class="only-badge only-badge--openwrt">OpenWrt</span></span><br>
+The firewall integration was redone: on newer OpenWrt versions the <code>/etc/hotplug.d/firewall/70-keen-pbr</code> script stopped running.</li>
+<li><span class="only-badges" title="Only for OpenWrt"><span class="only-badge only-badge--openwrt">OpenWrt</span></span> <code>dnsmasq-full</code> was added to the package dependencies. Fixed writing to the system log.</li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> Fixed starting on old NDMS 2.x firmware with <code>keenetic</code>-type DNS.</li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> <abbr title="DNS over TLS: encrypted DNS. The router cannot read these queries.">DoT</abbr> DNS servers from Keenetic settings are now used.</li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> <code>iptables</code> and <code>ipset</code> were added to the package dependencies.</li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> Fixed <code>opkg update</code> errors for those who still had the old repository address.</li>
+<li>Fixed the <strong>Save</strong> button: after an error in the rule form it could not be clicked until the page was reloaded.</li>
+<li><span class="only-badges" title="Only for iptables"><span class="only-badge only-badge--iptables">iptables</span></span> The port list is checked against iptables limits.</li>
+</ul>
+<h2>3.0.0 (beta)<span class="hx:absolute hx:-mt-20" id="v3-0-0"></span>
+    <a href="#v3-0-0" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>22 April 2026</em></p>
+<p>keen-pbr was rewritten from scratch. Version 2.x worked only on Keenetic and Netcraze, version 3 also works on OpenWrt and Debian.</p>
+<ul>
+<li><strong>Web UI and REST API.</strong><br>
+The Web UI is easy to use from a phone too.</li>
+<li><strong>Link checks (<code>urltest</code>).</strong><br>
+keen-pbr checks by itself whether a link has internet and switches traffic to another one when it fails. It works with any VPN, including one installed through opkg, for example AmneziaWG-Go. Version 2.x learned a link&rsquo;s state only from the Keenetic API.</li>
+<li><strong>New rule conditions.</strong><br>
+Ports and source and destination addresses, exclusions with <code>!</code>, rules without lists. For example, you can exclude one TV from routing or send all traffic of one device to a VPN.</li>
+<li><strong>Inbound interface filter.</strong><br>
+For example, rules apply in the main network and leave the guest network alone.</li>
+<li><strong>Gateway for the <code>interface</code> outbound.</strong><br>
+You can set it explicitly.</li>
+<li><strong>Automatic priorities.</strong><br>
+Routing tables, <abbr title="Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.">fwmark</abbr> values and <code>ip rule</code> priorities are assigned in the order of the rules.</li>
+<li><strong>DNS rules separate from routing.</strong><br>
+You can set a DNS server for domains without changing their route.</li>
+<li><strong>Temporarily turning rules off.</strong><br>
+A rule can be switched off without deleting it.</li>
+</ul>
+<p>How to move from 2.x: <a href="/docs/getting-started/upgrade-from-2x/">Upgrade from 2.x</a>.</p>
+<h2>keen-pbr 2.x<span class="hx:absolute hx:-mt-20" id="v2"></span>
+    <a href="#v2" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Versions for Keenetic and Netcraze. The config is in TOML format, in the <code>keen-pbr.conf</code> file.</p>
+<h3>2.2.1<span class="hx:absolute hx:-mt-20" id="v2-2-1"></span>
+    <a href="#v2-2-1" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><em>10 June 2025</em></p>
+<ul>
+<li>If the Keenetic API returned no data for an interface but the system sees it as up, the interface is treated as working.</li>
+<li><strong>Own DNS server for ipset.</strong><br>
+The <code>override_dns</code> option in <code>[ipset.routing]</code> sets a separate DNS server for the domains of that ipset.</li>
+<li>If an interface from the config is missing, keen-pbr keeps working.</li>
+<li><code>keen-pbr self-check</code> now finds IPv6 <code>blackhole</code> routes correctly.</li>
+</ul>
+<h3>2.1.4<span class="hx:absolute hx:-mt-20" id="v2-1-4"></span>
+    <a href="#v2-1-4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><em>11 May 2025</em></p>
+<ul>
+<li>The <code>keen-pbr dns</code> command shows the DNS servers from the Keenetic profile.</li>
+<li><strong>DoH and DoT from Keenetic.</strong><br>
+The <code>use_keenetic_dns</code> option turns on <abbr title="DNS over HTTPS: encrypted DNS. The router cannot read these queries.">DoH</abbr> and <abbr title="DNS over TLS: encrypted DNS. The router cannot read these queries.">DoT</abbr> from the Keenetic settings, and <code>fallback_dns</code> sets a DNS server for when the <abbr title="The Keenetic router&#39;s built-in configuration API.">RCI</abbr> query fails.</li>
+<li><strong>Default policy only.</strong><br>
+The default iptables rule serves only devices with the default policy in <strong>Connection priorities</strong>.</li>
+</ul>
+<h3>2.0.3<span class="hx:absolute hx:-mt-20" id="v2-0-3"></span>
+    <a href="#v2-0-3" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><em>25 February 2025</em></p>
+<ul>
+<li>Fixed the package install and uninstall scripts.</li>
+</ul>
+<h3>2.0.2<span class="hx:absolute hx:-mt-20" id="v2-0-2"></span>
+    <a href="#v2-0-2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><em>17 February 2025</em></p>
+<ul>
+<li>Fixed the <code>certificate signed by unknown authority</code> error that kept lists from downloading on some routers.</li>
+</ul>
+<h3>2.0.1<span class="hx:absolute hx:-mt-20" id="v2-0-1"></span>
+    <a href="#v2-0-1" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><em>16 February 2025</em></p>
+<ul>
+<li><strong>New name.</strong><br>
+The project was renamed from keenetic-pbr to keen-pbr, and the repository address changed. How to upgrade from 1.x is in the <a href="https://github.com/maksimkurb/keen-pbr/releases/tag/v2.0.1"target="_blank" rel="noopener">GitHub release notes</a>.</li>
+<li><strong>No files in dnsmasq.d.</strong><br>
+keen-pbr no longer writes files to <code>/opt/etc/dnsmasq.d/</code>: dnsmasq gets the lists from keen-pbr at startup. Because of this dnsmasq starts more slowly: about 3.5 seconds for 43 thousand domains on a Keenetic Viva.</li>
+<li><strong>A separate section for lists.</strong><br>
+Lists are set in the <code>[[list]]</code> section, and one list can be used in several ipsets.</li>
+<li>New commands: <code>print-dnsmasq-config</code> and <code>upgrade-config</code>. The second one upgrades an old config by itself when the package is upgraded.</li>
+<li>The <code>dnsmasq_lists_dir</code> option was removed.</li>
+</ul>
+<h2>keenetic-pbr 1.x<span class="hx:absolute hx:-mt-20" id="v1"></span>
+    <a href="#v1" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>The first versions, under the name keenetic-pbr.</p>
+<h3>1.3.0<span class="hx:absolute hx:-mt-20" id="v1-3-0"></span>
+    <a href="#v1-3-0" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><em>15 January 2025</em></p>
+<ul>
+<li><strong>Fewer writes to flash.</strong><br>
+keenetic-pbr does not overwrite files that have not changed. This spares the router&rsquo;s flash memory and USB drive.</li>
+<li>The <code>summarize</code> option was removed: because of a bug it dropped needed addresses from the list.</li>
+</ul>
+<h3>1.2.0<span class="hx:absolute hx:-mt-20" id="v1-2-0"></span>
+    <a href="#v1-2-0" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><em>8 January 2025</em></p>
+<ul>
+<li>New commands: <code>interfaces</code> (list of interfaces), <code>self-check</code> (checks routes and rules) and <code>undo-routing</code> (removes everything keenetic-pbr set up).</li>
+<li>The <code>file</code> option adds a list from a local file.</li>
+<li><strong>Kill switch.</strong><br>
+The <code>kill_switch</code> option blocks the addresses from the lists when the VPN is down.</li>
+<li><strong>Several interfaces.</strong><br>
+The <code>interface</code> option was replaced by <code>interfaces</code>: you can list several interfaces, and the first one that is up is used.</li>
+<li>The <code>use_keenetic_api</code> option (on by default) checks through <abbr title="The Keenetic router&#39;s built-in configuration API.">RCI</abbr> whether an interface has a connection.</li>
+<li><code>apply</code> re-reads the lists and sets up the routes every time. You no longer need to restart OPKG or the interfaces.</li>
+</ul>
+<h3>1.0.1<span class="hx:absolute hx:-mt-20" id="v1-0-1"></span>
+    <a href="#v1-0-1" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><em>17 November 2024</em></p>
+<ul>
+<li>ipset is created even if the lists have no IP addresses.</li>
+<li>Experimental IPv6 support.</li>
+</ul>
+<h3>1.0.0<span class="hx:absolute hx:-mt-20" id="v1-0-0"></span>
+    <a href="#v1-0-0" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><em>11-16 November 2024</em></p>
+<ul>
+<li>First release. Follow-up builds fixed the <code>download</code> command messages for local lists, the default dnsmasq config, and the installer, which no longer replaces an existing <code>dnsmasq.conf</code>.</li>
 </ul>
 
         </div>

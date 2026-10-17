@@ -8120,7 +8120,7 @@ keen-pbr предупреждает об отсутствии NAT или стр�
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Поля, которые больше не работают.&lt;/strong&gt;&lt;br&gt;
-&lt;code&gt;dns.system_resolver&lt;/code&gt;, &lt;code&gt;dns.dns_test_server&lt;/code&gt; (используйте &lt;code&gt;intercept.dns.marker&lt;/code&gt;) и &lt;code&gt;daemon.resolver_ready_timeout_seconds&lt;/code&gt;; если они заданы, журнал предупредит. Старые поля &lt;code&gt;outbounds&lt;/code&gt;, &lt;code&gt;candidates&lt;/code&gt; и &lt;code&gt;weight&lt;/code&gt; в &lt;code&gt;outbound_groups&lt;/code&gt; заменены на &lt;code&gt;members&lt;/code&gt;. Старые конфиги продолжают работать: keen-pbr один раз перепишет их и сохранит копию в &lt;code&gt;&amp;lt;config&amp;gt;.bak-pre-members&lt;/code&gt;.&lt;/li&gt;
+&lt;code&gt;dns.system_resolver&lt;/code&gt;, &lt;code&gt;dns.dns_test_server&lt;/code&gt; (используйте &lt;code&gt;intercept.dns.marker&lt;/code&gt;) и &lt;code&gt;daemon.resolver_ready_timeout_seconds&lt;/code&gt;; если они заданы, журнал предупредит. Старые поля &lt;code&gt;outbounds&lt;/code&gt;, &lt;code&gt;candidates&lt;/code&gt; и &lt;code&gt;weight&lt;/code&gt; в &lt;code&gt;outbound_groups&lt;/code&gt; заменены на &lt;code&gt;members&lt;/code&gt;. Старые конфиги продолжают работать: keen-pbr один раз перепишет их в новый формат (комментарии и порядок ключей при этом не сохранятся).&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Новое поле &lt;code&gt;version&lt;/code&gt;.&lt;/strong&gt;&lt;br&gt;
 В нём версия keen-pbr, для которой записан конфиг. keen-pbr ставит его, когда вы сохраняете конфиг в веб-интерфейсе. Если правите файл вручную, оставьте его.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Домен для проверки DNS.&lt;/strong&gt;&lt;br&gt;
