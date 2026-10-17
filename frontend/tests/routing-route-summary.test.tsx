@@ -14,6 +14,8 @@ import {
   getRuleConditions,
 } from "../src/components/overview/routing-diagnostics-utils"
 
+const stripTags = (html: string) => html.replace(/<[^>]+>/g, "")
+
 const i18n = createInstance()
 await i18n.init({
   lng: "en",
@@ -232,7 +234,7 @@ test("multiple IPs share one trace and one failed route makes firewall step warn
   expect(html).toContain('data-step="1" data-tone="ok"')
   expect(html).toContain('data-step="3" data-tone="ok"')
   expect(html).toContain('data-step="4" data-tone="warn"')
-  expect(html).toContain("Matching routes: 1 of 2")
+  expect(stripTags(html)).toContain("Matching routes: 1 of 2")
   expect(html).toContain(secondIp)
 })
 
@@ -257,11 +259,14 @@ test("route trace keeps IPs in DNS and groups firewall outcomes without repeatin
   expect(firewall).toContain("Actual Outbound:")
   // Both IPs mismatch: the headline counts real matches, and a group that
   // covers every IP needs no "for N of M IPs" label.
-  expect(firewall).toContain("Matching routes: 0 of 2")
-  expect(firewall).not.toContain("Matching routes: 2 of 2")
+  expect(stripTags(firewall)).toContain("Matching routes: 0 of 2")
+  expect(stripTags(firewall)).not.toContain("Matching routes: 2 of 2")
   expect(firewall).not.toContain("For 2 of 2 IPs")
-  expect(firewall).not.toContain(result.ip)
-  expect(firewall).not.toContain(secondIp)
+  // Visible text does not repeat the addresses; they sit behind the counter.
+  expect(stripTags(firewall)).not.toContain(result.ip)
+  expect(firewall).toContain('data-testid="ip-results"')
+  expect(firewall).toContain(`aria-label="${result.ip} ⚠, ${secondIp} ⚠"`)
+  expect(stripTags(firewall)).not.toContain(secondIp)
   expect(html.match(/google \(entry <code/g)).toHaveLength(1)
   expect(html).toContain(result.ip)
   expect(html).toContain(secondIp)
@@ -409,7 +414,7 @@ test("IPv6 off: addresses are listed muted, noted and left out of the counts", (
   expect(html).toContain('data-testid="ipv6-disabled-note"')
   expect(html).toContain('href="/general#ipv6-enabled"')
   expect(html).toContain("IPv6 support is disabled")
-  expect(html).toContain("Matching routes: 1 of 1")
+  expect(stripTags(html)).toContain("Matching routes: 1 of 1")
   expect(html).not.toContain('data-testid="ip-group"')
 })
 

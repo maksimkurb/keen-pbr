@@ -666,7 +666,7 @@ export const ruTranslation = {
 
         allRoutesMatch: "Маршруты совпадают с правилами",
         routeProblems: "Есть проблемы с маршрутом",
-        ipResults: "Совпало маршрутов: {{count}} из {{total}}",
+        ipResults: "Совпало маршрутов: <ips>{{count}} из {{total}}</ips>",
         ipGroup_one: "{{selected}} из {{count}} адреса",
         ipGroup_few: "{{selected}} из {{count}} адресов",
         ipGroup_many: "{{selected}} из {{count}} адресов",

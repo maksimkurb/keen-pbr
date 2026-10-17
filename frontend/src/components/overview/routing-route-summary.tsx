@@ -65,6 +65,51 @@ function IpGroupLabel({ ips, total }: { ips: string[]; total: number }) {
   )
 }
 
+// Counter of matching routes; the tooltip marks each checked IP.
+function IpResultsLabel({
+  entries,
+  children,
+}: {
+  entries: { result: { ip: string }; issue: string }[]
+  children?: ReactNode
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            aria-label={entries
+              .map(
+                ({ result, issue }) =>
+                  `${result.ip} ${issue === "ok" ? "✓" : "⚠"}`
+              )
+              .join(", ")}
+            data-testid="ip-results"
+            className="cursor-help underline decoration-dashed underline-offset-2"
+          />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent>
+        <ul className="space-y-0.5 font-mono text-xs">
+          {entries.map(({ result, issue }) => (
+            <li key={result.ip} className="flex items-center gap-1.5">
+              {issue === "ok" ? (
+                <Check className="size-3.5" />
+              ) : (
+                <TriangleAlert className="size-3.5" />
+              )}
+              {result.ip}
+            </li>
+          ))}
+        </ul>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 export function RoutingRouteSummary({
   diagnostics,
   onRefresh,
@@ -333,10 +378,17 @@ export function RoutingRouteSummary({
           {!dnsMissing ? (
             <>
               <p>
-                {t("overview.routingDiagnostics.trace.ipResults", {
-                  count: entries.filter((entry) => entry.issue === "ok").length,
-                  total: entries.length,
-                })}
+                <Trans
+                  i18nKey="overview.routingDiagnostics.trace.ipResults"
+                  values={{
+                    count: entries.filter((entry) => entry.issue === "ok")
+                      .length,
+                    total: entries.length,
+                  }}
+                  components={{
+                    ips: <IpResultsLabel entries={entries} />,
+                  }}
+                />
               </p>
               <ul
                 className={cn(

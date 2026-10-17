@@ -656,7 +656,7 @@ export const enTranslation = {
 
         allRoutesMatch: "The routes match the rules",
         routeProblems: "Route problems detected",
-        ipResults: "Matching routes: {{count}} of {{total}}",
+        ipResults: "Matching routes: <ips>{{count}} of {{total}}</ips>",
         ipGroup_one: "{{selected}} of {{count}} address",
         ipGroup_other: "{{selected}} of {{count}} addresses",
         notChecked: "Not checked.",
