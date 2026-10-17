@@ -262,6 +262,11 @@ export const enTranslation = {
       outboundUnavailable: "{{tag}} is unavailable",
       outboundDegraded: "{{tag}} is degraded",
       groupMembersFailing: "{{tag}}: failing members: {{count}}",
+      keeneticDnsPolicyMissing: "Keenetic DNS proxy group not found",
+      keeneticDnsPolicyBlocked:
+        "{{tag}}: group {{policy}} no longer exists, requests are blocked",
+      keeneticDnsPolicySystem:
+        "{{tag}}: group {{policy}} no longer exists, System DNS is used",
       hostWarning: {
         nat_missing: "{{interface}}: no NAT (MASQUERADE/SNAT) for this WAN",
         nat_partial: "{{interface}}: NAT covers only some source subnets",
@@ -960,6 +965,32 @@ export const enTranslation = {
       setWrite: "Set write took {{value}}",
     },
   },
+  keeneticDns: {
+    systemGroup: "System",
+    notFound: "{{name}} (not found)",
+    policy: {
+      label: "DNS proxy group",
+      hint: "The Keenetic DNS proxy group that answers requests to this server. System is the router's regular DNS.",
+    },
+    upstreams: "Upstream servers of the group",
+    noUpstreams: "The group has no upstream servers.",
+    via: "Via: {{interfaces}}",
+    domainServers: {
+      title: "For specific domains",
+      hint: "These servers are set in the general DNS settings of Keenetic, not in the policy.",
+    },
+    openSettings: "Open Keenetic DNS settings",
+    refresh: "Refresh now",
+    loadError: "Could not read DNS proxy groups from the router: {{message}}",
+    onMissing: {
+      label: "If the group disappears",
+      hint: "What to do with requests to this server when the group is deleted in the Keenetic settings.",
+      options: {
+        block: "Block requests",
+        system: "Use System DNS",
+      },
+    },
+  },
   pages: {
     security: {
       title: "Security",
@@ -1113,6 +1144,7 @@ export const enTranslation = {
       title: "DNS Servers",
       description: "Upstream DNS servers used for domain name resolution.",
       keeneticAddress: "Keenetic built-in DNS",
+      keeneticPolicyAddress: "Keenetic: {{name}}",
       actions: {
         add: "Add DNS server",
       },

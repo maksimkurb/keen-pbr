@@ -2,6 +2,7 @@
 
 #include "../cmd/test_routing.hpp"
 #include "../config/config.hpp"
+#include "../dns/keenetic_dns.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_counters.hpp"
 #include "../health/host_health_warnings.hpp"
@@ -344,6 +345,17 @@ private:
   // cancels it.  Control-thread only.
   void start_dnsmasq_check();
   void stop_dnsmasq_check();
+  // Keenetic DNS proxy groups: a repeating tick (control thread) reads them
+  // from the router when someone watches the dashboard or the last read is
+  // old, and re-syncs dnsmasq when they changed.
+  void start_keenetic_dns_poll();
+  void keenetic_dns_poll_tick();
+  // Queues a read on a blocking worker unless one runs or the last attempt is
+  // younger than `max_age`.  Any thread.
+  void request_keenetic_dns_poll(std::chrono::steady_clock::duration max_age);
+  // Forced read; on a change posts on_keenetic_dns_changed().  Blocking, any thread.
+  KeeneticDnsCacheView refresh_keenetic_dns_now();
+  void on_keenetic_dns_changed();
   ListsRefreshExecutionResult execute_remote_list_refresh(
       const std::set<std::string> *target_lists = nullptr,
       std::string_view source = "service");
@@ -565,6 +577,9 @@ IcmpTester icmp_tester_;
   int intercept_event_task_id_{-1};
   int routing_health_stream_task_id_{-1};
   int dnsmasq_check_task_id_{-1};
+  int keenetic_dns_poll_task_id_{-1};
+  std::atomic<bool> keenetic_dns_poll_inflight_{false};
+  std::atomic<bool> keenetic_dns_poll_failing_{false};
   BlockingExecutor lifecycle_executor_{1, 16};
   // An open descriptor pins the pre-apply inode without retaining another
   // parsed or serialized configuration in RAM.

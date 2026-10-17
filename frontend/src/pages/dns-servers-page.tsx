@@ -15,6 +15,10 @@ import {
 } from "@/api/mutations"
 import { useGetConfig } from "@/api/queries"
 import { effectiveResolverIntegration } from "@/api/selectors"
+import {
+  KeeneticDnsRefreshButton,
+  KeeneticDnsSettingsLink,
+} from "@/components/shared/keenetic-dns"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { MobileAddFab } from "@/components/shared/mobile-add-fab"
 import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
@@ -28,6 +32,11 @@ import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { useRowSelection } from "@/hooks/use-row-selection"
+import {
+  keeneticProxyLabel,
+  supportsKeeneticDns,
+  useKeeneticDnsProxies,
+} from "@/lib/keenetic-dns"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -55,6 +64,23 @@ export function DnsServersPage() {
   const dnsServers = useMemo(() => config?.dns?.servers ?? [], [config])
   const serverRowIds = dnsServers.map((server) => server.tag)
   const serverSelection = useRowSelection(serverRowIds)
+  const hasKeeneticServers = dnsServers.some(
+    (server) => server.type === DnsServerType.keenetic
+  )
+  const keeneticProxies = useKeeneticDnsProxies(hasKeeneticServers).proxies
+
+  const keeneticAddress = (policy: string | undefined) => {
+    if (!policy || policy === "System") {
+      return t("pages.dnsServers.keeneticAddress")
+    }
+    const proxy = keeneticProxies?.find((candidate) => candidate.name === policy)
+    const name = proxy
+      ? keeneticProxyLabel(proxy)
+      : keeneticProxies
+        ? t("keeneticDns.notFound", { name: policy })
+        : policy
+    return t("pages.dnsServers.keeneticPolicyAddress", { name })
+  }
 
   const deleteServer = (serverTag: string) => {
     if (!config) {
@@ -118,6 +144,12 @@ export function DnsServersPage() {
         actions={
           effectiveResolverIntegration(config) === "dnsmasq" ? (
             <>
+              {hasKeeneticServers && supportsKeeneticDns ? (
+                <>
+                  <KeeneticDnsSettingsLink />
+                  <KeeneticDnsRefreshButton />
+                </>
+              ) : null}
               <Button
                 className="hidden md:inline-flex"
                 disabled={configMutationPending}
@@ -195,7 +227,7 @@ export function DnsServersPage() {
                 key={`${server.tag}-address`}
               >
                 {server.type === DnsServerType.keenetic
-                  ? t("pages.dnsServers.keeneticAddress")
+                  ? keeneticAddress(server.keenetic_policy)
                   : server.address}
               </span>,
               <Badge

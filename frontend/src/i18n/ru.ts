@@ -267,6 +267,11 @@ export const ruTranslation = {
       outboundUnavailable: "{{tag}} недоступен",
       outboundDegraded: "{{tag}} работает с перебоями",
       groupMembersFailing: "{{tag}}: неисправных участников: {{count}}",
+      keeneticDnsPolicyMissing: "Группа DNS-прокси Keenetic не найдена",
+      keeneticDnsPolicyBlocked:
+        "{{tag}}: группы {{policy}} больше нет, запросы блокируются",
+      keeneticDnsPolicySystem:
+        "{{tag}}: группы {{policy}} больше нет, используется DNS System",
       hostWarning: {
         nat_missing: "{{interface}}: для этого WAN нет NAT (MASQUERADE/SNAT)",
         nat_partial: "{{interface}}: NAT покрывает только часть подсетей",
@@ -984,6 +989,32 @@ export const ruTranslation = {
       setWrite: "Запись в набор заняла {{value}}",
     },
   },
+  keeneticDns: {
+    systemGroup: "System",
+    notFound: "{{name}} (не найдена)",
+    policy: {
+      label: "Группа DNS-прокси",
+      hint: "Группа DNS-прокси Keenetic, которая отвечает на запросы к этому серверу. System — обычный DNS роутера.",
+    },
+    upstreams: "Вышестоящие серверы группы",
+    noUpstreams: "В группе нет вышестоящих серверов.",
+    via: "Через: {{interfaces}}",
+    domainServers: {
+      title: "Для отдельных доменов",
+      hint: "Эти серверы заданы в общих настройках DNS Keenetic, а не в политике.",
+    },
+    openSettings: "Открыть настройки DNS Keenetic",
+    refresh: "Обновить сейчас",
+    loadError: "Не удалось прочитать группы DNS-прокси с роутера: {{message}}",
+    onMissing: {
+      label: "Если группа исчезнет",
+      hint: "Что делать с запросами к этому серверу, если группу удалили в настройках Keenetic.",
+      options: {
+        block: "Блокировать запросы",
+        system: "Использовать DNS System",
+      },
+    },
+  },
   pages: {
     security: {
       title: "Безопасность",
@@ -1142,6 +1173,7 @@ export const ruTranslation = {
       title: "DNS-серверы",
       description: "Вышестоящие DNS-серверы для разрешения доменных имён.",
       keeneticAddress: "Встроенный DNS Keenetic",
+      keeneticPolicyAddress: "Keenetic: {{name}}",
       actions: {
         add: "Добавить DNS-сервер",
       },

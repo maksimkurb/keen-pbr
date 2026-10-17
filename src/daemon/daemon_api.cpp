@@ -35,6 +35,9 @@ namespace {
 
 // How often the routing report is re-checked while a status stream is open.
 constexpr auto kRoutingHealthStreamRefreshInterval = std::chrono::seconds{45};
+#ifdef USE_KEENETIC_API
+constexpr auto kKeeneticDnsStreamRefreshInterval = std::chrono::seconds{60};
+#endif
 
 const char* config_operation_state_name(ConfigOperationState state) {
     switch (state) {
@@ -736,6 +739,12 @@ void Daemon::setup_api() {
     api_ctx_->compute_test_routing_with_criteria_fn = compute_test_routing_with_criteria;
     api_ctx_->validation_context_fn = [this]() { return validation_context(); };
     api_ctx_->get_health_issues_fn = [this]() { return health_issues(); };
+#ifdef USE_KEENETIC_API
+    api_ctx_->get_keenetic_dns_proxies_fn = []() {
+        return refresh_keenetic_dns_cache(/*force_refresh=*/false);
+    };
+    api_ctx_->refresh_keenetic_dns_fn = [this]() { return refresh_keenetic_dns_now(); };
+#endif
     status_stream_ = std::make_unique<StatusStream>(StatusStream::Builders{
         [this]() {
             return build_health_response(api_ctx_->get_service_health());
@@ -771,6 +780,9 @@ void Daemon::setup_api() {
     // refresh interval; the worker pushes the result when it is ready.
     status_stream_->set_subscribe_hook([this]() {
         request_routing_health_refresh(kRoutingHealthStreamRefreshInterval);
+#ifdef USE_KEENETIC_API
+        request_keenetic_dns_poll(kKeeneticDnsStreamRefreshInterval);
+#endif
     });
     routing_health_stream_task_id_ = scheduler_->schedule_repeating(
         kRoutingHealthStreamRefreshInterval,

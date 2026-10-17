@@ -64,4 +64,26 @@ describe("mapHealthIssues", () => {
     expect(issue.detail).toBe("probe timeout")
     expect(issue.title).toBe('overview.issues.outboundDegraded {"tag":"vpn"}')
   })
+
+  test("translates a missing Keenetic DNS group", () => {
+    const [issue] = mapHealthIssues(
+      [
+        {
+          key: "keenetic-dns-vpn_dns",
+          severity: "error",
+          code: "keenetic_dns_policy_missing",
+          detail_code: "keenetic_dns_policy_blocked",
+          params: { tag: "vpn_dns", policy: "Policy3", mode: "block" },
+          title: "Keenetic DNS policy not found",
+          detail: "`vpn_dns`: Policy3 — queries blocked",
+        },
+      ],
+      t
+    )
+    expect(issue.tone).toBe("bad")
+    expect(issue.title).toBe("overview.issues.keeneticDnsPolicyMissing")
+    expect(issue.detail).toBe(
+      'overview.issues.keeneticDnsPolicyBlocked {"tag":"vpn_dns","policy":"Policy3"}'
+    )
+  })
 })

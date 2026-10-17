@@ -27,6 +27,10 @@ struct DnsServerConfig {
     std::optional<std::string> detour;
     std::string resolved_ip;               // bare IP (no port, no brackets)
     uint16_t    port = 53;                 // parsed port, default 53
+    // What the address stands for, for the generated config's comments
+    // (e.g. "Keenetic System, DoH https://dns.example/dns-query"); empty
+    // for a plain address.
+    std::string note;
 };
 
 // Build a DnsServerConfig from a config-level DnsServer definition.

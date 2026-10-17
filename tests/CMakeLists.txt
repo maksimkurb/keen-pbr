@@ -74,6 +74,7 @@ add_executable(keen-pbr-tests
   test_keenetic_interface_descriptions.cpp
   test_api_dns_test.cpp
   test_api_runtime_interfaces.cpp
+  test_api_keenetic_dns.cpp
   test_api_status_events.cpp
   test_api_test_routing.cpp
   test_api_static.cpp
@@ -310,6 +311,7 @@ if(WITH_API)
     ../src/api/sse_response.cpp
     ../src/api/status_stream.cpp
     ../src/api/handler_runtime_interfaces.cpp
+    ../src/api/handler_keenetic_dns.cpp
     ../src/api/handler_health_service.cpp
     ../src/api/handler_status_events.cpp
     ../src/api/handler_test_routing.cpp

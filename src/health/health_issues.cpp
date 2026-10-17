@@ -331,6 +331,23 @@ void collect_outbound_issues(const std::vector<api::RuntimeOutboundStateElement>
     }
 }
 
+void collect_keenetic_dns_issues(const std::vector<KeeneticDnsMissingInput>& missing,
+                                 std::vector<api::HealthIssue>& issues) {
+    for (const auto& entry : missing) {
+        auto issue = make_issue("keenetic-dns-" + entry.tag,
+                                entry.block ? api::Severity::ERROR : api::Severity::WARNING,
+                                api::Code::KEENETIC_DNS_POLICY_MISSING,
+                                "Keenetic DNS policy not found");
+        issue.params = {{"tag", entry.tag}, {"policy", entry.policy},
+                        {"mode", entry.block ? "block" : "system"}};
+        issue.detail_code = entry.block ? api::DetailCode::KEENETIC_DNS_POLICY_BLOCKED
+                                        : api::DetailCode::KEENETIC_DNS_POLICY_SYSTEM;
+        issue.detail = "`" + entry.tag + "`: " + entry.policy +
+                       (entry.block ? " — queries blocked" : " — using System");
+        issues.push_back(std::move(issue));
+    }
+}
+
 } // namespace
 
 std::vector<api::KernelCheckElement> collect_kernel_checks(
@@ -444,6 +461,7 @@ api::HealthIssuesResponse collect_health_issues(const HealthIssueInputs& inputs)
         collect_dnsmasq_issues(*inputs.dnsmasq, inputs.dnsmasq_setup_docs_url, issues);
     }
     if (inputs.outbounds) collect_outbound_issues(*inputs.outbounds, issues);
+    collect_keenetic_dns_issues(inputs.keenetic_dns_missing, issues);
     return response;
 }
 

@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesKYy0Pt data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypes2VoCyx data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -211,11 +211,15 @@ namespace api {
         std::string server;
     };
 
+    enum class KeeneticOnMissing : int { BLOCK, SYSTEM };
+
     enum class DnsServerType : int { KEENETIC, STATIC };
 
     struct DnsServerElement {
         std::optional<std::string> address;
         std::optional<std::string> detour;
+        std::optional<KeeneticOnMissing> keenetic_on_missing;
+        std::optional<std::string> keenetic_policy;
         std::string tag;
         std::optional<DnsServerType> type;
     };
@@ -528,9 +532,9 @@ namespace api {
         CheckStatus status;
     };
 
-    enum class Code : int { DNSMASQ_ERROR, DNSMASQ_RECONCILING, FIREWALL_CHAIN_MISSING, FIREWALL_PREROUTING_MISSING, FIREWALL_RULES, GROUP_MEMBERS_FAILING, HOST_WARNING, INTERCEPT_LIMITED, INTERCEPT_WARNING, KERNEL_CAPABILITY, KERNEL_PROBE, OUTBOUND_DEGRADED, OUTBOUND_UNAVAILABLE, POLICY_RULES, ROUTE_TABLES, ROUTING_CHECK_FAILED, XT_EXTENSION };
+    enum class Code : int { DNSMASQ_ERROR, DNSMASQ_RECONCILING, FIREWALL_CHAIN_MISSING, FIREWALL_PREROUTING_MISSING, FIREWALL_RULES, GROUP_MEMBERS_FAILING, HOST_WARNING, INTERCEPT_LIMITED, INTERCEPT_WARNING, KEENETIC_DNS_POLICY_MISSING, KERNEL_CAPABILITY, KERNEL_PROBE, OUTBOUND_DEGRADED, OUTBOUND_UNAVAILABLE, POLICY_RULES, ROUTE_TABLES, ROUTING_CHECK_FAILED, XT_EXTENSION };
 
-    enum class DetailCode : int { CAPABILITY_FALLBACK, CAPABILITY_UNSUPPORTED, DNSMASQ_DEAD, KERNEL_CHECK_FAILED, XT_EXTENSION_REQUIRED, XT_EXTENSION_UNUSED };
+    enum class DetailCode : int { CAPABILITY_FALLBACK, CAPABILITY_UNSUPPORTED, DNSMASQ_DEAD, KEENETIC_DNS_POLICY_BLOCKED, KEENETIC_DNS_POLICY_SYSTEM, KERNEL_CHECK_FAILED, XT_EXTENSION_REQUIRED, XT_EXTENSION_UNUSED };
 
     enum class Severity : int { ERROR, WARNING };
 
@@ -708,6 +712,33 @@ namespace api {
         std::optional<std::string> runtime_state_reason;
         HealthResponseStatus status;
         std::string version;
+    };
+
+    struct KeeneticDnsDomainServersElement {
+        std::vector<std::string> addresses;
+        std::string domain;
+    };
+
+    enum class KeeneticDnsProtocol : int { DO_H, DO_T, PLAIN };
+
+    struct KeeneticDnsProxyUpstreamElement {
+        KeeneticDnsProtocol protocol;
+        std::string target;
+    };
+
+    struct KeeneticDnsProxyElement {
+        std::optional<std::string> description;
+        std::optional<std::vector<KeeneticDnsDomainServersElement>> domain_servers;
+        std::string name;
+        std::optional<int64_t> port;
+        std::optional<std::vector<std::string>> route_interfaces;
+        std::vector<KeeneticDnsProxyUpstreamElement> upstreams;
+    };
+
+    struct KeeneticDnsProxiesResponseClass {
+        std::optional<std::string> error;
+        std::string fetched_at;
+        std::vector<KeeneticDnsProxyElement> proxies;
     };
 
     enum class LifecycleOperationAcceptedResponseStatus : int { ACCEPTED };
@@ -994,7 +1025,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesKYy0Pt {
+    struct KeenPbrTypes2VoCyx {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1044,6 +1075,11 @@ namespace api {
         std::optional<InterceptProbeFeatureElement> intercept_probe_feature;
         std::optional<DnsWriteLatency> intercept_write_latency;
         std::optional<Iproute> iproute_config;
+        std::optional<KeeneticDnsDomainServersElement> keenetic_dns_domain_servers;
+        std::optional<KeeneticDnsProtocol> keenetic_dns_protocol;
+        std::optional<KeeneticDnsProxiesResponseClass> keenetic_dns_proxies_response;
+        std::optional<KeeneticDnsProxyElement> keenetic_dns_proxy;
+        std::optional<KeeneticDnsProxyUpstreamElement> keenetic_dns_proxy_upstream;
         std::optional<KernelCheckElement> kernel_check;
         std::optional<LifecycleOperation> lifecycle_operation;
         std::optional<LifecycleOperationAcceptedResponse> lifecycle_operation_accepted_response;
@@ -1282,6 +1318,18 @@ namespace api {
     void from_json(const json & j, HealthResponse & x);
     void to_json(json & j, const HealthResponse & x);
 
+    void from_json(const json & j, KeeneticDnsDomainServersElement & x);
+    void to_json(json & j, const KeeneticDnsDomainServersElement & x);
+
+    void from_json(const json & j, KeeneticDnsProxyUpstreamElement & x);
+    void to_json(json & j, const KeeneticDnsProxyUpstreamElement & x);
+
+    void from_json(const json & j, KeeneticDnsProxyElement & x);
+    void to_json(json & j, const KeeneticDnsProxyElement & x);
+
+    void from_json(const json & j, KeeneticDnsProxiesResponseClass & x);
+    void to_json(json & j, const KeeneticDnsProxiesResponseClass & x);
+
     void from_json(const json & j, LifecycleOperationAcceptedResponse & x);
     void to_json(json & j, const LifecycleOperationAcceptedResponse & x);
 
@@ -1381,8 +1429,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesKYy0Pt & x);
-    void to_json(json & j, const KeenPbrTypesKYy0Pt & x);
+    void from_json(const json & j, KeenPbrTypes2VoCyx & x);
+    void to_json(json & j, const KeenPbrTypes2VoCyx & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1395,6 +1443,9 @@ namespace api {
 
     void from_json(const json & j, ResolverIntegration & x);
     void to_json(json & j, const ResolverIntegration & x);
+
+    void from_json(const json & j, KeeneticOnMissing & x);
+    void to_json(json & j, const KeeneticOnMissing & x);
 
     void from_json(const json & j, DnsServerType & x);
     void to_json(json & j, const DnsServerType & x);
@@ -1482,6 +1533,9 @@ namespace api {
 
     void from_json(const json & j, HealthResponseStatus & x);
     void to_json(json & j, const HealthResponseStatus & x);
+
+    void from_json(const json & j, KeeneticDnsProtocol & x);
+    void to_json(json & j, const KeeneticDnsProtocol & x);
 
     void from_json(const json & j, LifecycleOperationAcceptedResponseStatus & x);
     void to_json(json & j, const LifecycleOperationAcceptedResponseStatus & x);
@@ -1788,6 +1842,8 @@ namespace api {
     inline void from_json(const json & j, DnsServerElement& x) {
         x.address = get_stack_optional<std::string>(j, "address");
         x.detour = get_stack_optional<std::string>(j, "detour");
+        x.keenetic_on_missing = get_stack_optional<KeeneticOnMissing>(j, "keenetic_on_missing");
+        x.keenetic_policy = get_stack_optional<std::string>(j, "keenetic_policy");
         x.tag = j.at("tag").get<std::string>();
         x.type = get_stack_optional<DnsServerType>(j, "type");
     }
@@ -1796,6 +1852,8 @@ namespace api {
         j = json::object();
         j["address"] = x.address;
         j["detour"] = x.detour;
+        j["keenetic_on_missing"] = x.keenetic_on_missing;
+        j["keenetic_policy"] = x.keenetic_policy;
         j["tag"] = x.tag;
         j["type"] = x.type;
     }
@@ -2710,6 +2768,60 @@ namespace api {
         j["version"] = x.version;
     }
 
+    inline void from_json(const json & j, KeeneticDnsDomainServersElement& x) {
+        x.addresses = j.at("addresses").get<std::vector<std::string>>();
+        x.domain = j.at("domain").get<std::string>();
+    }
+
+    inline void to_json(json & j, const KeeneticDnsDomainServersElement & x) {
+        j = json::object();
+        j["addresses"] = x.addresses;
+        j["domain"] = x.domain;
+    }
+
+    inline void from_json(const json & j, KeeneticDnsProxyUpstreamElement& x) {
+        x.protocol = j.at("protocol").get<KeeneticDnsProtocol>();
+        x.target = j.at("target").get<std::string>();
+    }
+
+    inline void to_json(json & j, const KeeneticDnsProxyUpstreamElement & x) {
+        j = json::object();
+        j["protocol"] = x.protocol;
+        j["target"] = x.target;
+    }
+
+    inline void from_json(const json & j, KeeneticDnsProxyElement& x) {
+        x.description = get_stack_optional<std::string>(j, "description");
+        x.domain_servers = get_stack_optional<std::vector<KeeneticDnsDomainServersElement>>(j, "domain_servers");
+        x.name = j.at("name").get<std::string>();
+        x.port = get_stack_optional<int64_t>(j, "port");
+        x.route_interfaces = get_stack_optional<std::vector<std::string>>(j, "route_interfaces");
+        x.upstreams = j.at("upstreams").get<std::vector<KeeneticDnsProxyUpstreamElement>>();
+    }
+
+    inline void to_json(json & j, const KeeneticDnsProxyElement & x) {
+        j = json::object();
+        j["description"] = x.description;
+        j["domain_servers"] = x.domain_servers;
+        j["name"] = x.name;
+        j["port"] = x.port;
+        j["route_interfaces"] = x.route_interfaces;
+        j["upstreams"] = x.upstreams;
+    }
+
+    inline void from_json(const json & j, KeeneticDnsProxiesResponseClass& x) {
+        x.error = get_stack_optional<std::string>(j, "error");
+        x.fetched_at = j.at("fetched_at").get<std::string>();
+        x.proxies = j.at("proxies").get<std::vector<KeeneticDnsProxyElement>>();
+    }
+
+    inline void to_json(json & j, const KeeneticDnsProxiesResponseClass & x) {
+        j = json::object();
+        j["error"] = x.error;
+        j["fetched_at"] = x.fetched_at;
+        j["proxies"] = x.proxies;
+    }
+
     inline void from_json(const json & j, LifecycleOperationAcceptedResponse& x) {
         x.operation_id = j.at("operation_id").get<std::string>();
         x.status = j.at("status").get<LifecycleOperationAcceptedResponseStatus>();
@@ -3227,7 +3339,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesKYy0Pt& x) {
+    inline void from_json(const json & j, KeenPbrTypes2VoCyx& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -3277,6 +3389,11 @@ namespace api {
         x.intercept_probe_feature = get_stack_optional<InterceptProbeFeatureElement>(j, "InterceptProbeFeature");
         x.intercept_write_latency = get_stack_optional<DnsWriteLatency>(j, "InterceptWriteLatency");
         x.iproute_config = get_stack_optional<Iproute>(j, "IprouteConfig");
+        x.keenetic_dns_domain_servers = get_stack_optional<KeeneticDnsDomainServersElement>(j, "KeeneticDnsDomainServers");
+        x.keenetic_dns_protocol = get_stack_optional<KeeneticDnsProtocol>(j, "KeeneticDnsProtocol");
+        x.keenetic_dns_proxies_response = get_stack_optional<KeeneticDnsProxiesResponseClass>(j, "KeeneticDnsProxiesResponse");
+        x.keenetic_dns_proxy = get_stack_optional<KeeneticDnsProxyElement>(j, "KeeneticDnsProxy");
+        x.keenetic_dns_proxy_upstream = get_stack_optional<KeeneticDnsProxyUpstreamElement>(j, "KeeneticDnsProxyUpstream");
         x.kernel_check = get_stack_optional<KernelCheckElement>(j, "KernelCheck");
         x.lifecycle_operation = get_stack_optional<LifecycleOperation>(j, "LifecycleOperation");
         x.lifecycle_operation_accepted_response = get_stack_optional<LifecycleOperationAcceptedResponse>(j, "LifecycleOperationAcceptedResponse");
@@ -3331,7 +3448,7 @@ namespace api {
         x.xt_extension_health = get_stack_optional<XtExtensionHealthElement>(j, "XtExtensionHealth");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesKYy0Pt & x) {
+    inline void to_json(json & j, const KeenPbrTypes2VoCyx & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -3382,6 +3499,11 @@ namespace api {
         j["InterceptProbeFeature"] = x.intercept_probe_feature;
         j["InterceptWriteLatency"] = x.intercept_write_latency;
         j["IprouteConfig"] = x.iproute_config;
+        j["KeeneticDnsDomainServers"] = x.keenetic_dns_domain_servers;
+        j["KeeneticDnsProtocol"] = x.keenetic_dns_protocol;
+        j["KeeneticDnsProxiesResponse"] = x.keenetic_dns_proxies_response;
+        j["KeeneticDnsProxy"] = x.keenetic_dns_proxy;
+        j["KeeneticDnsProxyUpstream"] = x.keenetic_dns_proxy_upstream;
         j["KernelCheck"] = x.kernel_check;
         j["LifecycleOperation"] = x.lifecycle_operation;
         j["LifecycleOperationAcceptedResponse"] = x.lifecycle_operation_accepted_response;
@@ -3493,6 +3615,20 @@ namespace api {
             case ResolverIntegration::DNSMASQ: j = "dnsmasq"; break;
             case ResolverIntegration::NONE: j = "none"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"ResolverIntegration\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, KeeneticOnMissing & x) {
+        if (j == "block") x = KeeneticOnMissing::BLOCK;
+        else if (j == "system") x = KeeneticOnMissing::SYSTEM;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"KeeneticOnMissing\""); }
+    }
+
+    inline void to_json(json & j, const KeeneticOnMissing & x) {
+        switch (x) {
+            case KeeneticOnMissing::BLOCK: j = "block"; break;
+            case KeeneticOnMissing::SYSTEM: j = "system"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"KeeneticOnMissing\": " + std::to_string(static_cast<int>(x)));
         }
     }
 
@@ -3803,6 +3939,7 @@ namespace api {
             {"host_warning", Code::HOST_WARNING},
             {"intercept_limited", Code::INTERCEPT_LIMITED},
             {"intercept_warning", Code::INTERCEPT_WARNING},
+            {"keenetic_dns_policy_missing", Code::KEENETIC_DNS_POLICY_MISSING},
             {"kernel_capability", Code::KERNEL_CAPABILITY},
             {"kernel_probe", Code::KERNEL_PROBE},
             {"outbound_degraded", Code::OUTBOUND_DEGRADED},
@@ -3830,6 +3967,7 @@ namespace api {
             case Code::HOST_WARNING: j = "host_warning"; break;
             case Code::INTERCEPT_LIMITED: j = "intercept_limited"; break;
             case Code::INTERCEPT_WARNING: j = "intercept_warning"; break;
+            case Code::KEENETIC_DNS_POLICY_MISSING: j = "keenetic_dns_policy_missing"; break;
             case Code::KERNEL_CAPABILITY: j = "kernel_capability"; break;
             case Code::KERNEL_PROBE: j = "kernel_probe"; break;
             case Code::OUTBOUND_DEGRADED: j = "outbound_degraded"; break;
@@ -3846,6 +3984,8 @@ namespace api {
         if (j == "capability_fallback") x = DetailCode::CAPABILITY_FALLBACK;
         else if (j == "capability_unsupported") x = DetailCode::CAPABILITY_UNSUPPORTED;
         else if (j == "dnsmasq_dead") x = DetailCode::DNSMASQ_DEAD;
+        else if (j == "keenetic_dns_policy_blocked") x = DetailCode::KEENETIC_DNS_POLICY_BLOCKED;
+        else if (j == "keenetic_dns_policy_system") x = DetailCode::KEENETIC_DNS_POLICY_SYSTEM;
         else if (j == "kernel_check_failed") x = DetailCode::KERNEL_CHECK_FAILED;
         else if (j == "xt_extension_required") x = DetailCode::XT_EXTENSION_REQUIRED;
         else if (j == "xt_extension_unused") x = DetailCode::XT_EXTENSION_UNUSED;
@@ -3857,6 +3997,8 @@ namespace api {
             case DetailCode::CAPABILITY_FALLBACK: j = "capability_fallback"; break;
             case DetailCode::CAPABILITY_UNSUPPORTED: j = "capability_unsupported"; break;
             case DetailCode::DNSMASQ_DEAD: j = "dnsmasq_dead"; break;
+            case DetailCode::KEENETIC_DNS_POLICY_BLOCKED: j = "keenetic_dns_policy_blocked"; break;
+            case DetailCode::KEENETIC_DNS_POLICY_SYSTEM: j = "keenetic_dns_policy_system"; break;
             case DetailCode::KERNEL_CHECK_FAILED: j = "kernel_check_failed"; break;
             case DetailCode::XT_EXTENSION_REQUIRED: j = "xt_extension_required"; break;
             case DetailCode::XT_EXTENSION_UNUSED: j = "xt_extension_unused"; break;
@@ -4021,6 +4163,22 @@ namespace api {
             case HealthResponseStatus::RUNNING: j = "running"; break;
             case HealthResponseStatus::STOPPED: j = "stopped"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"HealthResponseStatus\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, KeeneticDnsProtocol & x) {
+        if (j == "DoH") x = KeeneticDnsProtocol::DO_H;
+        else if (j == "DoT") x = KeeneticDnsProtocol::DO_T;
+        else if (j == "Plain") x = KeeneticDnsProtocol::PLAIN;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"KeeneticDnsProtocol\""); }
+    }
+
+    inline void to_json(json & j, const KeeneticDnsProtocol & x) {
+        switch (x) {
+            case KeeneticDnsProtocol::DO_H: j = "DoH"; break;
+            case KeeneticDnsProtocol::DO_T: j = "DoT"; break;
+            case KeeneticDnsProtocol::PLAIN: j = "Plain"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"KeeneticDnsProtocol\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

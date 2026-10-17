@@ -31,6 +31,7 @@ export {
   getGetHealthServiceQueryOptions,
   getGetRuntimeInterfacesQueryOptions,
   getGetRuntimeOutboundsQueryOptions,
+  useGetKeeneticDnsProxies,
   useGetConfig,
   useGetConfigDefaults,
   useGetAuthPasswordStatus,

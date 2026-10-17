@@ -783,19 +783,87 @@ TEST_CASE("dns servers: keenetic type is accepted when KeeneticOS version is tem
 }
 
 #ifdef USE_KEENETIC_API
-TEST_CASE("dns servers: at most one keenetic type server is allowed") {
-    std::string json = R"({
+TEST_CASE("dns servers: several keenetic type servers may target different policies") {
+    CHECK_NOTHROW(parse_test_config(R"({
         "dns":{
             "servers":[
                 {"tag":"keen_a","type":"keenetic"},
-                {"tag":"keen_b","type":"keenetic"}
+                {"tag":"keen_b","type":"keenetic","keenetic_policy":"Policy0"},
+                {"tag":"keen_c","type":"keenetic","keenetic_policy":"Policy1","keenetic_on_missing":"system"}
             ],
             "fallback":["keen_a"]
         }
-    })";
-    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
+    })"));
+}
+
+TEST_CASE("dns servers: a keenetic policy may be used by one server only") {
+    // An unset policy is the System policy.
+    CHECK_THROWS_AS(parse_test_config(R"({
+        "dns":{
+            "servers":[
+                {"tag":"keen_a","type":"keenetic"},
+                {"tag":"keen_b","type":"keenetic","keenetic_policy":"System"}
+            ],
+            "fallback":["keen_a"]
+        }
+    })"), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(R"({
+        "dns":{
+            "servers":[
+                {"tag":"keen_a","type":"keenetic","keenetic_policy":"Policy0"},
+                {"tag":"keen_b","type":"keenetic","keenetic_policy":"Policy0"}
+            ],
+            "fallback":["keen_a"]
+        }
+    })"), ConfigError);
+}
+
+TEST_CASE("dns servers: keenetic_policy needs a policy name") {
+    const auto issues = validate_issues(R"({
+        "dns":{
+            "servers":[{"tag":"keen_a","type":"keenetic","keenetic_policy":"Policy 0!"}],
+            "fallback":["keen_a"]
+        }
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "dns.servers[0].keenetic_policy");
+}
+
+TEST_CASE("dns servers: a detour cannot be combined with a keenetic policy") {
+    const std::string outbounds =
+        R"("outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],)";
+    const auto policy_issues = validate_issues("{" + outbounds + R"(
+        "dns":{
+            "servers":[{"tag":"keen_a","type":"keenetic","keenetic_policy":"Policy0","detour":"vpn"}],
+            "fallback":["keen_a"]
+        }
+    })");
+    REQUIRE(policy_issues.size() == 1);
+    CHECK(policy_issues[0].path == "dns.servers[0].detour");
+
+    // The System policy is the regular DNS of the router: a detour stays valid.
+    const auto system_issues = validate_issues("{" + outbounds + R"(
+        "dns":{
+            "servers":[{"tag":"keen_a","type":"keenetic","keenetic_policy":"System","detour":"vpn"}],
+            "fallback":["keen_a"]
+        }
+    })");
+    CHECK(system_issues.empty());
 }
 #endif
+
+TEST_CASE("dns servers: keenetic settings are rejected on a static server") {
+    const auto issues = validate_issues(R"({
+        "dns":{
+            "servers":[{"tag":"plain","type":"static","address":"1.1.1.1",
+                        "keenetic_policy":"Policy0","keenetic_on_missing":"block"}],
+            "fallback":["plain"]
+        }
+    })");
+    REQUIRE(issues.size() == 2);
+    CHECK(issues[0].path == "dns.servers[0].keenetic_policy");
+    CHECK(issues[1].path == "dns.servers[0].keenetic_on_missing");
+}
 
 TEST_CASE("route rule enabled: parse and serialize cover true false omitted and null") {
     const auto cfg_true = parse_test_config(R"({

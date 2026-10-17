@@ -29,6 +29,7 @@
 
 #include "../cmd/test_routing_json.hpp"
 #include "../crash/crash_diagnostics.hpp"
+#include "../dns/dns_router.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_verifier.hpp"
 #include "../health/health_issues.hpp"
@@ -705,6 +706,12 @@ Daemon::health_issues_from(const ServiceHealthState &service,
   if (service.dnsmasq) inputs.dnsmasq = &*service.dnsmasq;
   inputs.dnsmasq_setup_docs_url = dnsmasq_setup_docs_url(service.os_type);
   inputs.outbounds = &outbounds.outbounds;
+  for (const auto &missing : find_missing_keenetic_policies(
+           config_store_.active_config().dns.value_or(DnsConfig{}))) {
+    inputs.keenetic_dns_missing.push_back(
+        {missing.tag, missing.policy,
+         missing.mode == api::KeeneticOnMissing::BLOCK});
+  }
   return collect_health_issues(inputs);
 }
 
@@ -1901,6 +1908,8 @@ void Daemon::run() {
   intercept_rebind_task_id_ = scheduler_->schedule_repeating(
       std::chrono::seconds{1}, [this] { tick_intercept_rebind(); },
       "intercept-rebind");
+
+  start_keenetic_dns_poll();
 
   log.info("Daemon control plane running. PID: {}", getpid());
   post_control_task([this] { begin_startup_runtime(); }, "startup-runtime");

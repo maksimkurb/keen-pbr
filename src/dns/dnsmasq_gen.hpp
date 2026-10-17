@@ -24,6 +24,7 @@ struct DnsmasqListStats {
     bool allow_rebind = false;
     bool url_pending = false;            // URL source declared but not downloaded yet
     std::string skipped;                 // why the list was left out; empty when written
+    std::string blocked;                 // why its domains are refused (written without upstream); empty otherwise
 };
 
 struct DnsmasqGenStats {

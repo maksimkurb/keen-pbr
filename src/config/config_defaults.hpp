@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../api/generated/api_types.hpp"
+
 #include <cstdint>
 #include <string_view>
 
@@ -28,6 +30,9 @@ constexpr bool process_router_traffic = false;
 
 // lists_autoupdate
 constexpr bool lists_autoupdate_enabled = false;
+
+// dns.servers
+constexpr api::KeeneticOnMissing keenetic_on_missing = api::KeeneticOnMissing::BLOCK;
 
 // intercept
 constexpr bool intercept_enabled = true;

@@ -6,6 +6,7 @@
 #include <charconv>
 #include <fstream>
 #include <functional>
+#include <set>
 #include <streambuf>
 #include <vector>
 
@@ -57,6 +58,32 @@ std::string server_address(const DnsServerConfig& server) {
     return addr;
 }
 
+// "vpn_dns: Keenetic System, DoH https://..." — what a server= row points at.
+std::string server_comment(const DnsServerConfig& server) {
+    return server.note.empty() ? server.tag : server.tag + ": " + server.note;
+}
+
+// Keenetic static record names are "host" or "*.domain".
+bool is_wildcard_record(const std::string& domain) {
+    return domain.size() > 2 && domain.compare(0, 2, "*.") == 0;
+}
+
+// Why the queries of a list are refused: the Keenetic policy of its server is gone.
+std::string blocked_reason(const DnsServerRegistry& registry,
+                           const std::vector<std::string>& servers) {
+    std::string reason;
+    for (const auto& missing : registry.missing_keenetic_policies()) {
+        if (missing.mode != api::KeeneticOnMissing::BLOCK ||
+            std::find(servers.begin(), servers.end(), missing.tag) == servers.end()) {
+            continue;
+        }
+        reason += reason.empty() ? "" : ", ";
+        reason += "Keenetic policy '" + missing.policy + "' is missing";
+    }
+    return (reason.empty() ? std::string("DNS server is blocked") : reason) +
+           ", queries are blocked";
+}
+
 std::string no_address_reason(const std::vector<std::string>& servers) {
     std::string quoted;
     for (const auto& tag : servers) {
@@ -96,8 +123,45 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
         out << "no-resolv\n";
         for (const auto& tag : fallback_tags) {
             for (const DnsServerConfig* server : dns_registry_.get_servers(tag)) {
+                out << "# " << server_comment(*server) << "\n";
                 out << "server=" << server_address(*server) << "\n";
                 local_stats.fallback.push_back(server_address(*server));
+            }
+        }
+        out << "\n";
+    }
+
+    // keen-pbr replaces System as the default resolver when a System keenetic
+    // server is in dns.fallback, and System's own DNS proxy is bypassed: hand
+    // dnsmasq System's servers for single domains (an ISP's captive portal,
+    // say), once. A server used only by a DNS rule leaves the default alone.
+    const bool system_in_use = std::any_of(
+        fallback_tags.begin(), fallback_tags.end(),
+        [&](const std::string& tag) { return dns_registry_.uses_keenetic_system(tag); });
+    if (system_in_use && !dns_registry_.keenetic_system_domain_servers().empty()) {
+        std::set<std::string> seen;
+        out << "# Keenetic System servers for single domains\n";
+        for (const auto& [domain, server] : dns_registry_.keenetic_system_domain_servers()) {
+            const std::string row = "server=/" + domain + "/" + server_address(server);
+            if (seen.insert(row).second) {
+                out << "# " << server_comment(server) << "\n" << row << "\n";
+            }
+        }
+        out << "\n";
+    }
+
+    // Same for System's static records: "*.domain" covers the domain and its
+    // subdomains, any other name only itself.
+    if (system_in_use && !dns_registry_.keenetic_system_static_entries().empty()) {
+        std::set<std::string> seen;
+        out << "# Keenetic System static records\n";
+        for (const auto& entry : dns_registry_.keenetic_system_static_entries()) {
+            const std::string row =
+                is_wildcard_record(entry.domain)
+                    ? "address=/" + entry.domain.substr(2) + "/" + entry.address
+                    : "host-record=" + entry.domain + "," + entry.address;
+            if (seen.insert(row).second) {
+                out << row << "\n";
             }
         }
         out << "\n";
@@ -110,7 +174,9 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
     struct ListUpstreams {
         std::vector<std::string> servers;     // dns.rules server tags
         std::vector<std::string> addresses;   // their resolved upstreams
+        std::vector<std::string> comments;    // what each address is, same order
         bool allow_rebind = false;
+        bool blocked = false;                 // a server of a missing Keenetic policy
     };
     std::map<std::string, ListUpstreams> dns_lists;
     for (const auto& rule : dns_config_.rules.value_or(std::vector<DnsRule>{})) {
@@ -127,10 +193,12 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
                 continue;
             }
             upstreams.servers.push_back(rule.server);
+            upstreams.blocked = upstreams.blocked || dns_registry_.is_blocked(rule.server);
             for (const DnsServerConfig* server : dns_registry_.get_servers(rule.server)) {
                 std::string address = server_address(*server);
                 if (std::find(upstreams.addresses.begin(), upstreams.addresses.end(), address) ==
                     upstreams.addresses.end()) {
+                    upstreams.comments.push_back(address + " = " + server_comment(*server));
                     upstreams.addresses.push_back(std::move(address));
                 }
             }
@@ -152,7 +220,14 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
         }
 
         const bool allow_domain_rebinding = upstreams.allow_rebind;
-        if (upstreams.addresses.empty() && !allow_domain_rebinding) {
+        // Nothing but missing Keenetic policies: an address-less server= row
+        // makes dnsmasq refuse the domains instead of sending them to the
+        // default upstream.
+        const bool block_queries = upstreams.addresses.empty() && upstreams.blocked;
+        if (block_queries) {
+            list_stats.blocked = blocked_reason(dns_registry_, upstreams.servers);
+        }
+        if (upstreams.addresses.empty() && !block_queries && !allow_domain_rebinding) {
             list_stats.skipped = no_address_reason(upstreams.servers);
             continue;
         }
@@ -209,9 +284,13 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
             stream << "rebind-domain-ok=" << domain_path << "/\n";
         };
 
+        std::vector<std::string> batch_addresses = upstreams.addresses;
+        if (block_queries) {
+            batch_addresses.emplace_back();  // no address: dnsmasq answers the domains itself
+        }
         std::vector<BatchState> server_batches;
-        server_batches.reserve(upstreams.addresses.size());
-        for (const std::string& server_addr : upstreams.addresses) {
+        server_batches.reserve(batch_addresses.size());
+        for (const std::string& server_addr : batch_addresses) {
             BatchState server_batch;
             server_batch.directive_name = "server";
             server_batch.prefix_len = kServerPrefixLen;
@@ -242,6 +321,12 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
 
             if (!wrote_list_header) {
                 out << "# List: " << list_name << "\n";
+                for (const auto& comment : upstreams.comments) {
+                    out << "#   " << comment << "\n";
+                }
+                if (block_queries) {
+                    out << "#   " << list_stats.blocked << "\n";
+                }
                 wrote_list_header = true;
             }
             ++list_domains;

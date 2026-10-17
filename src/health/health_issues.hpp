@@ -9,6 +9,13 @@
 
 namespace keen_pbr3 {
 
+// A type=keenetic DNS server whose Keenetic DNS proxy group is gone from the router.
+struct KeeneticDnsMissingInput {
+    std::string tag;
+    std::string policy;
+    bool block{true};  // true: queries are blocked; false: the System upstreams are used
+};
+
 // Inputs of the overview health verdict. Null pointers mean "not available".
 struct HealthIssueInputs {
     bool service_running{false};
@@ -21,6 +28,7 @@ struct HealthIssueInputs {
     // Documentation section on installing dnsmasq on this OS.
     std::string dnsmasq_setup_docs_url;
     const std::vector<api::RuntimeOutboundStateElement>* outbounds{nullptr};
+    std::vector<KeeneticDnsMissingInput> keenetic_dns_missing;
 };
 
 // Kernel checks (capabilities, iptables extensions, probes) that apply to

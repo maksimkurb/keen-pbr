@@ -6,6 +6,7 @@ import { useLocation } from "wouter"
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { DnsServer } from "@/api/generated/model/dnsServer"
+import type { DnsServerKeeneticOnMissing } from "@/api/generated/model/dnsServerKeeneticOnMissing"
 import { DnsServerType } from "@/api/generated/model/dnsServerType"
 import { usePostConfigMutation } from "@/api/mutations"
 import { useGetConfig } from "@/api/queries"
@@ -17,6 +18,7 @@ import {
   FieldHint,
   FieldLabel,
 } from "@/components/shared/field"
+import { KeeneticPolicyFields } from "@/components/shared/keenetic-policy-fields"
 import { OutboundSelect } from "@/components/shared/outbound-select"
 import { UpsertPage } from "@/components/shared/upsert-page"
 import { ServerValidationAlert } from "@/components/shared/server-validation-alert"
@@ -34,6 +36,7 @@ import {
 import i18n from "@/i18n"
 import { useDraftForm } from "@/lib/draft-form"
 import { PLATFORM_DEVELOPMENT, PLATFORM_KEENETIC } from "@/lib/platform"
+import { KEENETIC_SYSTEM_POLICY } from "@/lib/keenetic-dns"
 import { getTagNameValidationError } from "@/lib/tag-name-validation"
 
 type DnsServerDraft = {
@@ -41,6 +44,10 @@ type DnsServerDraft = {
   type: typeof DnsServerType.static | typeof DnsServerType.keenetic
   address: string
   detour: string
+  // "" is the System group.
+  keenetic_policy: string
+  // "" is untouched: the daemon's default applies and nothing is written.
+  keenetic_on_missing: DnsServerKeeneticOnMissing | ""
 }
 
 const emptyDnsServerDraft: DnsServerDraft = {
@@ -48,6 +55,8 @@ const emptyDnsServerDraft: DnsServerDraft = {
   type: DnsServerType.static,
   address: "",
   detour: "",
+  keenetic_policy: "",
+  keenetic_on_missing: "",
 }
 
 export function DnsServerUpsertPage({
@@ -217,11 +226,17 @@ function DnsServerForm({
     }
 
     const normalizedDetour = isKeeneticDns ? "" : value.detour.trim()
+    // Only a group other than System has something to decide.
+    const keeneticPolicy = isKeeneticDns ? value.keenetic_policy.trim() : ""
     const nextServer: DnsServer = {
       tag: normalizedTag,
       type: value.type,
       ...(normalizedAddress ? { address: normalizedAddress } : {}),
       ...(normalizedDetour ? { detour: normalizedDetour } : {}),
+      ...(keeneticPolicy ? { keenetic_policy: keeneticPolicy } : {}),
+      ...(keeneticPolicy && value.keenetic_on_missing
+        ? { keenetic_on_missing: value.keenetic_on_missing }
+        : {}),
     }
 
     const currentServers = config.dns?.servers ?? []
@@ -356,6 +371,24 @@ function DnsServerForm({
           </Field>
         ) : null}
 
+        {isKeeneticDns ? (
+          <KeeneticPolicyFields
+            onMissing={values.keenetic_on_missing}
+            onMissingError={form.errorFor("keenetic_on_missing")}
+            onOnMissingChange={(value) =>
+              form.setValue("keenetic_on_missing", value)
+            }
+            onPolicyChange={(policy) => {
+              form.setValue("keenetic_policy", policy)
+              if (!policy) {
+                form.setValue("keenetic_on_missing", "")
+              }
+            }}
+            policy={values.keenetic_policy}
+            policyError={form.errorFor("keenetic_policy")}
+          />
+        ) : null}
+
         {!isKeeneticDns ? (
           <>
             <Field invalid={Boolean(form.errorFor("address"))}>
@@ -448,6 +481,11 @@ function getDnsServerDraft(server?: DnsServer): DnsServerDraft {
     type: server.type ?? DnsServerType.static,
     address: server.address ?? "",
     detour: server.detour ?? "",
+    keenetic_policy:
+      server.keenetic_policy === KEENETIC_SYSTEM_POLICY
+        ? ""
+        : (server.keenetic_policy ?? ""),
+    keenetic_on_missing: server.keenetic_on_missing ?? "",
   }
 }
 

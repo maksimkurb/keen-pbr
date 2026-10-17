@@ -178,6 +178,8 @@ function translateTitle(issue: HealthIssue, t: TranslateFn): string {
         tag: params.tag,
         count: Number(params.count),
       })
+    case "keenetic_dns_policy_missing":
+      return t("overview.issues.keeneticDnsPolicyMissing")
   }
   return issue.title
 }
@@ -201,6 +203,16 @@ function translateDetail(
       })
     case "dnsmasq_dead":
       return t("overview.issues.dnsmasqDead")
+    case "keenetic_dns_policy_blocked":
+      return t("overview.issues.keeneticDnsPolicyBlocked", {
+        tag: issue.params.tag,
+        policy: issue.params.policy,
+      })
+    case "keenetic_dns_policy_system":
+      return t("overview.issues.keeneticDnsPolicySystem", {
+        tag: issue.params.tag,
+        policy: issue.params.policy,
+      })
   }
   return issue.detail
 }

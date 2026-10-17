@@ -19,4 +19,6 @@ export const HealthIssueDetailCode = {
   xt_extension_unused: 'xt_extension_unused',
   kernel_check_failed: 'kernel_check_failed',
   dnsmasq_dead: 'dnsmasq_dead',
+  keenetic_dns_policy_blocked: 'keenetic_dns_policy_blocked',
+  keenetic_dns_policy_system: 'keenetic_dns_policy_system',
 } as const;

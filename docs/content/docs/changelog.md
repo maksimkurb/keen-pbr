@@ -50,6 +50,7 @@ What changed in each keen-pbr release, and what to do when you upgrade.
 - Fixed `keen-pbr status` reporting every `urltest` and `icmptest` rule as an error.
 - The Web UI now keeps `conntrack_on_switch`, `strict_enforcement_action` and the `urltest` probe timeout when saving an outbound.
 - Fixed DNS servers with `detour` through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address).
+- {{< only keenetic >}} Fixed Keenetic static DNS records and per-domain DNS servers (for example, for an ISP login page) when a DNS server of type `keenetic` is the default DNS server: such names used to go to the regular upstream servers.
 
 ### Breaking Changes {#upgrading-from-33x}
 

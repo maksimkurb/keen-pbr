@@ -258,3 +258,27 @@ TEST_CASE("dnsmasq install guide link follows the OS") {
     CHECK(dnsmasq_setup_docs_url("linux") ==
           "https://keen-pbr.fyi/docs/configuration/dns/#do-i-need-dnsmasq");
 }
+
+TEST_CASE("health issues: a missing Keenetic DNS policy") {
+    HealthIssueInputs inputs;
+    inputs.service_running = true;
+    inputs.keenetic_dns_missing = {{"vpn_dns", "Policy3", true}, {"backup_dns", "Policy4", false}};
+
+    const auto response = collect_health_issues(inputs);
+
+    const auto* blocked = find_issue(response, "keenetic-dns-vpn_dns");
+    REQUIRE(blocked != nullptr);
+    CHECK(blocked->severity == api::Severity::ERROR);
+    CHECK(blocked->code == api::Code::KEENETIC_DNS_POLICY_MISSING);
+    CHECK(blocked->title == "Keenetic DNS policy not found");
+    CHECK(blocked->detail == "`vpn_dns`: Policy3 — queries blocked");
+    CHECK(blocked->params.at("policy") == "Policy3");
+    CHECK(blocked->params.at("tag") == "vpn_dns");
+    CHECK(blocked->detail_code == api::DetailCode::KEENETIC_DNS_POLICY_BLOCKED);
+
+    const auto* fallback = find_issue(response, "keenetic-dns-backup_dns");
+    REQUIRE(fallback != nullptr);
+    CHECK(fallback->severity == api::Severity::WARNING);
+    CHECK(fallback->detail == "`backup_dns`: Policy4 — using System");
+    CHECK(fallback->detail_code == api::DetailCode::KEENETIC_DNS_POLICY_SYSTEM);
+}

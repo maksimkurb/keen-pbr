@@ -364,6 +364,7 @@ set(SOURCES
   src/daemon/daemon_state.cpp
   src/daemon/daemon_api.cpp
   src/daemon/daemon_intercept.cpp
+  src/daemon/daemon_keenetic_dns.cpp
   src/daemon/list_service.cpp
   src/daemon/dnsmasq_manager.cpp
   src/daemon/dnsmasq_types.cpp
@@ -421,6 +422,7 @@ if(WITH_API)
     src/api/handler_health_service.cpp
     src/api/handler_reload.cpp
     src/api/handler_lists_refresh.cpp
+    src/api/handler_keenetic_dns.cpp
     src/api/handler_config.cpp
     src/api/handler_health_routing.cpp
     src/api/handler_runtime_interfaces.cpp
