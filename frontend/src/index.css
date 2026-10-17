@@ -12,7 +12,7 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
   /* Logo background (src/assets/logo.svg); the same in both themes. */
-  --brand: rgb(19, 95, 148);
+  --brand: oklch(0.47 0.11019 245.361);
   --primary: var(--brand);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);

@@ -142,6 +142,56 @@ TEST_CASE("dnsmasq_detector: socket bound to one address only") {
     rig.expect_single_inspect_call();
 }
 
+TEST_CASE("dnsmasq_detector: per-address listeners are ranked by address kind") {
+    // bind-dynamic (OpenWrt default): one socket per address, kernel order.
+    Rig rig;
+    rig.inspect_text = header() + record("uci:a", "current", "match_conf_file=/c\n");
+    rig.fx.add_process(100, "/usr/sbin/dnsmasq", {"dnsmasq", "-C", "/c"});
+    const std::vector<std::string> rows{
+        "057100CB:0035",  // 203.0.113.5, public
+        "01004064:0035",  // 100.64.0.1, CGNAT
+        "5CE2E30A:0035",  // 10.227.226.92
+        "0100007F:0035",  // 127.0.0.1
+        "0101A8C0:0035",  // 192.168.1.1
+    };
+    for (std::size_t i = 0; i < rows.size(); ++i) {
+        const unsigned long inode = 20 + i;
+        rig.fx.add_socket_fd(100, static_cast<int>(3 + i), inode);
+        rig.fx.add_net_row(100, "udp", rows[i], "07", inode);
+    }
+    rig.txt = [](const DnsmasqEndpoint&) { return stamp_result(std::string(32, 'a')); };
+
+    DnsmasqDetectOptions o;
+    o.expected_hash = std::string(32, 'a');
+    auto det = rig.make().detect(o);
+    REQUIRE(det.selected_instance());
+    CHECK(eps(det.selected_instance()->candidates) ==
+          std::vector<std::string>{"127.0.0.1:53", "10.227.226.92:53", "192.168.1.1:53",
+                                   "100.64.0.1:53", "203.0.113.5:53"});
+    REQUIRE(det.selected_instance()->endpoint);
+    CHECK(det.selected_instance()->endpoint->str() == "127.0.0.1:53");
+
+    // A previous endpoint keeps its place only inside its own tier.
+    o.previous_endpoint = DnsmasqEndpoint{"192.168.1.1", 53};
+    det = rig.make().detect(o);
+    REQUIRE(det.selected_instance());
+    CHECK(eps(det.selected_instance()->candidates) ==
+          std::vector<std::string>{"127.0.0.1:53", "192.168.1.1:53", "10.227.226.92:53",
+                                   "100.64.0.1:53", "203.0.113.5:53"});
+    CHECK(det.selected_instance()->endpoint->str() == "127.0.0.1:53");
+}
+
+TEST_CASE("dnsmasq_detector: wildcard listener prefers LAN over WAN addresses") {
+    Rig rig;
+    rig.inspect_text = header() + record("uci:a", "absent", "match_conf_file=/c\n");
+    rig.ifaces = {{"wan", 4, "203.0.113.5"}, {"lo", 4, "127.0.0.1"}, {"br-lan", 4, "192.168.1.1"}};
+    add_dns(rig.fx, 100, "/usr/sbin/dnsmasq", {"dnsmasq", "-C", "/c"}, "00000000:0035", 11);
+    auto det = rig.make().detect({});
+    REQUIRE(det.selected_instance());
+    CHECK(eps(det.selected_instance()->candidates) ==
+          std::vector<std::string>{"127.0.0.1:53", "192.168.1.1:53", "203.0.113.5:53"});
+}
+
 TEST_CASE("dnsmasq_detector: two instances, one installed is adopted") {
     Rig rig;
     rig.inspect_text = header() + record("uci:a", "current", "match_conf_file=/a\n") +

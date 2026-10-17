@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <exception>
+#include <tuple>
 
 namespace keen_pbr3 {
 
@@ -155,8 +156,29 @@ bool listener_matches(const SocketListener& l, const DnsmasqEndpoint& ep) {
 }
 
 void add_unique(std::vector<DnsmasqEndpoint>& v, const DnsmasqEndpoint& ep) {
-    if (v.size() >= kMaxCandidates) return;
     if (std::find(v.begin(), v.end(), ep) == v.end()) v.push_back(ep);
+}
+
+// Lower is preferred: loopback, LAN-private (RFC 1918, ULA), other
+// non-public (CGNAT, link-local), public.
+int address_tier(const std::string& address) {
+    in_addr v4{};
+    if (::inet_pton(AF_INET, address.c_str(), &v4) == 1) {
+        const std::uint32_t a = ntohl(v4.s_addr);
+        if ((a >> 24) == 127) return 0;
+        if ((a >> 24) == 10 || (a >> 20) == 0xAC1 || (a >> 16) == 0xC0A8) return 1;
+        if ((a >> 22) == (0x64400000u >> 22) || (a >> 16) == 0xA9FE) return 2;
+        return 3;
+    }
+    in6_addr v6{};
+    if (::inet_pton(AF_INET6, address.c_str(), &v6) == 1) {
+        const auto* b = v6.s6_addr;
+        if (IN6_IS_ADDR_LOOPBACK(&v6)) return 0;
+        if ((b[0] & 0xfe) == 0xfc) return 1;
+        if (b[0] == 0xfe && (b[1] & 0xc0) == 0x80) return 2;
+        return 3;
+    }
+    return 3;
 }
 
 // §8.6
@@ -194,6 +216,18 @@ void build_candidates(DnsmasqInstance& inst, const std::optional<DnsmasqEndpoint
             add_unique(cands, {a, inst.config.port.value_or(53)});
         }
     }
+
+    // The static endpoint stays first; everything else goes by address tier,
+    // IPv4 before IPv6, and a still-owned previous endpoint wins inside its tier.
+    auto key = [&](const DnsmasqEndpoint& ep) {
+        const bool is_static = inst.hook.static_endpoint && ep == *inst.hook.static_endpoint;
+        const bool is_previous = previous && ep == *previous;
+        const int family = ep.address.find(':') != std::string::npos ? 6 : 4;
+        return std::make_tuple(!is_static, address_tier(ep.address), family, !is_previous);
+    };
+    std::stable_sort(cands.begin(), cands.end(),
+                     [&](const DnsmasqEndpoint& a, const DnsmasqEndpoint& b) { return key(a) < key(b); });
+    if (cands.size() > kMaxCandidates) cands.resize(kMaxCandidates);
 }
 
 void probe_candidates(DnsmasqInstance& inst, const std::string& expected_hash,
