@@ -75,7 +75,6 @@ The [OpenAPI document](https://github.com/maksimkurb/keen-pbr/blob/main/docs/ope
 | `GET /api/runtime/outbounds`, `/api/runtime/interfaces` | Current outbound state and the list of system interfaces. |
 | `GET /api/health/routing`, `POST /api/routing/test` | Routing and firewall diagnostics, and a route check for a specific domain or IP address. |
 | `POST /api/lists/refresh` | Refresh one or all remote URL lists. |
-| `GET /api/keenetic/dns-proxies`, `POST /api/keenetic/dns-proxies/refresh` | Keenetic DNS proxy groups with their upstream servers, and a re-read from the router. {{< only keenetic >}} |
 | `GET /api/dns/test` | Stream of DNS and TLS/QUIC interception events, or the DNS check in the web interface. |
 | `GET /api/diagnostics/command-failure` | Log of recent system command failures. |
 | `GET /metrics` | Prometheus text metrics. |
@@ -103,12 +102,13 @@ curl http://127.0.0.1:12121/api/health/service
   "os_type": "debian",
   "os_version": "12",
   "build_variant": "generic",
+  "doh_supported": true,
   "config_is_draft": false,
   "rollback_available": false
 }
 ```
 
-`status` is `running`, `degraded` (DNS interception is enabled but unavailable) or `stopped`.
+`status` is `running`, `degraded` (DNS interception is enabled but unavailable) or `stopped`. `doh_supported` tells whether this build can use DNS servers of type `doh`.
 
 When interception is enabled, the response includes an `intercept` object: whether DNS interception (`dns_hold_active`) and traffic analysis (`l7_active`) are active, the kernel features available (`nfqueue`, `nflog`, `connbytes`, `addrtype`), and counters of processed packets, errors and queue overruns ({{< term "NFQUEUE" >}}/NFLOG). These values are mostly useful for diagnostics.
 

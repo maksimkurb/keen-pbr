@@ -1684,7 +1684,7 @@
 &lt;h3&gt;Добавьте DNS-сервер&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;добавьте-dns-сервер&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%b4%d0%be%d0%b1%d0%b0%d0%b2%d1%8c%d1%82%d0%b5-dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Откройте &lt;strong&gt;DNS&lt;/strong&gt; &amp;gt; &lt;strong&gt;DNS серверы&lt;/strong&gt; &amp;gt; &lt;strong&gt;Добавить DNS-сервер&lt;/strong&gt;. Заполните &lt;strong&gt;Название&lt;/strong&gt;, &lt;strong&gt;Тип DNS&lt;/strong&gt; и &lt;strong&gt;Адрес&lt;/strong&gt;. В поле &lt;strong&gt;Делать запросы через Outbound&lt;/strong&gt; выберите outbound (канал, через который пойдёт трафик: VPN-интерфейс, провайдер или блокировка), если сервер доступен только через него, например через VPN.&lt;/p&gt;
 &lt;h3&gt;Привяжите сервер к спискам&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;привяжите-сервер-к-спискам&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%bf%d1%80%d0%b8%d0%b2%d1%8f%d0%b6%d0%b8%d1%82%d0%b5-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80-%d0%ba-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0%d0%bc&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Откройте &lt;strong&gt;DNS&lt;/strong&gt; &amp;gt; &lt;strong&gt;Правила DNS&lt;/strong&gt; &amp;gt; &lt;strong&gt;Добавить правило DNS&lt;/strong&gt;. В поле &lt;strong&gt;Списки доменов&lt;/strong&gt; выберите списки, а в поле &lt;strong&gt;DNS-сервер&lt;/strong&gt; сервер из предыдущего шага.&lt;/p&gt;
+    &lt;a href=&#34;#%d0%bf%d1%80%d0%b8%d0%b2%d1%8f%d0%b6%d0%b8%d1%82%d0%b5-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80-%d0%ba-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0%d0%bc&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Откройте &lt;strong&gt;DNS&lt;/strong&gt; &amp;gt; &lt;strong&gt;Правила DNS&lt;/strong&gt; &amp;gt; &lt;strong&gt;Добавить правило DNS&lt;/strong&gt;. В поле &lt;strong&gt;Списки доменов&lt;/strong&gt; выберите списки, а в поле &lt;strong&gt;DNS-серверы&lt;/strong&gt; сервер из предыдущего шага. Серверов можно выбрать несколько.&lt;/p&gt;
 &lt;h3&gt;Задайте DNS-серверы по умолчанию (необязательно)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;задайте-dns-серверы-по-умолчанию-необязательно&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%b7%d0%b0%d0%b4%d0%b0%d0%b9%d1%82%d0%b5-dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80%d1%8b-%d0%bf%d0%be-%d1%83%d0%bc%d0%be%d0%bb%d1%87%d0%b0%d0%bd%d0%b8%d1%8e-%d0%bd%d0%b5%d0%be%d0%b1%d1%8f%d0%b7%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;В блоке &lt;strong&gt;Вышестоящие DNS-сервера по умолчанию&lt;/strong&gt; нажмите &lt;strong&gt;Добавить DNS-сервер по умолчанию&lt;/strong&gt; и выберите серверы для всех остальных доменов. Если блок пуст, dnsmasq использует свои обычные DNS-серверы.&lt;/p&gt;
 &lt;h3&gt;Примените настройки&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;примените-настройки&#34;&gt;&lt;/span&gt;
@@ -1703,7 +1703,7 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;rules&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;list&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;ai_services&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;server&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;servers&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;allow_domain_rebinding&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;kc&#34;&gt;false&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
@@ -1721,8 +1721,31 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;&lt;strong&gt;Несколько DNS-серверов для одного списка.&lt;/strong&gt; Добавьте для этого списка по правилу на каждый сервер. dnsmasq опрашивает все серверы, пользуется тем, который ответил первым, и переключается на другой, если тот перестал отвечать.&lt;/p&gt;
-&lt;p&gt;dnsmasq хранит отдельную запись (около 200 байт) для каждой пары «домен — сервер». Каждый дополнительный сервер добавляет столько же памяти на каждый домен списка: два сервера для списка из 10 000 доменов займут около 4 МБ вместо 2 МБ.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Несколько DNS-серверов для одного списка.&lt;/strong&gt; Выберите два сервера или больше в поле &lt;strong&gt;DNS-серверы&lt;/strong&gt; правила. Запросы для доменов списка уходят на серверы по очереди. Если сервер не отвечает, его заменяет следующий, а молчащий несколько секунд пропускается.&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;servers&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;&lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;10.8.0.1&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;detour&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;&lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn_dns_2&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;10.8.0.2&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;detour&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;rules&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;&lt;span class=&#34;nt&#34;&gt;&amp;#34;list&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;ai_services&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;],&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;servers&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn_dns_2&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;]}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
 &lt;h2&gt;DNS-серверы&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dns-серверы&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80%d1%8b&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Название (&lt;code&gt;tag&lt;/code&gt;) должно быть уникальным: строчные латинские буквы, цифры и &lt;code&gt;_&lt;/code&gt;, начинается с буквы, не длиннее 24 символов.&lt;/p&gt;
 &lt;table&gt;
@@ -1745,25 +1768,19 @@
 					&lt;td&gt;&lt;code&gt;type&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;string&lt;/td&gt;
 					&lt;td&gt;нет&lt;/td&gt;
-					&lt;td&gt;Тип сервера (&lt;strong&gt;Тип DNS&lt;/strong&gt;): &lt;code&gt;static&lt;/code&gt; (&lt;strong&gt;DNS без шифрования&lt;/strong&gt;, по умолчанию) или &lt;code&gt;keenetic&lt;/code&gt; (&lt;strong&gt;Keenetic DNS&lt;/strong&gt;, &lt;span class=&#34;only-badges&#34; title=&#34;Только для Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;)&lt;/td&gt;
+					&lt;td&gt;Тип сервера (&lt;strong&gt;Тип DNS&lt;/strong&gt;): &lt;code&gt;static&lt;/code&gt; (&lt;strong&gt;DNS без шифрования&lt;/strong&gt;, по умолчанию), &lt;code&gt;doh&lt;/code&gt; (&lt;strong&gt;DNS-over-HTTPS&lt;/strong&gt;) или &lt;code&gt;keenetic&lt;/code&gt; (&lt;strong&gt;Keenetic DNS&lt;/strong&gt;, &lt;span class=&#34;only-badges&#34; title=&#34;Только для Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;address&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;string&lt;/td&gt;
-					&lt;td&gt;для &lt;code&gt;static&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;IP-адрес DNS-сервера с опциональным портом, например &lt;code&gt;&amp;quot;10.8.0.1&amp;quot;&lt;/code&gt;, &lt;code&gt;&amp;quot;10.8.0.1:5353&amp;quot;&lt;/code&gt;, &lt;code&gt;&amp;quot;2001:4860:4860::8888&amp;quot;&lt;/code&gt; или &lt;code&gt;&amp;quot;[2001:4860:4860::8888]:5353&amp;quot;&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;для &lt;code&gt;static&lt;/code&gt; и &lt;code&gt;doh&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;static&lt;/code&gt;: IP-адрес DNS-сервера с опциональным портом, например &lt;code&gt;&amp;quot;10.8.0.1&amp;quot;&lt;/code&gt;, &lt;code&gt;&amp;quot;10.8.0.1:5353&amp;quot;&lt;/code&gt;, &lt;code&gt;&amp;quot;2001:4860:4860::8888&amp;quot;&lt;/code&gt; или &lt;code&gt;&amp;quot;[2001:4860:4860::8888]:5353&amp;quot;&lt;/code&gt;. &lt;code&gt;doh&lt;/code&gt;: адрес сервера, начиная с &lt;code&gt;https://&lt;/code&gt;, например &lt;code&gt;&amp;quot;https://dns.google/dns-query&amp;quot;&lt;/code&gt; (&lt;strong&gt;URL&lt;/strong&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;detour&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;string&lt;/td&gt;
 					&lt;td&gt;нет&lt;/td&gt;
 					&lt;td&gt;Outbound, через который роутер сам отправляет запросы к этому серверу (&lt;strong&gt;Делать запросы через Outbound&lt;/strong&gt;)&lt;/td&gt;
-			&lt;/tr&gt;
-			&lt;tr&gt;
-					&lt;td&gt;&lt;code&gt;keenetic_upstreams&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;array&lt;/td&gt;
-					&lt;td&gt;нет&lt;/td&gt;
-					&lt;td&gt;DNS-серверы Keenetic, которые использует этот сервер (&lt;strong&gt;Вышестоящие серверы&lt;/strong&gt;). Каждый элемент содержит &lt;code&gt;protocol&lt;/code&gt; (&lt;code&gt;&amp;quot;DoT&amp;quot;&lt;/code&gt;, &lt;code&gt;&amp;quot;DoH&amp;quot;&lt;/code&gt; или &lt;code&gt;&amp;quot;Plain&amp;quot;&lt;/code&gt;) и &lt;code&gt;target&lt;/code&gt;, как их показывает веб-интерфейс. Не задано: все серверы. Только для &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;. Если серверов два и больше, нельзя сочетать с &lt;code&gt;detour&lt;/code&gt;. &lt;span class=&#34;only-badges&#34; title=&#34;Только для Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
@@ -1788,6 +1805,11 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;[2001:4860:4860::8888]:53&amp;#34;&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;google_doh&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;doh&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;https://dns.google/dns-query&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;keenetic_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;keenetic&amp;#34;&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
@@ -1805,49 +1827,20 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
+&lt;h3&gt;Тип «DNS-over-HTTPS»&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dns-over-https&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#dns-over-https&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;DNS-over-HTTPS (DoH) отправляет запросы серверу по зашифрованному HTTPS-соединению, поэтому провайдер не может прочитать или подменить ответы. Выберите &lt;strong&gt;DNS-over-HTTPS&lt;/strong&gt; в поле &lt;strong&gt;Тип DNS&lt;/strong&gt; и введите адрес сервера в поле &lt;strong&gt;URL&lt;/strong&gt;, например &lt;code&gt;https://dns.google/dns-query&lt;/code&gt; или &lt;code&gt;https://cloudflare-dns.com/dns-query&lt;/code&gt;.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Сервер используется в DNS-правилах и среди серверов по умолчанию так же, как любой другой. В одном правиле можно выбрать несколько DoH-серверов или DoH-сервер вместе с обычными.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Делать запросы через Outbound&lt;/strong&gt; работает как у других серверов: keen-pbr подключается к DoH-серверу через выбранный outbound.&lt;/li&gt;
+&lt;li&gt;Для проверки сервера на роутере должны быть установлены сертификаты центров сертификации (Keenetic: пакет &lt;code&gt;ca-certificates&lt;/code&gt; в Entware; OpenWrt: &lt;code&gt;ca-bundle&lt;/code&gt;; Debian: &lt;code&gt;ca-certificates&lt;/code&gt;). Если их нет, на странице состояния появляется проблема «DNS-over-HTTPS серверы не используются».&lt;/li&gt;
+&lt;/ul&gt;
 &lt;h3&gt;Тип «Keenetic DNS»&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;тип-keenetic-dns&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d1%82%d0%b8%d0%bf-keenetic-dns&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
 На роутерах Keenetic &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt; берёт DNS-серверы из текущих настроек роутера. Их настраивают в веб-интерфейсе Keenetic: &lt;strong&gt;Сетевые правила&lt;/strong&gt; &amp;gt; &lt;strong&gt;Интернет-фильтры&lt;/strong&gt; &amp;gt; &lt;strong&gt;Настройка DNS&lt;/strong&gt;. Если там заданы DoT или DoH серверы, используются только они.&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;Поле &lt;code&gt;address&lt;/code&gt; для него не задаётся.&lt;/li&gt;
-&lt;li&gt;keen-pbr берёт серверы без привязки к домену. Если среди них есть зашифрованные (&lt;abbr title=&#34;DNS over HTTPS — зашифрованный DNS. Роутер не может прочитать такие запросы.&#34;&gt;DoH&lt;/abbr&gt;/DoT), используются все такие серверы. Иначе используются все обычные серверы.&lt;/li&gt;
+&lt;li&gt;keen-pbr читает серверы без привязки к домену из группы DNS-прокси &lt;strong&gt;System&lt;/strong&gt;. Если среди них есть зашифрованные (&lt;abbr title=&#34;DNS over HTTPS — зашифрованный DNS. Роутер не может прочитать такие запросы.&#34;&gt;DoH&lt;/abbr&gt;/DoT), используются все такие серверы по порядку. Иначе по порядку используются все обычные серверы.&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h4&gt;Вышестоящие серверы&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;вышестоящие-серверы&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%b2%d1%8b%d1%88%d0%b5%d1%81%d1%82%d0%be%d1%8f%d1%89%d0%b8%d0%b5-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80%d1%8b&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h4&gt;&lt;p&gt;По умолчанию запросы идут во все серверы, заданные в Keenetic. Чтобы использовать только некоторые, отметьте их в поле &lt;strong&gt;Вышестоящие серверы&lt;/strong&gt; (&lt;code&gt;keenetic_upstreams&lt;/code&gt;). В списке видны серверы, заданные в Keenetic, и их тип: DoH, DoT или обычный. Кнопка &lt;strong&gt;Синхронизировать с Keenetic&lt;/strong&gt; перечитывает список сразу. Серверы для отдельных доменов (например, провайдера) показаны отдельно: они заданы в общих настройках DNS Keenetic, и кнопка &lt;strong&gt;Открыть настройки DNS Keenetic&lt;/strong&gt; ведёт к ним.&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;Отмечен один сервер: все запросы идут в него.&lt;/li&gt;
-&lt;li&gt;Отмечено два и больше: запросы распределяются по ним по очереди. Если сервер перестал отвечать, его заменяет следующий, а молчащий на время пропускается.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;Серверов с &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt; может быть несколько, например один для DoT-серверов и другой для DoH. Так разные списки доменов можно отправить на разные серверы.&lt;/p&gt;
-&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;servers&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;keenetic_dot&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;keenetic&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;keenetic_upstreams&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;          &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;protocol&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;DoT&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;target&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;8.8.8.8@dns.google&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;          &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;protocol&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;DoT&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;target&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;8.8.4.4@dns.google&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Скопировать код&#34;
-    aria-label=&#34;Скопировать код&#34;
-    data-copied-label=&#34;Скопировано!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
-&lt;p&gt;Если отмеченный сервер убрали в настройках Keenetic, keen-pbr использует остальные. Когда не осталось ни одного, домены, для которых выбран этот сервер, не разрешаются. В обоих случаях на странице состояния появляется проблема «DNS-сервер Keenetic не найден».&lt;/p&gt;
-&lt;p&gt;Изменения в настройках Keenetic keen-pbr подхватывает сам в течение нескольких минут. Кнопка &lt;strong&gt;Синхронизировать с Keenetic&lt;/strong&gt; на странице DNS-серверов и в форме сервера делает это сразу.&lt;/p&gt;
 &lt;h2&gt;Справочник полей&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;справочник-полей&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d1%81%d0%bf%d1%80%d0%b0%d0%b2%d0%be%d1%87%d0%bd%d0%b8%d0%ba-%d0%bf%d0%be%d0%bb%d0%b5%d0%b9&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Секция &lt;code&gt;dns&lt;/code&gt; в &lt;code&gt;config.json&lt;/code&gt;:&lt;/p&gt;
 &lt;table&gt;
@@ -1922,10 +1915,10 @@
 					&lt;td&gt;Имена списков, домены которых используют этот DNS-сервер (&lt;strong&gt;Списки доменов&lt;/strong&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
-					&lt;td&gt;&lt;code&gt;server&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;string&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;servers&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;array of string&lt;/td&gt;
 					&lt;td&gt;обязательно&lt;/td&gt;
-					&lt;td&gt;Тег DNS-сервера (&lt;strong&gt;DNS-сервер&lt;/strong&gt;)&lt;/td&gt;
+					&lt;td&gt;Теги DNS-серверов (&lt;strong&gt;DNS-серверы&lt;/strong&gt;). Если их два и больше, запросы уходят на них по очереди&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;allow_domain_rebinding&lt;/code&gt;&lt;/td&gt;
@@ -3121,7 +3114,7 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Обычный DNS-сервер с заданным адресом, без detour.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;google_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Поддерживаемые значения: &amp;#34;static&amp;#34; (по умолчанию) или &amp;#34;keenetic&amp;#34;.
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Поддерживаемые значения: &amp;#34;static&amp;#34; (по умолчанию), &amp;#34;doh&amp;#34; или &amp;#34;keenetic&amp;#34;.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// По умолчанию: &amp;#34;static&amp;#34;.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;static&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
@@ -3150,6 +3143,15 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// DNS-сервер по HTTPS (DNS-over-HTTPS). Адрес должен начинаться с https://.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Для проверки сервера на роутере нужны сертификаты центров сертификации.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// detour для него работает так же, как для других серверов.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;google_doh&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;doh&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;https://dns.google/dns-query&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// [Только на платформах Keenetic и Netcraze]
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Использовать встроенные DNS-настройки роутера через RCI.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Сначала настройте DoT/DoH на роутере, затем добавьте этот DNS-сервер Keenetic.
@@ -3169,8 +3171,9 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Списки, домены которых должны разрешаться этим сервером.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;list&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;inline_domains&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Тег DNS-сервера для использования.
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;server&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Теги DNS-серверов для использования. Если их несколько,
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// запросы уходят на них по очереди; не ответивший сервер заменяет следующий.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;servers&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Разрешить ответы с приватными/локальными IP-адресами.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// По умолчанию: false.

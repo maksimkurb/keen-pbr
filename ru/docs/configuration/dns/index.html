@@ -35,7 +35,7 @@
 	<meta itemprop="name" content="DNS">
 	<meta itemprop="description" content="Домены из ваших списков работают без настройки DNS. keen-pbr сам читает обычные DNS-ответы (порт 53), которые проходят через роутер, и имена сайтов в начале TLS-, HTTP- и QUIC-соединений (это называется L7: имя сайта берётся из первых пакетов соединения). Подробности в разделе DNS-перехват.
 Нужен ли dnsmasq? Для маршрутизации нет. Перехват работает с любым резолвером: DNS-прокси Keenetic, unbound, dnsmasq или другим. Если провайдер подменяет DNS-ответы, обычно хватает DoH/DoT на роутере (DoH и DoT — зашифрованный DNS).">
-	<meta itemprop="wordCount" content="2793">
+	<meta itemprop="wordCount" content="2688">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="DNS">
 	<meta name="twitter:description" content="Домены из ваших списков работают без настройки DNS. keen-pbr сам читает обычные DNS-ответы (порт 53), которые проходят через роутер, и имена сайтов в начале TLS-, HTTP- и QUIC-соединений (это называется L7: имя сайта берётся из первых пакетов соединения). Подробности в разделе DNS-перехват.
@@ -963,11 +963,11 @@
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%82%d0%b8%d0%bf-keenetic-dns">Тип «Keenetic DNS»
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-over-https">Тип «DNS-over-HTTPS»
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-8 hx:rtl:pr-8 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b2%d1%8b%d1%88%d0%b5%d1%81%d1%82%d0%be%d1%8f%d1%89%d0%b8%d0%b5-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80%d1%8b">Вышестоящие серверы
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%82%d0%b8%d0%bf-keenetic-dns">Тип «Keenetic DNS»
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1146,7 +1146,7 @@
 <h3>Добавьте DNS-сервер<span class="hx:absolute hx:-mt-20" id="добавьте-dns-сервер"></span>
     <a href="#%d0%b4%d0%be%d0%b1%d0%b0%d0%b2%d1%8c%d1%82%d0%b5-dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Откройте <strong>DNS</strong> &gt; <strong>DNS серверы</strong> &gt; <strong>Добавить DNS-сервер</strong>. Заполните <strong>Название</strong>, <strong>Тип DNS</strong> и <strong>Адрес</strong>. В поле <strong>Делать запросы через Outbound</strong> выберите outbound (канал, через который пойдёт трафик: VPN-интерфейс, провайдер или блокировка), если сервер доступен только через него, например через VPN.</p>
 <h3>Привяжите сервер к спискам<span class="hx:absolute hx:-mt-20" id="привяжите-сервер-к-спискам"></span>
-    <a href="#%d0%bf%d1%80%d0%b8%d0%b2%d1%8f%d0%b6%d0%b8%d1%82%d0%b5-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80-%d0%ba-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0%d0%bc" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Откройте <strong>DNS</strong> &gt; <strong>Правила DNS</strong> &gt; <strong>Добавить правило DNS</strong>. В поле <strong>Списки доменов</strong> выберите списки, а в поле <strong>DNS-сервер</strong> сервер из предыдущего шага.</p>
+    <a href="#%d0%bf%d1%80%d0%b8%d0%b2%d1%8f%d0%b6%d0%b8%d1%82%d0%b5-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80-%d0%ba-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0%d0%bc" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Откройте <strong>DNS</strong> &gt; <strong>Правила DNS</strong> &gt; <strong>Добавить правило DNS</strong>. В поле <strong>Списки доменов</strong> выберите списки, а в поле <strong>DNS-серверы</strong> сервер из предыдущего шага. Серверов можно выбрать несколько.</p>
 <h3>Задайте DNS-серверы по умолчанию (необязательно)<span class="hx:absolute hx:-mt-20" id="задайте-dns-серверы-по-умолчанию-необязательно"></span>
     <a href="#%d0%b7%d0%b0%d0%b4%d0%b0%d0%b9%d1%82%d0%b5-dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80%d1%8b-%d0%bf%d0%be-%d1%83%d0%bc%d0%be%d0%bb%d1%87%d0%b0%d0%bd%d0%b8%d1%8e-%d0%bd%d0%b5%d0%be%d0%b1%d1%8f%d0%b7%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>В блоке <strong>Вышестоящие DNS-сервера по умолчанию</strong> нажмите <strong>Добавить DNS-сервер по умолчанию</strong> и выберите серверы для всех остальных доменов. Если блок пуст, dnsmasq использует свои обычные DNS-серверы.</p>
 <h3>Примените настройки<span class="hx:absolute hx:-mt-20" id="примените-настройки"></span>
@@ -1165,7 +1165,7 @@
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">      <span class="p">{</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;ai_services&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;server&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;vpn_dns&#34;</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;allow_domain_rebinding&#34;</span><span class="p">:</span> <span class="kc">false</span>
 </span></span><span class="line"><span class="cl">      <span class="p">}</span>
 </span></span><span class="line"><span class="cl">    <span class="p">],</span>
@@ -1183,8 +1183,31 @@
   </button>
 </div>
 </div>
-<p><strong>Несколько DNS-серверов для одного списка.</strong> Добавьте для этого списка по правилу на каждый сервер. dnsmasq опрашивает все серверы, пользуется тем, который ответил первым, и переключается на другой, если тот перестал отвечать.</p>
-<p>dnsmasq хранит отдельную запись (около 200 байт) для каждой пары «домен — сервер». Каждый дополнительный сервер добавляет столько же памяти на каждый домен списка: два сервера для списка из 10 000 доменов займут около 4 МБ вместо 2 МБ.</p>
+<p><strong>Несколько DNS-серверов для одного списка.</strong> Выберите два сервера или больше в поле <strong>DNS-серверы</strong> правила. Запросы для доменов списка уходят на серверы по очереди. Если сервер не отвечает, его заменяет следующий, а молчащий несколько секунд пропускается.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span><span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span><span class="p">,</span> <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;10.8.0.1&#34;</span><span class="p">,</span> <span class="nt">&#34;detour&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span><span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns_2&#34;</span><span class="p">,</span> <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;10.8.0.2&#34;</span><span class="p">,</span> <span class="nt">&#34;detour&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span><span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;ai_services&#34;</span><span class="p">],</span> <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;vpn_dns&#34;</span><span class="p">,</span> <span class="s2">&#34;vpn_dns_2&#34;</span><span class="p">]}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
 <h2>DNS-серверы<span class="hx:absolute hx:-mt-20" id="dns-серверы"></span>
     <a href="#dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Название (<code>tag</code>) должно быть уникальным: строчные латинские буквы, цифры и <code>_</code>, начинается с буквы, не длиннее 24 символов.</p>
 <table>
@@ -1207,25 +1230,19 @@
 					<td><code>type</code></td>
 					<td>string</td>
 					<td>нет</td>
-					<td>Тип сервера (<strong>Тип DNS</strong>): <code>static</code> (<strong>DNS без шифрования</strong>, по умолчанию) или <code>keenetic</code> (<strong>Keenetic DNS</strong>, <span class="only-badges" title="Только для Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>)</td>
+					<td>Тип сервера (<strong>Тип DNS</strong>): <code>static</code> (<strong>DNS без шифрования</strong>, по умолчанию), <code>doh</code> (<strong>DNS-over-HTTPS</strong>) или <code>keenetic</code> (<strong>Keenetic DNS</strong>, <span class="only-badges" title="Только для Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>)</td>
 			</tr>
 			<tr>
 					<td><code>address</code></td>
 					<td>string</td>
-					<td>для <code>static</code></td>
-					<td>IP-адрес DNS-сервера с опциональным портом, например <code>&quot;10.8.0.1&quot;</code>, <code>&quot;10.8.0.1:5353&quot;</code>, <code>&quot;2001:4860:4860::8888&quot;</code> или <code>&quot;[2001:4860:4860::8888]:5353&quot;</code></td>
+					<td>для <code>static</code> и <code>doh</code></td>
+					<td><code>static</code>: IP-адрес DNS-сервера с опциональным портом, например <code>&quot;10.8.0.1&quot;</code>, <code>&quot;10.8.0.1:5353&quot;</code>, <code>&quot;2001:4860:4860::8888&quot;</code> или <code>&quot;[2001:4860:4860::8888]:5353&quot;</code>. <code>doh</code>: адрес сервера, начиная с <code>https://</code>, например <code>&quot;https://dns.google/dns-query&quot;</code> (<strong>URL</strong>)</td>
 			</tr>
 			<tr>
 					<td><code>detour</code></td>
 					<td>string</td>
 					<td>нет</td>
 					<td>Outbound, через который роутер сам отправляет запросы к этому серверу (<strong>Делать запросы через Outbound</strong>)</td>
-			</tr>
-			<tr>
-					<td><code>keenetic_upstreams</code></td>
-					<td>array</td>
-					<td>нет</td>
-					<td>DNS-серверы Keenetic, которые использует этот сервер (<strong>Вышестоящие серверы</strong>). Каждый элемент содержит <code>protocol</code> (<code>&quot;DoT&quot;</code>, <code>&quot;DoH&quot;</code> или <code>&quot;Plain&quot;</code>) и <code>target</code>, как их показывает веб-интерфейс. Не задано: все серверы. Только для <code>type: &quot;keenetic&quot;</code>. Если серверов два и больше, нельзя сочетать с <code>detour</code>. <span class="only-badges" title="Только для Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span></td>
 			</tr>
 	</tbody>
 </table>
@@ -1250,6 +1267,11 @@
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;[2001:4860:4860::8888]:53&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">},</span>
 </span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google_doh&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;doh&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;https://dns.google/dns-query&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;keenetic_dns&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;keenetic&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">}</span>
@@ -1267,49 +1289,20 @@
   </button>
 </div>
 </div>
+<h3>Тип «DNS-over-HTTPS»<span class="hx:absolute hx:-mt-20" id="dns-over-https"></span>
+    <a href="#dns-over-https" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>DNS-over-HTTPS (DoH) отправляет запросы серверу по зашифрованному HTTPS-соединению, поэтому провайдер не может прочитать или подменить ответы. Выберите <strong>DNS-over-HTTPS</strong> в поле <strong>Тип DNS</strong> и введите адрес сервера в поле <strong>URL</strong>, например <code>https://dns.google/dns-query</code> или <code>https://cloudflare-dns.com/dns-query</code>.</p>
+<ul>
+<li>Сервер используется в DNS-правилах и среди серверов по умолчанию так же, как любой другой. В одном правиле можно выбрать несколько DoH-серверов или DoH-сервер вместе с обычными.</li>
+<li><strong>Делать запросы через Outbound</strong> работает как у других серверов: keen-pbr подключается к DoH-серверу через выбранный outbound.</li>
+<li>Для проверки сервера на роутере должны быть установлены сертификаты центров сертификации (Keenetic: пакет <code>ca-certificates</code> в Entware; OpenWrt: <code>ca-bundle</code>; Debian: <code>ca-certificates</code>). Если их нет, на странице состояния появляется проблема «DNS-over-HTTPS серверы не используются».</li>
+</ul>
 <h3>Тип «Keenetic DNS»<span class="hx:absolute hx:-mt-20" id="тип-keenetic-dns"></span>
     <a href="#%d1%82%d0%b8%d0%bf-keenetic-dns" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p><span class="only-badges" title="Только для Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
 На роутерах Keenetic <code>type: &quot;keenetic&quot;</code> берёт DNS-серверы из текущих настроек роутера. Их настраивают в веб-интерфейсе Keenetic: <strong>Сетевые правила</strong> &gt; <strong>Интернет-фильтры</strong> &gt; <strong>Настройка DNS</strong>. Если там заданы DoT или DoH серверы, используются только они.</p>
 <ul>
 <li>Поле <code>address</code> для него не задаётся.</li>
-<li>keen-pbr берёт серверы без привязки к домену. Если среди них есть зашифрованные (<abbr title="DNS over HTTPS — зашифрованный DNS. Роутер не может прочитать такие запросы.">DoH</abbr>/DoT), используются все такие серверы. Иначе используются все обычные серверы.</li>
+<li>keen-pbr читает серверы без привязки к домену из группы DNS-прокси <strong>System</strong>. Если среди них есть зашифрованные (<abbr title="DNS over HTTPS — зашифрованный DNS. Роутер не может прочитать такие запросы.">DoH</abbr>/DoT), используются все такие серверы по порядку. Иначе по порядку используются все обычные серверы.</li>
 </ul>
-<h4>Вышестоящие серверы<span class="hx:absolute hx:-mt-20" id="вышестоящие-серверы"></span>
-    <a href="#%d0%b2%d1%8b%d1%88%d0%b5%d1%81%d1%82%d0%be%d1%8f%d1%89%d0%b8%d0%b5-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h4><p>По умолчанию запросы идут во все серверы, заданные в Keenetic. Чтобы использовать только некоторые, отметьте их в поле <strong>Вышестоящие серверы</strong> (<code>keenetic_upstreams</code>). В списке видны серверы, заданные в Keenetic, и их тип: DoH, DoT или обычный. Кнопка <strong>Синхронизировать с Keenetic</strong> перечитывает список сразу. Серверы для отдельных доменов (например, провайдера) показаны отдельно: они заданы в общих настройках DNS Keenetic, и кнопка <strong>Открыть настройки DNS Keenetic</strong> ведёт к ним.</p>
-<ul>
-<li>Отмечен один сервер: все запросы идут в него.</li>
-<li>Отмечено два и больше: запросы распределяются по ним по очереди. Если сервер перестал отвечать, его заменяет следующий, а молчащий на время пропускается.</li>
-</ul>
-<p>Серверов с <code>type: &quot;keenetic&quot;</code> может быть несколько, например один для DoT-серверов и другой для DoH. Так разные списки доменов можно отправить на разные серверы.</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;keenetic_dot&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;keenetic&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;keenetic_upstreams&#34;</span><span class="p">:</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">          <span class="p">{</span> <span class="nt">&#34;protocol&#34;</span><span class="p">:</span> <span class="s2">&#34;DoT&#34;</span><span class="p">,</span> <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8@dns.google&#34;</span> <span class="p">},</span>
-</span></span><span class="line"><span class="cl">          <span class="p">{</span> <span class="nt">&#34;protocol&#34;</span><span class="p">:</span> <span class="s2">&#34;DoT&#34;</span><span class="p">,</span> <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.4.4@dns.google&#34;</span> <span class="p">}</span>
-</span></span><span class="line"><span class="cl">        <span class="p">]</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">]</span>
-</span></span><span class="line"><span class="cl">  <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Если отмеченный сервер убрали в настройках Keenetic, keen-pbr использует остальные. Когда не осталось ни одного, домены, для которых выбран этот сервер, не разрешаются. В обоих случаях на странице состояния появляется проблема «DNS-сервер Keenetic не найден».</p>
-<p>Изменения в настройках Keenetic keen-pbr подхватывает сам в течение нескольких минут. Кнопка <strong>Синхронизировать с Keenetic</strong> на странице DNS-серверов и в форме сервера делает это сразу.</p>
 <h2>Справочник полей<span class="hx:absolute hx:-mt-20" id="справочник-полей"></span>
     <a href="#%d1%81%d0%bf%d1%80%d0%b0%d0%b2%d0%be%d1%87%d0%bd%d0%b8%d0%ba-%d0%bf%d0%be%d0%bb%d0%b5%d0%b9" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Секция <code>dns</code> в <code>config.json</code>:</p>
 <table>
@@ -1384,10 +1377,10 @@
 					<td>Имена списков, домены которых используют этот DNS-сервер (<strong>Списки доменов</strong>)</td>
 			</tr>
 			<tr>
-					<td><code>server</code></td>
-					<td>string</td>
+					<td><code>servers</code></td>
+					<td>array of string</td>
 					<td>обязательно</td>
-					<td>Тег DNS-сервера (<strong>DNS-сервер</strong>)</td>
+					<td>Теги DNS-серверов (<strong>DNS-серверы</strong>). Если их два и больше, запросы уходят на них по очереди</td>
 			</tr>
 			<tr>
 					<td><code>allow_domain_rebinding</code></td>

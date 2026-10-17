@@ -10,8 +10,10 @@ What changed in each keen-pbr release, and what to do when you upgrade.
   keen-pbr reads DNS replies passing through the router and the site names in TLS, HTTP and QUIC connections, and fills the sets of your lists itself. If a device looks up the site over plain DNS, the very first connection already takes the right route. If the device uses encrypted DNS, keen-pbr learns the site only from its name at the start of the connection. That first connection breaks, and the browser or app reconnects, this time over the right route. If the kernel lacks a feature, only that part (DNS or connections) is turned off, and the status page says why. See [DNS]({{< relref "/docs/configuration/dns#dns-interception" >}}).
 - **dnsmasq is optional.**\
   You need it only for {{< term "split DNS" >}} (different DNS servers depending on the domain) or to set DNS servers for the whole network right in keen-pbr. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}). keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and repairs it when it loses the config. New command: `keen-pbr resolver dnsmasq detect`.
-- **Keenetic DNS servers can use selected upstream servers.** {{< only keenetic >}}\
-  Added a choice of upstream servers set in Keenetic for DNS servers of type `keenetic`, with their type (DoH, DoT, plain) shown. With two or more servers selected, requests are spread over them in turn, and a server that stops answering is replaced by the next one. You can now have several servers of type `keenetic`. If a selected server is removed in Keenetic, the status page shows a problem. The **Sync with Keenetic** button re-reads the list from the router. See [DNS]({{< relref "/docs/configuration/dns#upstream-servers" >}}).
+- **DNS-over-HTTPS.**\
+  Added DNS-over-HTTPS support: add a DNS server of type **DNS-over-HTTPS** and use it in DNS rules and as a default server. See [DNS]({{< relref "/docs/configuration/dns#dns-over-https" >}}).
+- **Several DNS servers for a list.**\
+  Added the ability to pick several DNS servers for a list. Requests go to them in turn, and if a server does not answer, the next one takes over. In `config.json` the `server` field of a DNS rule is now `servers`, an array of server names; keen-pbr converts old configs automatically. See [DNS]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}).
 - **Load balancing across several links.** {{< only openwrt debian >}}\
   A `urltest` or `icmptest` outbound with `strategy: "balance"` spreads connections across links, each with its own weight. A connection stays on the link it started on. See [Multi-WAN Load Balancing]({{< relref "/docs/configuration/multi-wan" >}}).
 - **Automatic gateway detection.**\
@@ -41,13 +43,12 @@ What changed in each keen-pbr release, and what to do when you upgrade.
 - Fixed automatic list updates stopping after the first list change that affected routing. Lists now update on schedule.
 - Fixed new devices not getting an address over DHCP when a route rule matches all UDP traffic.
 - Fixed the router's own traffic skipping route rules when `inbound_interfaces` is set.
-- When several DNS rules name the same list, dnsmasq now gets the servers of every rule and switches between them. Before, only the first rule's server was used.
+- When several DNS rules name the same list, the list now uses the servers of every rule. Before, only the first rule's server was used.
 - {{< only keenetic >}} Fixed routing being built from a half-updated route table when routes change one after another during a WAN DHCP renewal.
 - Fixed a list cache file being left empty after a power loss.
 - Fixed `keen-pbr status` reporting every `urltest` and `icmptest` rule as an error.
 - The Web UI now keeps `conntrack_on_switch`, `strict_enforcement_action` and the `urltest` probe timeout when saving an outbound.
 - Fixed DNS servers with `detour` through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address).
-- {{< only keenetic >}} Fixed Keenetic static DNS records and per-domain DNS servers (for example, for an ISP login page) when a DNS server of type `keenetic` is the default DNS server: such names used to go to the regular upstream servers.
 
 ### Breaking Changes {#upgrading-from-33x}
 

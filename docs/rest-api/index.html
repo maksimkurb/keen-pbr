@@ -51,7 +51,7 @@ Configuration
 Prometheus and Grafana show VPN channel health and latency (see GET /metrics). A cron job refreshes lists on a schedule through POST /api/lists/refresh. A script restarts routing through POST /api/service/restart. If you only use the web interface, you can skip this page.
 The REST API is available when:
 Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration In the web interface, open Security &gt; Authentication and CORS. Turn on Enable authentication, enter a New password and confirm it. If a website on another address must call the API from a browser, add its address to Allowed CORS origins (one per line). Changes take effect immediately.">
-	<meta itemprop="wordCount" content="3090">
+	<meta itemprop="wordCount" content="3085">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
 	<meta name="twitter:description" content="The REST API lets scripts and external systems control and monitor keen-pbr. For example:
@@ -1300,10 +1300,6 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
 					<td>Refresh one or all remote URL lists.</td>
 			</tr>
 			<tr>
-					<td><code>GET /api/keenetic/dns-proxies</code>, <code>POST /api/keenetic/dns-proxies/refresh</code></td>
-					<td>Keenetic DNS proxy groups with their upstream servers, and a re-read from the router. <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span></td>
-			</tr>
-			<tr>
 					<td><code>GET /api/dns/test</code></td>
 					<td>Stream of DNS and TLS/QUIC interception events, or the DNS check in the web interface.</td>
 			</tr>
@@ -1350,6 +1346,7 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;os_type&#34;</span><span class="p">:</span> <span class="s2">&#34;debian&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;os_version&#34;</span><span class="p">:</span> <span class="s2">&#34;12&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;build_variant&#34;</span><span class="p">:</span> <span class="s2">&#34;generic&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;doh_supported&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;config_is_draft&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;rollback_available&#34;</span><span class="p">:</span> <span class="kc">false</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
@@ -1364,7 +1361,7 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
   </button>
 </div>
 </div>
-<p><code>status</code> is <code>running</code>, <code>degraded</code> (DNS interception is enabled but unavailable) or <code>stopped</code>.</p>
+<p><code>status</code> is <code>running</code>, <code>degraded</code> (DNS interception is enabled but unavailable) or <code>stopped</code>. <code>doh_supported</code> tells whether this build can use DNS servers of type <code>doh</code>.</p>
 <p>When interception is enabled, the response includes an <code>intercept</code> object: whether DNS interception (<code>dns_hold_active</code>) and traffic analysis (<code>l7_active</code>) are active, the kernel features available (<code>nfqueue</code>, <code>nflog</code>, <code>connbytes</code>, <code>addrtype</code>), and counters of processed packets, errors and queue overruns (<abbr title="A netfilter mechanism that passes packets to a user-space program and waits for its verdict. keen-pbr uses it to hold DNS replies briefly.">NFQUEUE</abbr>/NFLOG). These values are mostly useful for diagnostics.</p>
 <p>For channel state (health, latency) see <code>GET /api/runtime/outbounds</code>.</p>
 <h2>GET /metrics<span class="hx:absolute hx:-mt-20" id="get-metrics"></span>

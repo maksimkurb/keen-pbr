@@ -75,7 +75,6 @@ keen-pbr hash-password
 | `GET /api/runtime/outbounds`, `/api/runtime/interfaces` | Текущее состояние outbounds и список системных интерфейсов. |
 | `GET /api/health/routing`, `POST /api/routing/test` | Диагностика маршрутизации и firewall и проверка маршрута для конкретного домена или IP-адреса. |
 | `POST /api/lists/refresh` | Обновление одного или всех удалённых списков URL. |
-| `GET /api/keenetic/dns-proxies`, `POST /api/keenetic/dns-proxies/refresh` | Группы DNS-прокси Keenetic с их вышестоящими серверами и повторное чтение с роутера. {{< only keenetic >}} |
 | `GET /api/dns/test` | Поток событий перехвата DNS и TLS/QUIC-трафика либо проверка DNS в веб-интерфейсе. |
 | `GET /api/diagnostics/command-failure` | Журнал недавних сбоев системных команд. |
 | `GET /metrics` | Метрики Prometheus в текстовом формате. |
@@ -103,12 +102,13 @@ curl http://127.0.0.1:12121/api/health/service
   "os_type": "debian",
   "os_version": "12",
   "build_variant": "generic",
+  "doh_supported": true,
   "config_is_draft": false,
   "rollback_available": false
 }
 ```
 
-Поле `status` принимает значения `running` (работает), `degraded` (перехват DNS включён, но недоступен) и `stopped` (остановлен).
+Поле `status` принимает значения `running` (работает), `degraded` (перехват DNS включён, но недоступен) и `stopped` (остановлен). Поле `doh_supported` показывает, умеет ли эта сборка работать с DNS-серверами типа `doh`.
 
 При включённом перехвате ответ содержит объект `intercept`: активность перехвата DNS (`dns_hold_active`) и анализа трафика (`l7_active`), доступные возможности ядра (`nfqueue`, `nflog`, `connbytes`, `addrtype`) и счётчики обработанных пакетов, ошибок и переполнений очередей ({{< term "NFQUEUE" >}}/NFLOG). Эти значения нужны в основном для диагностики.
 

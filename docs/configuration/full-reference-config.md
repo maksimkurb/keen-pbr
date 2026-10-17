@@ -456,7 +456,7 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
         // Plain DNS server with a fixed address, no detour.
         "tag": "google_dns",
 
-        // Supported values: "static" (default) or "keenetic".
+        // Supported values: "static" (default), "doh" or "keenetic".
         // Default: "static".
         "type": "static",
 
@@ -485,6 +485,15 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       },
 
       {
+        // DNS server reached over HTTPS (DNS-over-HTTPS). The address must start with https://.
+        // The router needs CA certificates installed to check the server.
+        // detour works for it like for other servers.
+        "tag": "google_doh",
+        "type": "doh",
+        "address": "https://dns.google/dns-query"
+      },
+
+      {
         // [Only on Keenetic and Netcraze platforms]
         // Reuse the router's built-in DNS settings through RCI.
         // Configure DoT/DoH on the router first, then add this Keenetic DNS server.
@@ -503,8 +512,9 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
         // Lists whose domains should be resolved by this server.
         "list": ["inline_domains"],
 
-        // DNS server tag to use.
-        "server": "vpn_dns",
+        // Tags of the DNS servers to use. With several, requests go to them
+        // in turn; when one does not answer, the next one takes over.
+        "servers": ["vpn_dns"],
 
         // Allow answers that resolve to private/local IP ranges.
         // Default: false.
