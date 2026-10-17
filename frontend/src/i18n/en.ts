@@ -262,11 +262,9 @@ export const enTranslation = {
       outboundUnavailable: "{{tag}} is unavailable",
       outboundDegraded: "{{tag}} is degraded",
       groupMembersFailing: "{{tag}}: failing members: {{count}}",
-      keeneticDnsUpstreamMissing: "Keenetic DNS server not found",
-      keeneticDnsUpstreamBlocked:
-        "{{tag}}: {{upstreams}} is no longer set in Keenetic, requests are blocked",
-      keeneticDnsUpstreamPartial:
-        "{{tag}}: {{upstreams}} is no longer set in Keenetic, the other selected servers are used",
+      dohUnavailable: "DNS-over-HTTPS servers are not used",
+      dohNoCertificates:
+        "The router has no CA certificates to check the servers with. Install the ca-certificates package.",
       hostWarning: {
         nat_missing: "{{interface}}: no NAT (MASQUERADE/SNAT) for this WAN",
         nat_partial: "{{interface}}: NAT covers only some source subnets",
@@ -965,23 +963,6 @@ export const enTranslation = {
       setWrite: "Set write took {{value}}",
     },
   },
-  keeneticDns: {
-    notFound: "{{name}} (not found)",
-    upstreams: {
-      label: "Upstream servers",
-      hint: "Servers of the Keenetic built-in DNS this server uses. If none is selected, all of them are used. The servers are set in the Keenetic web interface (Network Rules -> Internet safety -> DNS Configuration); if DoT or DoH servers are set there, only they are used.",
-      none: "Keenetic has no upstream servers set.",
-      balanced:
-        "Requests are spread over the selected servers in turn. If one stops answering, the next one takes over.",
-    },
-    domainServers: {
-      title: "For specific domains",
-      hint: "These servers are set in the general DNS settings of Keenetic.",
-    },
-    openSettings: "Open Keenetic DNS settings",
-    refresh: "Sync with Keenetic",
-    loadError: "Could not read DNS servers from the router: {{message}}",
-  },
   pages: {
     security: {
       title: "Security",
@@ -1135,7 +1116,6 @@ export const enTranslation = {
       title: "DNS Servers",
       description: "Upstream DNS servers used for domain name resolution.",
       keeneticAddress: "Keenetic built-in DNS",
-      keeneticUpstreamsAddress: "Keenetic: {{upstreams}}",
       actions: {
         add: "Add DNS server",
       },
@@ -1194,11 +1174,25 @@ export const enTranslation = {
         tagHint: "A short name for this server, used in DNS rules.",
         type: "DNS type",
         typeHint:
-          "Keenetic reuses the router's current built-in DNS. Plaintext DNS uses a manually entered IP address.",
+          "Keenetic reuses the router's current built-in DNS. Plaintext DNS uses a manually entered IP address. DNS-over-HTTPS sends requests to a server over an encrypted HTTPS connection.",
         typeOptions: {
           keenetic: "Keenetic DNS",
           static: "Plaintext DNS",
+          doh: "DNS-over-HTTPS",
         },
+        keeneticNotice: {
+          description:
+            "Configure DNS servers in the Keenetic web interface for this mode.",
+          openLink: "Go to settings",
+          navigation:
+            "Go to Network Rules -> Internet safety -> DNS Configuration (Russian UI: Сетевые правила -> Интернет-фильтры -> Настройка DNS).",
+          dotDohOnly:
+            "If any DoT or DoH servers are configured there, only those servers will be used.",
+        },
+        dohUrl: "URL",
+        dohUrlPlaceholder: "https://dns.google/dns-query",
+        dohUrlHint:
+          "The address of the server's DNS-over-HTTPS service, starting with `https://`.",
         address: "Address",
         addressPlaceholder: "1.1.1.1 or [2606:4700::1111]:53",
         addressHint:
@@ -1214,6 +1208,7 @@ export const enTranslation = {
         typeRequired: "DNS type is required.",
         addressInvalid:
           "Address must be a valid IPv4/IPv6 value with an optional port.",
+        dohUrlInvalid: "URL must start with https:// and include a host name.",
       },
       actions: {
         create: "Create DNS server",
@@ -1736,13 +1731,13 @@ export const enTranslation = {
       editTitle: "Edit DNS rule",
       editNamedTitle: "Edit DNS rule <entity>#{{number}}</entity>",
       description:
-        "This rule defines which DNS server to use for domains in a specific list.",
-      cardDescription: "Set the list names and DNS server for this rule.",
+        "This rule defines which DNS servers to use for domains in a specific list.",
+      cardDescription: "Set the list names and DNS servers for this rule.",
       messages: { saved: "DNS rule staged. Apply new config to persist it." },
       validation: {
         notFound: "The requested DNS rule was not found.",
         fixErrors: "Fix validation errors before saving.",
-        serverRequired: "Rule must reference an existing DNS server.",
+        serverRequired: "Choose at least one existing DNS server.",
         unknownLists: "Unknown lists: {{lists}}",
         duplicate: "Duplicate rule entry.",
       },
@@ -1754,16 +1749,19 @@ export const enTranslation = {
       },
       actions: { create: "Create rule", save: "Save rule" },
       fields: {
-        serverTag: "DNS server",
-        selectServer: "Select DNS server",
-        dnsServers: "DNS servers",
+        serverTag: "DNS servers",
+        serversPlaceholderDescription:
+          "Choose the DNS servers that resolve the domains of this rule.",
+        noServersSelected: "No DNS servers selected",
+        serversRoundRobinHint:
+          "With several servers, requests are sent to them in turn. If a server does not answer, the next one takes over.",
         noServers: "No DNS servers defined on the DNS Servers page.",
         listNames: "Domain lists",
         allowDomainRebinding: "Allow domain rebinding for these domains",
         allowDomainRebindingHint:
           "Enable this only when you know this domain list points to internal services. Responses for matched domains will be allowed to contain internal/private IPs (for example 192.168.0.0/16, 10.0.0.0/8, and other local network ranges).",
         listPlaceholderDescription:
-          "Choose which lists this rule applies to. Matching domains will use this DNS server.",
+          "Choose which lists this rule applies to. Matching domains will use these DNS servers.",
         noListsSelected: "No lists selected",
         noLists: "No lists found. Create a list first on the Lists page.",
       },

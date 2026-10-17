@@ -3,26 +3,26 @@ import i18n from "@/i18n"
 
 export type DnsRuleDraft = {
   enabled: boolean
-  server: string
+  servers: string[]
   list: string[]
   allow_domain_rebinding: boolean
 }
 
 export type RuleErrors = {
-  server?: string
+  servers?: string
   lists?: string
   duplicate?: string
 }
 
 export function getRuleDraft(rule?: {
   enabled?: boolean | null
-  server?: string
+  servers?: string[]
   list?: string[]
   allow_domain_rebinding?: boolean
 }): DnsRuleDraft {
   return {
     enabled: rule?.enabled ?? true,
-    server: rule?.server ?? "",
+    servers: rule?.servers ?? [],
     list: rule?.list ?? [],
     allow_domain_rebinding: rule?.allow_domain_rebinding ?? false,
   }
@@ -40,7 +40,7 @@ export function buildUpdatedConfigWithRules(
       fallback,
       rules: rules.map((rule) => ({
         enabled: rule.enabled,
-        server: rule.server,
+        servers: rule.servers,
         list: rule.list,
         allow_domain_rebinding: rule.allow_domain_rebinding,
       })),
@@ -77,8 +77,13 @@ export function validateRules(
     const nextRuleErrors: RuleErrors = {}
     const parsedLists = rule.list
 
-    if (!rule.server || !serverTagSet.has(rule.server)) {
-      nextRuleErrors.server = t("pages.dnsRuleUpsert.validation.serverRequired")
+    if (
+      rule.servers.length === 0 ||
+      rule.servers.some((serverTag) => !serverTagSet.has(serverTag))
+    ) {
+      nextRuleErrors.servers = t(
+        "pages.dnsRuleUpsert.validation.serverRequired"
+      )
     }
 
     if (parsedLists.length === 0) {
@@ -94,7 +99,7 @@ export function validateRules(
       })
     }
 
-    const dedupeKey = `${rule.server}::${[...parsedLists].sort().join("|")}`
+    const dedupeKey = `${[...rule.servers].sort().join("|")}::${[...parsedLists].sort().join("|")}`
     if (seenRules.has(dedupeKey)) {
       nextRuleErrors.duplicate = t("pages.dnsRuleUpsert.validation.duplicate")
     }

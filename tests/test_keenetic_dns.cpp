@@ -236,9 +236,9 @@ TEST_CASE("keenetic dns: parse address from RCI System policy") {
                                         "127.0.0.1:40509"});
         REQUIRE(snapshot.upstreams.size() == 4);
         CHECK(snapshot.upstreams[0].kind == "DoT");
-        CHECK(snapshot.upstreams[0].target == "8.8.8.8@dns.google");
+        CHECK(snapshot.upstreams[0].target == "tls://dns.google");
         CHECK(snapshot.upstreams[1].kind == "DoT");
-        CHECK(snapshot.upstreams[1].target == "8.8.4.4@dns.google");
+        CHECK(snapshot.upstreams[1].target == "tls://dns.google");
         CHECK(snapshot.upstreams[2].kind == "DoH");
         CHECK(snapshot.upstreams[2].target == "https://dns.google/dns-query");
         CHECK(snapshot.upstreams[3].kind == "DoH");
@@ -444,131 +444,6 @@ TEST_CASE("keenetic dns: cache refresh semantics") {
         CHECK(result.addresses.empty());
         CHECK_THROWS_AS(resolve_keenetic_dns_addresses(true), KeeneticDnsError);
     }
-}
-
-
-namespace {
-
-// System with a DoT and two DoH stubs, servers for single domains and a
-// static record; Policy0 must be ignored.  The ports are the router's choice.
-std::string system_dump(int dot_port = 40500) {
-    return std::string(R"({
-      "proxy-status": [
-        {
-          "proxy-name": "System",
-          "proxy-config": "dns_server = 127.0.0.1:)") + std::to_string(dot_port) +
-           R"( . # 8.8.8.8@dns.google\ndns_server = 127.0.0.1:40508 . # https://dns.google/dns-query@dnsm\ndns_server = 127.0.0.1:40509 . # https://dns.quad9.net/dns-query@dnsm\ndns_server = 85.21.192.5 beeline.ru\ndns_server = 213.234.192.7 beeline.ru\ndns_server = 192.0.2.1 other.example\nstatic_a = host.example 198.51.100.180 1\ndns_tcp_port = 53\ndns_udp_port = 53\n"
-        },
-        {
-          "proxy-name": "Policy0",
-          "proxy-config": "dns_server = 127.0.0.1:40524 . # https://dns10.quad9.net/dns-query@dnsm\ndns_udp_port = 41100\n"
-        }
-      ]
-    })";
-}
-
-} // namespace
-
-TEST_CASE("keenetic dns: only the System proxy is read") {
-    const KeeneticDnsSnapshot snapshot = extract_keenetic_dns_snapshot_from_rci(system_dump());
-
-    CHECK(snapshot.addresses ==
-          std::vector<std::string>{"127.0.0.1:40500", "127.0.0.1:40508", "127.0.0.1:40509"});
-    CHECK(snapshot.static_entries.size() == 1);
-
-    REQUIRE(snapshot.proxies.size() == 1);
-    const KeeneticDnsProxy& system = snapshot.proxies[0];
-    CHECK(system.name == "System");
-    REQUIRE(system.upstreams.size() == 3);
-    // A DoT upstream is identified by address and name: two can share a name.
-    CHECK(system.upstreams[0].kind == "DoT");
-    CHECK(system.upstreams[0].target == "8.8.8.8@dns.google");
-    CHECK(system.upstreams[1].kind == "DoH");
-    CHECK(system.upstreams[1].target == "https://dns.google/dns-query");
-
-    // Servers for single domains are grouped per domain and not upstreams.
-    REQUIRE(system.domain_servers.size() == 2);
-    CHECK(system.domain_servers[0].domain == "beeline.ru");
-    CHECK(system.domain_servers[0].addresses ==
-          std::vector<std::string>{"85.21.192.5", "213.234.192.7"});
-    CHECK(system.domain_servers[1].domain == "other.example");
-}
-
-TEST_CASE("keenetic dns: selected upstreams resolve to their current ports") {
-    KeeneticDnsTestStateGuard guard;
-    set_keenetic_dns_fetcher_for_tests([]() { return system_dump(40500); });
-
-    const std::vector<KeeneticDnsProxyUpstream> dot_and_quad9{
-        {"DoT", "8.8.8.8@dns.google"}, {"DoH", "https://dns.quad9.net/dns-query"}};
-
-    SUBCASE("no selection is every upstream") {
-        const auto resolution = resolve_keenetic_dns_upstreams({});
-        CHECK(resolution.addresses ==
-              std::vector<std::string>{"127.0.0.1:40500", "127.0.0.1:40508", "127.0.0.1:40509"});
-        CHECK(resolution.missing.empty());
-    }
-
-    SUBCASE("a selection keeps its own order") {
-        const auto resolution = resolve_keenetic_dns_upstreams(dot_and_quad9);
-        CHECK(resolution.addresses ==
-              std::vector<std::string>{"127.0.0.1:40500", "127.0.0.1:40509"});
-        CHECK(resolution.missing.empty());
-    }
-
-    SUBCASE("a renumbered port is followed by protocol and target") {
-        set_keenetic_dns_fetcher_for_tests([]() { return system_dump(40777); });
-        const auto resolution = resolve_keenetic_upstreams(
-            *refresh_keenetic_dns_cache(true).snapshot, dot_and_quad9);
-        CHECK(resolution.addresses ==
-              std::vector<std::string>{"127.0.0.1:40777", "127.0.0.1:40509"});
-    }
-
-    SUBCASE("an upstream the router lost is missing") {
-        const auto resolution = resolve_keenetic_dns_upstreams(
-            {{"DoT", "8.8.4.4@dns.google"}, {"DoH", "https://dns.google/dns-query"}});
-        CHECK(resolution.addresses == std::vector<std::string>{"127.0.0.1:40508"});
-        REQUIRE(resolution.missing.size() == 1);
-        CHECK(resolution.missing[0].target == "8.8.4.4@dns.google");
-    }
-
-    SUBCASE("the same target under another protocol is another upstream") {
-        const auto resolution =
-            resolve_keenetic_dns_upstreams({{"DoT", "https://dns.google/dns-query"}});
-        CHECK(resolution.addresses.empty());
-        CHECK(resolution.missing.size() == 1);
-    }
-
-    SUBCASE("an unreadable router without a cache throws") {
-        reset_keenetic_dns_test_state();
-        set_keenetic_dns_fetcher_for_tests([]() -> std::string {
-            throw KeeneticDnsError("simulated initial failure");
-        });
-        CHECK_THROWS_AS(resolve_keenetic_dns_upstreams(dot_and_quad9), KeeneticDnsError);
-    }
-}
-
-TEST_CASE("keenetic dns: a renumbered stub port is an update") {
-    KeeneticDnsTestStateGuard guard;
-    set_keenetic_dns_fetcher_for_tests([]() { return system_dump(40500); });
-    CHECK(refresh_keenetic_dns_cache(true).status == KeeneticDnsRefreshStatus::UPDATED);
-    CHECK(refresh_keenetic_dns_cache(true).status == KeeneticDnsRefreshStatus::UNCHANGED);
-
-    set_keenetic_dns_fetcher_for_tests([]() { return system_dump(40777); });
-    const KeeneticDnsCacheView view = refresh_keenetic_dns_cache(true);
-    CHECK(view.status == KeeneticDnsRefreshStatus::UPDATED);
-    REQUIRE(view.snapshot.has_value());
-    CHECK(view.snapshot->addresses[0] == "127.0.0.1:40777");
-}
-
-TEST_CASE("keenetic dns: last attempt is recorded for failures too") {
-    KeeneticDnsTestStateGuard guard;
-    CHECK_FALSE(keenetic_dns_last_attempt().has_value());
-    set_keenetic_dns_fetcher_for_tests([]() -> std::string {
-        throw KeeneticDnsError("simulated initial failure");
-    });
-    (void)refresh_keenetic_dns_cache(true);
-    CHECK(keenetic_dns_last_attempt().has_value());
-    CHECK_FALSE(peek_keenetic_dns_cache().has_value());
 }
 
 #ifndef USE_KEENETIC_API

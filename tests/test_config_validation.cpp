@@ -1,6 +1,4 @@
 #include <doctest/doctest.h>
-
-#include "../src/dns/dns_balancer.hpp"
 #include <keen-pbr/version.hpp>
 
 #include "../src/config/config.hpp"
@@ -78,6 +76,16 @@ void remove_platform_specific_config(nlohmann::json& config_json, FirewallBacken
             return server.value("type", "static") == "keenetic";
         }),
         dns_servers.end());
+#endif
+#ifndef WITH_DOH
+    {
+        auto& dns_servers = config_json["dns"]["servers"];
+        dns_servers.erase(
+            std::remove_if(dns_servers.begin(), dns_servers.end(), [](const auto& server) {
+                return server.value("type", "static") == "doh";
+            }),
+            dns_servers.end());
+    }
 #endif
 
     if (backend == FirewallBackend::iptables) {
@@ -385,7 +393,7 @@ TEST_CASE("resolver generation skips runtime backend checks") {
       "dns":{
         "resolver_integration":"dnsmasq",
         "servers":[{"tag":"up","address":"1.1.1.1"}],
-        "rules":[{"list":["domains"],"server":"up"}]
+        "rules":[{"list":["domains"],"servers":["up"]}]
       },
       "route":{"rules":[{"default_gateway":"ipv4","outbound":"wan"}]}
     })");
@@ -394,7 +402,7 @@ TEST_CASE("resolver generation skips runtime backend checks") {
     CHECK_NOTHROW(validate_config(config, ConfigValidationMode::ResolverGeneration));
 
     auto invalid_dns = config;
-    invalid_dns.dns->rules->at(0).server = "missing";
+    invalid_dns.dns->rules->at(0).servers = {"missing"};
     CHECK_THROWS_AS(validate_config(invalid_dns, ConfigValidationMode::ResolverGeneration),
                     ConfigValidationError);
 
@@ -785,114 +793,19 @@ TEST_CASE("dns servers: keenetic type is accepted when KeeneticOS version is tem
 }
 
 #ifdef USE_KEENETIC_API
-TEST_CASE("dns servers: several keenetic type servers may select different upstreams") {
-    CHECK_NOTHROW(parse_test_config(R"({
+TEST_CASE("dns servers: at most one keenetic type server is allowed") {
+    std::string json = R"({
         "dns":{
             "servers":[
                 {"tag":"keen_a","type":"keenetic"},
-                {"tag":"keen_b","type":"keenetic","keenetic_upstreams":[
-                    {"protocol":"DoH","target":"https://dns.google/dns-query"}]},
-                {"tag":"keen_c","type":"keenetic","keenetic_upstreams":[
-                    {"protocol":"DoT","target":"8.8.8.8@dns.google"},
-                    {"protocol":"DoH","target":"https://dns.google/dns-query"}]}
+                {"tag":"keen_b","type":"keenetic"}
             ],
             "fallback":["keen_a"]
         }
-    })"));
-}
-
-TEST_CASE("dns servers: the same keenetic upstream selection may be used by one server only") {
-    CHECK_THROWS_AS(parse_test_config(R"({
-        "dns":{
-            "servers":[
-                {"tag":"keen_a","type":"keenetic"},
-                {"tag":"keen_b","type":"keenetic","keenetic_upstreams":[]}
-            ],
-            "fallback":["keen_a"]
-        }
-    })"), ConfigError);
-    CHECK_THROWS_AS(parse_test_config(R"({
-        "dns":{
-            "servers":[
-                {"tag":"keen_a","type":"keenetic","keenetic_upstreams":[
-                    {"protocol":"DoT","target":"8.8.8.8@dns.google"},
-                    {"protocol":"Plain","target":"1.1.1.1"}]},
-                {"tag":"keen_b","type":"keenetic","keenetic_upstreams":[
-                    {"protocol":"Plain","target":"1.1.1.1"},
-                    {"protocol":"DoT","target":"8.8.8.8@dns.google"}]}
-            ],
-            "fallback":["keen_a"]
-        }
-    })"), ConfigError);
-}
-
-TEST_CASE("dns servers: keenetic_upstreams items need a target and are unique") {
-    const auto issues = validate_issues(R"({
-        "dns":{
-            "servers":[{"tag":"keen_a","type":"keenetic","keenetic_upstreams":[
-                {"protocol":"DoT","target":""},
-                {"protocol":"Plain","target":"1.1.1.1"},
-                {"protocol":"Plain","target":"1.1.1.1"}]}],
-            "fallback":["keen_a"]
-        }
-    })");
-    REQUIRE(issues.size() == 2);
-    CHECK(issues[0].path == "dns.servers[0].keenetic_upstreams[0].target");
-    CHECK(issues[1].path == "dns.servers[0].keenetic_upstreams[2]");
-}
-
-TEST_CASE("dns servers: a detour cannot be combined with several keenetic upstreams") {
-    const std::string outbounds =
-        R"("outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],)";
-    const auto balanced_issues = validate_issues("{" + outbounds + R"(
-        "dns":{
-            "servers":[{"tag":"keen_a","type":"keenetic","detour":"vpn","keenetic_upstreams":[
-                {"protocol":"Plain","target":"1.1.1.1"},
-                {"protocol":"Plain","target":"8.8.8.8"}]}],
-            "fallback":["keen_a"]
-        }
-    })");
-    REQUIRE(balanced_issues.size() == 1);
-    CHECK(balanced_issues[0].path == "dns.servers[0].detour");
-
-    // One upstream (or none) is a direct server entry: a detour stays valid.
-    const auto single_issues = validate_issues("{" + outbounds + R"(
-        "dns":{
-            "servers":[{"tag":"keen_a","type":"keenetic","detour":"vpn","keenetic_upstreams":[
-                {"protocol":"Plain","target":"1.1.1.1"}]}],
-            "fallback":["keen_a"]
-        }
-    })");
-    CHECK(single_issues.empty());
-}
-
-TEST_CASE("dns servers: only so many servers can balance keenetic upstreams") {
-    std::string servers;
-    for (size_t i = 0; i <= kDnsBalancerMaxGroups; ++i) {
-        servers += std::string(i == 0 ? "" : ",") + R"({"tag":"keen_)" + std::to_string(i) +
-                   R"(","type":"keenetic","keenetic_upstreams":[
-                       {"protocol":"Plain","target":"10.0.0.)" + std::to_string(i) + R"("},
-                       {"protocol":"Plain","target":"10.1.0.)" + std::to_string(i) + R"("}]})";
-    }
-    const auto issues = validate_issues(R"({"dns":{"servers":[)" + servers +
-                                        R"(],"fallback":["keen_0"]}})");
-    REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "dns.servers[" + std::to_string(kDnsBalancerMaxGroups) +
-                                "].keenetic_upstreams");
+    })";
+    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
 }
 #endif
-
-TEST_CASE("dns servers: keenetic_upstreams is rejected on a static server") {
-    const auto issues = validate_issues(R"({
-        "dns":{
-            "servers":[{"tag":"plain","type":"static","address":"1.1.1.1",
-                        "keenetic_upstreams":[{"protocol":"Plain","target":"1.1.1.1"}]}],
-            "fallback":["plain"]
-        }
-    })");
-    REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "dns.servers[0].keenetic_upstreams");
-}
 
 TEST_CASE("route rule enabled: parse and serialize cover true false omitted and null") {
     const auto cfg_true = parse_test_config(R"({
@@ -1909,7 +1822,7 @@ TEST_CASE("config warnings: deprecated resolver fields are reported in one warni
         "daemon": {"resolver_ready_timeout_seconds": 30},
         "dns": {
             "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
-            "rules": [{"list":["l"],"server":"plain_dns"}],
+            "rules": [{"list":["l"],"servers":["plain_dns"]}],
             "fallback": ["plain_dns"],
             "system_resolver": {"address": "127.0.0.1"},
             "resolver_integration": "dnsmasq"
@@ -1949,7 +1862,7 @@ TEST_CASE("config warnings: rules and fallback are ignored when integration is n
         std::snprintf(buf, sizeof(buf), base, body);
         return parse_config(buf);
     };
-    for (const char* body : {R"("rules": [{"list":["l"],"server":"plain_dns"}])",
+    for (const char* body : {R"("rules": [{"list":["l"],"servers":["plain_dns"]}])",
                              R"("fallback": ["plain_dns"])"}) {
         const auto warnings = config_warnings(render(body));
         REQUIRE(warnings.size() == 1);
@@ -1965,10 +1878,10 @@ TEST_CASE("effective resolver integration: the field value, or none") {
     };
     // Versioned configs are not inferred: absent means none.
     CHECK(mode(R"({"version":"3.4.0"})") == ResolverIntegrationMode::NONE);
-    CHECK(mode(R"({"version":"3.4.0","dns":{"rules":[{"list":["l"],"server":"s"}],
+    CHECK(mode(R"({"version":"3.4.0","dns":{"rules":[{"list":["l"],"servers":["s"]}],
         "fallback":["s"]}})") == ResolverIntegrationMode::NONE);
     CHECK(mode(R"({"version":"3.4.0","dns":{"resolver_integration":"none",
-        "rules":[{"list":["l"],"server":"s"}]}})") == ResolverIntegrationMode::NONE);
+        "rules":[{"list":["l"],"servers":["s"]}]}})") == ResolverIntegrationMode::NONE);
     CHECK(mode(R"({"version":"3.4.0","dns":{"resolver_integration":"dnsmasq"}})") ==
           ResolverIntegrationMode::DNSMASQ);
     CHECK(std::string(resolver_integration_name(ResolverIntegrationMode::DNSMASQ)) == "dnsmasq");
@@ -1983,7 +1896,7 @@ TEST_CASE("config version: configs without a version keep dnsmasq management") {
     CHECK(mode(R"({})") == ResolverIntegrationMode::DNSMASQ);
     CHECK(mode(R"({"dns":{"servers":[{"tag":"s","address":"8.8.8.8"}],
         "fallback":["s"]}})") == ResolverIntegrationMode::DNSMASQ);
-    CHECK(mode(R"({"dns":{"rules":[{"list":["l"],"server":"s"}]}})") ==
+    CHECK(mode(R"({"dns":{"rules":[{"list":["l"],"servers":["s"]}]}})") ==
           ResolverIntegrationMode::DNSMASQ);
     // An explicit choice is respected.
     CHECK(mode(R"({"dns":{"resolver_integration":"none"}})") ==
@@ -2031,19 +1944,19 @@ TEST_CASE("dns rules validation: unknown server, list and fallback tags are reje
     const std::string lists = R"("lists":{"l":{"domains":["example.com"]}},)";
     const auto ok = validate_issues("{" + lists +
         R"("dns":{"servers":[{"tag":"s","address":"8.8.8.8"}],
-        "rules":[{"list":["l"],"server":"s"}],"fallback":["s"]}})");
+        "rules":[{"list":["l"],"servers":["s"]}],"fallback":["s"]}})");
     CHECK(ok.empty());
 
     const auto bad_server = validate_issues("{" + lists +
         R"("dns":{"servers":[{"tag":"s","address":"8.8.8.8"}],
-        "rules":[{"list":["l"],"server":"nope"}]}})");
+        "rules":[{"list":["l"],"servers":["nope"]}]}})");
     REQUIRE(bad_server.size() == 1);
-    CHECK(bad_server[0].path == "dns.rules[0].server");
+    CHECK(bad_server[0].path == "dns.rules[0].servers[0]");
     CHECK(bad_server[0].message.find("unknown DNS server tag 'nope'") != std::string::npos);
 
     const auto bad_list = validate_issues("{" + lists +
         R"("dns":{"servers":[{"tag":"s","address":"8.8.8.8"}],
-        "rules":[{"list":["missing"],"server":"s"}]}})");
+        "rules":[{"list":["missing"],"servers":["s"]}]}})");
     REQUIRE(bad_list.size() == 1);
     CHECK(bad_list[0].path == "dns.rules[0].list[0]");
 
@@ -2451,4 +2364,116 @@ TEST_CASE("dns.dnsmasq_instance validation") {
         REQUIRE(e.issues().size() == 1);
         CHECK(e.issues().front().path == "dns.dnsmasq_instance");
     }
+}
+
+// --- dns.rules[].servers ----------------------------------------------------
+
+namespace {
+
+const char* const kServersOnlyConfig = R"({
+  "lists":{"l":{"domains":["example.com"]}},
+  "dns":{"servers":[{"tag":"a","address":"8.8.8.8"},{"tag":"b","address":"1.1.1.1"}],
+         "rules":[{"list":["l"],"servers":["a","b"]}]}
+})";
+
+std::string with_version(const std::string& version, std::string config) {
+    config.insert(1, R"("version":")" + version + R"(",)");
+    return config;
+}
+
+} // namespace
+
+TEST_CASE("migration: dns rule server becomes a one-element servers list") {
+    const std::string legacy = R"({
+      "lists":{"l":{"domains":["example.com"]}},
+      "dns":{"servers":[{"tag":"a","address":"8.8.8.8"}],
+             "rules":[{"list":["l"],"server":"a","allow_domain_rebinding":true}]}
+    })";
+    const auto cfg = parse_config(legacy);
+    REQUIRE(cfg.dns->rules->size() == 1);
+    CHECK(cfg.dns->rules->at(0).servers == std::vector<std::string>{"a"});
+    CHECK(cfg.dns->rules->at(0).allow_domain_rebinding == true);
+    CHECK_NOTHROW(validate_config(cfg));
+
+    // The file is rewritten once; the rewritten text no longer changes.
+    const auto upgraded = upgraded_config_text(legacy);
+    REQUIRE(upgraded.has_value());
+    const auto json = nlohmann::json::parse(*upgraded);
+    CHECK(json["dns"]["rules"][0]["servers"] == nlohmann::json::array({"a"}));
+    CHECK_FALSE(json["dns"]["rules"][0].contains("server"));
+    CHECK_FALSE(upgraded_config_text(*upgraded).has_value());
+}
+
+TEST_CASE("migration: servers is left alone, a stale server is dropped") {
+    CHECK_FALSE(upgraded_config_text(kServersOnlyConfig).has_value());
+    const auto cfg = parse_config(R"({"dns":{"servers":[{"tag":"a","address":"8.8.8.8"}],
+        "rules":[{"list":["l"],"server":"a","servers":["a"]}]}})");
+    CHECK(cfg.dns->rules->at(0).servers == std::vector<std::string>{"a"});
+}
+
+TEST_CASE("migration: the servers step follows the config version") {
+    const std::string legacy =
+        R"({"dns":{"servers":[{"tag":"a","address":"8.8.8.8"}],"rules":[{"list":["l"],"server":"a"}]}})";
+    // Written by an older release: converted.
+    CHECK(upgraded_config_text(with_version("3.3.1", legacy)).has_value());
+    // Stamped 3.4.0 by a prerelease build that still wrote `server`: converted.
+    CHECK(upgraded_config_text(with_version("3.4.0", legacy)).has_value());
+    // Written after 3.4.0: already in the current format.
+    CHECK_FALSE(upgraded_config_text(with_version("3.4.1", legacy)).has_value());
+    const std::string next_major = std::to_string(KEEN_PBR3_VERSION_MAJOR + 1) + ".0.0";
+    CHECK_FALSE(upgraded_config_text(with_version(next_major, legacy)).has_value());
+}
+
+TEST_CASE("dns rules validation: servers must be known, unique and not empty") {
+    const std::string lists = R"("lists":{"l":{"domains":["example.com"]}},)";
+    const std::string servers = R"("servers":[{"tag":"a","address":"8.8.8.8"}],)";
+    CHECK(validate_issues(kServersOnlyConfig).empty());
+
+    const auto none = validate_issues("{" + lists + R"("dns":{)" + servers +
+                                      R"("rules":[{"list":["l"],"servers":[]}]}})");
+    REQUIRE(none.size() == 1);
+    CHECK(none[0].path == "dns.rules[0].servers");
+
+    const auto unknown = validate_issues("{" + lists + R"("dns":{)" + servers +
+                                         R"("rules":[{"list":["l"],"servers":["a","nope"]}]}})");
+    REQUIRE(unknown.size() == 1);
+    CHECK(unknown[0].path == "dns.rules[0].servers[1]");
+
+    const auto repeated = validate_issues("{" + lists + R"("dns":{)" + servers +
+                                          R"("rules":[{"list":["l"],"servers":["a","a"]}]}})");
+    REQUIRE(repeated.size() == 1);
+    CHECK(repeated[0].path == "dns.rules[0].servers[1]");
+    CHECK(repeated[0].message.find("duplicates") != std::string::npos);
+}
+
+TEST_CASE("dns server type doh needs an https URL") {
+    const std::string lists = R"("lists":{"l":{"domains":["example.com"]}},)";
+    const auto issues_for = [&](const std::string& server) {
+        return validate_issues("{" + lists + R"("dns":{"servers":[)" + server +
+                               R"(],"rules":[{"list":["l"],"servers":["g"]}]}})");
+    };
+    const auto valid = issues_for(R"({"tag":"g","type":"doh","address":"https://dns.google/dns-query"})");
+#ifdef WITH_DOH
+    CHECK(valid.empty());
+    CHECK(issues_for(R"({"tag":"g","type":"doh","address":"https://[2001:4860:4860::8888]:443/dns-query"})")
+              .empty());
+    for (const char* bad : {"http://dns.google/dns-query", "dns.google/dns-query",
+                            "https://", "https://user@dns.google/dns-query",
+                            "https://dns.google:99999/dns-query", "8.8.8.8"}) {
+        CAPTURE(bad);
+        const auto issues = issues_for(std::string(R"({"tag":"g","type":"doh","address":")") + bad + R"("})");
+        REQUIRE(issues.size() == 1);
+        CHECK(issues[0].path == "dns.servers[0].address");
+    }
+    const auto no_address = issues_for(R"({"tag":"g","type":"doh"})");
+    REQUIRE(no_address.size() == 1);
+    CHECK(no_address[0].path == "dns.servers[0].address");
+    CHECK(issues_for(R"({"tag":"g","type":"doh","address":"https://dns.google/dns-query","detour":"nope"})")
+              .size() == 1);
+#else
+    // Built without DNS-over-HTTPS: the type is refused with a clear reason.
+    REQUIRE(valid.size() == 1);
+    CHECK(valid[0].path == "dns.servers[0].type");
+    CHECK(valid[0].message.find("WITH_DOH=OFF") != std::string::npos);
+#endif
 }

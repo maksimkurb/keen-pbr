@@ -1,3 +1,4 @@
+import { ExternalLink } from "lucide-react"
 import { useMemo } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
@@ -5,10 +6,9 @@ import { useLocation } from "wouter"
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { DnsServer } from "@/api/generated/model/dnsServer"
-import type { KeeneticDnsProxyUpstream } from "@/api/generated/model/keeneticDnsProxyUpstream"
 import { DnsServerType } from "@/api/generated/model/dnsServerType"
 import { usePostConfigMutation } from "@/api/mutations"
-import { useGetConfig } from "@/api/queries"
+import { useGetConfig, useGetHealthService } from "@/api/queries"
 import { selectConfig } from "@/api/selectors"
 import {
   Field,
@@ -17,13 +17,16 @@ import {
   FieldHint,
   FieldLabel,
 } from "@/components/shared/field"
-import { KeeneticUpstreamFields } from "@/components/shared/keenetic-upstream-fields"
 import { OutboundSelect } from "@/components/shared/outbound-select"
 import { UpsertPage } from "@/components/shared/upsert-page"
 import { ServerValidationAlert } from "@/components/shared/server-validation-alert"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  KEENETIC_DNS_SETTINGS_PATH,
+  keeneticWebUrl,
+} from "@/lib/keenetic-web-url"
 import {
   Select,
   SelectContent,
@@ -39,11 +42,12 @@ import { getTagNameValidationError } from "@/lib/tag-name-validation"
 
 type DnsServerDraft = {
   tag: string
-  type: typeof DnsServerType.static | typeof DnsServerType.keenetic
+  type:
+    | typeof DnsServerType.static
+    | typeof DnsServerType.keenetic
+    | typeof DnsServerType.doh
   address: string
   detour: string
-  // Empty is every upstream of the Keenetic built-in DNS; nothing is written.
-  keenetic_upstreams: KeeneticDnsProxyUpstream[]
 }
 
 const emptyDnsServerDraft: DnsServerDraft = {
@@ -51,7 +55,6 @@ const emptyDnsServerDraft: DnsServerDraft = {
   type: DnsServerType.static,
   address: "",
   detour: "",
-  keenetic_upstreams: [],
 }
 
 export function DnsServerUpsertPage({
@@ -69,6 +72,11 @@ export function DnsServerUpsertPage({
   const supportsKeeneticDns =
     import.meta.env.VITE_KEEN_PBR_PLATFORM === PLATFORM_KEENETIC ||
     import.meta.env.VITE_KEEN_PBR_PLATFORM === PLATFORM_DEVELOPMENT
+  // Older daemons do not report it and have no DNS-over-HTTPS.
+  const healthQuery = useGetHealthService()
+  const supportsDoh =
+    healthQuery.data?.status === 200 &&
+    healthQuery.data.data.doh_supported === true
 
   const existingServer =
     mode === "edit"
@@ -128,6 +136,7 @@ export function DnsServerUpsertPage({
         onCancel={() => navigate("/dns-servers")}
         onSaved={() => navigate("/dns-servers")}
         serverTag={serverTag}
+        supportsDoh={supportsDoh}
         supportsKeeneticDns={supportsKeeneticDns}
       />
     </UpsertPage>
@@ -141,6 +150,7 @@ function DnsServerForm({
   initialDraft,
   onCancel,
   onSaved,
+  supportsDoh,
   supportsKeeneticDns,
 }: {
   mode: "create" | "edit"
@@ -149,20 +159,36 @@ function DnsServerForm({
   initialDraft: DnsServerDraft
   onCancel: () => void
   onSaved: () => void
+  supportsDoh: boolean
   supportsKeeneticDns: boolean
 }) {
   const { t } = useTranslation()
-  const showTypeSelector =
+  // A type the daemon cannot use is offered only while the server already has it.
+  const offerKeenetic =
     supportsKeeneticDns || initialDraft.type === DnsServerType.keenetic
+  const offerDoh = supportsDoh || initialDraft.type === DnsServerType.doh
+  const showTypeSelector = offerKeenetic || offerDoh
   const dnsTypeSelectItems = [
     {
       value: DnsServerType.static,
       label: t("pages.dnsServerUpsert.fields.typeOptions.static"),
     },
-    {
-      value: DnsServerType.keenetic,
-      label: t("pages.dnsServerUpsert.fields.typeOptions.keenetic"),
-    },
+    ...(offerKeenetic
+      ? [
+          {
+            value: DnsServerType.keenetic,
+            label: t("pages.dnsServerUpsert.fields.typeOptions.keenetic"),
+          },
+        ]
+      : []),
+    ...(offerDoh
+      ? [
+          {
+            value: DnsServerType.doh,
+            label: t("pages.dnsServerUpsert.fields.typeOptions.doh"),
+          },
+        ]
+      : []),
   ]
 
   const configServers = config?.dns?.servers ?? []
@@ -193,7 +219,10 @@ function DnsServerForm({
       }
 
       if (value.type !== DnsServerType.keenetic) {
-        const addressError = getAddressError(value.address)
+        const addressError =
+          value.type === DnsServerType.doh
+            ? getDohUrlError(value.address)
+            : getAddressError(value.address)
         if (addressError) {
           errors.address = addressError
         }
@@ -215,21 +244,19 @@ function DnsServerForm({
     const isKeeneticDns = value.type === DnsServerType.keenetic
     const normalizedAddress = isKeeneticDns
       ? null
-      : normalizeDnsAddress(value.address)
+      : value.type === DnsServerType.doh
+        ? normalizeDohUrl(value.address)
+        : normalizeDnsAddress(value.address)
     if (!isKeeneticDns && !normalizedAddress) {
       return
     }
 
     const normalizedDetour = isKeeneticDns ? "" : value.detour.trim()
-    const keeneticUpstreams = isKeeneticDns ? value.keenetic_upstreams : []
     const nextServer: DnsServer = {
       tag: normalizedTag,
       type: value.type,
       ...(normalizedAddress ? { address: normalizedAddress } : {}),
       ...(normalizedDetour ? { detour: normalizedDetour } : {}),
-      ...(keeneticUpstreams.length > 0
-        ? { keenetic_upstreams: keeneticUpstreams }
-        : {}),
     }
 
     const currentServers = config.dns?.servers ?? []
@@ -257,6 +284,7 @@ function DnsServerForm({
   }
 
   const isKeeneticDns = values.type === DnsServerType.keenetic
+  const isDoh = values.type === DnsServerType.doh
   // The tag control also shows errors addressed to the whole server entry.
   const tagError = form.errorFor("tag", { alsoClaims: [""] })
 
@@ -302,12 +330,11 @@ function DnsServerForm({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectItem value={DnsServerType.static}>
-                      {t("pages.dnsServerUpsert.fields.typeOptions.static")}
-                    </SelectItem>
-                    <SelectItem value={DnsServerType.keenetic}>
-                      {t("pages.dnsServerUpsert.fields.typeOptions.keenetic")}
-                    </SelectItem>
+                    {dnsTypeSelectItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>
@@ -320,18 +347,57 @@ function DnsServerForm({
         ) : null}
 
         {isKeeneticDns ? (
-          <KeeneticUpstreamFields
-            error={form.errorFor("keenetic_upstreams")}
-            onChange={(selected) => form.setValue("keenetic_upstreams", selected)}
-            selected={values.keenetic_upstreams}
-          />
+          <Field>
+            <FieldContent>
+              <Alert>
+                <AlertDescription className="space-y-2">
+                  <p className="flex flex-wrap items-center gap-2">
+                    <span>
+                      {t(
+                        "pages.dnsServerUpsert.fields.keeneticNotice.description"
+                      )}
+                    </span>
+                    <Button
+                      onClick={() =>
+                        window.open(
+                          keeneticWebUrl(KEENETIC_DNS_SETTINGS_PATH),
+                          "_blank",
+                          "noopener,noreferrer"
+                        )
+                      }
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      {t(
+                        "pages.dnsServerUpsert.fields.keeneticNotice.openLink"
+                      )}
+                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Button>
+                  </p>
+                  <p>
+                    {t(
+                      "pages.dnsServerUpsert.fields.keeneticNotice.navigation"
+                    )}
+                  </p>
+                  <p>
+                    {t(
+                      "pages.dnsServerUpsert.fields.keeneticNotice.dotDohOnly"
+                    )}
+                  </p>
+                </AlertDescription>
+              </Alert>
+            </FieldContent>
+          </Field>
         ) : null}
 
         {!isKeeneticDns ? (
           <>
             <Field invalid={Boolean(form.errorFor("address"))}>
               <FieldLabel htmlFor="dns-server-address">
-                {t("pages.dnsServerUpsert.fields.address")}
+                {isDoh
+                  ? t("pages.dnsServerUpsert.fields.dohUrl")
+                  : t("pages.dnsServerUpsert.fields.address")}
               </FieldLabel>
               <FieldContent>
                 <Input
@@ -340,13 +406,19 @@ function DnsServerForm({
                   onChange={(event) =>
                     form.setValue("address", event.target.value)
                   }
-                  placeholder={t(
-                    "pages.dnsServerUpsert.fields.addressPlaceholder"
-                  )}
+                  placeholder={
+                    isDoh
+                      ? t("pages.dnsServerUpsert.fields.dohUrlPlaceholder")
+                      : t("pages.dnsServerUpsert.fields.addressPlaceholder")
+                  }
                   value={values.address}
                 />
                 <FieldHint
-                  description={t("pages.dnsServerUpsert.fields.addressHint")}
+                  description={
+                    isDoh
+                      ? t("pages.dnsServerUpsert.fields.dohUrlHint")
+                      : t("pages.dnsServerUpsert.fields.addressHint")
+                  }
                   error={form.errorFor("address")}
                 />
               </FieldContent>
@@ -419,7 +491,6 @@ function getDnsServerDraft(server?: DnsServer): DnsServerDraft {
     type: server.type ?? DnsServerType.static,
     address: server.address ?? "",
     detour: server.detour ?? "",
-    keenetic_upstreams: server.keenetic_upstreams ?? [],
   }
 }
 
@@ -443,7 +514,11 @@ function getTagError(value: string, servers: DnsServer[], editingTag?: string) {
 
 function getDnsTypeError(value: string) {
   const t = i18n.t.bind(i18n)
-  if (value === DnsServerType.static || value === DnsServerType.keenetic) {
+  if (
+    value === DnsServerType.static ||
+    value === DnsServerType.keenetic ||
+    value === DnsServerType.doh
+  ) {
     return undefined
   }
 
@@ -461,6 +536,36 @@ function getAddressError(value: string) {
   }
 
   return undefined
+}
+
+function getDohUrlError(value: string) {
+  const t = i18n.t.bind(i18n)
+  if (!value.trim()) {
+    return t("common.validation.required")
+  }
+
+  if (!normalizeDohUrl(value)) {
+    return t("pages.dnsServerUpsert.validation.dohUrlInvalid")
+  }
+
+  return undefined
+}
+
+/** The URL of a DNS-over-HTTPS server: https, a host, no user name. */
+function normalizeDohUrl(value: string) {
+  const trimmed = value.trim()
+  try {
+    const url = new URL(trimmed)
+    if (url.protocol !== "https:" || !url.hostname || url.username) {
+      return null
+    }
+    if (url.hash || /\s/.test(trimmed)) {
+      return null
+    }
+    return trimmed
+  } catch {
+    return null
+  }
 }
 
 function normalizeDnsAddress(value: string) {

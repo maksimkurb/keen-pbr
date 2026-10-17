@@ -243,7 +243,7 @@ Config make_config(const std::string& mode, const std::string& domain) {
         "lists": {"l": {"domains": [")" + domain + R"("]}},
         "dns": {
             "servers": [{"tag":"up","address":"1.1.1.1"}],
-            "rules": [{"list":["l"],"server":"up"}])";
+            "rules": [{"list":["l"],"servers":["up"]}])";
     if (!mode.empty()) {
         json += R"(, "resolver_integration": ")" + mode + R"(")";
     }
@@ -1166,7 +1166,7 @@ Config make_config_with_default_servers() {
         "lists": {"l": {"domains": ["example.com"]}},
         "dns": {
             "servers": [{"tag":"up","address":"1.1.1.1"}],
-            "rules": [{"list":["l"],"server":"up"}],
+            "rules": [{"list":["l"],"servers":["up"]}],
             "fallback": ["up"],
             "resolver_integration": "dnsmasq"
         }

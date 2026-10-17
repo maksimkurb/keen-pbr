@@ -15,4 +15,5 @@ export type DnsServerType = typeof DnsServerType[keyof typeof DnsServerType];
 export const DnsServerType = {
   static: 'static',
   keenetic: 'keenetic',
+  doh: 'doh',
 } as const;

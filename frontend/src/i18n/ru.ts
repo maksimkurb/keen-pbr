@@ -267,11 +267,9 @@ export const ruTranslation = {
       outboundUnavailable: "{{tag}} недоступен",
       outboundDegraded: "{{tag}} работает с перебоями",
       groupMembersFailing: "{{tag}}: неисправных участников: {{count}}",
-      keeneticDnsUpstreamMissing: "DNS-сервер Keenetic не найден",
-      keeneticDnsUpstreamBlocked:
-        "{{tag}}: {{upstreams}} больше нет в настройках Keenetic, запросы блокируются",
-      keeneticDnsUpstreamPartial:
-        "{{tag}}: {{upstreams}} больше нет в настройках Keenetic, используются остальные выбранные серверы",
+      dohUnavailable: "DNS-over-HTTPS серверы не используются",
+      dohNoCertificates:
+        "На роутере нет сертификатов центров сертификации, чтобы проверить серверы. Установите пакет ca-certificates.",
       hostWarning: {
         nat_missing: "{{interface}}: для этого WAN нет NAT (MASQUERADE/SNAT)",
         nat_partial: "{{interface}}: NAT покрывает только часть подсетей",
@@ -989,23 +987,6 @@ export const ruTranslation = {
       setWrite: "Запись в набор заняла {{value}}",
     },
   },
-  keeneticDns: {
-    notFound: "{{name}} (не найден)",
-    upstreams: {
-      label: "Вышестоящие серверы",
-      hint: "Серверы встроенного DNS Keenetic, которые использует этот сервер. Если не выбран ни один, используются все. Серверы задаются в веб-интерфейсе Keenetic (Сетевые правила -> Интернет-фильтры -> Настройка DNS); если там настроены DoT или DoH, используются только они.",
-      none: "В Keenetic не задано ни одного вышестоящего сервера.",
-      balanced:
-        "Запросы распределяются по выбранным серверам по очереди. Если один перестаёт отвечать, его заменяет следующий.",
-    },
-    domainServers: {
-      title: "Для отдельных доменов",
-      hint: "Эти серверы заданы в общих настройках DNS Keenetic.",
-    },
-    openSettings: "Открыть настройки DNS Keenetic",
-    refresh: "Синхронизировать с Keenetic",
-    loadError: "Не удалось прочитать DNS-серверы с роутера: {{message}}",
-  },
   pages: {
     security: {
       title: "Безопасность",
@@ -1164,7 +1145,6 @@ export const ruTranslation = {
       title: "DNS-серверы",
       description: "Вышестоящие DNS-серверы для разрешения доменных имён.",
       keeneticAddress: "Встроенный DNS Keenetic",
-      keeneticUpstreamsAddress: "Keenetic: {{upstreams}}",
       actions: {
         add: "Добавить DNS-сервер",
       },
@@ -1223,12 +1203,26 @@ export const ruTranslation = {
         tagHint: "Короткое название сервера для использования в DNS-правилах.",
         type: "Тип DNS",
         typeHint:
-          "Keenetic использует текущий встроенный DNS роутера. DNS без шифрования использует IP-адрес, введённый вручную.",
+          "Keenetic использует текущий встроенный DNS роутера. DNS без шифрования использует IP-адрес, введённый вручную. DNS-over-HTTPS отправляет запросы серверу по зашифрованному HTTPS-соединению.",
         typeOptions: {
           keenetic: "Keenetic DNS",
           static: "DNS без шифрования",
+          doh: "DNS-over-HTTPS",
+        },
+        keeneticNotice: {
+          description:
+            "Для этого режима DNS-серверы нужно настроить в веб-интерфейсе Keenetic.",
+          openLink: "Перейти к настройке",
+          navigation:
+            "Перейдите в Сетевые правила -> Интернет-фильтры -> Настройка DNS.",
+          dotDohOnly:
+            "Если там настроены DoT или DoH серверы, будут использоваться только они.",
         },
         address: "Адрес",
+        dohUrl: "URL",
+        dohUrlPlaceholder: "https://dns.google/dns-query",
+        dohUrlHint:
+          "Адрес DNS-over-HTTPS сервиса, начиная с `https://`.",
         addressPlaceholder: "1.1.1.1 или [2606:4700::1111]:53",
         addressHint:
           "IP-адрес сервера, напр. `1.1.1.1` или `[2606:4700::1111]:53`.",
@@ -1243,6 +1237,7 @@ export const ruTranslation = {
         typeRequired: "Тип DNS обязателен.",
         addressInvalid:
           "Адрес должен быть корректным IPv4/IPv6 значением с необязательным портом.",
+        dohUrlInvalid: "URL должен начинаться с https:// и содержать имя хоста.",
       },
       actions: {
         create: "Создать DNS-сервер",
@@ -1779,8 +1774,8 @@ export const ruTranslation = {
       editTitle: "Изменить DNS-правило",
       editNamedTitle: "Изменить DNS-правило <entity>#{{number}}</entity>",
       description:
-        "Это правило определяет, какой DNS-сервер использовать для доменов из конкретного списка.",
-      cardDescription: "Укажите имена списков и DNS-сервер для этого правила.",
+        "Это правило определяет, какие DNS-серверы использовать для доменов из конкретного списка.",
+      cardDescription: "Укажите имена списков и DNS-серверы для этого правила.",
       messages: {
         saved:
           "DNS-правило сохранено в черновик. Примените новый конфиг, чтобы записать его.",
@@ -1788,7 +1783,7 @@ export const ruTranslation = {
       validation: {
         notFound: "Запрошенное DNS-правило не найдено.",
         fixErrors: "Исправьте ошибки валидации перед сохранением.",
-        serverRequired: "Правило должно ссылаться на существующий DNS-сервер.",
+        serverRequired: "Выберите хотя бы один существующий DNS-сервер.",
         unknownLists: "Неизвестные списки: {{lists}}",
         duplicate: "Дублирующееся правило.",
       },
@@ -1800,16 +1795,19 @@ export const ruTranslation = {
       },
       actions: { create: "Создать правило", save: "Сохранить правило" },
       fields: {
-        serverTag: "DNS-сервер",
-        selectServer: "Выберите DNS-сервер",
-        dnsServers: "DNS-серверы",
+        serverTag: "DNS-серверы",
+        serversPlaceholderDescription:
+          "Выберите DNS-серверы, которые разрешают домены этого правила.",
+        noServersSelected: "DNS-серверы не выбраны",
+        serversRoundRobinHint:
+          "Если серверов несколько, запросы уходят на них по очереди. Если сервер не отвечает, его заменяет следующий.",
         noServers: "На странице DNS-серверы не добавлено ни одного сервера.",
         listNames: "Списки доменов",
         allowDomainRebinding: "Разрешить DNS rebind для этих доменов",
         allowDomainRebindingHint:
           "Включайте только если вы точно знаете, что этот список доменов указывает на внутренние сервисы. Тогда ответы для подходящих доменов могут содержать внутренние/приватные IP-адреса (например, 192.168.0.0/16, 10.0.0.0/8 и другие диапазоны локальной сети).",
         listPlaceholderDescription:
-          "Выберите списки для этого правила. Совпадающие домены будут использовать этот DNS-сервер.",
+          "Выберите списки для этого правила. Совпадающие домены будут использовать эти DNS-серверы.",
         noListsSelected: "Списки не выбраны",
         noLists:
           "Не найдено ни одного списка. Сначала создайте список на странице «Списки».",

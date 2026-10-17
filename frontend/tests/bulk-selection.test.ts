@@ -57,8 +57,8 @@ describe("bulk DNS server delete helpers", () => {
         fallback: ["wan_dns"],
         servers: [{ tag: "wan_dns" }, { tag: "vpn_dns" }],
         rules: [
-          { server: "wan_dns", list: ["ads"] },
-          { server: "vpn_dns", list: ["work"] },
+          { servers: ["wan_dns"], list: ["ads"] },
+          { servers: ["vpn_dns"], list: ["work"] },
         ],
       },
     }
@@ -76,8 +76,8 @@ describe("bulk DNS server delete helpers", () => {
         fallback: ["wan_dns", "vpn_dns"],
         servers: [{ tag: "wan_dns" }, { tag: "vpn_dns" }],
         rules: [
-          { server: "wan_dns", list: ["ads"] },
-          { server: "vpn_dns", list: ["work"] },
+          { servers: ["wan_dns"], list: ["ads"] },
+          { servers: ["vpn_dns"], list: ["work"] },
         ],
       },
     }
@@ -88,9 +88,46 @@ describe("bulk DNS server delete helpers", () => {
       dns: {
         fallback: ["vpn_dns"],
         servers: [{ tag: "vpn_dns" }],
-        rules: [{ server: "vpn_dns", list: ["work"] }],
+        rules: [{ servers: ["vpn_dns"], list: ["work"] }],
       },
     })
+  })
+})
+
+describe("bulk DNS server delete helpers with several servers per rule", () => {
+  const config: ConfigObject = {
+    dns: {
+      servers: [{ tag: "a" }, { tag: "b" }, { tag: "c" }],
+      rules: [
+        { servers: ["a", "b"], list: ["ads"] },
+        { servers: ["c"], list: ["work"] },
+      ],
+    },
+  }
+
+  test("a rule using a deleted server is reported", () => {
+    expect(getDnsServerDeleteReferenceInfo(config, ["b"])).toEqual({
+      matchingRuleIndexes: [0],
+      matchingRulesCount: 1,
+      usesFallback: false,
+    })
+  })
+
+  test("a rule keeps its other servers and loses the deleted one", () => {
+    const updated = buildUpdatedConfigForDnsServersDelete(config, ["b"], true)
+    expect(updated.dns?.rules).toEqual([
+      { servers: ["a"], list: ["ads"] },
+      { servers: ["c"], list: ["work"] },
+    ])
+  })
+
+  test("a rule left without servers is removed", () => {
+    const updated = buildUpdatedConfigForDnsServersDelete(
+      config,
+      ["a", "b"],
+      true
+    )
+    expect(updated.dns?.rules).toEqual([{ servers: ["c"], list: ["work"] }])
   })
 })
 
@@ -109,8 +146,8 @@ describe("bulk list delete helpers", () => {
       },
       dns: {
         rules: [
-          { server: "dns", list: ["ads"] },
-          { server: "dns", list: ["work"] },
+          { servers: ["dns"], list: ["ads"] },
+          { servers: ["dns"], list: ["work"] },
         ],
       },
     }
@@ -121,7 +158,9 @@ describe("bulk list delete helpers", () => {
     expect(nextConfig.route?.rules).toEqual([
       { list: ["work"], outbound: "vpn" },
     ])
-    expect(nextConfig.dns?.rules).toEqual([{ server: "dns", list: ["work"] }])
+    expect(nextConfig.dns?.rules).toEqual([
+      { servers: ["dns"], list: ["work"] },
+    ])
     expect(listDeletesAltersRoutingOrDnsRefs(config, nextConfig)).toBe(true)
   })
 })

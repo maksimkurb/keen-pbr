@@ -33,6 +33,9 @@ export interface HealthResponse {
   /** Host platform build variant. On OpenWrt this includes `target/subtarget`; on other OSes it contains the detected target.
    */
   build_variant: string;
+  /** Whether the daemon is built with DNS-over-HTTPS support. When `false`, DNS servers of type `doh` are rejected.
+   */
+  doh_supported?: boolean;
   /** Server-authoritative Unix timestamp (seconds) captured when `POST /api/config/save` started applying the staged config.
    */
   apply_started_ts?: number;

@@ -29,7 +29,7 @@ export function getDnsServerDeleteImpact(
 
   return {
     matchingRuleIndexes: rules.flatMap((rule, index) =>
-      tagSet.has(rule.server) ? [index] : []
+      rule.servers.some((tag) => tagSet.has(tag)) ? [index] : []
     ),
     usesFallback: fallback.some((tag) => tagSet.has(tag)),
   }
@@ -52,8 +52,12 @@ export function buildUpdatedConfigForDnsServersDelete(
       servers: (dnsConfig?.servers ?? []).filter(
         (server) => !tagSet.has(server.tag)
       ),
+      // A rule loses the deleted servers; one left without any is removed.
       rules: cleanupReferences
-        ? rules.filter((rule) => !tagSet.has(rule.server))
+        ? rules.flatMap((rule) => {
+            const servers = rule.servers.filter((tag) => !tagSet.has(tag))
+            return servers.length > 0 ? [{ ...rule, servers }] : []
+          })
         : rules,
       fallback: cleanupReferences
         ? fallback.filter((tag) => !tagSet.has(tag))

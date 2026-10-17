@@ -53,7 +53,7 @@ Open **DNS** > **DNS servers** > **Add DNS server**. Fill in **Name**, **DNS typ
 
 ### Link the server to lists
 
-Open **DNS** > **DNS Rules** > **Add DNS rule**. In **Domain lists** pick the lists, and in **DNS server** the server from the previous step.
+Open **DNS** > **DNS Rules** > **Add DNS rule**. In **Domain lists** pick the lists, and in **DNS servers** the server from the previous step. You can pick several servers.
 
 ### Set default DNS servers (optional)
 
@@ -78,7 +78,7 @@ The same settings in `config.json`:
     "rules": [
       {
         "list": ["ai_services"],
-        "server": "vpn_dns",
+        "servers": ["vpn_dns"],
         "allow_domain_rebinding": false
       }
     ],
@@ -87,9 +87,21 @@ The same settings in `config.json`:
 }
 ```
 
-**Several DNS servers for one list.** Add one rule per server for the same list. dnsmasq queries all of them, then keeps using the one that answered first, and switches to another when it stops answering.
+**Several DNS servers for one list.** Pick two or more servers in the **DNS servers** field of the rule. Requests for the list's domains go to the servers in turn. If a server does not answer, the next one takes over, and the silent one is skipped for a few seconds.
 
-dnsmasq keeps a separate record (about 200 bytes) for every domain and server pair. Each extra server adds that much memory for every domain of the list, so two servers for a list of 10,000 domains take about 4 MB instead of 2 MB.
+```json { filename="config.json" }
+{
+  "dns": {
+    "servers": [
+      {"tag": "vpn_dns", "address": "10.8.0.1", "detour": "vpn"},
+      {"tag": "vpn_dns_2", "address": "10.8.0.2", "detour": "vpn"}
+    ],
+    "rules": [
+      {"list": ["ai_services"], "servers": ["vpn_dns", "vpn_dns_2"]}
+    ]
+  }
+}
+```
 
 ## DNS servers
 
@@ -98,10 +110,9 @@ A server name (`tag`) must be unique: lowercase Latin letters, digits and `_`, s
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `tag` | string | yes | Server name (**Name**) |
-| `type` | string | no | Server type (**DNS type**): `static` (**Plaintext DNS**, default) or `keenetic` (**Keenetic DNS**, {{< only keenetic >}}) |
-| `address` | string | for `static` | IP address of the DNS server, with optional port, for example `"10.8.0.1"`, `"10.8.0.1:5353"`, `"2001:4860:4860::8888"`, or `"[2001:4860:4860::8888]:5353"` |
+| `type` | string | no | Server type (**DNS type**): `static` (**Plaintext DNS**, default), `doh` (**DNS-over-HTTPS**) or `keenetic` (**Keenetic DNS**, {{< only keenetic >}}) |
+| `address` | string | for `static` and `doh` | `static`: IP address of the DNS server, with optional port, for example `"10.8.0.1"`, `"10.8.0.1:5353"`, `"2001:4860:4860::8888"`, or `"[2001:4860:4860::8888]:5353"`. `doh`: the server URL starting with `https://`, for example `"https://dns.google/dns-query"` (**URL**) |
 | `detour` | string | no | Outbound the router itself uses to send queries to this server (**Make requests via Outbound**) |
-| `keenetic_upstreams` | array | no | Keenetic DNS servers this server uses (**Upstream servers**). Each item has `protocol` (`"DoT"`, `"DoH"` or `"Plain"`) and `target`, as the Web UI shows them. Unset: all of them. Only for `type: "keenetic"`. With two or more servers it cannot be combined with `detour`. {{< only keenetic >}} |
 
 `detour` is useful when a DNS server must be reached through a specific connection, usually the same VPN. It does not affect queries that devices in your network send directly to the same address: route them with a normal route rule.
 
@@ -124,6 +135,11 @@ A server name (`tag`) must be unique: lowercase Latin letters, digits and `_`, s
         "address": "[2001:4860:4860::8888]:53"
       },
       {
+        "tag": "google_doh",
+        "type": "doh",
+        "address": "https://dns.google/dns-query"
+      },
+      {
         "tag": "keenetic_dns",
         "type": "keenetic"
       }
@@ -132,43 +148,21 @@ A server name (`tag`) must be unique: lowercase Latin letters, digits and `_`, s
 }
 ```
 
+### The "DNS-over-HTTPS" type {#dns-over-https}
+
+DNS-over-HTTPS (DoH) sends requests to the server over an encrypted HTTPS connection, so your ISP cannot read or spoof the answers. Pick **DNS-over-HTTPS** as **DNS type** and enter the server address in **URL**, for example `https://dns.google/dns-query` or `https://cloudflare-dns.com/dns-query`.
+
+- Use the server in a DNS rule or in the default servers like any other one. Several DoH servers, or a DoH server together with plain ones, can be picked in one rule.
+- **Make requests via Outbound** works as for other servers: keen-pbr connects to the DoH server through the chosen outbound.
+- The router must have CA certificates installed to check the server (Keenetic: the `ca-certificates` package in Entware; OpenWrt: `ca-bundle`; Debian: `ca-certificates`). If it has none, the status page shows the problem "DNS-over-HTTPS servers are not used".
+
 ### The "Keenetic DNS" type
 
 {{< only keenetic >}}\
 On Keenetic routers, `type: "keenetic"` takes the DNS servers from the router's current settings. You set them in the Keenetic web interface: **Network rules** > **Internet safety** > **DNS Configuration**. If DoT or DoH servers are set there, only they are used.
 
 - `address` is not set for it.
-- keen-pbr takes the servers that are not tied to a domain. If any of them are encrypted ({{< term "DoH" >}}/DoT), all encrypted servers are used. Otherwise, all plain servers are used.
-
-#### Upstream servers
-
-By default queries go to all the servers set in Keenetic. To use only some of them, tick them in the **Upstream servers** field (`keenetic_upstreams`). The list shows the servers set in Keenetic with their type: DoH, DoT or plain. The **Sync with Keenetic** button re-reads the list right away. Servers for specific domains (your ISP's, for example) are listed separately: they are set in the general DNS settings of Keenetic, and the **Open Keenetic DNS settings** button leads there.
-
-- One server ticked: all requests go to it.
-- Two or more ticked: requests are spread over them in turn. If a server stops answering, the next one takes over, and the silent one is skipped for a while.
-
-You can have several servers with `type: "keenetic"`, for example one for DoT servers and another for DoH servers. This lets you send different domain lists to different servers.
-
-```json { filename="config.json" }
-{
-  "dns": {
-    "servers": [
-      {
-        "tag": "keenetic_dot",
-        "type": "keenetic",
-        "keenetic_upstreams": [
-          { "protocol": "DoT", "target": "8.8.8.8@dns.google" },
-          { "protocol": "DoT", "target": "8.8.4.4@dns.google" }
-        ]
-      }
-    ]
-  }
-}
-```
-
-If a ticked server is removed in the Keenetic settings, keen-pbr uses the remaining ones. When none is left, the domains this server is selected for are not resolved. The status page shows the problem "Keenetic DNS server not found" in both cases.
-
-keen-pbr picks up changes in the Keenetic settings on its own within a few minutes. The **Sync with Keenetic** button on the DNS servers page and in the server form does it right away.
+- keen-pbr reads the servers that are not tied to a domain from the **System** DNS proxy group. If any of them are encrypted ({{< term "DoH" >}}/DoT), all encrypted servers are used in order. Otherwise, all plain servers are used in order.
 
 ## Field reference
 
@@ -189,7 +183,7 @@ Rule (`rules[]` element):
 |---|---|---|---|
 | `enabled` | bool | true | Whether the rule is active |
 | `list` | array of string | required | Names of lists whose domains use this DNS server (**Domain lists**) |
-| `server` | string | required | DNS server tag (**DNS server**) |
+| `servers` | array of string | required | Tags of the DNS servers (**DNS servers**). With two or more, requests go to them in turn |
 | `allow_domain_rebinding` | bool | false | Allow private IP answers (RFC1918, local network addresses) for these domains → `rebind-domain-ok` in dnsmasq (**Allow domain rebinding for these domains**). Turn it on only if the list points to internal services. |
 
 ## DNS interception

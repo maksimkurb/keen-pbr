@@ -19,12 +19,11 @@ namespace keen_pbr3 {
 struct DnsmasqListStats {
     std::string name;
     std::vector<std::string> servers;    // dns.rules server tags, in rule order
-    std::vector<std::string> upstreams;  // their resolved addresses, deduplicated
+    std::vector<std::string> upstreams;  // the servers behind them (addresses or DoH URLs), deduplicated
     size_t domains = 0;                  // domains written for the list
     bool allow_rebind = false;
     bool url_pending = false;            // URL source declared but not downloaded yet
     std::string skipped;                 // why the list was left out; empty when written
-    std::string blocked;                 // why its domains are refused (written without upstream); empty otherwise
 };
 
 struct DnsmasqGenStats {

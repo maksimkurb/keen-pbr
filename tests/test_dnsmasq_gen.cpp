@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <streambuf>
@@ -37,7 +38,7 @@ DnsRule make_rule(const std::string& list_name, const std::string& server_tag,
                   bool allow_domain_rebinding = false) {
     DnsRule rule;
     rule.list = std::vector<std::string>{list_name};
-    rule.server = server_tag;
+    rule.servers = std::vector<std::string>{server_tag};
     rule.allow_domain_rebinding = allow_domain_rebinding;
     return rule;
 }
@@ -163,7 +164,7 @@ TEST_CASE("dnsmasq gen: multiple rules and servers") {
     CHECK(gen.stats.domains == 2);
 }
 
-TEST_CASE("dnsmasq gen: every enabled rule naming a list adds its upstreams") {
+TEST_CASE("dnsmasq gen: every enabled rule naming a list adds its servers to one forwarder") {
     DnsConfig cfg;
     cfg.servers = std::vector<DnsServer>{make_server("a", "8.8.8.8"),
                                          make_server("b", "1.1.1.1"),
@@ -175,14 +176,21 @@ TEST_CASE("dnsmasq gen: every enabled rule naming a list adds its upstreams") {
     cfg.rules->push_back(disabled);
     const auto gen = run_generate(cfg, {{"l1", make_list_cfg({"one.example", "two.example"})}});
 
-    // One row per upstream, in rule order; a repeated tag or address adds nothing.
+    // Several servers: one row for the list, aimed at the forwarder, which
+    // tries the servers in rule order; a repeated tag or address adds nothing.
     CHECK(lines_with_prefix(gen.output, "server=/") ==
-          std::vector<std::string>{"server=/one.example/two.example/8.8.8.8",
-                                   "server=/one.example/two.example/1.1.1.1"});
+          std::vector<std::string>{"server=/one.example/two.example/127.0.0.89#5380"});
     REQUIRE(gen.stats.lists.size() == 1);
     CHECK(gen.stats.lists[0].servers == std::vector<std::string>{"a", "b", "dup"});
     CHECK(gen.stats.lists[0].upstreams == std::vector<std::string>{"8.8.8.8", "1.1.1.1"});
     CHECK(gen.stats.domains == 2);
+
+    const DnsServerRegistry registry(cfg);
+    REQUIRE(registry.balancer_groups().size() == 1);
+    CHECK(registry.balancer_groups()[0].port == 5380);
+    CHECK(registry.balancer_groups()[0].upstreams ==
+          std::vector<DnsBalancerUpstream>{DnsBalancerUpstream::plain("8.8.8.8"),
+                                           DnsBalancerUpstream::plain("1.1.1.1")});
 }
 
 TEST_CASE("dnsmasq gen: rebinding is allowed when any rule for the list allows it") {
@@ -191,7 +199,7 @@ TEST_CASE("dnsmasq gen: rebinding is allowed when any rule for the list allows i
     cfg.rules = std::vector<DnsRule>{make_rule("l1", "a"), make_rule("l1", "b", true)};
     const auto gen = run_generate(cfg, {{"l1", make_list_cfg({"one.example"})}});
     CHECK(gen.output.find("rebind-domain-ok=/one.example/\n") != std::string::npos);
-    CHECK(lines_with_prefix(gen.output, "server=/one.example/").size() == 2);
+    CHECK(lines_with_prefix(gen.output, "server=/one.example/").size() == 1);
 }
 
 TEST_CASE("dnsmasq gen: a server without an address does not hide the others") {
@@ -309,316 +317,6 @@ TEST_CASE("dnsmasq gen: keenetic-type server expands to its upstreams") {
     CHECK(gen.output.find("server=198.51.100.10\n") == std::string::npos);
     CHECK(gen.output.find("server=/example.com/127.0.0.1#40500\n") != std::string::npos);
     CHECK(gen.output.find("server=/example.com/127.0.0.1#40508\n") != std::string::npos);
-}
-
-namespace {
-
-// System with a DoT and two DoH stub upstreams and servers for one domain.
-void serve_keenetic_system() {
-    set_keenetic_dns_fetcher_for_tests([]() {
-        return std::string(R"({
-          "proxy-status": [
-            {
-              "proxy-name": "System",
-              "proxy-config": "dns_server = 127.0.0.1:40500 . # 8.8.8.8@dns.google\ndns_server = 127.0.0.1:40508 . # https://dns.google/dns-query@dnsm\ndns_server = 127.0.0.1:40509 . # https://dns.quad9.net/dns-query@dnsm\ndns_server = 85.21.192.5 beeline.ru\ndns_udp_port = 53\n"
-            },
-            {
-              "proxy-name": "Policy0",
-              "proxy-config": "dns_server = 127.0.0.1:40524 . # https://resolver.example/dns-query@dnsm\ndns_udp_port = 41100\n"
-            }
-          ]
-        })");
-    });
-}
-
-api::KeeneticDnsProxyUpstreamElement upstream_of(api::KeeneticDnsProtocol protocol,
-                                                 const std::string& target) {
-    api::KeeneticDnsProxyUpstreamElement upstream;
-    upstream.protocol = protocol;
-    upstream.target = target;
-    return upstream;
-}
-
-const auto kGoogleDot = upstream_of(api::KeeneticDnsProtocol::DO_T, "8.8.8.8@dns.google");
-const auto kGoogleDoh = upstream_of(api::KeeneticDnsProtocol::DO_H, "https://dns.google/dns-query");
-const auto kQuad9Doh = upstream_of(api::KeeneticDnsProtocol::DO_H, "https://dns.quad9.net/dns-query");
-const auto kGoneDot = upstream_of(api::KeeneticDnsProtocol::DO_T, "9.9.9.9@dns9.quad9.net");
-
-DnsServer make_keenetic_server(const std::string& tag,
-                               std::vector<api::KeeneticDnsProxyUpstreamElement> upstreams = {}) {
-    DnsServer server;
-    server.tag = tag;
-    server.type = api::DnsServerType::KEENETIC;
-    if (!upstreams.empty()) {
-        server.keenetic_upstreams = std::move(upstreams);
-    }
-    return server;
-}
-
-} // namespace
-
-TEST_CASE("dnsmasq gen: no upstream selection emits every System upstream, without a balancer") {
-    KeeneticDnsTestStateGuard guard;
-    serve_keenetic_system();
-
-    DnsConfig cfg;
-    cfg.servers = std::vector<DnsServer>{make_keenetic_server("sys")};
-    cfg.rules = std::vector<DnsRule>{make_rule("mylist", "sys")};
-    const auto gen = run_generate(cfg, {{"mylist", make_list_cfg({"example.com"})}});
-
-    CHECK(gen.output.find("server=/example.com/127.0.0.1#40500\n") != std::string::npos);
-    CHECK(gen.output.find("server=/example.com/127.0.0.1#40508\n") != std::string::npos);
-    CHECK(gen.output.find("server=/example.com/127.0.0.1#40509\n") != std::string::npos);
-    CHECK(gen.output.find(kDnsBalancerAddress) == std::string::npos);
-    CHECK(DnsServerRegistry(cfg).balancer_groups().empty());
-}
-
-TEST_CASE("dnsmasq gen: one selected upstream is a direct server entry") {
-    KeeneticDnsTestStateGuard guard;
-    serve_keenetic_system();
-
-    DnsConfig cfg;
-    cfg.servers = std::vector<DnsServer>{make_keenetic_server("doh", {kGoogleDoh})};
-    cfg.rules = std::vector<DnsRule>{make_rule("mylist", "doh")};
-    const auto gen = run_generate(cfg, {{"mylist", make_list_cfg({"example.com"})}});
-
-    CHECK(lines_with_prefix(gen.output, "server=/example.com/") ==
-          std::vector<std::string>{"server=/example.com/127.0.0.1#40508"});
-    CHECK(DnsServerRegistry(cfg).balancer_groups().empty());
-}
-
-TEST_CASE("dnsmasq gen: two selected upstreams share one balancer entry per list") {
-    KeeneticDnsTestStateGuard guard;
-    serve_keenetic_system();
-
-    DnsConfig cfg;
-    cfg.servers = std::vector<DnsServer>{make_keenetic_server("pair", {kGoogleDot, kQuad9Doh}),
-                                         make_keenetic_server("trio",
-                                                              {kGoogleDot, kGoogleDoh, kQuad9Doh})};
-    cfg.rules = std::vector<DnsRule>{make_rule("one", "pair"), make_rule("two", "trio")};
-    const auto gen = run_generate(cfg, {{"one", make_list_cfg({"example.com"})},
-                                        {"two", make_list_cfg({"other.org"})}});
-
-    const std::string first = std::string(kDnsBalancerAddress) + "#" +
-                              std::to_string(kDnsBalancerBasePort);
-    const std::string second = std::string(kDnsBalancerAddress) + "#" +
-                               std::to_string(kDnsBalancerBasePort + 1);
-    CHECK(lines_with_prefix(gen.output, "server=/example.com/") ==
-          std::vector<std::string>{"server=/example.com/" + first});
-    CHECK(lines_with_prefix(gen.output, "server=/other.org/") ==
-          std::vector<std::string>{"server=/other.org/" + second});
-    CHECK(gen.output.find("127.0.0.1#40508\n") == std::string::npos);
-
-    const DnsServerRegistry registry(cfg);
-    REQUIRE(registry.balancer_groups().size() == 2);
-    CHECK(registry.balancer_groups()[0].port == kDnsBalancerBasePort);
-    CHECK(registry.balancer_groups()[0].upstreams ==
-          std::vector<DnsBalancerUpstream>{{"127.0.0.1", 40500}, {"127.0.0.1", 40509}});
-    CHECK(registry.balancer_groups()[1].port == kDnsBalancerBasePort + 1);
-    CHECK(registry.balancer_groups()[1].upstreams.size() == 3);
-}
-
-TEST_CASE("dnsmasq gen: a renumbered upstream port changes the balancer, not the dnsmasq config") {
-    KeeneticDnsTestStateGuard guard;
-    serve_keenetic_system();
-    DnsConfig cfg;
-    cfg.servers = std::vector<DnsServer>{make_keenetic_server("pair", {kGoogleDot, kQuad9Doh})};
-    cfg.rules = std::vector<DnsRule>{make_rule("mylist", "pair")};
-    const auto before = run_generate(cfg, {{"mylist", make_list_cfg({"example.com"})}});
-
-    reset_keenetic_dns_test_state();
-    set_keenetic_dns_fetcher_for_tests([]() {
-        return std::string(R"({"proxy-status": [{"proxy-name": "System",
-          "proxy-config": "dns_server = 127.0.0.1:41000 . # 8.8.8.8@dns.google\ndns_server = 127.0.0.1:41009 . # https://dns.quad9.net/dns-query@dnsm\n"}]})");
-    });
-    const auto after = run_generate(cfg, {{"mylist", make_list_cfg({"example.com"})}});
-
-    // dnsmasq config is the same, so it is not reloaded; the balancer follows the new ports.
-    CHECK(after.hash == before.hash);
-    const DnsServerRegistry registry(cfg);
-    CHECK(registry.balancer_groups()[0].upstreams ==
-          std::vector<DnsBalancerUpstream>{{"127.0.0.1", 41000}, {"127.0.0.1", 41009}});
-}
-
-TEST_CASE("dnsmasq gen: a gone upstream blocks a single-upstream server") {
-    KeeneticDnsTestStateGuard guard;
-    serve_keenetic_system();
-
-    DnsConfig cfg;
-    cfg.servers = std::vector<DnsServer>{make_keenetic_server("vpn_dns", {kGoneDot})};
-    cfg.rules = std::vector<DnsRule>{make_rule("mylist", "vpn_dns")};
-    const auto gen = run_generate(cfg, {{"mylist", make_list_cfg({"example.com", "other.org"})}});
-
-    // An address-less server= row: dnsmasq answers instead of forwarding.
-    CHECK(gen.output.find("server=/example.com/other.org/\n") != std::string::npos);
-    REQUIRE(gen.stats.lists.size() == 1);
-    CHECK(gen.stats.lists[0].skipped.empty());
-    CHECK(gen.stats.lists[0].blocked.find("9.9.9.9@dns9.quad9.net") != std::string::npos);
-    CHECK(gen.stats.lists[0].domains == 2);
-}
-
-TEST_CASE("dnsmasq gen: a gone upstream of several is dropped from the balancer") {
-    KeeneticDnsTestStateGuard guard;
-    serve_keenetic_system();
-
-    DnsConfig cfg;
-    cfg.servers = std::vector<DnsServer>{make_keenetic_server("pair", {kGoogleDot, kGoneDot})};
-    cfg.rules = std::vector<DnsRule>{make_rule("mylist", "pair")};
-    const auto gen = run_generate(cfg, {{"mylist", make_list_cfg({"example.com"})}});
-
-    CHECK(gen.stats.lists[0].blocked.empty());
-    CHECK(gen.output.find("server=/example.com/" + std::string(kDnsBalancerAddress)) !=
-          std::string::npos);
-    const DnsServerRegistry registry(cfg);
-    REQUIRE(registry.balancer_groups().size() == 1);
-    CHECK(registry.balancer_groups()[0].upstreams ==
-          std::vector<DnsBalancerUpstream>{{"127.0.0.1", 40500}});
-    REQUIRE(registry.missing_keenetic_upstreams().size() == 1);
-    CHECK_FALSE(registry.missing_keenetic_upstreams()[0].blocked);
-}
-
-TEST_CASE("dnsmasq gen: a blocked server does not take down a list with a live server") {
-    KeeneticDnsTestStateGuard guard;
-    serve_keenetic_system();
-
-    DnsConfig cfg;
-    cfg.servers = std::vector<DnsServer>{make_keenetic_server("vpn_dns", {kGoneDot}),
-                                         make_server("plain", "9.9.9.9")};
-    cfg.rules = std::vector<DnsRule>{make_rule("mylist", "vpn_dns"),
-                                     make_rule("mylist", "plain")};
-    const auto gen = run_generate(cfg, {{"mylist", make_list_cfg({"example.com"})}});
-
-    CHECK(gen.output.find("server=/example.com/9.9.9.9\n") != std::string::npos);
-    CHECK(gen.output.find("server=/example.com/\n") == std::string::npos);
-    CHECK(gen.stats.lists[0].blocked.empty());
-}
-
-TEST_CASE("dnsmasq gen: a blocked fallback server adds no default upstream") {
-    KeeneticDnsTestStateGuard guard;
-    serve_keenetic_system();
-
-    DnsConfig cfg;
-    cfg.servers = std::vector<DnsServer>{make_keenetic_server("vpn_dns", {kGoneDot})};
-    cfg.fallback = std::vector<std::string>{"vpn_dns"};
-    const auto gen = run_generate(cfg, {});
-
-    CHECK(lines_with_prefix(gen.output, "server=").empty());
-    CHECK(gen.stats.fallback.empty());
-}
-
-TEST_CASE("dnsmasq gen: System domain-scoped servers are kept for a keenetic fallback server") {
-    KeeneticDnsTestStateGuard guard;
-    serve_keenetic_system();
-
-    DnsConfig cfg;
-    cfg.servers = std::vector<DnsServer>{make_keenetic_server("sys", {kGoogleDoh})};
-    cfg.fallback = std::vector<std::string>{"sys"};
-    const auto gen = run_generate(cfg, {});
-    CHECK(gen.output.find("server=/beeline.ru/85.21.192.5\n") != std::string::npos);
-}
-
-TEST_CASE("dnsmasq gen: a keenetic server used only by a rule leaves the default alone") {
-    KeeneticDnsTestStateGuard guard;
-    serve_keenetic_system();
-
-    DnsConfig cfg;
-    cfg.servers = std::vector<DnsServer>{make_keenetic_server("sys"),
-                                         make_server("plain", "1.1.1.1")};
-    cfg.fallback = std::vector<std::string>{"plain"};
-    cfg.rules = std::vector<DnsRule>{make_rule("mylist", "sys")};
-    const auto gen = run_generate(cfg, {{"mylist", make_list_cfg({"example.com"})}});
-    CHECK(gen.output.find("beeline.ru") == std::string::npos);
-    CHECK(gen.output.find("server=/example.com/127.0.0.1#40508\n") != std::string::npos);
-}
-
-TEST_CASE("dnsmasq gen: comments name what each upstream is") {
-    KeeneticDnsTestStateGuard guard;
-    serve_keenetic_system();
-
-    DnsConfig cfg;
-    cfg.servers = std::vector<DnsServer>{make_keenetic_server("sys"),
-                                         make_keenetic_server("pair", {kGoogleDot, kQuad9Doh}),
-                                         make_keenetic_server("gone", {kGoneDot}),
-                                         make_server("plain", "9.9.9.9")};
-    cfg.fallback = std::vector<std::string>{"sys"};
-    cfg.rules = std::vector<DnsRule>{make_rule("pairlist", "pair"),
-                                     make_rule("pairlist", "plain"),
-                                     make_rule("gonelist", "gone")};
-    const auto gen = run_generate(cfg, {{"pairlist", make_list_cfg({"example.com"})},
-                                        {"gonelist", make_list_cfg({"other.org"})}});
-
-    CHECK(gen.output.find("# sys: Keenetic System, DoH https://dns.google/dns-query\n"
-                          "server=127.0.0.1#40508\n") != std::string::npos);
-    CHECK(gen.output.find("# sys: Keenetic System, only beeline.ru\n"
-                          "server=/beeline.ru/85.21.192.5\n") != std::string::npos);
-    CHECK(gen.output.find("# List: pairlist\n"
-                          "#   127.0.0.89#5380 = pair: Keenetic System, balanced across 2: "
-                          "DoT 8.8.8.8@dns.google, DoH https://dns.quad9.net/dns-query\n"
-                          "#   9.9.9.9 = plain\n") != std::string::npos);
-    CHECK(gen.output.find("# List: gonelist\n#   Keenetic upstream 'DoT 9.9.9.9@dns9.quad9.net' is missing") !=
-          std::string::npos);
-}
-
-TEST_CASE("dnsmasq gen: System static records are kept for a System fallback server") {
-    KeeneticDnsTestStateGuard guard;
-    set_keenetic_dns_fetcher_for_tests([]() {
-        return std::string(R"({
-          "proxy-status": [
-            {
-              "proxy-name": "System",
-              "proxy-config": "dns_server = 198.51.100.10 .\nstatic_a = nas.home.example 192.168.1.20 0\nstatic_a = *.lab.example 192.168.1.30 0\nstatic_aaaa = nas.home.example fd00::20 0\ndns_udp_port = 53\n"
-            }
-          ]
-        })");
-    });
-
-    DnsConfig cfg;
-    cfg.servers = std::vector<DnsServer>{make_keenetic_server("sys"),
-                                         make_server("plain", "1.1.1.1")};
-
-    SUBCASE("System is the default resolver") {
-        cfg.fallback = std::vector<std::string>{"sys"};
-        const auto gen = run_generate(cfg, {});
-        CHECK(gen.output.find("host-record=nas.home.example,192.168.1.20\n") != std::string::npos);
-        CHECK(gen.output.find("host-record=nas.home.example,fd00::20\n") != std::string::npos);
-        CHECK(gen.output.find("address=/lab.example/192.168.1.30\n") != std::string::npos);
-    }
-    SUBCASE("System used only by a rule") {
-        cfg.fallback = std::vector<std::string>{"plain"};
-        cfg.rules = std::vector<DnsRule>{make_rule("mylist", "sys")};
-        const auto gen = run_generate(cfg, {{"mylist", make_list_cfg({"example.com"})}});
-        CHECK(gen.output.find("host-record=") == std::string::npos);
-        CHECK(gen.output.find("lab.example") == std::string::npos);
-    }
-}
-
-TEST_CASE("dns registry: missing upstreams are reported") {
-    KeeneticDnsTestStateGuard guard;
-    serve_keenetic_system();
-
-    DnsConfig cfg;
-    cfg.servers = std::vector<DnsServer>{make_keenetic_server("sys"),
-                                         make_keenetic_server("doh", {kGoogleDoh}),
-                                         make_keenetic_server("gone", {kGoneDot}),
-                                         make_keenetic_server("partial", {kQuad9Doh, kGoneDot})};
-    const DnsServerRegistry registry(cfg);
-
-    CHECK(registry.get_servers("sys").size() == 3);
-    REQUIRE(registry.get_servers("doh").size() == 1);
-    CHECK(registry.get_servers("doh")[0]->resolved_ip == "127.0.0.1");
-    CHECK(registry.get_servers("doh")[0]->port == 40508);
-    CHECK(registry.get_servers("gone").empty());
-    CHECK(registry.is_blocked("gone"));
-    CHECK_FALSE(registry.is_blocked("partial"));
-
-    REQUIRE(registry.missing_keenetic_upstreams().size() == 2);
-    CHECK(registry.missing_keenetic_upstreams()[0].tag == "gone");
-    CHECK(registry.missing_keenetic_upstreams()[0].blocked);
-    CHECK(registry.missing_keenetic_upstreams()[0].upstreams[0].target == "9.9.9.9@dns9.quad9.net");
-    CHECK(registry.missing_keenetic_upstreams()[1].tag == "partial");
-    CHECK_FALSE(registry.missing_keenetic_upstreams()[1].blocked);
-
-    CHECK(find_missing_keenetic_upstreams(cfg).size() == 2);
 }
 
 TEST_CASE("dnsmasq gen: hash is deterministic and tracks content") {
@@ -842,4 +540,126 @@ TEST_CASE("dnsmasq stamp: appended stamp line is not part of the hash") {
 
     CHECK(script_out.str().size() > script.output.size());
     CHECK(script_out.str().rfind(script.output, 0) == 0);
+}
+
+namespace {
+
+DnsServer make_doh_server(const std::string& tag, const std::string& url,
+                          std::optional<std::string> detour = std::nullopt) {
+    DnsServer srv;
+    srv.tag = tag;
+    srv.type = api::DnsServerType::DOH;
+    srv.address = url;
+    srv.detour = std::move(detour);
+    return srv;
+}
+
+DnsRule make_multi_rule(const std::string& list_name, std::vector<std::string> servers) {
+    DnsRule rule;
+    rule.list = std::vector<std::string>{list_name};
+    rule.servers = std::move(servers);
+    return rule;
+}
+
+} // namespace
+
+TEST_CASE("dnsmasq gen: one plain server is written straight, without a forwarder") {
+    const auto cfg = make_dns_cfg("l1", "a", "8.8.8.8");
+    const DnsServerRegistry registry(cfg);
+    CHECK(registry.balancer_groups().empty());
+    const auto gen = run_generate(cfg, {{"l1", make_list_cfg({"one.example"})}});
+    CHECK(lines_with_prefix(gen.output, "server=/") ==
+          std::vector<std::string>{"server=/one.example/8.8.8.8"});
+    CHECK(gen.output.find("127.0.0.89") == std::string::npos);
+}
+
+TEST_CASE("dnsmasq gen: one DoH server goes through a forwarder") {
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{make_doh_server("g", "https://dns.google/dns-query", "vpn")};
+    cfg.rules = std::vector<DnsRule>{make_multi_rule("l1", {"g"})};
+    const DnsServerRegistry registry(cfg);
+    REQUIRE(registry.balancer_groups().size() == 1);
+    CHECK(registry.uses_doh());
+    CHECK(registry.balancer_groups()[0].upstreams ==
+          std::vector<DnsBalancerUpstream>{
+              DnsBalancerUpstream::doh("https://dns.google/dns-query", "vpn")});
+    const auto gen = run_generate(cfg, {{"l1", make_list_cfg({"one.example", "two.example"})}});
+    CHECK(lines_with_prefix(gen.output, "server=/") ==
+          std::vector<std::string>{"server=/one.example/two.example/127.0.0.89#5380"});
+    REQUIRE(gen.stats.lists.size() == 1);
+    CHECK(gen.stats.lists[0].upstreams == std::vector<std::string>{"https://dns.google/dns-query"});
+}
+
+TEST_CASE("dnsmasq gen: a rule with several servers mixes plain and DoH in order") {
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{make_server("a", "10.0.0.1:5353"),
+                                         make_doh_server("g", "https://1.1.1.1/dns-query")};
+    cfg.rules = std::vector<DnsRule>{make_multi_rule("l1", {"g", "a"})};
+    const DnsServerRegistry registry(cfg);
+    REQUIRE(registry.balancer_groups().size() == 1);
+    CHECK(registry.balancer_groups()[0].upstreams ==
+          std::vector<DnsBalancerUpstream>{DnsBalancerUpstream::doh("https://1.1.1.1/dns-query"),
+                                           DnsBalancerUpstream::plain("10.0.0.1", 5353)});
+    // The server that resolves DoH host names is the first plain one.
+    REQUIRE(registry.bootstrap_server().has_value());
+    CHECK(*registry.bootstrap_server() == DnsBalancerUpstream::plain("10.0.0.1", 5353));
+}
+
+TEST_CASE("dnsmasq gen: lists with the same servers share a forwarder, others get their own") {
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{make_server("a", "8.8.8.8"), make_server("b", "1.1.1.1"),
+                                         make_server("c", "9.9.9.9")};
+    cfg.rules = std::vector<DnsRule>{make_multi_rule("l1", {"a", "b"}),
+                                     make_multi_rule("l2", {"a", "b"}),
+                                     make_multi_rule("l3", {"b", "c"})};
+    const DnsServerRegistry registry(cfg);
+    REQUIRE(registry.balancer_groups().size() == 2);
+    const auto gen = run_generate(cfg, {{"l1", make_list_cfg({"one.example"})},
+                                        {"l2", make_list_cfg({"two.example"})},
+                                        {"l3", make_list_cfg({"three.example"})}});
+    const auto l1 = registry.list_targets("l1").addresses;
+    CHECK(l1 == registry.list_targets("l2").addresses);
+    CHECK(l1 != registry.list_targets("l3").addresses);
+    CHECK(l1.size() == 1);
+    CHECK(lines_with_prefix(gen.output, "server=/").size() == 3);
+    // Ports are a function of the config only.
+    const DnsServerRegistry again(cfg);
+    CHECK(again.balancer_groups() == registry.balancer_groups());
+}
+
+TEST_CASE("dnsmasq gen: default servers stay separate rows, DoH ones get a forwarder each") {
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{make_server("a", "8.8.8.8"), make_server("b", "1.1.1.1"),
+                                         make_doh_server("g", "https://dns.google/dns-query"),
+                                         make_doh_server("h", "https://cloudflare-dns.com/dns-query")};
+    cfg.fallback = std::vector<std::string>{"a", "g", "b", "h"};
+    const DnsServerRegistry registry(cfg);
+    CHECK(registry.balancer_groups().size() == 2);
+    const auto gen = run_generate(cfg, {});
+    CHECK(gen.output.find("no-resolv\n") != std::string::npos);
+    const auto rows = lines_with_prefix(gen.output, "server=");
+    REQUIRE(rows.size() == 4);
+    CHECK(rows[0] == "server=8.8.8.8");
+    CHECK(rows[1].rfind("server=127.0.0.89#538", 0) == 0);
+    CHECK(rows[2] == "server=1.1.1.1");
+    CHECK(rows[3].rfind("server=127.0.0.89#538", 0) == 0);
+    CHECK(rows[1] != rows[3]);
+    CHECK(gen.stats.fallback.size() == 4);
+}
+
+TEST_CASE("dnsmasq gen: more server sets than forwarder ports is an error") {
+    DnsConfig cfg;
+    std::vector<DnsServer> servers;
+    std::vector<DnsRule> rules;
+    for (std::size_t i = 0; i < kDnsBalancerMaxGroups + 1; ++i) {
+        servers.push_back(make_doh_server("d" + std::to_string(i),
+                                          "https://h" + std::to_string(i) + ".example/dns-query"));
+        rules.push_back(make_multi_rule("l" + std::to_string(i), {"d" + std::to_string(i)}));
+    }
+    cfg.servers = servers;
+    cfg.rules = rules;
+    const DnsServerRegistry registry(cfg);
+    CHECK(registry.balancer_groups().size() == kDnsBalancerMaxGroups);
+    CHECK_FALSE(registry.balancer_error().empty());
+    CHECK_THROWS_AS(run_generate(cfg, {}), DnsError);
 }

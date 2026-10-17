@@ -45,7 +45,7 @@ process.stdin.on('end', () => {
 
   // QuickType names a shared enum after its most specific property ("code")
   // unless the schema carries a title. Pin names that would be too generic.
-  for (const name of ['RoutingHealthWarningCode', 'KeeneticDnsProtocol']) {
+  for (const name of ['RoutingHealthWarningCode']) {
     schemas[name].title = name;
   }
 

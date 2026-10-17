@@ -16,8 +16,12 @@ export interface DnsRule {
   enabled?: boolean | null;
   /** List names whose domains should be resolved by this server. */
   list: string[];
-  /** DNS server tag to use for matched domains. */
-  server: string;
+  /**
+     * Tags of the DNS servers that resolve the matched domains. With two or more servers (or a `doh` server) the daemon forwards the queries itself: servers are used in turn, and when one does not answer the next one takes over. Replaces the single `server` field of 3.3.x configs, which is converted to `servers` when the config is loaded.
+
+     * @minItems 1
+     */
+  servers: string[];
   /** Allow DNS responses for matched domains to resolve to internal/private network addresses (for example 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, and other local ranges).
    */
   allow_domain_rebinding?: boolean;

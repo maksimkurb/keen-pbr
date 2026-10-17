@@ -331,28 +331,6 @@ void collect_outbound_issues(const std::vector<api::RuntimeOutboundStateElement>
     }
 }
 
-void collect_keenetic_dns_issues(const std::vector<KeeneticDnsMissingInput>& missing,
-                                 std::vector<api::HealthIssue>& issues) {
-    for (const auto& entry : missing) {
-        std::string joined;
-        for (const auto& upstream : entry.upstreams) {
-            joined += joined.empty() ? "" : ", ";
-            joined += upstream;
-        }
-        auto issue = make_issue("keenetic-dns-" + entry.tag,
-                                entry.block ? api::Severity::ERROR : api::Severity::WARNING,
-                                api::Code::KEENETIC_DNS_UPSTREAM_MISSING,
-                                "Keenetic DNS upstream not found");
-        issue.params = {{"tag", entry.tag}, {"upstreams", joined},
-                        {"mode", entry.block ? "block" : "partial"}};
-        issue.detail_code = entry.block ? api::DetailCode::KEENETIC_DNS_UPSTREAM_BLOCKED
-                                        : api::DetailCode::KEENETIC_DNS_UPSTREAM_PARTIAL;
-        issue.detail = "`" + entry.tag + "`: " + joined +
-                       (entry.block ? " — queries blocked" : " — using the remaining upstreams");
-        issues.push_back(std::move(issue));
-    }
-}
-
 } // namespace
 
 std::vector<api::KernelCheckElement> collect_kernel_checks(
@@ -466,7 +444,13 @@ api::HealthIssuesResponse collect_health_issues(const HealthIssueInputs& inputs)
         collect_dnsmasq_issues(*inputs.dnsmasq, inputs.dnsmasq_setup_docs_url, issues);
     }
     if (inputs.outbounds) collect_outbound_issues(*inputs.outbounds, issues);
-    collect_keenetic_dns_issues(inputs.keenetic_dns_missing, issues);
+    if (inputs.doh_ca_missing) {
+        auto issue = make_issue("doh", api::Severity::ERROR, api::Code::DOH_UNAVAILABLE,
+                                "DNS-over-HTTPS servers are not used");
+        issue.detail_code = api::DetailCode::DOH_NO_CERTIFICATES;
+        issue.detail = "no CA certificates found to verify the servers";
+        issues.push_back(std::move(issue));
+    }
     return response;
 }
 

@@ -75,7 +75,6 @@ add_executable(keen-pbr-tests
   test_keenetic_interface_descriptions.cpp
   test_api_dns_test.cpp
   test_api_runtime_interfaces.cpp
-  test_api_keenetic_dns.cpp
   test_api_status_events.cpp
   test_api_test_routing.cpp
   test_api_static.cpp
@@ -160,6 +159,7 @@ add_executable(keen-pbr-tests
   ../src/dns/dns_server.cpp
   ../src/dns/keenetic_dns.cpp
   ../src/dns/dns_balancer.cpp
+  ../src/dns/doh_support.cpp
   ../src/dns/dns_wire.cpp
   ../src/dns/dns_txt_probe.cpp
   ../src/dns/dns_client.cpp
@@ -302,6 +302,15 @@ endif()
 
 target_compile_definitions(keen-pbr-tests PRIVATE USE_KEENETIC_API)
 
+if(WITH_DOH)
+  target_compile_definitions(keen-pbr-tests PRIVATE WITH_DOH)
+  target_sources(keen-pbr-tests PRIVATE
+    ../src/dns/doh_client.cpp
+    ../src/dns/doh_bootstrap.cpp
+    test_doh_client.cpp
+  )
+endif()
+
 if(WITH_API)
   target_compile_definitions(keen-pbr-tests PRIVATE WITH_API)
   target_sources(keen-pbr-tests PRIVATE
@@ -313,7 +322,6 @@ if(WITH_API)
     ../src/api/sse_response.cpp
     ../src/api/status_stream.cpp
     ../src/api/handler_runtime_interfaces.cpp
-    ../src/api/handler_keenetic_dns.cpp
     ../src/api/handler_health_service.cpp
     ../src/api/handler_status_events.cpp
     ../src/api/handler_test_routing.cpp

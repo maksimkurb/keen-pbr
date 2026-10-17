@@ -44,7 +44,7 @@ std::string config_text(const std::string& dir, const std::string& integration,
         "\",\"daemon\":{\"cache_dir\":\"" + dir + "/cache\"},"
         "\"lists\":{\"l\":{\"domains\":[\"example.com\"]}},"
         "\"dns\":{\"servers\":[{\"tag\":\"up\",\"address\":\"1.1.1.1\"}],"
-        "\"rules\":[{\"list\":[\"l\"],\"server\":\"up\"}]";
+        "\"rules\":[{\"list\":[\"l\"],\"servers\":[\"up\"]}]";
     if (!integration.empty()) json += ",\"resolver_integration\":\"" + integration + "\"";
     if (with_fallback) json += ",\"fallback\":[\"up\"]";
     return json + "}}";

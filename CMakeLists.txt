@@ -74,6 +74,7 @@ add_compile_definitions(JSON_DIAGNOSTICS=1)
 
 # Options
 option(WITH_API "Build with REST API support (cpp-httplib)" ON)
+option(WITH_DOH "Build the DNS-over-HTTPS client (uses the already linked libcurl; DNS server type: doh)" ON)
 option(USE_KEENETIC_API "Enable Keenetic RCI integration (DNS server type: keenetic)" OFF)
 # Platform build for Keenetic OS: the firewall backend is always iptables and
 # keen-pbr never balances (the router's own multipath does).  The nftables
@@ -344,6 +345,7 @@ set(SOURCES
   src/dns/dns_server.cpp
   src/dns/keenetic_dns.cpp
   src/dns/dns_balancer.cpp
+  src/dns/doh_support.cpp
   src/dns/dns_wire.cpp
   src/dns/dns_txt_probe.cpp
   src/dns/dns_client.cpp
@@ -365,7 +367,6 @@ set(SOURCES
   src/daemon/daemon_state.cpp
   src/daemon/daemon_api.cpp
   src/daemon/daemon_intercept.cpp
-  src/daemon/daemon_keenetic_dns.cpp
   src/daemon/list_service.cpp
   src/daemon/dnsmasq_manager.cpp
   src/daemon/dnsmasq_types.cpp
@@ -423,7 +424,6 @@ if(WITH_API)
     src/api/handler_health_service.cpp
     src/api/handler_reload.cpp
     src/api/handler_lists_refresh.cpp
-    src/api/handler_keenetic_dns.cpp
     src/api/handler_config.cpp
     src/api/handler_health_routing.cpp
     src/api/handler_runtime_interfaces.cpp
@@ -432,6 +432,13 @@ if(WITH_API)
     src/api/handler_status_events.cpp
     src/api/handler_dns_test.cpp
     src/api/handler_diagnostics.cpp
+  )
+endif()
+
+if(WITH_DOH)
+  list(APPEND SOURCES
+    src/dns/doh_client.cpp
+    src/dns/doh_bootstrap.cpp
   )
 endif()
 
@@ -489,6 +496,10 @@ if(LIBATOMIC)
 endif()
 
 target_link_libraries(keen-pbr PRIVATE ${LIBRESOLV})
+
+if(WITH_DOH)
+  target_compile_definitions(keen-pbr PRIVATE WITH_DOH)
+endif()
 
 if(WITH_API)
   target_compile_definitions(keen-pbr PRIVATE WITH_API)

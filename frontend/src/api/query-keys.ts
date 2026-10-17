@@ -3,7 +3,6 @@ import {
   getGetDnsTestQueryKey,
   getGetHealthIssuesQueryKey,
   getGetHealthServiceQueryKey,
-  getGetKeeneticDnsProxiesQueryKey,
   getGetRuntimeInterfacesQueryKey,
   getGetRuntimeOutboundsQueryKey,
 } from "@/api/generated/keen-api"
@@ -15,7 +14,6 @@ export const queryKeys = {
   runtimeOutbounds: getGetRuntimeOutboundsQueryKey,
   config: getGetConfigQueryKey,
   dnsTest: getGetDnsTestQueryKey,
-  keeneticDnsProxies: getGetKeeneticDnsProxiesQueryKey,
 }
 
 // Service health, runtime outbounds, health issues and routing health are not listed here: the
@@ -37,10 +35,4 @@ export const invalidationKeysAfterApplyConfigMutation = [
 // the runtime-state publish over the stream.
 export const invalidationKeysAfterListRefreshMutation = [
   queryKeys.config(),
-] as const
-
-// The refresh re-reads the router and the daemon re-syncs dnsmasq; the health
-// issues follow over the status stream.
-export const invalidationKeysAfterKeeneticDnsRefreshMutation = [
-  queryKeys.keeneticDnsProxies(),
 ] as const

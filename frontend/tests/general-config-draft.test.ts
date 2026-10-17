@@ -130,7 +130,7 @@ describe("settings draft mirrors the config document", () => {
       dns: {
         resolver_integration: "dnsmasq",
         servers: [{ tag: "home", address: "1.1.1.1" }],
-        rules: [{ list: ["video"], server: "home" }],
+        rules: [{ list: ["video"], servers: ["home"] }],
         fallback: ["home"],
       },
     } as ConfigObject

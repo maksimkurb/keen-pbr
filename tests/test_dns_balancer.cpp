@@ -136,7 +136,7 @@ DnsBalancerOptions fast_options() {
 DnsBalancerGroup group_of(std::uint16_t port, std::initializer_list<std::uint16_t> upstream_ports) {
     DnsBalancerGroup group;
     group.port = port;
-    for (const auto up : upstream_ports) group.upstreams.push_back({"127.0.0.1", up});
+    for (const auto up : upstream_ports) group.upstreams.push_back(DnsBalancerUpstream::plain("127.0.0.1", up));
     return group;
 }
 

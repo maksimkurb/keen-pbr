@@ -26,15 +26,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useListUsageSubtitle } from "@/hooks/use-list-usage-subtitle"
 import { useDraftForm } from "@/lib/draft-form"
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
   buildUpdatedConfigWithRules,
   type DnsRuleDraft,
   getRuleDraft,
@@ -134,10 +125,6 @@ function DnsRuleForm({
   const serverTags = (loadedConfig.dns?.servers ?? [])
     .map((server) => server.tag)
     .filter(Boolean)
-  const serverSelectItems = serverTags.map((serverTag) => ({
-    value: serverTag,
-    label: serverTag,
-  }))
   const listOptions = Object.keys(loadedConfig.lists ?? {})
   const listUsageSubtitle = useListUsageSubtitle(
     rules,
@@ -151,7 +138,7 @@ function DnsRuleForm({
       ? getRuleDraft(existingRule)
       : {
           enabled: true,
-          server: serverTags[0] ?? "",
+          servers: serverTags.slice(0, 1),
           list: [],
           allow_domain_rebinding: false,
         }
@@ -188,8 +175,8 @@ function DnsRuleForm({
       }
 
       const fieldErrors: Record<string, string> = {}
-      if (currentError.server) {
-        fieldErrors.server = currentError.server
+      if (currentError.servers) {
+        fieldErrors.servers = currentError.servers
       }
       if (currentError.lists) {
         fieldErrors.list = currentError.lists
@@ -221,8 +208,8 @@ function DnsRuleForm({
     }
   }
 
-  // The server control also shows errors addressed to the whole rule.
-  const serverError = form.errorFor("server", { alsoClaims: [""] })
+  // The servers control also shows errors addressed to the whole rule.
+  const serverError = form.errorFor("servers", { alsoClaims: [""] })
 
   return (
     <UpsertPage
@@ -270,38 +257,27 @@ function DnsRuleForm({
           <Field invalid={Boolean(serverError)}>
             <FieldLabel>{t("pages.dnsRuleUpsert.fields.serverTag")}</FieldLabel>
             <FieldContent>
-              <Select
-                items={serverSelectItems}
-                onValueChange={(server) =>
-                  form.setValue("server", server ?? "")
-                }
-                value={values.server}
-              >
-                <SelectTrigger aria-invalid={Boolean(serverError)}>
-                  <SelectValue
-                    placeholder={t("pages.dnsRuleUpsert.fields.selectServer")}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>
-                      {t("pages.dnsRuleUpsert.fields.dnsServers")}
-                    </SelectLabel>
-                    {serverTags.map((serverTag) => (
-                      <SelectItem key={serverTag} value={serverTag}>
-                        {serverTag}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              <MultiSelectList
+                name="servers"
+                onChange={(servers) => form.setValue("servers", servers)}
+                options={serverTags}
+                error={serverError}
+                placeholderDescription={t(
+                  "pages.dnsRuleUpsert.fields.serversPlaceholderDescription"
+                )}
+                placeholderTitle={t(
+                  "pages.dnsRuleUpsert.fields.noServersSelected"
+                )}
+                value={values.servers}
+              />
               <FieldHint
                 description={
                   serverTags.length === 0
                     ? t("pages.dnsRuleUpsert.fields.noServers")
-                    : undefined
+                    : values.servers.length >= 2
+                      ? t("pages.dnsRuleUpsert.fields.serversRoundRobinHint")
+                      : undefined
                 }
-                error={serverError}
               />
             </FieldContent>
           </Field>

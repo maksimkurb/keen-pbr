@@ -134,9 +134,6 @@ int run_generate_resolver_config(const std::string& resolver_type,
                          list.skipped);
                 continue;
             }
-            if (!list.blocked.empty()) {
-                log.warn("generate-resolver-config: list '{}': {}", list.name, list.blocked);
-            }
             log.info("generate-resolver-config: list '{}' -> {} ({}): {} domains{}",
                      list.name, join(list.servers),
                      list.upstreams.empty() ? std::string("no upstream")

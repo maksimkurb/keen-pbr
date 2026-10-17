@@ -1,4 +1,5 @@
 #include "service_health.hpp"
+#include "../dns/doh_support.hpp"
 
 #include <keen-pbr/version.hpp>
 #include <nlohmann/json.hpp>
@@ -48,6 +49,7 @@ api::HealthResponse build_health_response(const ServiceHealthState& service_heal
         resp.os_type = service_health.os_type;
         resp.os_version = service_health.os_version;
         resp.build_variant = service_health.build_variant;
+        resp.doh_supported = kDohBuiltIn;
         resp.apply_started_ts = service_health.apply_started_ts;
 
         if (service_health.lifecycle_operation) {

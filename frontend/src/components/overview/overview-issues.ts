@@ -178,8 +178,8 @@ function translateTitle(issue: HealthIssue, t: TranslateFn): string {
         tag: params.tag,
         count: Number(params.count),
       })
-    case "keenetic_dns_upstream_missing":
-      return t("overview.issues.keeneticDnsUpstreamMissing")
+    case "doh_unavailable":
+      return t("overview.issues.dohUnavailable")
   }
   return issue.title
 }
@@ -203,16 +203,8 @@ function translateDetail(
       })
     case "dnsmasq_dead":
       return t("overview.issues.dnsmasqDead")
-    case "keenetic_dns_upstream_blocked":
-      return t("overview.issues.keeneticDnsUpstreamBlocked", {
-        tag: issue.params.tag,
-        upstreams: issue.params.upstreams,
-      })
-    case "keenetic_dns_upstream_partial":
-      return t("overview.issues.keeneticDnsUpstreamPartial", {
-        tag: issue.params.tag,
-        upstreams: issue.params.upstreams,
-      })
+    case "doh_no_certificates":
+      return t("overview.issues.dohNoCertificates")
   }
   return issue.detail
 }

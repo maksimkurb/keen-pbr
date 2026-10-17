@@ -55,6 +55,14 @@ namespace keen_pbr3 {
 
 namespace {
 
+// A DNS server of type doh is in use by the config.
+bool config_uses_doh(const Config &config) {
+  const auto servers = config.dns.value_or(DnsConfig{}).servers.value_or(std::vector<DnsServer>{});
+  return std::any_of(servers.begin(), servers.end(), [](const DnsServer &server) {
+    return server.type.value_or(api::DnsServerType::STATIC) == api::DnsServerType::DOH;
+  });
+}
+
 constexpr auto SIGUSR1_DEBOUNCE_DELAY = std::chrono::milliseconds{350};
 constexpr auto INTERFACE_MONITOR_RECONNECT_RETRY_DELAY =
     std::chrono::seconds{5};
@@ -707,17 +715,42 @@ Daemon::health_issues_from(const ServiceHealthState &service,
   if (service.dnsmasq) inputs.dnsmasq = &*service.dnsmasq;
   inputs.dnsmasq_setup_docs_url = dnsmasq_setup_docs_url(service.os_type);
   inputs.outbounds = &outbounds.outbounds;
-  for (const auto &missing : find_missing_keenetic_upstreams(
-           config_store_.active_config().dns.value_or(DnsConfig{}))) {
-    KeeneticDnsMissingInput input;
-    input.tag = missing.tag;
-    input.block = missing.blocked;
-    for (const auto &upstream : missing.upstreams) {
-      input.upstreams.push_back(upstream.kind + " " + upstream.target);
-    }
-    inputs.keenetic_dns_missing.push_back(std::move(input));
-  }
+  inputs.doh_ca_missing = kDohBuiltIn && !doh_ca_bundle_.has_value() &&
+                          config_uses_doh(config_store_.active_config());
   return collect_health_issues(inputs);
+}
+
+DnsmasqManagerDeps Daemon::make_dnsmasq_deps() {
+  DnsmasqManagerDeps deps;
+  deps.forwarder = [this](const DnsServerRegistry &registry) {
+    configure_dns_forwarder(registry);
+  };
+  return deps;
+}
+
+void Daemon::configure_dns_forwarder(const DnsServerRegistry &registry) {
+  DnsBalancerSettings settings;
+  settings.bootstrap = registry.bootstrap_server();
+  settings.doh_enabled = kDohBuiltIn && doh_ca_bundle_.has_value();
+  if (doh_ca_bundle_) {
+    settings.ca_path = doh_ca_bundle_->path;
+    settings.ca_is_directory = doh_ca_bundle_->is_directory;
+  }
+  const OutboundMarkMap marks = config_store_.outbound_marks();
+  for (const auto &group : registry.balancer_groups()) {
+    for (const auto &upstream : group.upstreams) {
+      if (upstream.detour.empty()) continue;
+      const auto mark = marks.find(internal_detour_mark_key(upstream.detour));
+      if (mark != marks.end()) settings.detour_marks[upstream.detour] = mark->second;
+    }
+  }
+  const std::vector<std::uint16_t> failed =
+      dns_balancer_.configure(registry.balancer_groups(), settings);
+  for (const std::uint16_t port : failed) {
+    Logger::instance().warn("DNS forwarder cannot listen on {}:{}; the lists that use "
+                            "several DNS servers or DNS-over-HTTPS will not be answered",
+                            kDnsBalancerAddress, port);
+  }
 }
 
 namespace {
@@ -1913,8 +1946,6 @@ void Daemon::run() {
   intercept_rebind_task_id_ = scheduler_->schedule_repeating(
       std::chrono::seconds{1}, [this] { tick_intercept_rebind(); },
       "intercept-rebind");
-
-  start_keenetic_dns_poll();
 
   log.info("Daemon control plane running. PID: {}", getpid());
   post_control_task([this] { begin_startup_runtime(); }, "startup-runtime");

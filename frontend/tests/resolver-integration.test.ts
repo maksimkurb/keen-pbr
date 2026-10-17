@@ -12,7 +12,7 @@ describe("resolver integration settings", () => {
   test("is the saved value, or none when the field is absent", () => {
     expect(
       effectiveResolverIntegration({
-        dns: { rules: [{ list: ["video"], server: "wan" }], fallback: ["wan"] },
+        dns: { rules: [{ list: ["video"], servers: ["wan"] }], fallback: ["wan"] },
       })
     ).toBe("none")
     expect(effectiveResolverIntegration({ dns: { servers: [] } })).toBe("none")
@@ -24,7 +24,7 @@ describe("resolver integration settings", () => {
       effectiveResolverIntegration({
         dns: {
           resolver_integration: "none",
-          rules: [{ list: ["video"], server: "wan" }],
+          rules: [{ list: ["video"], servers: ["wan"] }],
         },
       })
     ).toBe("none")
@@ -61,7 +61,7 @@ describe("resolver integration settings", () => {
       dns: {
         resolver_integration: "dnsmasq",
         servers: [{ tag: "wan", type: "static", address: "1.1.1.1" }],
-        rules: [{ list: ["video"], server: "wan" }],
+        rules: [{ list: ["video"], servers: ["wan"] }],
         fallback: ["wan"],
         system_resolver: { address: "127.0.0.1" },
         dns_test_server: { listen: "127.0.0.88:12153" },

@@ -3,13 +3,12 @@
 #include "config_defaults.hpp"
 #include "dnsmasq_selector.hpp"
 #include "icmptest_limits.hpp"
-#include "../dns/dns_balancer.hpp"
+#include "../dns/dns_server.hpp"
 #include "routing_state.hpp"
 #include "../util/system_info.hpp"
 #include "../util/firewall_backend_utils.hpp"
 #include "../auth/password.hpp"
 
-#include <algorithm>
 #include <arpa/inet.h>
 #include <cctype>
 #include <iomanip>
@@ -885,12 +884,36 @@ void migrate_resolver_integration_340(json& root, const std::string& from) {
         from);
 }
 
+// 3.3.x named one DNS server per rule (`server`).  3.4.0 takes a list
+// (`servers`), so the old value becomes a one-element list.  A rule that
+// already has `servers` only loses the stale `server`.
+void migrate_dns_rule_servers_340(json& root) {
+    const auto dns = root.find("dns");
+    if (dns == root.end() || !dns->is_object()) return;
+    const auto rules = dns->find("rules");
+    if (rules == dns->end() || !rules->is_array()) return;
+    for (auto& rule : *rules) {
+        if (!rule.is_object()) continue;
+        const auto server = rule.find("server");
+        if (server == rule.end()) continue;
+        if (!rule.contains("servers")) {
+            if (!server->is_string()) continue;  // left for validation to report
+            rule["servers"] = json::array({*server});
+        }
+        rule.erase("server");
+    }
+}
+
 struct MigrationStep {
     SemVer introduced_in;
     // The step changes the shape of the file (renamed or restructured keys), so
     // the file on disk is rewritten once.  Other steps only fill in values for
     // the running process and never touch the file.
     bool rewrites_format;
+    // Also runs on configs stamped with `introduced_in` itself: prerelease
+    // builds of that version already stamped it before the step existed.
+    // Only for idempotent steps.
+    bool reruns_on_own_version;
     void (*run)(json& root, std::vector<ConfigValidationIssue>& issues,
                 const std::string& from);
 };
@@ -898,18 +921,22 @@ struct MigrationStep {
 // Steps run in order.  A config with no `version` was written by 3.3.x or
 // older and gets every step.
 constexpr MigrationStep kMigrationSteps[] = {
-    {{3, 4, 0}, true,
+    {{3, 4, 0}, true, false,
      [](json& root, std::vector<ConfigValidationIssue>& issues, const std::string&) {
          migrate_legacy_icmptest(root, issues);
      }},
     // Must run after the icmptest step.
-    {{3, 4, 0}, true,
+    {{3, 4, 0}, true, false,
      [](json& root, std::vector<ConfigValidationIssue>& issues, const std::string&) {
          migrate_legacy_group_members(root, issues);
      }},
-    {{3, 4, 0}, false,
+    {{3, 4, 0}, false, false,
      [](json& root, std::vector<ConfigValidationIssue>&, const std::string& from) {
          migrate_resolver_integration_340(root, from);
+     }},
+    {{3, 4, 0}, true, true,
+     [](json& root, std::vector<ConfigValidationIssue>&, const std::string&) {
+         migrate_dns_rule_servers_340(root);
      }},
 };
 
@@ -942,7 +969,8 @@ std::optional<ConfigVersion> read_config_version(
 }
 
 bool step_applies(const MigrationStep& step, const ConfigVersion& version) {
-    return !version.has_version || version.from < step.introduced_in;
+    if (!version.has_version || version.from < step.introduced_in) return true;
+    return step.reruns_on_own_version && !(step.introduced_in < version.from);
 }
 
 // Applies the steps newer than `version` and stamps the current version.  A
@@ -1749,7 +1777,7 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
         const auto& dns_servers = cfg.dns->servers.value_or(std::vector<DnsServer>{});
         std::set<std::string> dns_server_tags;
         std::set<std::string> dns_server_identities;
-        size_t balanced_keenetic_servers = 0;
+        size_t keenetic_servers_count = 0;
         for (size_t srv_index = 0; srv_index < dns_servers.size(); ++srv_index) {
             const auto& srv = dns_servers[srv_index];
             const std::string srv_path = json_index_path("dns.servers", srv_index);
@@ -1761,64 +1789,16 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
 
             const auto srv_type = srv.type.value_or(api::DnsServerType::STATIC);
             const std::string srv_addr = srv.address.value_or("");
-            const auto selected_upstreams =
-                srv.keenetic_upstreams.value_or(std::vector<api::KeeneticDnsProxyUpstreamElement>{});
-            std::string selection_identity;
-            if (srv_type == api::DnsServerType::KEENETIC) {
-                std::vector<std::string> keys;
-                for (const auto& upstream : selected_upstreams) {
-                    keys.push_back(std::to_string(static_cast<int>(upstream.protocol)) + "=" +
-                                   upstream.target);
-                }
-                std::sort(keys.begin(), keys.end());
-                for (const auto& key : keys) selection_identity += key + ";";
-            }
             const std::string srv_identity =
-                std::to_string(static_cast<int>(srv_type)) + "|" + srv_addr + "|" + selection_identity;
+                std::to_string(static_cast<int>(srv_type)) + "|" + srv_addr;
             if (!dns_server_identities.insert(srv_identity).second) {
                 add_issue(issues, srv_path,
                           "DNS server \"" + srv.tag +
-                              "\" duplicates an existing DNS server definition (same type/address/keenetic_upstreams)");
-            }
-
-            if (srv_type != api::DnsServerType::KEENETIC && srv.keenetic_upstreams.has_value()) {
-                add_issue(issues, srv_path + ".keenetic_upstreams",
-                          "dns.servers[\"" + srv.tag +
-                              "\"].keenetic_upstreams is only valid for type='keenetic'");
+                              "\" duplicates an existing DNS server definition (same type/address)");
             }
 
             if (srv_type == api::DnsServerType::KEENETIC) {
-                std::set<std::string> seen_upstreams;
-                for (size_t up_index = 0; up_index < selected_upstreams.size(); ++up_index) {
-                    const auto& upstream = selected_upstreams[up_index];
-                    const std::string up_path = json_index_path(srv_path + ".keenetic_upstreams", up_index);
-                    if (upstream.target.empty()) {
-                        add_issue(issues, up_path + ".target",
-                                  "dns.servers[\"" + srv.tag +
-                                      "\"].keenetic_upstreams[" + std::to_string(up_index) +
-                                      "].target must not be empty");
-                    } else if (!seen_upstreams
-                                    .insert(std::to_string(static_cast<int>(upstream.protocol)) +
-                                            "=" + upstream.target)
-                                    .second) {
-                        add_issue(issues, up_path,
-                                  "dns.servers[\"" + srv.tag +
-                                      "\"].keenetic_upstreams lists the same upstream twice");
-                    }
-                }
-                if (selected_upstreams.size() >= 2) {
-                    ++balanced_keenetic_servers;
-                    if (balanced_keenetic_servers > kDnsBalancerMaxGroups) {
-                        add_issue(issues, srv_path + ".keenetic_upstreams",
-                                  "At most " + std::to_string(kDnsBalancerMaxGroups) +
-                                      " DNS servers can select two or more Keenetic upstreams");
-                    }
-                    if (srv.detour.has_value()) {
-                        add_issue(issues, srv_path + ".detour",
-                                  "dns.servers[\"" + srv.tag +
-                                      "\"].detour must not be set together with two or more keenetic_upstreams");
-                    }
-                }
+                ++keenetic_servers_count;
 #ifndef USE_KEENETIC_API
                 add_issue(issues, srv_path + ".type",
                           "dns.servers[\"" + srv.tag +
@@ -1845,10 +1825,29 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
                               "dns.servers[\"" + srv.tag +
                                   "\"].address is required for type='static'");
                 }
+            } else if (srv_type == api::DnsServerType::DOH) {
+#ifndef WITH_DOH
+                add_issue(issues, srv_path + ".type",
+                          "dns.servers[\"" + srv.tag +
+                              "\"].type='doh' is not supported: this keen-pbr build has no "
+                              "DNS-over-HTTPS support (built with WITH_DOH=OFF)");
+#endif
+                if (!srv.address.has_value() || srv.address->empty()) {
+                    add_issue(issues, srv_path + ".address",
+                              "dns.servers[\"" + srv.tag +
+                                  "\"].address is required for type='doh' (an https:// URL)");
+                } else {
+                    try {
+                        (void)parse_doh_url(*srv.address);
+                    } catch (const DnsError& error) {
+                        add_issue(issues, srv_path + ".address",
+                                  "dns.servers[\"" + srv.tag + "\"].address: " + error.what());
+                    }
+                }
             } else {
                 add_issue(issues, srv_path + ".type",
                           "dns.servers[\"" + srv.tag +
-                              "\"].type must be one of: static, keenetic");
+                              "\"].type must be one of: static, keenetic, doh");
             }
 
             if (!srv.detour.has_value()) continue;
@@ -1879,6 +1878,12 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
                     "dns.servers[\"" + srv.tag + "\"].detour: unknown outbound tag \""
                         + dtag + "\"");
             }
+        }
+        if (keenetic_servers_count > 1) {
+            add_issue(
+                issues,
+                "dns.servers",
+                "at most one dns.servers entry may use type='keenetic'");
         }
 
         if (cfg.dns->fallback.has_value()) {
@@ -1919,12 +1924,26 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
             const auto& rule = dns_rules[rule_index];
             const std::string rule_path = json_index_path("dns.rules", rule_index);
 
-            validate_required_reference(issues,
-                                        dns_server_tags,
-                                        rule_path + ".server",
-                                        rule_path,
-                                        rule.server,
-                                        "DNS server tag");
+            if (rule.servers.empty()) {
+                add_issue(issues,
+                          rule_path + ".servers",
+                          rule_path + ".servers must include at least one DNS server tag");
+            }
+            std::set<std::string> seen_rule_servers;
+            for (size_t i = 0; i < rule.servers.size(); ++i) {
+                const std::string server_path = json_index_path(rule_path + ".servers", i);
+                validate_required_reference(issues,
+                                            dns_server_tags,
+                                            server_path,
+                                            rule_path,
+                                            rule.servers[i],
+                                            "DNS server tag");
+                if (!seen_rule_servers.insert(trim_copy(rule.servers[i])).second) {
+                    add_issue(issues, server_path,
+                              server_path + " duplicates DNS server tag '" +
+                                  trim_copy(rule.servers[i]) + "'");
+                }
+            }
             if (rule.list.empty()) {
                 add_issue(issues,
                           rule_path + ".list",

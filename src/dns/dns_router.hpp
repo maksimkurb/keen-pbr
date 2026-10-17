@@ -3,28 +3,31 @@
 #include "../config/config.hpp"
 #include "dns_balancer.hpp"
 #include "dns_server.hpp"
-#include "keenetic_dns.hpp"
 
 #include <map>
-#include <set>
+#include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace keen_pbr3 {
 
-// A type=keenetic DNS server naming upstreams the Keenetic built-in DNS no
-// longer has.
-struct MissingKeeneticUpstreams {
-    std::string tag;
-    std::vector<KeeneticDnsProxyUpstream> upstreams;  // the missing ones
-    bool blocked{true};  // none of the selected upstreams is left: queries are refused
+// What the enabled dns.rules say about one list: the DNS server tags of all
+// rules naming it, in rule order and without repeats.
+struct DnsListUsage {
+    std::vector<std::string> servers;
+    bool allow_rebind = false;
 };
 
-// The type=keenetic servers of `dns_config` that select upstreams (protocol +
-// target) the cached Keenetic snapshot does not contain. Empty while nothing
-// has been read from the router yet.
-std::vector<MissingKeeneticUpstreams> find_missing_keenetic_upstreams(const DnsConfig& dns_config);
+std::map<std::string, DnsListUsage> collect_dns_list_usage(const DnsConfig& dns_config);
+
+// Where dnsmasq sends the queries of one list (or the default ones).
+struct DnsTargets {
+    // The `server=` addresses: "ip", "ip#port", or the forwarder
+    // "127.0.0.89#port".
+    std::vector<std::string> addresses;
+    // The servers behind them: "ip", "ip#port" or the DoH URL.
+    std::vector<std::string> upstreams;
+};
 
 class DnsServerRegistry {
 public:
@@ -34,48 +37,37 @@ public:
 
     std::vector<const DnsServerConfig*> get_servers(const std::string& tag) const;
 
-    // The tag answers nothing: every Keenetic upstream it selects is gone.
-    // Queries for its domains must not reach other upstreams.
-    bool is_blocked(const std::string& tag) const;
+    // Targets of the dnsmasq `server=` rows of a list named by dns.rules, and
+    // of the default servers (dns.fallback). A list with exactly one plain DNS
+    // server is sent straight to it. A list with a DoH server or several
+    // servers goes to a forwarder (see balancer_groups()), which tries them in
+    // turn: dnsmasq then stores one server entry per domain, not one per
+    // server.
+    const DnsTargets& list_targets(const std::string& list) const;
+    const DnsTargets& fallback_targets() const { return fallback_; }
 
-    // The tag is a type=keenetic server (it forwards to upstreams of the
-    // Keenetic System DNS).
-    bool uses_keenetic_system(const std::string& tag) const;
+    // The forwarder listeners the targets above point at, with their ports.
+    const std::vector<DnsBalancerGroup>& balancer_groups() const { return groups_; }
+    // Set when there are more distinct server sets than listener ports.
+    const std::string& balancer_error() const { return balancer_error_; }
 
-    // Servers System uses for single domains only, as (domain, server). dnsmasq
-    // gets them next to the System upstreams, since System's own DNS proxy is
-    // bypassed. Empty without a System keenetic server.
-    const std::vector<std::pair<std::string, DnsServerConfig>>& keenetic_system_domain_servers() const {
-        return system_domain_servers_;
-    }
+    // The first plain DNS server of dns.servers: it resolves the host names of
+    // DoH URLs.
+    const std::optional<DnsBalancerUpstream>& bootstrap_server() const { return bootstrap_; }
 
-    // System's static records (static_a/static_aaaa). dnsmasq gets them when
-    // it replaces System as the default resolver. Empty without a System
-    // keenetic server.
-    const std::vector<KeeneticStaticDnsEntry>& keenetic_system_static_entries() const {
-        return system_static_entries_;
-    }
-
-    // Every type=keenetic server that selects an upstream the router lacks.
-    const std::vector<MissingKeeneticUpstreams>& missing_keenetic_upstreams() const {
-        return missing_upstreams_;
-    }
-
-    // The balancer groups the servers with two or more selected upstreams
-    // need, on kDnsBalancerAddress; their server entries point at them.
-    const std::vector<DnsBalancerGroup>& balancer_groups() const {
-        return balancer_groups_;
-    }
+    bool uses_doh() const { return uses_doh_; }
 
 private:
     std::map<std::string, std::vector<DnsServerConfig>> servers_;
-    std::set<std::string> blocked_tags_;
-    std::set<std::string> system_tags_;
-    std::vector<std::pair<std::string, DnsServerConfig>> system_domain_servers_;
-    std::vector<KeeneticStaticDnsEntry> system_static_entries_;
-    std::vector<MissingKeeneticUpstreams> missing_upstreams_;
-    std::vector<DnsBalancerGroup> balancer_groups_;
-    bool system_seen_{false};  // System's records are taken once
+    std::map<std::string, DnsTargets> list_targets_;
+    DnsTargets fallback_;
+    std::vector<DnsBalancerGroup> groups_;
+    std::string balancer_error_;
+    std::optional<DnsBalancerUpstream> bootstrap_;
+    bool uses_doh_{false};
 };
+
+// "ip" or "ip#port", the way dnsmasq writes a server address.
+std::string dnsmasq_server_address(const DnsServerConfig& server);
 
 } // namespace keen_pbr3

@@ -6,7 +6,6 @@
  * OpenAPI spec version: 3.0.0
  */
 import type { DnsServerType } from './dnsServerType';
-import type { KeeneticDnsProxyUpstream } from './keeneticDnsProxyUpstream';
 
 export interface DnsServer {
   /** Unique identifier for this DNS server. Must match `^[a-z][a-z0-9_]*$`, be at most 24 characters, and be unique within `dns.servers`.
@@ -14,12 +13,9 @@ export interface DnsServer {
   tag: string;
   /** DNS server source type. */
   type?: DnsServerType;
-  /** IPv4 or IPv6 address of the DNS server, with optional port. Required for `type=static`. Must be omitted for `type=keenetic`. Formats: "8.8.8.8", "8.8.8.8:5353", "::1", "[::1]:5353". Default port is 53.
+  /** Required for `type=static` and `type=doh`. Must be omitted for `type=keenetic`. For `static`: IPv4 or IPv6 address of the DNS server, with optional port. Formats: "8.8.8.8", "8.8.8.8:5353", "::1", "[::1]:5353". Default port is 53. For `doh`: the DNS-over-HTTPS URL, which must start with `https://`, for example "https://dns.google/dns-query". `doh` is rejected when the daemon is built without DNS-over-HTTPS support (see `doh_supported` in the health response).
    */
   address?: string;
   /** Outbound tag to use when querying this DNS server. */
   detour?: string;
-  /** Upstreams of the Keenetic built-in DNS this server uses. Only valid for `type=keenetic`. Unset or empty means all of them. Two or more are balanced round-robin, a dead one is skipped. An upstream is identified by its protocol and target, the same values `GET /api/keenetic/dns-proxies` returns for System.
-   */
-  keenetic_upstreams?: KeeneticDnsProxyUpstream[];
 }

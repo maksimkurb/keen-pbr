@@ -28,7 +28,7 @@ def _rules_case(context, server, default_upstream, kind, identity):
     set_resolver_upstreams(context, default_upstream)
     config = dnsmasq_rules_config(
         context, [server],
-        [{"list": ["scoped"], "server": server["tag"], "allow_domain_rebinding": True}],
+        [{"list": ["scoped"], "servers": [server["tag"]], "allow_domain_rebinding": True}],
         {"scoped": {"domains": [listed]}})
     context.apply_config(config)
     wait_hook_calls(context, STARTUP + ["apply"])
@@ -69,7 +69,7 @@ def register(registry):
         set_resolver_upstreams(context, "10.10.0.2#15353")
         config = dnsmasq_rules_config(
             context, [SELECTED4],
-            [{"list": ["scoped"], "server": "selected4"}],
+            [{"list": ["scoped"], "servers": ["selected4"]}],
             {"scoped": {"domains": [listed]}})
         context.apply_config(config)
         wait_hook_calls(context, STARTUP + ["apply"])
@@ -100,7 +100,7 @@ def register(registry):
         open(HOOK_FAIL_FLAG, "w", encoding="utf-8").close()
         config = dnsmasq_rules_config(
             context, [SELECTED4],
-            [{"list": ["scoped"], "server": "selected4"}],
+            [{"list": ["scoped"], "servers": ["selected4"]}],
             {"scoped": {"domains": [listed]}})
         # A failing hook must not fail the config apply or stop the service.
         context.apply_config(config)
@@ -129,7 +129,7 @@ def register(registry):
         open(HOOK_NODROPIN_FLAG, "w", encoding="utf-8").close()
         config = dnsmasq_rules_config(
             context, [SELECTED4],
-            [{"list": ["scoped"], "server": "selected4"}],
+            [{"list": ["scoped"], "servers": ["selected4"]}],
             {"scoped": {"domains": [listed]}})
         try:
             context.apply_config(config)
@@ -152,7 +152,7 @@ def register(registry):
         set_resolver_upstreams(context, "10.10.0.2#15353")
         config = dnsmasq_rules_config(
             context, [SELECTED4],
-            [{"list": ["scoped"], "server": "selected4"}],
+            [{"list": ["scoped"], "servers": ["selected4"]}],
             {"scoped": {"domains": [listed]}})
         context.apply_config(config)
         wait_hook_calls(context, STARTUP + ["apply"])

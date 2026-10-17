@@ -11,7 +11,6 @@ import {
   postConfigRollback,
   postConfigSave,
   postRoutingTest,
-  usePostKeeneticDnsProxiesRefresh,
   usePostListsRefresh,
   usePostConfig,
   usePostConfigDiscard,
@@ -21,7 +20,6 @@ import {
 } from "@/api/generated/keen-api"
 import {
   invalidationKeysAfterApplyConfigMutation,
-  invalidationKeysAfterKeeneticDnsRefreshMutation,
   invalidationKeysAfterConfigMutation,
   invalidationKeysAfterListRefreshMutation,
   invalidationKeysAfterRuntimeActionMutation,
@@ -29,9 +27,6 @@ import {
 import { apiFetch } from "@/api/client"
 
 type UsePostListsRefreshOptions = Parameters<typeof usePostListsRefresh>[0]
-type UsePostKeeneticDnsProxiesRefreshOptions = Parameters<
-  typeof usePostKeeneticDnsProxiesRefresh
->[0]
 type UsePostConfigOptions = Parameters<typeof usePostConfig>[0]
 type UsePostConfigDiscardOptions = Parameters<typeof usePostConfigDiscard>[0]
 type UsePostConfigRollbackOptions = Parameters<typeof usePostConfigRollback>[0]
@@ -58,31 +53,6 @@ export const usePostListsRefreshMutation = (
       ...options?.mutation,
       onSuccess: async (data, variables, onMutateResult, context) => {
         for (const queryKey of invalidationKeysAfterListRefreshMutation) {
-          await queryClient.invalidateQueries({ queryKey })
-        }
-
-        await options?.mutation?.onSuccess?.(
-          data,
-          variables,
-          onMutateResult,
-          context
-        )
-      },
-    },
-  })
-}
-
-export const usePostKeeneticDnsProxiesRefreshMutation = (
-  options?: UsePostKeeneticDnsProxiesRefreshOptions
-) => {
-  const queryClient = useQueryClient()
-
-  return usePostKeeneticDnsProxiesRefresh({
-    ...options,
-    mutation: {
-      ...options?.mutation,
-      onSuccess: async (data, variables, onMutateResult, context) => {
-        for (const queryKey of invalidationKeysAfterKeeneticDnsRefreshMutation) {
           await queryClient.invalidateQueries({ queryKey })
         }
 

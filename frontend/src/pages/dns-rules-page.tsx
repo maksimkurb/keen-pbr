@@ -420,7 +420,7 @@ export function DnsRulesPage() {
                     </li>
                   </ul>,
                   <span className="font-medium" key={`server-${index}`}>
-                    {rule.server}
+                    {rule.servers.join(", ")}
                   </span>,
                   <Badge
                     key={`allow-domain-rebinding-${index}`}

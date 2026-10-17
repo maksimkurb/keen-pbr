@@ -185,7 +185,7 @@ describe("dns rule enabled helpers", () => {
       getRuleDraft({
         enabled: false,
         list: ["ads"],
-        server: "vpn_dns",
+        servers: ["vpn_dns"],
       }).enabled
     ).toBe(false)
   })
@@ -207,7 +207,7 @@ describe("dns rule enabled helpers", () => {
         [
           {
             enabled: false,
-            server: "vpn_dns",
+            servers: ["vpn_dns"],
             list: ["ads"],
             allow_domain_rebinding: true,
           },
@@ -219,7 +219,7 @@ describe("dns rule enabled helpers", () => {
         rules: [
           {
             enabled: false,
-            server: "vpn_dns",
+            servers: ["vpn_dns"],
             list: ["ads"],
             allow_domain_rebinding: true,
           },
@@ -234,13 +234,13 @@ describe("dns rule enabled helpers", () => {
     const rules: DnsRuleDraft[] = [
       {
         enabled: true,
-        server: "vpn_dns",
+        servers: ["vpn_dns"],
         list: ["ads"],
         allow_domain_rebinding: false,
       },
       {
         enabled: false,
-        server: "wan_dns",
+        servers: ["wan_dns"],
         list: ["work"],
         allow_domain_rebinding: true,
       },
@@ -249,13 +249,13 @@ describe("dns rule enabled helpers", () => {
     expect(setDnsRuleEnabled(rules, 0, false)).toEqual([
       {
         enabled: false,
-        server: "vpn_dns",
+        servers: ["vpn_dns"],
         list: ["ads"],
         allow_domain_rebinding: false,
       },
       {
         enabled: false,
-        server: "wan_dns",
+        servers: ["wan_dns"],
         list: ["work"],
         allow_domain_rebinding: true,
       },
@@ -270,13 +270,13 @@ describe("dns rule enabled helpers", () => {
         [
           {
             enabled: false,
-            server: "",
+            servers: [],
             list: [],
             allow_domain_rebinding: false,
           },
           {
             enabled: true,
-            server: "vpn_dns",
+            servers: ["vpn_dns"],
             list: ["ads"],
             allow_domain_rebinding: false,
           },
@@ -285,5 +285,30 @@ describe("dns rule enabled helpers", () => {
         ["ads"]
       )
     ).toEqual({})
+  })
+
+  test("validateRules checks every server of a rule", async () => {
+    const { validateRules } = await loadDnsRuleUtils()
+    const rule = (servers: string[]): DnsRuleDraft => ({
+      enabled: true,
+      servers,
+      list: ["ads"],
+      allow_domain_rebinding: false,
+    })
+
+    expect(
+      validateRules(
+        [rule(["vpn_dns", "wan_dns"])],
+        ["vpn_dns", "wan_dns"],
+        ["ads"]
+      )
+    ).toEqual({})
+    expect(
+      validateRules([rule(["vpn_dns", "gone"])], ["vpn_dns"], ["ads"])[0]
+        ?.servers
+    ).toBeDefined()
+    expect(
+      validateRules([rule([])], ["vpn_dns"], ["ads"])[0]?.servers
+    ).toBeDefined()
   })
 })
