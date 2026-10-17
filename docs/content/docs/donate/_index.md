@@ -1,6 +1,7 @@
 ---
 title: Sponsor This Project
 weight: 9
+toc: false
 ---
 
 If keen-pbr saves you time, helps keep your router setup sane, or just makes your day a bit easier, you can support the project here:

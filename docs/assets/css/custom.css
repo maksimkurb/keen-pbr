@@ -1,3 +1,9 @@
+:root {
+  --primary-hue: 205deg;
+  --primary-saturation: 77%;
+  --primary-lightness: 44%;
+}
+
 .hero-button {
   display: inline-flex;
   align-items: center;

@@ -1,0 +1,5 @@
+{{ if .Params.custom_css }}
+  <style>
+    {{ .Params.custom_css | safeCSS }}
+  </style>
+{{ end }}

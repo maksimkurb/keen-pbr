@@ -101,7 +101,7 @@ toc: false
 })();
 </script>
 
-<div class="hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:dark:border-neutral-800 hx:aspect-auto" style="background: radial-gradient(ellipse at 50% 80%,rgba(139,92,246,0.15),hsla(0,0%,100%,0));display:flex;flex-direction:column;max-height:300px;">
+<div class="hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:dark:border-neutral-800 hx:aspect-auto" style="background: radial-gradient(ellipse at 50% 80%,rgba(139,92,246,0.15),hsla(0,0%,100%,0));display:flex;flex-direction:column;max-height:340px;">
 <div class="hx:relative hx:w-full hx:p-6" style="flex:1;display:flex;flex-direction:column;">
 <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2">Web Interface</h3>
 <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Manage routing rules, monitor outbound health, and reload configuration from a clean browser-based dashboard — no SSH required.</p>
