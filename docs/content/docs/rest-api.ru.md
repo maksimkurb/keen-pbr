@@ -456,7 +456,7 @@ curl -X POST http://127.0.0.1:12121/api/config/save
 
 ## GET /api/runtime/outbounds
 
-Возвращает текущее состояние outbounds: какой канал сейчас выбран в группе urltest (группа сама выбирает канал с самой низкой задержкой), доступен ли интерфейс и не отключён ли он после серии сбоев.
+Возвращает текущее состояние outbounds: какой канал сейчас выбран в группе urltest или icmptest (группа сама выбирает канал с самой низкой задержкой), доступен ли интерфейс и не отключён ли он после серии сбоев.
 
 ```bash {filename="bash"}
 curl http://127.0.0.1:12121/api/runtime/outbounds
@@ -490,7 +490,7 @@ curl http://127.0.0.1:12121/api/runtime/outbounds
 
 - `type`: `interface`, `table`, `blackhole`, `ignore`, `urltest` или `icmptest`.
 - `status` outbound: `healthy` (работает), `degraded` (работает частично), `unavailable` (нет доступного пути), `unknown`.
-- `status` в `interfaces`: `active` (через него идёт трафик), `backup` (резерв), `degraded`, `unavailable` (отключён после серии сбоев), `unknown`. В группе urltest выбранный канал имеет статус `active`.
+- `status` в `interfaces`: `active` (через него идёт трафик), `backup` (резерв), `degraded`, `unavailable` (отключён после серии сбоев), `unknown`. В группе urltest или icmptest выбранный канал имеет статус `active`.
 - Могут быть дополнительные поля: `latency_ms`, `probe_target`, `detail` и счётчики пакетов.
 
 ---

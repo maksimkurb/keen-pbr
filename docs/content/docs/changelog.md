@@ -9,58 +9,67 @@ What changed in each keen-pbr release, and what to do when you upgrade.
 
 ### What's new
 
-- **Domain lists work without a resolver setup.** keen-pbr reads DNS replies passing through the router and the site names in TLS, HTTP and QUIC connections, and fills the sets of your lists itself. The first connection to a site already takes the right route. If the kernel lacks a feature, only that part (DNS or connections) is turned off, and the status page says why. See [DNS]({{< relref "/docs/configuration/dns#dns-interception" >}}).
-- **dnsmasq is optional.** It is needed only for separate DNS servers for some lists or for your own default DNS servers. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}). keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and repairs it when it loses the config. New command: `keen-pbr resolver dnsmasq detect`.
-- **Load balancing across several links** (`strategy: "balance"` in a `urltest` outbound) with a weight for each link. A connection stays on the link it started on. It is not available in the Keenetic build. See [Multi-WAN Load Balancing]({{< relref "/docs/configuration/multi-wan" >}}).
-- **Automatic gateway detection** for interface outbounds (`"gateway": "auto"`), and editing the default gateway in the Web UI. See [interface]({{< relref "/docs/configuration/outbounds#interface" >}}).
-- **All internet traffic through failover or balancing**: the new `default_gateway` route rule condition (nftables only). See [Route rules]({{< relref "/docs/configuration/route-rules#failover-or-balancing-for-all-internet-traffic" >}}).
-- **New Web UI**: compact overview, live table of current requests, request log with explained badges and filters, a diagnostics panel (kernel checks first), redesigned outbound editor, updates over a live stream instead of polling, better mobile layout, and a settings page that shows the daemon's defaults.
-- **Health checks** warn about missing NAT or strict `rp_filter` on balanced links, foreign fwmarks that overlap `fwmark.mask`, and missing iptables extensions. `keen-pbr status` shows the same issue list as the Web UI.
-- **Prometheus endpoint** `GET /metrics` with probe latency, link selection, list updates, balance and interception counters, plus a Grafana dashboard and alert examples. See [REST API]({{< relref "/docs/rest-api#get-metrics" >}}).
-- **`keen-pbr test-routing`** takes packet criteria (protocol, ports, addresses, DSCP) and runs in the daemon, the same way as the routing test in the Web UI.
-- **The router's own traffic is left alone by default.** Route rules apply to devices in your network. To include the router, set `iproute.process_router_traffic` to `true`. See [iproute]({{< relref "/docs/configuration/advanced#iproute" >}}).
-- **The default config** ships a rule that keeps local networks out of tunnels.
-- **The "What's new?" button** in the Web UI opens this page.
+- **Domain lists work without a resolver setup.**\
+  keen-pbr reads DNS replies passing through the router and the site names in TLS, HTTP and QUIC connections, and fills the sets of your lists itself. If a device looks up the site over plain DNS, the very first connection already takes the right route. If the device uses encrypted DNS, keen-pbr learns the site only from its name at the start of the connection. That first connection breaks, and the browser or app reconnects, this time over the right route. If the kernel lacks a feature, only that part (DNS or connections) is turned off, and the status page says why. See [DNS]({{< relref "/docs/configuration/dns#dns-interception" >}}).
+- **dnsmasq is optional.**\
+  You need it only for {{< term "split DNS" >}} (different DNS servers depending on the domain) or to set DNS servers for the whole network right in keen-pbr. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}). keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and repairs it when it loses the config. New command: `keen-pbr resolver dnsmasq detect`.
+- **Load balancing across several links.** {{< only openwrt debian >}}\
+  A `urltest` or `icmptest` outbound with `strategy: "balance"` spreads connections across links, each with its own weight. A connection stays on the link it started on. See [Multi-WAN Load Balancing]({{< relref "/docs/configuration/multi-wan" >}}).
+- **Automatic gateway detection.**\
+  An `interface` outbound can use `"gateway": "auto"`, and the default gateway can now be edited in the Web UI. See [interface]({{< relref "/docs/configuration/outbounds#interface" >}}).
+- **All internet traffic through failover or balancing.** {{< only nftables >}}\
+  The new `default_gateway` route rule condition. See [Route rules]({{< relref "/docs/configuration/route-rules#failover-or-balancing-for-all-internet-traffic" >}}).
+- **New Web UI.**\
+  Compact overview, live table of current requests, request log with explained badges and filters, a diagnostics panel (kernel checks first), redesigned outbound editor, updates over a live stream instead of polling, better mobile layout, and a settings page that shows the daemon's defaults.
+- **Health checks.**\
+  keen-pbr warns about missing NAT or strict `rp_filter` on balanced links, foreign fwmarks that overlap `fwmark.mask`, and missing iptables extensions. `keen-pbr status` shows the same issue list as the Web UI.
+- **Prometheus endpoint.**\
+  `GET /metrics` reports probe latency, link selection, list updates, balance and interception counters. A Grafana dashboard and alert examples are included. See [REST API]({{< relref "/docs/rest-api#get-metrics" >}}).
+- **Packet criteria in `keen-pbr test-routing`.**\
+  The command takes protocol, ports, addresses and DSCP, and runs in the daemon, the same way as the routing test in the Web UI.
+- **The router's own traffic is left alone by default.**\
+  Route rules apply to devices in your network. To include the router, set `iproute.process_router_traffic` to `true`. See [iproute]({{< relref "/docs/configuration/advanced#iproute" >}}).
+- **Local networks rule in the default config.**\
+  It keeps local networks out of tunnels.
+- **The "What's new?" button.**\
+  It opens this page from the Web UI.
 - Lists that failed to download at start are retried in the background.
 - Removing the package also removes leftover firewall rules and dnsmasq files.
 
 ### Fixes
 
-- `urltest` and `icmptest` groups accepted members of any type, although only `interface` and `table` work. Other types now fail config validation. A `blackhole` member was never selected: keen-pbr skips it and logs a warning. You do not need it to block traffic: when no link works, traffic is blocked anyway.
-- Automatic list updates stopped after the first list change that affected routing. They now keep running on schedule.
-- New devices could not get an address over DHCP when a route rule matched all UDP traffic.
-- With `inbound_interfaces` set, the router's own traffic skipped route rules even when it should have matched.
-- When several DNS rules named the same list, only the first rule's server was used. Now dnsmasq gets the servers of every rule and switches between them.
-- On Keenetic, a burst of route changes on WAN DHCP renewal could leave routing built from a half-updated table.
-- After a power loss a list cache file could be left empty.
-- `keen-pbr status` reported every `urltest` and `icmptest` rule as an error.
-- The Web UI dropped `conntrack_on_switch`, `strict_enforcement_action` and the `urltest` probe timeout when saving an outbound.
-- A DNS server with `detour` through a tunnel did not answer: queries entered the tunnel with the ISP address. They now use the tunnel address (for servers with an IPv4 address).
+- `urltest` and `icmptest` groups now accept only `interface` and `table` members: other types never worked and now fail config validation. A `blackhole` member was never selected; keen-pbr now skips it and logs a warning. You do not need it to block traffic: when no link works, traffic is blocked anyway.
+- Fixed automatic list updates stopping after the first list change that affected routing. Lists now update on schedule.
+- Fixed new devices not getting an address over DHCP when a route rule matches all UDP traffic.
+- Fixed the router's own traffic skipping route rules when `inbound_interfaces` is set.
+- When several DNS rules name the same list, dnsmasq now gets the servers of every rule and switches between them. Before, only the first rule's server was used.
+- {{< only keenetic >}} Fixed routing being built from a half-updated route table when routes change one after another during a WAN DHCP renewal.
+- Fixed a list cache file being left empty after a power loss.
+- Fixed `keen-pbr status` reporting every `urltest` and `icmptest` rule as an error.
+- The Web UI now keeps `conntrack_on_switch`, `strict_enforcement_action` and the `urltest` probe timeout when saving an outbound.
+- Fixed DNS servers with `detour` through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address).
 
-### Upgrading from 3.3.x {#upgrading-from-33x}
+### Breaking Changes {#upgrading-from-33x}
+
+{{< only debian >}} **Before the upgrade.** keen-pbr 3.3.x depended on `dnsmasq`, so apt marked it as automatically installed, and `apt autoremove` may remove it. If you need dnsmasq, first run:
+
+```bash {filename="bash"}
+sudo apt-mark manual dnsmasq
+```
+
+{{< only openwrt keenetic >}} **Before the upgrade.** keen-pbr 3.3.x installed `dnsmasq-full` as a dependency, and opkg may remove it during the upgrade. If you need dnsmasq, first run over SSH:
+
+```bash {filename="bash"}
+opkg flag user dnsmasq-full
+```
+
+{{< only keenetic >}} If the package is already gone and you turned on `opkg dns-override`, devices in your network are left without DNS: the router still hands their queries to dnsmasq, which is gone. The keen-pbr Web UI offers two ways out:
+
+- **Keep dnsmasq.**\
+  Install it again with `opkg install dnsmasq-full`.
+- **Go without dnsmasq.**\
+  Turn off **Manage dnsmasq configuration**. Then, in the router's web console (http://my.keenetic.net/a), run `no opkg dns-override` and `system configuration save`, and reboot the router.
 
 After the upgrade, dnsmasq management stays on, as in 3.3.x. If you do not need it, turn off **Manage dnsmasq configuration** in the Web UI (**General** > **Settings** > **Local DNS server management**) and follow the rollback steps: [Keenetic]({{< relref "/docs/getting-started/installation/keenetic#dnsmasq-rollback" >}}), [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt#dnsmasq-rollback" >}}), [Debian]({{< relref "/docs/getting-started/installation/debian#dnsmasq-rollback" >}}). Without it, DNS rules and default DNS servers stop working.
 
-**Keenetic.** keen-pbr 3.3.x installed `dnsmasq-full` as a dependency, and opkg may remove it during the upgrade. If it is gone, the Web UI opens a window with two ways out: install it again with `opkg install dnsmasq-full`, or turn off **Manage dnsmasq configuration**.
-
-Check after the upgrade:
-
-- **Keenetic: kernel modules.** Domains are now detected by interception. Install the **Netfilter Subsystem Kernel Modules** component if you have not. Then open the status page in the Web UI and run the DNS check.
-- **Keenetic: iptables only.** The Keenetic build always uses iptables. A config with `daemon.firewall_backend: "nftables"` or `strategy: "balance"` does not pass validation there.
-- **Debian 11 (bullseye)** is no longer supported.
-- **Changed defaults.**
-  - `daemon.clear_dynamic_sets_on_apply` is now `false`: domain addresses survive a config apply.
-  - A list's `ttl_ms` is now a lower bound; the upper bound is `intercept.max_ttl_ms`.
-  - `iproute.process_router_traffic` is `false`: route rules apply to devices in your network, not to the router's own traffic.
-  - `--log-target` is `both` for every command. The packaged service files pass `--log-target syslog`.
-- **Ignored fields.** `dns.system_resolver`, `dns.dns_test_server` (use `intercept.dns.marker`) and `daemon.resolver_ready_timeout_seconds` no longer do anything; the log warns if they are set. The old `outbounds`, `candidates` and `weight` fields in `outbound_groups` are replaced by `members`; old configs keep working, and keen-pbr rewrites them once, keeping a copy in `<config>.bak-pre-members`.
-- **New field `version`.** It records which keen-pbr version the config was written for. keen-pbr sets it when you save from the Web UI. Keep it if you edit the file by hand.
-- **DNS check domain.** To check DNS by hand, run `nslookup check.keen-pbr.fyi` instead of `nslookup check.keen.pbr`. See [Troubleshooting]({{< relref "/docs/troubleshooting" >}}).
-
-If you use scripts or other programs with keen-pbr:
-
-- `keen-pbr resolver-config-hash` does nothing and always succeeds.
-- `keen-pbr generate-resolver-config` takes `dnsmasq` instead of `dnsmasq-ipset` and `dnsmasq-nftset`.
-- `keen-pbr status` exits with code 1 when any check failed or any issue is an error.
-- `GET /api/dns/test?show=all` (and `show=full`) works only with API authentication turned on.
-- New endpoints: `GET /metrics`, `GET /api/health/issues`, `GET /api/config/defaults`. `GET /api/status/events` also sends issues, routing health, authentication state and config changes.
+- First release. Follow-up builds fixed `download` messages for local lists, the default dnsmasq config, and the installer, which no longer replaces an existing `dnsmasq.conf`.

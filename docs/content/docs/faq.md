@@ -36,7 +36,7 @@ This is a full reload: it re-downloads all remote lists and re-applies the firew
 In the `keen-pbr-headless` build this command does not work. To re-download the lists and apply them, run `keen-pbr download --reload`.
 
 {{% details title="What `reapply-firewall` does" closed="true" %}}
-On Keenetic there is also `/opt/etc/init.d/S80keen-pbr reapply-firewall`. It re-verifies the routing tables and starts the `urltest` channel checks immediately, but does not re-download lists.
+On Keenetic there is also `/opt/etc/init.d/S80keen-pbr reapply-firewall`. It re-verifies the routing tables and starts the `urltest` and `icmptest` channel checks immediately, but does not re-download lists.
 {{% /details %}}
 
 ## What happens if a remote list URL is unreachable at startup?
@@ -48,6 +48,8 @@ keen-pbr uses the cached copy from `daemon.cache_dir` if available. If there is 
 Every `interval_ms`, keen-pbr sends an HTTP request to the configured `url` through each link and measures the round-trip latency. With `strategy: "priority"`, the link with the lowest latency is selected. If the new best link is faster than the current one by less than `tolerance_ms`, keen-pbr does not switch. Links are checked group by group: the next group in `outbound_groups` is used only when no link in the previous one works.
 
 If a link fails `failure_threshold` checks in a row, keen-pbr stops using it for `timeout_ms`, then tries it again with a few checks. This keeps traffic from bouncing between links while one of them is unstable.
+
+The `icmptest` outbound works the same way, but checks each link with a ping to its `target` address instead of an HTTP request.
 
 ## Can I route DNS queries through a VPN?
 

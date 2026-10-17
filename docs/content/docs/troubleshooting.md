@@ -263,7 +263,7 @@ If you see `Connection refused`, the resolver is not running or is not listening
 On Keenetic, if client DNS queries do not reach Entware `dnsmasq`, check the `opkg dns-override` setting. The commands `opkg dns-override` and `system configuration save` are run in the router's web console at `http://my.keenetic.net/a`, not over SSH. Details are in [installing on Keenetic]({{< relref "/docs/getting-started/installation/keenetic" >}}).
 
 {{% details title="After upgrading from an older keen-pbr version" closed="true" %}}
-After the upgrade, dnsmasq management stays enabled; see [Upgrading from 3.3.x]({{< relref "/docs/changelog#upgrading-from-33x" >}}). If dnsmasq does not start after you removed keen-pbr manually, make sure its configuration has no leftover `conf-script=...keen-pbr...` line.
+After the upgrade, dnsmasq management stays enabled; see [Breaking Changes in 3.4.0]({{< relref "/docs/changelog#upgrading-from-33x" >}}). If dnsmasq does not start after you removed keen-pbr manually, make sure its configuration has no leftover `conf-script=...keen-pbr...` line.
 {{% /details %}}
 
 ## Websites Are Not Opening: `DNS_PROBE_FINISHED_NXDOMAIN` / `ERR_NAME_NOT_RESOLVED`

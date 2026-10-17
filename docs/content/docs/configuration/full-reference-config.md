@@ -400,7 +400,7 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       "url": "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/apple",
 
       // Optional outbound used to download this list.
-      // Interface, table and urltest outbounds are supported.
+      // Interface, table, urltest and icmptest outbounds are supported.
       // Default: null (use the system's normal routing)
       "detour": "auto_select",
 
@@ -474,14 +474,14 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
         "address": "10.8.0.1:5353",
 
         // Optional outbound used to contact this DNS server.
-        // Supported: interface, table, urltest outbounds.
+        // Supported: interface, table, urltest, icmptest outbounds.
         // Not allowed: blackhole, ignore.
         // Default: use the system's normal routing.
         "detour": "vpn"
       },
 
       {
-        // DNS server reached through a urltest outbound.
+        // DNS server reached through a urltest (or icmptest) outbound.
         "tag": "auto_dns",
         "address": "[2606:4700:4700::1111]:53",
         "detour": "auto_select"
@@ -717,7 +717,7 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
 
 ## Notes
 
-- `dns.servers[].detour` supports `interface`, `table`, and `urltest` outbounds, but not `blackhole` or `ignore`.
+- `dns.servers[].detour` supports `interface`, `table`, `urltest`, and `icmptest` outbounds, but not `blackhole` or `ignore`.
 - `lists[].detour` is useful when a remote list should be downloaded through a VPN or other non-default path.
 - `route.rules[]` must include at least one matching condition: `list`, `dscp`, `src_port`, `dest_port`, `src_addr`, `dest_addr`, or `default_gateway`.
 - `dns.rules[].allow_domain_rebinding` is mainly for internal domains that intentionally resolve to private IP ranges.

@@ -1,0 +1,31 @@
+{{- /*
+Badges marking a line that applies only to some platforms or firewall backends.
+
+@param {string} 0.. Keys: keenetic, openwrt, debian, iptables, nftables.
+
+@example {{< only keenetic >}}
+@example {{< only openwrt debian nftables >}}
+*/ -}}
+{{- $labels := dict
+  "keenetic" "Keenetic/NetCraze"
+  "openwrt" "OpenWrt"
+  "debian" "Debian"
+  "iptables" "iptables"
+  "nftables" "nftables"
+-}}
+{{- $names := slice -}}
+{{- range .Params -}}
+  {{- $key := lower . -}}
+  {{- $label := index $labels $key -}}
+  {{- if not $label -}}
+    {{- errorf "only: unknown key %q in %s" . $.Position -}}
+  {{- end -}}
+  {{- $names = $names | append $label -}}
+{{- end -}}
+<span class="only-badges" title="{{ i18n "onlyFor" }} {{ delimit $names ", " }}">
+  {{- range .Params -}}
+    {{- $key := lower . -}}
+    <span class="only-badge only-badge--{{ $key }}">{{ index $labels $key }}</span>
+  {{- end -}}
+</span>
+{{- /* Strip trailing newline. */ -}}

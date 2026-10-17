@@ -89,3 +89,6 @@
 - term: RCI
   abbr: RCI
   definition: Встроенный API настройки роутеров Keenetic.
+- term: split DNS
+  abbr: split DNS
+  definition: Настройка, при которой домены из разных списков разрешаются через разные DNS-серверы.

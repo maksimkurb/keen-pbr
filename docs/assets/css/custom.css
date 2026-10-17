@@ -137,3 +137,41 @@ Do not force fill on every SVG because that can break outline icons.
     transform: translateY(1px);
   }
 }
+
+/* {{< only >}} platform / firewall badges */
+.only-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  vertical-align: 0.1em;
+}
+
+.only-badge {
+  --badge-hue: 220deg;
+  display: inline-block;
+  padding: 0.05rem 0.3rem;
+  border-radius: 0.375rem;
+  background: hsl(var(--badge-hue) 60% 42%);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.1rem;
+  white-space: nowrap;
+}
+
+html.dark .only-badge {
+  background: hsl(var(--badge-hue) 45% 35%);
+  color: hsl(var(--badge-hue) 80% 95%);
+}
+
+.only-badge--openwrt { --badge-hue: 235deg; }
+.only-badge--debian { --badge-hue: 345deg; }
+.only-badge--iptables { --badge-hue: 30deg; }
+.only-badge--nftables { --badge-hue: 160deg; }
+
+/* Keenetic brand blue (--kos-blue on keenetic.com), same in both themes. */
+.only-badge--keenetic,
+html.dark .only-badge--keenetic {
+  background: #0097dc;
+  color: #fff;
+}

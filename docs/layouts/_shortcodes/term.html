@@ -1,0 +1,22 @@
+{{- /*
+Highlight a glossary term from data/<lang>/termbase.yaml.
+
+Overrides the hextra shortcode: every action trims whitespace, so no space
+appears before or after the term ("fwmark." instead of "fwmark .").
+
+@example {{< term "MAC" >}}
+*/ -}}
+{{- $entry := .Get "entry" | default (.Get 0) -}}
+{{- $entryLower := lower $entry -}}
+{{- $match := dict -}}
+{{- range (index .Site.Data .Site.Language.Lang "termbase") -}}
+  {{- if or (eq (lower .abbr) $entryLower) (eq (lower .term) $entryLower) -}}
+    {{- $match = . -}}
+    {{- break -}}
+  {{- end -}}
+{{- end -}}
+{{- with $match -}}
+  <abbr title="{{ .definition | plainify }}">{{ $entry }}</abbr>
+{{- else -}}
+  {{- $entry -}}
+{{- end -}}

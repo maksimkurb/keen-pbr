@@ -456,7 +456,7 @@ If applying failed after the file was saved, `GET /api/health/service` shows `ro
 
 ## GET /api/runtime/outbounds
 
-Returns the current state of outbounds: which channel a urltest group has selected right now (the group picks the channel with the lowest latency on its own), whether an interface is reachable, and whether it was switched off after a series of failures.
+Returns the current state of outbounds: which channel a urltest or icmptest group has selected right now (the group picks the channel with the lowest latency on its own), whether an interface is reachable, and whether it was switched off after a series of failures.
 
 ```bash {filename="bash"}
 curl http://127.0.0.1:12121/api/runtime/outbounds
@@ -490,7 +490,7 @@ curl http://127.0.0.1:12121/api/runtime/outbounds
 
 - `type`: `interface`, `table`, `blackhole`, `ignore`, `urltest` or `icmptest`.
 - Outbound `status`: `healthy` (working), `degraded` (partly working), `unavailable` (no usable path), `unknown`.
-- `status` in `interfaces`: `active` (traffic goes through it), `backup` (standby), `degraded`, `unavailable` (switched off after a series of failures), `unknown`. In a urltest group the selected channel is `active`.
+- `status` in `interfaces`: `active` (traffic goes through it), `backup` (standby), `degraded`, `unavailable` (switched off after a series of failures), `unknown`. In a urltest or icmptest group the selected channel is `active`.
 - Optional fields: `latency_ms`, `probe_target`, `detail` and packet counters.
 
 ---

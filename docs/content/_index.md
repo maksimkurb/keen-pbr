@@ -269,7 +269,7 @@ toc: false
 <div class="hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:dark:border-neutral-800 hx:aspect-auto hx:max-md:min-h-[280px]" style="background: radial-gradient(ellipse at 50% 80%,rgba(239,68,68,0.15),hsla(0,0%,100%,0));display:flex;flex-direction:column;">
 <div class="hx:relative hx:w-full hx:p-6" style="flex:1;display:flex;flex-direction:column;">
 <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2">Failover &amp; Health Checks</h3>
-<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">The urltest type checks your channels and picks the one with the lowest latency (within tolerance) or spreads connections between them. An unstable channel is temporarily excluded so traffic does not jump back and forth.</p>
+<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">The urltest and icmptest types check your channels and picks the one with the lowest latency (within tolerance) or spreads connections between them. An unstable channel is temporarily excluded so traffic does not jump back and forth.</p>
 <div style="flex:1;"></div>
 <div class="hx:mt-4">
   <div style="border:1.5px solid rgba(128,128,128,0.25);border-radius:10px;padding:8px 10px;background:rgba(128,128,128,0.06);">
@@ -332,7 +332,7 @@ toc: false
   {{< hextra/feature-card
     title="Multiple Outbound Types"
     icon="switch-horizontal"
-    subtitle="Send traffic to a specific interface, through the normal provider connection, or block it. The <code>urltest</code> type picks the best of several channels on its own."
+    subtitle="Send traffic to a specific interface, through the normal provider connection, or block it. The <code>urltest</code> and <code>icmptest</code> types pick the best of several channels on its own."
   >}}
   {{< hextra/feature-card
     title="DNS Integration"

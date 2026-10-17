@@ -401,7 +401,7 @@ weight: 6
       "url": "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/apple",
 
       // Необязательный outbound, через который будет загружаться этот список.
-      // Подходят outbounds типов interface, table, urltest.
+      // Подходят outbounds типов interface, table, urltest, icmptest.
       // По умолчанию: null (используется обычная системная маршрутизация)
       "detour": "auto_select",
 
@@ -475,14 +475,14 @@ weight: 6
         "address": "10.8.0.1:5353",
 
         // Необязательный outbound, через который нужно обращаться к этому DNS-серверу.
-        // Подходят outbounds типов interface, table, urltest.
+        // Подходят outbounds типов interface, table, urltest, icmptest.
         // Не допускаются: blackhole, ignore.
         // По умолчанию: использовать обычную системную маршрутизацию.
         "detour": "vpn"
       },
 
       {
-        // DNS-сервер, к которому обращаются через urltest outbound.
+        // DNS-сервер, к которому обращаются через urltest (или icmptest) outbound.
         "tag": "auto_dns",
         "address": "[2606:4700:4700::1111]:53",
         "detour": "auto_select"
@@ -719,7 +719,7 @@ weight: 6
 
 ## Примечания
 
-- `dns.servers[].detour` поддерживает outbounds типов `interface`, `table` и `urltest`, но не `blackhole` и не `ignore`.
+- `dns.servers[].detour` поддерживает outbounds типов `interface`, `table`, `urltest` и `icmptest`, но не `blackhole` и не `ignore`.
 - `lists[].detour` полезен, когда удалённый список нужно загружать через VPN или другой нестандартный маршрут.
 - `route.rules[]` должен содержать хотя бы одно условие совпадения: `list`, `dscp`, `src_port`, `dest_port`, `src_addr`, `dest_addr` или `default_gateway`.
 - `dns.rules[].allow_domain_rebinding` в основном нужен для внутренних доменов, которые специально резолвятся в приватные IP-адреса.

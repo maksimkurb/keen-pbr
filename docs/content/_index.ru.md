@@ -269,7 +269,7 @@ toc: false
 <div class="hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:dark:border-neutral-800 hx:aspect-auto hx:max-md:min-h-[280px]" style="background: radial-gradient(ellipse at 50% 80%,rgba(239,68,68,0.15),hsla(0,0%,100%,0));display:flex;flex-direction:column;">
 <div class="hx:relative hx:w-full hx:p-6" style="flex:1;display:flex;flex-direction:column;">
 <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2">Failover и проверки состояния</h3>
-<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Тип urltest проверяет каналы и выбирает канал с самой низкой задержкой (в пределах допуска) или распределяет между ними соединения. Нестабильный канал временно исключается, чтобы трафик не метался между каналами.</p>
+<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Типы urltest и icmptest проверяют каналы и выбирает канал с самой низкой задержкой (в пределах допуска) или распределяет между ними соединения. Нестабильный канал временно исключается, чтобы трафик не метался между каналами.</p>
 <div style="flex:1;"></div>
 <div class="hx:mt-4">
   <div style="border:1.5px solid rgba(128,128,128,0.25);border-radius:10px;padding:8px 10px;background:rgba(128,128,128,0.06);">
@@ -332,7 +332,7 @@ toc: false
   {{< hextra/feature-card
     title="Несколько типов outbound"
     icon="switch-horizontal"
-    subtitle="Трафик можно направить в конкретный интерфейс, в обычный выход через провайдера или заблокировать. Тип <code>urltest</code> сам выбирает лучший из нескольких каналов."
+    subtitle="Трафик можно направить в конкретный интерфейс, в обычный выход через провайдера или заблокировать. Типы <code>urltest</code> и <code>icmptest</code> сами выбирают лучший из нескольких каналов."
   >}}
   {{< hextra/feature-card
     title="Интеграция с DNS"
