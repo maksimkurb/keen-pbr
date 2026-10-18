@@ -40,6 +40,16 @@ bool is_valid_ipv6_address(const std::string& ip) {
     return inet_pton(AF_INET6, ip.c_str(), &addr) == 1;
 }
 
+// The IP of a DNS server address ("ip", "ip:port", "[ipv6]:port"); empty when it
+// is not valid (reported at dns.servers).
+std::string dns_address_ip(const std::string& address) {
+    try {
+        return parse_dns_address_str(address).ip;
+    } catch (const DnsError&) {
+        return {};
+    }
+}
+
 bool is_valid_marker_domain(const std::string& domain) {
     if (domain.empty() || domain.size() > 253) return false;
     std::size_t label_len = 0;
@@ -1980,14 +1990,10 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
                 if (type->second == api::DnsServerType::STATIC) {
                     for (const auto& srv : dns_servers) {
                         if (srv.tag != tag || !srv.address.has_value()) continue;
-                        try {
-                            if (parse_dns_address_str(*srv.address).ip == proxy_address) {
-                                add_issue(issues, path,
-                                          name + ": DNS server \"" + tag +
-                                              "\" is the keen-pbr DNS proxy address (dns.proxy_address)");
-                            }
-                        } catch (const DnsError&) {
-                            // reported at dns.servers
+                        if (dns_address_ip(*srv.address) == proxy_address) {
+                            add_issue(issues, path,
+                                      name + ": DNS server \"" + tag +
+                                          "\" is the keen-pbr DNS proxy address (dns.proxy_address)");
                         }
                     }
                 }
@@ -2096,7 +2102,7 @@ std::vector<std::string> config_warnings(const Config& config) {
         (!config.dns->rules.value_or(std::vector<DnsRule>{}).empty() ||
          !config.dns->fallback.value_or(std::vector<std::string>{}).empty())) {
         warnings.push_back(
-            "DNS rules and default DNS servers are not used because dnsmasq "
+            "DNS rules and main DNS servers are not used because dnsmasq "
             "management is off (dns.resolver_integration is \"none\"). "
             "Turn it on in Settings -> DNS to use them.");
     }
