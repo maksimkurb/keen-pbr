@@ -1778,6 +1778,7 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
         const auto& dns_servers = cfg.dns->servers.value_or(std::vector<DnsServer>{});
         std::set<std::string> dns_server_tags;
         std::set<std::string> dns_server_identities;
+        std::map<std::string, api::DnsServerType> dns_server_types;
         size_t keenetic_servers_count = 0;
         for (size_t srv_index = 0; srv_index < dns_servers.size(); ++srv_index) {
             const auto& srv = dns_servers[srv_index];
@@ -1789,6 +1790,7 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
             }
 
             const auto srv_type = srv.type.value_or(api::DnsServerType::STATIC);
+            dns_server_types.emplace(srv.tag, srv_type);
             const std::string srv_addr = srv.address.value_or("");
             const std::string srv_identity =
                 std::to_string(static_cast<int>(srv_type)) + "|" + srv_addr;
@@ -1851,6 +1853,41 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
                               "\"].type must be one of: static, keenetic, doh");
             }
 
+            if (srv.ips.has_value() && !srv.ips->empty()) {
+                if (srv_type != api::DnsServerType::DOH) {
+                    add_issue(issues, srv_path + ".ips",
+                              "dns.servers[\"" + srv.tag + "\"].ips is only for type='doh'");
+                } else {
+                    const bool ipv6_enabled = cfg.daemon.value_or(DaemonConfig{})
+                                                  .ipv6_enabled.value_or(config_defaults::ipv6_enabled);
+                    std::set<std::string> seen_ips;
+                    bool any_usable = false;
+                    for (size_t i = 0; i < srv.ips->size(); ++i) {
+                        const std::string& ip = (*srv.ips)[i];
+                        const std::string ip_path = json_index_path(srv_path + ".ips", i);
+                        const bool v4 = is_valid_ipv4_address(ip);
+                        const bool v6 = !v4 && is_valid_ipv6_address(ip);
+                        if (!v4 && !v6) {
+                            add_issue(issues, ip_path,
+                                      "dns.servers[\"" + srv.tag + "\"].ips[" + std::to_string(i) +
+                                          "] must be an IPv4 or IPv6 address without a port");
+                            continue;
+                        }
+                        if (!seen_ips.insert(ip).second) {
+                            add_issue(issues, ip_path,
+                                      "dns.servers[\"" + srv.tag + "\"].ips[" + std::to_string(i) +
+                                          "] duplicates address \"" + ip + "\"");
+                        }
+                        any_usable = any_usable || v4 || ipv6_enabled;
+                    }
+                    if (!any_usable && !srv.ips->empty() && !seen_ips.empty()) {
+                        add_issue(issues, srv_path + ".ips",
+                                  "dns.servers[\"" + srv.tag +
+                                      "\"].ips has only IPv6 addresses while daemon.ipv6_enabled is false");
+                    }
+                }
+            }
+
             if (!srv.detour.has_value()) continue;
 
             const std::string& dtag = srv.detour.value();
@@ -1909,6 +1946,50 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
                     add_issue(issues, path,
                               "dns.fallback[" + std::to_string(i) +
                                   "] references unknown DNS server tag \"" + fallback_tag + "\"");
+                }
+            }
+        }
+
+        if (cfg.dns->bootstrap.has_value()) {
+            const std::string proxy_address = cfg.dns->proxy_address.value_or(
+                std::string(config_defaults::dns_proxy_address));
+            std::set<std::string> seen_bootstrap_tags;
+            for (size_t i = 0; i < cfg.dns->bootstrap->size(); ++i) {
+                const std::string& tag = (*cfg.dns->bootstrap)[i];
+                const std::string path = json_index_path("dns.bootstrap", i);
+                const std::string name = "dns.bootstrap[" + std::to_string(i) + "]";
+
+                if (tag.empty()) {
+                    add_issue(issues, path, name + " must not be empty");
+                    continue;
+                }
+                if (!seen_bootstrap_tags.insert(tag).second) {
+                    add_issue(issues, path, name + " duplicates DNS server tag \"" + tag + "\"");
+                }
+                const auto type = dns_server_types.find(tag);
+                if (type == dns_server_types.end()) {
+                    add_issue(issues, path, name + " references unknown DNS server tag \"" + tag + "\"");
+                    continue;
+                }
+                if (type->second == api::DnsServerType::DOH) {
+                    add_issue(issues, path,
+                              name + ": DNS server \"" + tag +
+                                  "\" is type='doh'; bootstrap servers must be static or keenetic");
+                    continue;
+                }
+                if (type->second == api::DnsServerType::STATIC) {
+                    for (const auto& srv : dns_servers) {
+                        if (srv.tag != tag || !srv.address.has_value()) continue;
+                        try {
+                            if (parse_dns_address_str(*srv.address).ip == proxy_address) {
+                                add_issue(issues, path,
+                                          name + ": DNS server \"" + tag +
+                                              "\" is the keen-pbr DNS proxy address (dns.proxy_address)");
+                            }
+                        } catch (const DnsError&) {
+                            // reported at dns.servers
+                        }
+                    }
                 }
             }
         }

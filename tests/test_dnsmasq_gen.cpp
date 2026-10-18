@@ -601,8 +601,62 @@ TEST_CASE("dnsmasq gen: a rule with several servers mixes plain and DoH in order
           std::vector<DnsBalancerUpstream>{DnsBalancerUpstream::doh("https://1.1.1.1/dns-query"),
                                            DnsBalancerUpstream::plain("10.0.0.1", 5353)});
     // The server that resolves DoH host names is the first plain one.
-    REQUIRE(registry.bootstrap_server().has_value());
-    CHECK(*registry.bootstrap_server() == DnsBalancerUpstream::plain("10.0.0.1", 5353));
+    REQUIRE(registry.bootstrap_servers().size() == 1);
+    CHECK(registry.bootstrap_servers()[0] == DnsBalancerUpstream::plain("10.0.0.1", 5353));
+    CHECK(registry.bootstrap_is_auto());
+}
+
+TEST_CASE("dnsmasq gen: dns.bootstrap lists the lookup servers in its own order") {
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{make_server("a", "10.0.0.1:5353"), make_server("b", "10.0.0.2"),
+                                         make_doh_server("g", "https://dns.google/dns-query")};
+    cfg.rules = std::vector<DnsRule>{make_multi_rule("l1", {"g"})};
+    cfg.bootstrap = std::vector<std::string>{"b", "a"};
+    const DnsServerRegistry registry(cfg);
+    CHECK_FALSE(registry.bootstrap_is_auto());
+    REQUIRE(registry.bootstrap_servers().size() == 2);
+    CHECK(registry.bootstrap_servers()[0] == DnsBalancerUpstream::plain("10.0.0.2", 53));
+    CHECK(registry.bootstrap_servers()[0].name == "b");
+    CHECK(registry.bootstrap_servers()[1] == DnsBalancerUpstream::plain("10.0.0.1", 5353));
+}
+
+TEST_CASE("dnsmasq gen: an empty dns.bootstrap is the automatic choice, none at all is the system resolver") {
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{make_doh_server("g", "https://dns.google/dns-query"),
+                                         make_server("a", "10.0.0.1")};
+    cfg.rules = std::vector<DnsRule>{make_multi_rule("l1", {"g"})};
+    cfg.bootstrap = std::vector<std::string>{};
+    const DnsServerRegistry automatic(cfg);
+    CHECK(automatic.bootstrap_is_auto());
+    REQUIRE(automatic.bootstrap_servers().size() == 1);
+    CHECK(automatic.bootstrap_servers()[0] == DnsBalancerUpstream::plain("10.0.0.1", 53));
+
+    cfg.servers = std::vector<DnsServer>{make_doh_server("g", "https://dns.google/dns-query")};
+    const DnsServerRegistry none(cfg);
+    CHECK(none.bootstrap_is_auto());
+    CHECK(none.bootstrap_servers().empty());
+}
+
+TEST_CASE("dnsmasq gen: fixed addresses of a DoH server make a forwarder upstream of its own") {
+    DnsConfig cfg;
+    auto fixed = make_doh_server("g", "https://dns.google/dns-query");
+    fixed.ips = std::vector<std::string>{"8.8.8.8", "8.8.4.4"};
+    cfg.servers = std::vector<DnsServer>{fixed};
+    cfg.rules = std::vector<DnsRule>{make_multi_rule("l1", {"g"})};
+    const DnsServerRegistry with_ips(cfg);
+    REQUIRE(with_ips.balancer_groups().size() == 1);
+    CHECK(with_ips.balancer_groups()[0].upstreams ==
+          std::vector<DnsBalancerUpstream>{DnsBalancerUpstream::doh(
+              "https://dns.google/dns-query", "", {"8.8.8.8", "8.8.4.4"})});
+    CHECK_FALSE(with_ips.balancer_groups()[0].upstreams[0] ==
+                DnsBalancerUpstream::doh("https://dns.google/dns-query"));
+
+    // Servers that differ only by their addresses do not share a forwarder.
+    auto other = make_doh_server("h", "https://dns.google/dns-query");
+    cfg.servers = std::vector<DnsServer>{fixed, other};
+    cfg.rules = std::vector<DnsRule>{make_multi_rule("l1", {"g"}), make_multi_rule("l2", {"h"})};
+    const DnsServerRegistry both(cfg);
+    CHECK(both.balancer_groups().size() == 2);
 }
 
 TEST_CASE("dnsmasq gen: lists with the same servers share a forwarder, others get their own") {

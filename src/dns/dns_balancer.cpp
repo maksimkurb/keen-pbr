@@ -158,9 +158,12 @@ DnsUpstreamOutcome outcome_for_errno(int error) {
 // Who an upstream is, for the failure streak: the same server in several
 // groups is one.
 std::string upstream_identity(const DnsBalancerUpstream& spec) {
-    return spec.kind == DnsBalancerUpstreamKind::Doh
-               ? "d|" + spec.url + "|" + spec.detour
-               : "p|" + spec.ip + "|" + std::to_string(spec.port);
+    if (spec.kind != DnsBalancerUpstreamKind::Doh) {
+        return "p|" + spec.ip + "|" + std::to_string(spec.port);
+    }
+    std::string identity = "d|" + spec.url + "|" + spec.detour;
+    for (const auto& ip : spec.ips) identity += "|" + ip;
+    return identity;
 }
 
 // What an upstream was asked and answered, since it was configured.
@@ -330,7 +333,10 @@ struct DnsBalancer::Impl {
 #ifdef WITH_DOH
     std::unique_ptr<DohClient> doh;
     std::unique_ptr<DohBootstrap> bootstrap;
-    std::map<std::string, std::size_t> doh_endpoints;           // url|mark -> endpoint id
+    std::map<std::string, std::size_t> doh_endpoints;           // url|mark|ips -> endpoint id
+    std::set<std::size_t> doh_fixed;                            // endpoints with fixed addresses
+    std::vector<DnsBalancerUpstream> bootstrap_servers;         // the ones the lookups go to
+    std::map<std::string, std::string> bootstrap_failures;      // host -> what the servers said
     std::map<std::string, std::vector<std::string>> doh_hosts;  // host -> its looked up addresses
     std::map<std::string, Clock::time_point> bootstrap_asked;
 #endif
@@ -385,6 +391,9 @@ struct DnsBalancer::Impl {
         bootstrap.reset();
         doh.reset();
         doh_endpoints.clear();
+        doh_fixed.clear();
+        bootstrap_servers.clear();
+        bootstrap_failures.clear();
         doh_hosts.clear();
         bootstrap_asked.clear();
 #endif
@@ -698,11 +707,23 @@ struct DnsBalancer::Impl {
             bootstrap = std::make_unique<DohBootstrap>([this] { wake(); });
         }
         // The forwarder must never look the DoH host up through itself.
-        auto server = settings.bootstrap;
-        if (server.has_value() && server->ip == listen_ip) {
-            server.reset();
+        std::vector<DnsBalancerUpstream> servers;
+        for (const auto& server : settings.bootstrap) {
+            if (server.ip != listen_ip) servers.push_back(server);
         }
-        bootstrap->set_server(std::move(server));
+        if (servers != bootstrap_servers) {
+            const bool known_hosts = !doh_endpoints.empty();
+            bootstrap_servers = servers;
+            bootstrap->set_servers(std::move(servers));
+            // The addresses found so far stay in use until the new ones come.
+            std::set<std::string> hosts;
+            for (const auto& [key, endpoint] : doh_endpoints) {
+                if (doh_fixed.count(endpoint) == 0) hosts.insert(doh->endpoint_host(endpoint));
+            }
+            if (known_hosts) {
+                for (const auto& host : hosts) request_bootstrap(host, true);
+            }
+        }
 #endif
     }
 
@@ -723,7 +744,8 @@ struct DnsBalancer::Impl {
             }
             mark = found->second;
         }
-        const std::string key = upstream.spec.url + "|" + std::to_string(mark);
+        std::string key = upstream.spec.url + "|" + std::to_string(mark);
+        for (const auto& ip : upstream.spec.ips) key += "|" + ip;
         auto known = doh_endpoints.find(key);
         if (known == doh_endpoints.end()) {
             const std::size_t endpoint = doh->add_endpoint(upstream.spec.url, mark);
@@ -734,7 +756,10 @@ struct DnsBalancer::Impl {
             }
             known = doh_endpoints.emplace(key, endpoint).first;
             const std::string& host = doh->endpoint_host(endpoint);
-            if (is_ip_literal(host)) {
+            if (!upstream.spec.ips.empty()) {
+                doh_fixed.insert(endpoint);
+                doh->set_addresses(endpoint, upstream.spec.ips);
+            } else if (is_ip_literal(host)) {
                 doh->set_addresses(endpoint, {host});
             } else {
                 const auto cached = doh_hosts.find(host);
@@ -769,10 +794,15 @@ struct DnsBalancer::Impl {
 #ifdef WITH_DOH
         if (!bootstrap || !doh) return;
         for (auto& result : bootstrap->take_results()) {
-            if (result.ips.empty()) continue;  // keep what was known
+            if (result.ips.empty()) {  // keep what was known
+                bootstrap_failures[result.host] = result.detail;
+                continue;
+            }
+            bootstrap_failures.erase(result.host);
             for (std::size_t i = 0; i < kMaxListeners; ++i) {
                 for (auto& upstream : listeners[i].upstreams) {
                     if (upstream.doh_endpoint != kNoTransfer &&
+                        doh_fixed.count(upstream.doh_endpoint) == 0 &&
                         doh->endpoint_host(upstream.doh_endpoint) == result.host) {
                         doh->set_addresses(upstream.doh_endpoint, result.ips);
                         upstream.dead_until = {};
@@ -780,7 +810,7 @@ struct DnsBalancer::Impl {
                 }
             }
             for (const auto& [key, endpoint] : doh_endpoints) {
-                if (doh->endpoint_host(endpoint) == result.host) {
+                if (doh_fixed.count(endpoint) == 0 && doh->endpoint_host(endpoint) == result.host) {
                     doh->set_addresses(endpoint, result.ips);
                 }
             }
@@ -893,7 +923,8 @@ struct DnsBalancer::Impl {
             const Upstream& upstream = listener.upstreams[upstream_index];
             Logger::instance().verbose("DNS forwarder: DoH {} failed: {}", upstream.spec.url,
                                        result.ok ? "unusable answer" : result.error);
-            if (result.connection_problem && doh && upstream.doh_endpoint != kNoTransfer) {
+            if (result.connection_problem && doh && upstream.doh_endpoint != kNoTransfer &&
+                doh_fixed.count(upstream.doh_endpoint) == 0) {
                 request_bootstrap(doh->endpoint_host(upstream.doh_endpoint), false);
             }
         }
@@ -921,6 +952,24 @@ struct DnsBalancer::Impl {
     }
 #endif
 
+    // Why the host of a DoH endpoint has no address, naming the servers asked.
+    std::string not_resolved_message([[maybe_unused]] std::size_t endpoint) const {
+#ifdef WITH_DOH
+        if (doh && endpoint != kNoTransfer) {
+            const std::string& host = doh->endpoint_host(endpoint);
+            const auto failed = bootstrap_failures.find(host);
+            if (failed != bootstrap_failures.end()) {
+                if (bootstrap_servers.empty()) {
+                    return "could not find the address of " + host + " via the system resolver";
+                }
+                return "could not find the address of " + host + " via bootstrap servers: " +
+                       failed->second;
+            }
+        }
+#endif
+        return "the host name of the server is not resolved";
+    }
+
     // A DoH query could not be started on upstream `index`: count it when the
     // reason is that the host of the URL has no address (not a busy client).
     void record_doh_not_sent([[maybe_unused]] Listener& listener, [[maybe_unused]] std::size_t index,
@@ -929,7 +978,7 @@ struct DnsBalancer::Impl {
         if (index < listener.upstreams.size() && doh &&
             !doh->endpoint_ready(listener.upstreams[index].doh_endpoint)) {
             record(listener, index, DnsUpstreamOutcome::NotResolved, now, now,
-                   "the host name of the server is not resolved");
+                   not_resolved_message(listener.upstreams[index].doh_endpoint));
         }
 #endif
     }
@@ -1613,7 +1662,7 @@ struct DnsBalancer::Impl {
         for (const auto& [tag, mark] : wanted.detour_marks) {
             settings.detour_marks.emplace(tag, mark);
         }
-        if (!settings.bootstrap) {
+        if (settings.bootstrap.empty()) {
             settings.bootstrap = wanted.bootstrap;
         }
         prepare_doh();
@@ -1693,7 +1742,9 @@ struct DnsBalancer::Impl {
         slot.deadline = active_job->deadline;
         if (!doh->endpoint_ready(slot.endpoint)) {
             slot.waiting = true;
-            request_bootstrap(doh->endpoint_host(slot.endpoint), true);
+            if (doh_fixed.count(slot.endpoint) == 0) {
+                request_bootstrap(doh->endpoint_host(slot.endpoint), true);
+            }
             return;
         }
         send_probe_doh(index, now);
@@ -1844,8 +1895,8 @@ struct DnsBalancer::Impl {
             if (probe_slots[i].used && probe_slots[i].deadline <= now) {
                 finish_probe(i, probe_slots[i].waiting ? DnsUpstreamOutcome::NotResolved
                                                        : DnsUpstreamOutcome::Timeout,
-                             probe_slots[i].waiting ? "the host name of the server is not resolved"
-                                                    : "no answer in time",
+                             probe_slots[i].waiting ? not_resolved_message(probe_slots[i].endpoint)
+                                                    : std::string("no answer in time"),
                              nullptr, 0, now);
             }
         }

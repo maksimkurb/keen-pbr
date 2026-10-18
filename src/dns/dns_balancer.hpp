@@ -33,6 +33,9 @@ struct DnsBalancerUpstream {
     // connection carries ("" for none).
     std::string url;
     std::string detour;
+    // DoH: fixed addresses of the server (no bootstrap lookup); empty: the host
+    // of the URL is looked up.
+    std::vector<std::string> ips;
     // The tags of the dns.servers entries behind this address, comma-joined;
     // only for labels. It is not part of the identity of the upstream: not
     // compared by operator== and not in the key of a set of upstreams.
@@ -44,11 +47,13 @@ struct DnsBalancerUpstream {
         upstream.port = port;
         return upstream;
     }
-    static DnsBalancerUpstream doh(std::string url, std::string detour = {}) {
+    static DnsBalancerUpstream doh(std::string url, std::string detour = {},
+                                   std::vector<std::string> ips = {}) {
         DnsBalancerUpstream upstream;
         upstream.kind = DnsBalancerUpstreamKind::Doh;
         upstream.url = std::move(url);
         upstream.detour = std::move(detour);
+        upstream.ips = std::move(ips);
         return upstream;
     }
 };
@@ -66,7 +71,7 @@ using DnsProxyUsers = std::map<std::uint16_t, std::vector<std::string>>;
 // `name` is left out on purpose, see the field.
 inline bool operator==(const DnsBalancerUpstream& a, const DnsBalancerUpstream& b) {
     return a.kind == b.kind && a.ip == b.ip && a.port == b.port && a.url == b.url &&
-           a.detour == b.detour;
+           a.detour == b.detour && a.ips == b.ips;
 }
 inline bool operator==(const DnsBalancerGroup& a, const DnsBalancerGroup& b) {
     return a.port == b.port && a.upstreams == b.upstreams;
@@ -76,9 +81,9 @@ inline bool operator==(const DnsBalancerGroup& a, const DnsBalancerGroup& b) {
 struct DnsBalancerSettings {
     // Firewall mark of a DoH connection, by the outbound tag of `detour`.
     std::map<std::string, std::uint32_t> detour_marks;
-    // The server that resolves the host names of DoH URLs; unset: the system
-    // resolver. It must never be the forwarder itself.
-    std::optional<DnsBalancerUpstream> bootstrap;
+    // The servers that resolve the host names of DoH URLs, asked in order;
+    // empty: the system resolver. None may be the forwarder itself.
+    std::vector<DnsBalancerUpstream> bootstrap;
     // False: DoH upstreams are not used (no DoH in this build, no CA
     // certificates); a group of only such upstreams answers SERVFAIL.
     bool doh_enabled{false};

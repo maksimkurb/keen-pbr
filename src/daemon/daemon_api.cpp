@@ -539,6 +539,7 @@ DnsCheckReport Daemon::check_dns_servers(const DnsCheckRequest& request) {
     DnsCheckInput input;
     input.request = request;
     input.servers = config.dns.value_or(DnsConfig{}).servers.value_or(std::vector<DnsServer>{});
+    input.bootstrap = config.dns.value_or(DnsConfig{}).bootstrap.value_or(std::vector<std::string>{});
     input.ipv6_enabled = config.daemon.value_or(DaemonConfig{})
                              .ipv6_enabled.value_or(config_defaults::ipv6_enabled);
     if (!kDohBuiltIn) {

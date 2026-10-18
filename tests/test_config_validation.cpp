@@ -881,16 +881,16 @@ TEST_CASE("dns tag: uppercase is rejected") {
 }
 
 TEST_CASE("dns test server: valid listen parses") {
-    std::string json = R"({"dns":{"dns_test_server":{"listen":"127.0.0.88:53"}}})";
+    std::string json = R"({"dns":{"dns_test_server":{"listen":"127.0.0.89:53"}}})";
     auto cfg = parse_test_config(json);
     REQUIRE(cfg.dns.has_value());
     REQUIRE(cfg.dns->dns_test_server.has_value());
-    CHECK(cfg.dns->dns_test_server->listen == "127.0.0.88:53");
+    CHECK(cfg.dns->dns_test_server->listen == "127.0.0.89:53");
     CHECK(!cfg.dns->dns_test_server->answer_ipv4.has_value());
 }
 
 TEST_CASE("dns test server: explicit answer IPv4 parses") {
-    std::string json = R"({"dns":{"dns_test_server":{"listen":"127.0.0.88:53","answer_ipv4":"127.0.0.99"}}})";
+    std::string json = R"({"dns":{"dns_test_server":{"listen":"127.0.0.89:53","answer_ipv4":"127.0.0.99"}}})";
     auto cfg = parse_test_config(json);
     REQUIRE(cfg.dns.has_value());
     REQUIRE(cfg.dns->dns_test_server.has_value());
@@ -901,7 +901,7 @@ TEST_CASE("dns test server: deprecated and ignored, invalid values no longer rej
     for (const char* json : {
              R"({"dns":{"dns_test_server":{"listen":"not-an-ip:53"}}})",
              R"({"dns":{"dns_test_server":{"listen":"[::1]:53"}}})",
-             R"({"dns":{"dns_test_server":{"listen":"127.0.0.88:53","answer_ipv4":"example.com"}}})"}) {
+             R"({"dns":{"dns_test_server":{"listen":"127.0.0.89:53","answer_ipv4":"example.com"}}})"}) {
         auto cfg = parse_test_config(json);
         const auto warnings = config_warnings(cfg);
         REQUIRE(warnings.size() == 1);
@@ -1743,7 +1743,7 @@ TEST_CASE("intercept: defaults are accepted and absent values stay optional") {
     const auto full = parse_test_config(R"({"intercept":{
       "enabled":true,"min_ttl_ms":300000,"max_ttl_ms":86400000,
       "dns":{"enabled":true,"queue_num":9053,"hold_timeout_ms":30,
-             "marker":{"domain":"check.keen-pbr.fyi","answer_ipv4":"127.0.0.88"}},
+             "marker":{"domain":"check.keen-pbr.fyi","answer_ipv4":"127.0.0.89"}},
       "l7":{"enabled":true,"nflog_group":9054,"tls":true,"http":true,"quic":true}}})");
     CHECK(*full.intercept->dns->queue_num == 9053);
     CHECK(*full.intercept->l7->nflog_group == 9054);
@@ -2491,4 +2491,80 @@ TEST_CASE("dns validation: the DNS proxy address and first port") {
     // 32 ports must fit below 65536.
     CHECK(validate_issues(R"({"dns":{"proxy_port_start":65504}})").empty());
     CHECK(validate_issues(R"({"dns":{"proxy_port_start":65505}})").size() == 1);
+}
+
+TEST_CASE("dns validation: bootstrap servers must be known, plain, distinct and not the DNS proxy") {
+    const auto issues_for = [](const std::string& servers, const std::string& bootstrap,
+                               const std::string& extra = "") {
+        return validate_issues(R"({"dns":{"servers":[)" + servers + R"(],"bootstrap":)" + bootstrap + extra +
+                               "}}");
+    };
+    const std::string plain = R"({"tag":"a","address":"8.8.8.8"},{"tag":"b","address":"1.1.1.1"})";
+    CHECK(issues_for(plain, R"(["a","b"])").empty());
+    CHECK(issues_for(plain, "[]").empty());
+
+    const auto unknown = issues_for(plain, R"(["a","nope"])");
+    REQUIRE(unknown.size() == 1);
+    CHECK(unknown[0].path == "dns.bootstrap[1]");
+    CHECK(unknown[0].message.find("unknown") != std::string::npos);
+
+    const auto repeated = issues_for(plain, R"(["a","a"])");
+    REQUIRE(repeated.size() == 1);
+    CHECK(repeated[0].path == "dns.bootstrap[1]");
+    CHECK(repeated[0].message.find("duplicates") != std::string::npos);
+
+    // The address of the DNS proxy would send the lookup to ourselves.
+    const auto proxy = issues_for(R"({"tag":"a","address":"127.0.0.89"})", R"(["a"])");
+    REQUIRE(proxy.size() == 1);
+    CHECK(proxy[0].path == "dns.bootstrap[0]");
+    const auto custom_proxy = issues_for(R"({"tag":"a","address":"10.0.0.5:5353"})", R"(["a"])",
+                                         R"(,"proxy_address":"10.0.0.5")");
+    REQUIRE(custom_proxy.size() == 1);
+    CHECK(custom_proxy[0].path == "dns.bootstrap[0]");
+
+#ifdef WITH_DOH
+    const auto doh = issues_for(plain + R"(,{"tag":"g","type":"doh","address":"https://dns.google/dns-query"})",
+                                R"(["g"])");
+    REQUIRE(doh.size() == 1);
+    CHECK(doh[0].path == "dns.bootstrap[0]");
+    CHECK(doh[0].message.find("doh") != std::string::npos);
+#endif
+#ifdef USE_KEENETIC_API
+    CHECK(issues_for(R"({"tag":"k","type":"keenetic"})", R"(["k"])").empty());
+#endif
+}
+
+TEST_CASE("dns validation: fixed addresses of a DoH server") {
+    const auto issues_for = [](const std::string& server, const std::string& daemon = "") {
+        return validate_issues(R"({"dns":{"servers":[)" + server + "]}" + daemon + "}");
+    };
+    // Other types take no addresses.
+    const auto plain = issues_for(R"({"tag":"a","address":"8.8.8.8","ips":["8.8.4.4"]})");
+    REQUIRE(plain.size() == 1);
+    CHECK(plain[0].path == "dns.servers[0].ips");
+    CHECK(issues_for(R"({"tag":"a","address":"8.8.8.8","ips":[]})").empty());
+
+#ifdef WITH_DOH
+    const std::string doh = R"({"tag":"g","type":"doh","address":"https://dns.google/dns-query","ips":)";
+    CHECK(issues_for(doh + R"(["8.8.8.8","2001:4860:4860::8888"]})").empty());
+
+    const auto not_ip = issues_for(doh + R"(["8.8.8.8","dns.google"]})");
+    REQUIRE(not_ip.size() == 1);
+    CHECK(not_ip[0].path == "dns.servers[0].ips[1]");
+    const auto with_port = issues_for(doh + R"(["8.8.8.8:443"]})");
+    REQUIRE(with_port.size() == 1);
+    CHECK(with_port[0].path == "dns.servers[0].ips[0]");
+
+    const auto repeated = issues_for(doh + R"(["8.8.8.8","8.8.8.8"]})");
+    REQUIRE(repeated.size() == 1);
+    CHECK(repeated[0].path == "dns.servers[0].ips[1]");
+    CHECK(repeated[0].message.find("duplicates") != std::string::npos);
+
+    // IPv6 addresses cannot be used while IPv6 is off.
+    const std::string no_ipv6 = R"(,"daemon":{"ipv6_enabled":false})";
+    CHECK(issues_for(doh + R"(["8.8.8.8","2001:4860:4860::8888"]})", no_ipv6).empty());
+    const auto only_v6 = issues_for(doh + R"(["2001:4860:4860::8888"]})", no_ipv6);
+    REQUIRE(only_v6.size() == 1);
+    CHECK(only_v6[0].path == "dns.servers[0].ips");
+#endif
 }

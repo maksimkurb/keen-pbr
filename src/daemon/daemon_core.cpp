@@ -765,7 +765,7 @@ DnsmasqManagerDeps Daemon::make_dnsmasq_deps() {
 
 void Daemon::configure_dns_forwarder(const DnsServerRegistry &registry) {
   DnsBalancerSettings settings;
-  settings.bootstrap = registry.bootstrap_server();
+  settings.bootstrap = registry.bootstrap_servers();
   settings.listen_ip = registry.proxy_address();
   settings.doh_enabled = kDohBuiltIn && doh_ca_bundle_.has_value();
   if (doh_ca_bundle_) {

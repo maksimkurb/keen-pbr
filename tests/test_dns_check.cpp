@@ -437,3 +437,60 @@ TEST_CASE("dns check: the report as JSON") {
     CHECK(result["addresses"] == nlohmann::json::array({"77.88.55.60"}));
     CHECK(result["duration_ms"].is_number());
 }
+
+TEST_CASE("dns check: DoH hosts are looked up through dns.bootstrap, else the first plain server") {
+    auto input = base_input();
+    input.servers = {make_server("a", "8.8.8.8"), make_server("b", "9.9.9.9:5353"),
+                     make_server("g", "https://dns.google/dns-query", api::DnsServerType::DOH)};
+    std::vector<DnsBalancerUpstream> bootstrap;
+    const DnsCheckProbeFn probe = [&](const std::vector<DnsProbeRequest>& requests,
+                                      std::chrono::milliseconds, const DnsBalancerSettings& settings) {
+        bootstrap = settings.bootstrap;
+        std::vector<DnsProbeResult> results;
+        for (const auto& request : requests) {
+            results.push_back(answered(request.query, 0, {fake_dns::a_rr("93.184.216.34")}));
+        }
+        return results;
+    };
+
+    run_dns_check(input, probe);
+    REQUIRE(bootstrap.size() == 1);
+    CHECK(bootstrap[0] == DnsBalancerUpstream::plain("8.8.8.8", 53));
+
+    input.bootstrap = {"b", "a"};
+    run_dns_check(input, probe);
+    REQUIRE(bootstrap.size() == 2);
+    CHECK(bootstrap[0] == DnsBalancerUpstream::plain("9.9.9.9", 5353));
+    CHECK(bootstrap[0].name == "b");
+    CHECK(bootstrap[1] == DnsBalancerUpstream::plain("8.8.8.8", 53));
+}
+
+TEST_CASE("dns check: a DoH server with fixed addresses is asked at them and needs no bootstrap") {
+    auto input = base_input();
+    input.servers = {make_server("a", "8.8.8.8"),
+                     make_server("g", "https://dns.google/dns-query", api::DnsServerType::DOH)};
+    input.servers[1].ips = std::vector<std::string>{"8.8.4.4", "8.8.8.8"};
+    input.request.servers = {"g"};
+    std::vector<DnsBalancerUpstream> asked;
+    std::vector<DnsBalancerUpstream> bootstrap{DnsBalancerUpstream::plain("1.1.1.1")};
+    const auto report = run_dns_check(input, [&](const std::vector<DnsProbeRequest>& requests,
+                                                 std::chrono::milliseconds,
+                                                 const DnsBalancerSettings& settings) {
+        bootstrap = settings.bootstrap;
+        std::vector<DnsProbeResult> results;
+        for (const auto& request : requests) {
+            asked.push_back(request.upstream);
+            results.push_back(answered(request.query, 0, {fake_dns::a_rr("93.184.216.34")}));
+        }
+        return results;
+    });
+    REQUIRE_FALSE(asked.empty());
+    CHECK(asked[0].url == "https://dns.google/dns-query");
+    CHECK(asked[0].ips == std::vector<std::string>{"8.8.4.4", "8.8.8.8"});
+    CHECK(bootstrap.empty());
+    REQUIRE(report.servers.size() == 1);
+    CHECK(report.servers[0].endpoints[0].address == "https://dns.google/dns-query");
+    CHECK(report.servers[0].endpoints[0].ips == std::vector<std::string>{"8.8.4.4", "8.8.8.8"});
+    CHECK(dns_check_report_to_json(report)["servers"][0]["endpoints"][0]["ips"] ==
+          nlohmann::json::array({"8.8.4.4", "8.8.8.8"}));
+}

@@ -59,9 +59,11 @@ public:
     // Set when there are more distinct server sets than listener ports.
     const std::string& balancer_error() const { return balancer_error_; }
 
-    // The first plain DNS server of dns.servers: it resolves the host names of
-    // DoH URLs.
-    const std::optional<DnsBalancerUpstream>& bootstrap_server() const { return bootstrap_; }
+    // The servers that resolve the host names of DoH URLs, in the order they
+    // are asked: dns.bootstrap, else the first plain DNS server of dns.servers
+    // (`bootstrap_is_auto()`). Empty: the system resolver.
+    const std::vector<DnsBalancerUpstream>& bootstrap_servers() const { return bootstrap_; }
+    bool bootstrap_is_auto() const { return bootstrap_auto_; }
 
     bool uses_doh() const { return uses_doh_; }
 
@@ -73,7 +75,8 @@ private:
     DnsProxyUsers users_;
     std::string proxy_address_;
     std::string balancer_error_;
-    std::optional<DnsBalancerUpstream> bootstrap_;
+    std::vector<DnsBalancerUpstream> bootstrap_;
+    bool bootstrap_auto_{false};
     bool uses_doh_{false};
 };
 

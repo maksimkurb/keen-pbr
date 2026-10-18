@@ -89,6 +89,7 @@ struct DnsCheckEndpoint {
     std::optional<std::string> reason_code;
     std::optional<std::string> reason;  // for skipped and unavailable
     std::optional<bool> nxdomain_hijack;
+    std::vector<std::string> ips;  // DoH: the fixed addresses it was asked at
     std::vector<DnsCheckResult> results;
 };
 
@@ -114,6 +115,7 @@ nlohmann::json dns_check_report_to_json(const DnsCheckReport& report);
 struct DnsCheckInput {
     DnsCheckRequest request;
     std::vector<DnsServer> servers;  // dns.servers of the applied config
+    std::vector<std::string> bootstrap;  // dns.bootstrap of the applied config
     bool ipv6_enabled{true};
     // Set when DoH cannot be used at all; the code goes to the reason_code.
     std::optional<std::pair<std::string, std::string>> doh_unavailable;

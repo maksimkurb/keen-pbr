@@ -9,7 +9,7 @@ namespace {
 
 DnsBalancerUpstream balancer_upstream(const DnsServerConfig& server) {
     if (server.is_doh()) {
-        return DnsBalancerUpstream::doh(server.doh_url, server.detour.value_or(""));
+        return DnsBalancerUpstream::doh(server.doh_url, server.detour.value_or(""), server.ips);
     }
     return DnsBalancerUpstream::plain(server.resolved_ip, server.port);
 }
@@ -18,12 +18,18 @@ std::string upstream_label(const DnsServerConfig& server) {
     return server.is_doh() ? server.doh_url : dnsmasq_server_address(server);
 }
 
+std::string join_ips(const std::vector<std::string>& ips) {
+    std::string joined;
+    for (const auto& ip : ips) joined += (joined.empty() ? "" : ",") + ip;
+    return joined;
+}
+
 // Identifies a set of upstreams; their `name` is a label and not part of it.
 std::string group_key(const std::vector<DnsBalancerUpstream>& upstreams) {
     std::string key;
     for (const auto& upstream : upstreams) {
         key += upstream.kind == DnsBalancerUpstreamKind::Doh
-                   ? "d|" + upstream.url + "|" + upstream.detour
+                   ? "d|" + upstream.url + "|" + upstream.detour + "|" + join_ips(upstream.ips)
                    : "p|" + upstream.ip + "|" + std::to_string(upstream.port);
         key += '\n';
     }
@@ -115,16 +121,36 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
                 throw DnsError("DNS server '" + server.tag + "' is missing address");
             }
             servers_[server.tag].push_back(
-                parse_doh_server(server.tag, *server.address, server.detour));
+                parse_doh_server(server.tag, *server.address, server.detour,
+                                 server.ips.value_or(std::vector<std::string>{})));
         } else {
             throw DnsError("DNS server '" + server.tag + "' has unsupported type");
         }
-        if (!bootstrap_.has_value()) {
-            const auto resolved = servers_.find(server.tag);
-            if (resolved != servers_.end() && !resolved->second.empty() &&
-                !resolved->second.front().is_doh()) {
-                bootstrap_ = balancer_upstream(resolved->second.front());
-            }
+    }
+
+    // The servers that look up the host names of DoH URLs: dns.bootstrap, else
+    // the first plain server of dns.servers.
+    const auto plain_upstreams = [&](const std::string& tag) {
+        std::vector<DnsBalancerUpstream> found;
+        const auto servers = servers_.find(tag);
+        if (servers == servers_.end()) return found;
+        for (const DnsServerConfig& server : servers->second) {
+            if (server.is_doh()) continue;
+            found.push_back(balancer_upstream(server));
+            found.back().name = tag;
+        }
+        return found;
+    };
+    for (const auto& tag : dns_config.bootstrap.value_or(std::vector<std::string>{})) {
+        for (auto& upstream : plain_upstreams(tag)) bootstrap_.push_back(std::move(upstream));
+    }
+    if (dns_config.bootstrap.value_or(std::vector<std::string>{}).empty()) {
+        bootstrap_auto_ = true;
+        for (const auto& server : dns_config.servers.value_or(std::vector<DnsServer>{})) {
+            auto first = plain_upstreams(server.tag);
+            if (first.empty()) continue;
+            bootstrap_.push_back(std::move(first.front()));
+            break;
         }
     }
 

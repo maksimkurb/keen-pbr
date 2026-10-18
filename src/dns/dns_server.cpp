@@ -208,7 +208,8 @@ DohUrl parse_doh_url(const std::string& url, bool allow_plain_http) {
 
 DnsServerConfig parse_doh_server(const std::string& tag,
                                  const std::string& url,
-                                 const std::optional<std::string>& detour) {
+                                 const std::optional<std::string>& detour,
+                                 const std::vector<std::string>& ips) {
     const DohUrl parsed = parse_doh_url(url);
 
     DnsServerConfig config;
@@ -217,6 +218,7 @@ DnsServerConfig parse_doh_server(const std::string& tag,
     config.detour  = detour;
     config.port    = parsed.port;
     config.doh_url = url;
+    config.ips     = ips;
     return config;
 }
 

@@ -10,6 +10,7 @@
 
 #include <unistd.h>
 
+#include <algorithm>
 #include <fstream>
 #include <map>
 #include <ostream>
@@ -38,6 +39,7 @@ std::string describe_dns_proxies(const std::vector<DnsBalancerGroup>& groups) {
         for (const auto& upstream : group.upstreams) {
             if (upstream.kind == DnsBalancerUpstreamKind::Doh) {
                 upstreams.push_back("[DoH] " + upstream.url +
+                                    (upstream.ips.empty() ? "" : " at " + join(upstream.ips)) +
                                     (upstream.detour.empty() ? "" : " via " + upstream.detour));
             } else {
                 upstreams.push_back("[DNS] " + upstream.ip +
@@ -48,6 +50,17 @@ std::string describe_dns_proxies(const std::vector<DnsBalancerGroup>& groups) {
         out += ":" + std::to_string(group.port) + " -> " + join(upstreams);
     }
     return out;
+}
+
+// "google_dns, quad9", "auto: google_dns" or "system resolver".
+std::string describe_doh_bootstrap(const DnsServerRegistry& registry) {
+    std::vector<std::string> names;
+    for (const auto& server : registry.bootstrap_servers()) {
+        const std::string& name = server.name.empty() ? server.ip : server.name;
+        if (std::find(names.begin(), names.end(), name) == names.end()) names.push_back(name);
+    }
+    if (names.empty()) return "system resolver";
+    return (registry.bootstrap_is_auto() ? "auto: " : "") + join(names);
 }
 
 void write_stamp(std::ostream& out, const std::string& hash) {
@@ -138,6 +151,9 @@ int run_generate_resolver_config(const std::string& resolver_type,
         } else {
             log.info("generate-resolver-config: dns proxies on {}: {}", registry.proxy_address(),
                      describe_dns_proxies(registry.balancer_groups()));
+        }
+        if (registry.uses_doh()) {
+            log.info("generate-resolver-config: DoH bootstrap: {}", describe_doh_bootstrap(registry));
         }
         DnsmasqGenStats stats;
         const std::string hash = generator.generate(out, &stats);

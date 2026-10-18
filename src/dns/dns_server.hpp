@@ -4,6 +4,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace keen_pbr3 {
 
@@ -42,6 +43,7 @@ struct DnsServerConfig {
     std::string resolved_ip;               // bare IP (no port, no brackets); empty for DoH
     uint16_t    port = 53;                 // parsed port, default 53 (443 for DoH)
     std::string doh_url;                   // type=doh: the https:// URL; empty otherwise
+    std::vector<std::string> ips;          // type=doh: fixed server addresses; empty: look the host up
 
     bool is_doh() const { return !doh_url.empty(); }
 };
@@ -56,7 +58,8 @@ DnsServerConfig parse_dns_server(const std::string& tag,
 // URL is not a valid https:// URL.
 DnsServerConfig parse_doh_server(const std::string& tag,
                                  const std::string& url,
-                                 const std::optional<std::string>& detour);
+                                 const std::optional<std::string>& detour,
+                                 const std::vector<std::string>& ips = {});
 
 // Validate a DNS server address (must be valid IPv4 or IPv6, with optional port).
 // Throws DnsError if invalid.

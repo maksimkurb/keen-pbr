@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesTVskcr data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesKli8Un data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -216,6 +216,7 @@ namespace api {
     struct DnsServerElement {
         std::optional<std::string> address;
         std::optional<std::string> detour;
+        std::optional<std::vector<std::string>> ips;
         std::string tag;
         std::optional<DnsServerType> type;
     };
@@ -225,6 +226,7 @@ namespace api {
     };
 
     struct DnsConfigClass {
+        std::optional<std::vector<std::string>> bootstrap;
         std::optional<DnsTestServer> dns_test_server;
         std::optional<std::string> dnsmasq_instance;
         std::optional<std::vector<std::string>> fallback;
@@ -423,6 +425,7 @@ namespace api {
 
     struct DnsCheckEndpoint {
         std::string address;
+        std::optional<std::vector<std::string>> ips;
         std::optional<bool> nxdomain_hijack;
         std::optional<std::string> reason;
         std::optional<std::string> reason_code;
@@ -1038,7 +1041,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesTVskcr {
+    struct KeenPbrTypesKli8Un {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1445,8 +1448,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesTVskcr & x);
-    void to_json(json & j, const KeenPbrTypesTVskcr & x);
+    void from_json(const json & j, KeenPbrTypesKli8Un & x);
+    void to_json(json & j, const KeenPbrTypesKli8Un & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1855,6 +1858,7 @@ namespace api {
     inline void from_json(const json & j, DnsServerElement& x) {
         x.address = get_stack_optional<std::string>(j, "address");
         x.detour = get_stack_optional<std::string>(j, "detour");
+        x.ips = get_stack_optional<std::vector<std::string>>(j, "ips");
         x.tag = j.at("tag").get<std::string>();
         x.type = get_stack_optional<DnsServerType>(j, "type");
     }
@@ -1863,6 +1867,7 @@ namespace api {
         j = json::object();
         j["address"] = x.address;
         j["detour"] = x.detour;
+        j["ips"] = x.ips;
         j["tag"] = x.tag;
         j["type"] = x.type;
     }
@@ -1877,6 +1882,7 @@ namespace api {
     }
 
     inline void from_json(const json & j, DnsConfigClass& x) {
+        x.bootstrap = get_stack_optional<std::vector<std::string>>(j, "bootstrap");
         x.dns_test_server = get_stack_optional<DnsTestServer>(j, "dns_test_server");
         x.dnsmasq_instance = get_stack_optional<std::string>(j, "dnsmasq_instance");
         x.fallback = get_stack_optional<std::vector<std::string>>(j, "fallback");
@@ -1890,6 +1896,7 @@ namespace api {
 
     inline void to_json(json & j, const DnsConfigClass & x) {
         j = json::object();
+        j["bootstrap"] = x.bootstrap;
         j["dns_test_server"] = x.dns_test_server;
         j["dnsmasq_instance"] = x.dnsmasq_instance;
         j["fallback"] = x.fallback;
@@ -2270,6 +2277,7 @@ namespace api {
 
     inline void from_json(const json & j, DnsCheckEndpoint& x) {
         x.address = j.at("address").get<std::string>();
+        x.ips = get_stack_optional<std::vector<std::string>>(j, "ips");
         x.nxdomain_hijack = get_stack_optional<bool>(j, "nxdomain_hijack");
         x.reason = get_stack_optional<std::string>(j, "reason");
         x.reason_code = get_stack_optional<std::string>(j, "reason_code");
@@ -2280,6 +2288,7 @@ namespace api {
     inline void to_json(json & j, const DnsCheckEndpoint & x) {
         j = json::object();
         j["address"] = x.address;
+        j["ips"] = x.ips;
         j["nxdomain_hijack"] = x.nxdomain_hijack;
         j["reason"] = x.reason;
         j["reason_code"] = x.reason_code;
@@ -3383,7 +3392,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesTVskcr& x) {
+    inline void from_json(const json & j, KeenPbrTypesKli8Un& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -3492,7 +3501,7 @@ namespace api {
         x.xt_extension_health = get_stack_optional<XtExtensionHealthElement>(j, "XtExtensionHealth");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesTVskcr & x) {
+    inline void to_json(json & j, const KeenPbrTypesKli8Un & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;

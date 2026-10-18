@@ -288,6 +288,7 @@ nlohmann::json dns_check_report_to_json(const DnsCheckReport& report) {
             if (endpoint.reason_code) item["reason_code"] = *endpoint.reason_code;
             if (endpoint.reason) item["reason"] = *endpoint.reason;
             if (endpoint.nxdomain_hijack) item["nxdomain_hijack"] = *endpoint.nxdomain_hijack;
+            if (!endpoint.ips.empty()) item["ips"] = endpoint.ips;
             endpoints.push_back(std::move(item));
         }
         nlohmann::json item = {{"tag", server.tag},
@@ -300,6 +301,52 @@ nlohmann::json dns_check_report_to_json(const DnsCheckReport& report) {
     }
     return {{"overall", dns_check_severity_name(report.overall)}, {"servers", std::move(servers)}};
 }
+
+namespace {
+
+// The plain upstreams of one server of dns.servers, named by its tag.
+std::vector<DnsBalancerUpstream> plain_upstreams(const DnsServer& configured,
+                                                 const DnsCheckInput& input) {
+    std::vector<DnsBalancerUpstream> found;
+    const auto type = configured.type.value_or(api::DnsServerType::STATIC);
+    try {
+        std::vector<std::string> addresses;
+        if (type == api::DnsServerType::KEENETIC) {
+            if (input.keenetic_addresses) addresses = input.keenetic_addresses();
+        } else if (type == api::DnsServerType::STATIC) {
+            addresses.push_back(configured.address.value_or(""));
+        }
+        for (const auto& address : addresses) {
+            const DnsServerConfig parsed = parse_dns_server(configured.tag, address, configured.detour);
+            found.push_back(DnsBalancerUpstream::plain(parsed.resolved_ip, parsed.port));
+            found.back().name = configured.tag;
+        }
+    } catch (const std::exception&) {
+        found.clear();  // the server cannot be used to look names up
+    }
+    return found;
+}
+
+// The servers that look up the host names of DoH URLs: dns.bootstrap, else
+// the first plain server of dns.servers.
+std::vector<DnsBalancerUpstream> bootstrap_upstreams(const DnsCheckInput& input) {
+    std::vector<DnsBalancerUpstream> found;
+    for (const auto& tag : input.bootstrap) {
+        for (const auto& server : input.servers) {
+            if (server.tag != tag) continue;
+            auto upstreams = plain_upstreams(server, input);
+            found.insert(found.end(), upstreams.begin(), upstreams.end());
+        }
+    }
+    if (!input.bootstrap.empty()) return found;
+    for (const auto& server : input.servers) {
+        auto upstreams = plain_upstreams(server, input);
+        if (!upstreams.empty()) return {upstreams.front()};
+    }
+    return found;
+}
+
+} // namespace
 
 DnsCheckReport run_dns_check(const DnsCheckInput& input, const DnsCheckProbeFn& probe) {
     const DnsCheckRequest& request = input.request;
@@ -332,7 +379,7 @@ DnsCheckReport run_dns_check(const DnsCheckInput& input, const DnsCheckProbeFn& 
 
     std::vector<Question> questions;
     std::vector<DnsProbeRequest> requests;
-    std::optional<DnsBalancerUpstream> first_plain;
+    bool needs_bootstrap = false;
     std::uint16_t next_id = 1;
     const auto ask = [&](std::size_t server, std::size_t endpoint, std::size_t domain,
                          const DnsBalancerUpstream& upstream) {
@@ -375,8 +422,9 @@ DnsCheckReport run_dns_check(const DnsCheckInput& input, const DnsCheckProbeFn& 
                     parsed.push_back(parse_dns_server(configured.tag, address, configured.detour));
                 }
             } else if (type == api::DnsServerType::DOH) {
-                parsed.push_back(
-                    parse_doh_server(configured.tag, configured.address.value_or(""), configured.detour));
+                parsed.push_back(parse_doh_server(configured.tag, configured.address.value_or(""),
+                                                  configured.detour,
+                                                  configured.ips.value_or(std::vector<std::string>{})));
             } else {
                 parsed.push_back(
                     parse_dns_server(configured.tag, configured.address.value_or(""), configured.detour));
@@ -391,6 +439,7 @@ DnsCheckReport run_dns_check(const DnsCheckInput& input, const DnsCheckProbeFn& 
         for (const auto& address : parsed) {
             DnsCheckEndpoint endpoint;
             endpoint.address = endpoint_address(address);
+            endpoint.ips = address.ips;
             const std::size_t endpoint_index = server.endpoints.size();
             if (!address.is_doh() && !input.ipv6_enabled &&
                 address.resolved_ip.find(':') != std::string::npos) {
@@ -403,9 +452,10 @@ DnsCheckReport run_dns_check(const DnsCheckInput& input, const DnsCheckProbeFn& 
                 endpoint.reason = input.doh_unavailable->second;
             } else {
                 DnsBalancerUpstream upstream =
-                    address.is_doh() ? DnsBalancerUpstream::doh(address.doh_url, address.detour.value_or(""))
+                    address.is_doh() ? DnsBalancerUpstream::doh(address.doh_url, address.detour.value_or(""),
+                                                                address.ips)
                                      : DnsBalancerUpstream::plain(address.resolved_ip, address.port);
-                if (!address.is_doh() && !first_plain) first_plain = upstream;
+                if (address.is_doh() && address.ips.empty()) needs_bootstrap = true;
                 for (std::size_t i = 0; i <= names.size(); ++i) {
                     ask(server_index, endpoint_index, i, upstream);
                 }
@@ -415,9 +465,12 @@ DnsCheckReport run_dns_check(const DnsCheckInput& input, const DnsCheckProbeFn& 
         report.servers.push_back(std::move(server));
     }
 
-    // DoH host names are looked up through the first plain DNS server.
+    // DoH host names are looked up through dns.bootstrap, else the first
+    // plain DNS server.
     DnsBalancerSettings settings = input.settings;
-    if (!settings.bootstrap) settings.bootstrap = first_plain;
+    if (needs_bootstrap && settings.bootstrap.empty()) {
+        settings.bootstrap = bootstrap_upstreams(input);
+    }
 
     std::vector<DnsProbeResult> answers;
     if (!requests.empty()) {

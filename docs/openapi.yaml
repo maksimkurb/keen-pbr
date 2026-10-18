@@ -1404,6 +1404,18 @@ components:
           type: string
           description: Outbound tag to use when querying this DNS server.
           example: "vpn"
+        ips:
+          type: array
+          uniqueItems: true
+          description: >
+            Only for `type=doh`: fixed IPv4 or IPv6 addresses of the server,
+            without a port. When set, keen-pbr connects only to these
+            addresses and does not look the server up through the bootstrap
+            servers. The host name of the URL is still used for the TLS
+            handshake and the `Host` header. Rejected for other types.
+          items:
+            type: string
+          example: ["8.8.8.8", "8.8.4.4"]
 
     DnsRule:
       type: object
@@ -1510,6 +1522,17 @@ components:
             DNS server tags used as dnsmasq's default upstreams. When set, the
             generated config adds `no-resolv` and unscoped `server=` lines.
             Used only when `resolver_integration` is `dnsmasq`.
+          items:
+            type: string
+        bootstrap:
+          type: array
+          description: >
+            Tags of the plain DNS servers (`static` or `keenetic`, not `doh`)
+            that find the IP addresses of `doh` servers whose URL has a host
+            name. They are asked in order; the next one is tried when a server
+            does not answer, answers with an error, says the name does not
+            exist, or gives no address. When absent or empty, the first plain
+            server of `dns.servers` is used.
           items:
             type: string
         resolver_integration:
@@ -2435,6 +2458,13 @@ components:
           description: >
             True when the server resolved a made-up name that does not exist.
             Absent when it did not answer.
+        ips:
+          type: array
+          description: >
+            DNS-over-HTTPS only: the fixed addresses the server was asked at
+            (`ips` of the server). Absent when its host name was looked up.
+          items:
+            type: string
         results:
           type: array
           items:

@@ -18,16 +18,15 @@ constexpr std::chrono::milliseconds kLookupTimeout{3000};
 } // namespace
 
 DohBootstrap::DohBootstrap(std::function<void()> on_ready, Resolver resolver)
-    : on_ready_(std::move(on_ready)),
-      resolver_(resolver ? std::move(resolver) : Resolver(&DohBootstrap::resolve)) {}
+    : on_ready_(std::move(on_ready)), resolver_(std::move(resolver)) {}
 
 DohBootstrap::~DohBootstrap() {
     stop();
 }
 
-void DohBootstrap::set_server(std::optional<DnsBalancerUpstream> server) {
+void DohBootstrap::set_servers(std::vector<DnsBalancerUpstream> servers) {
     std::lock_guard<std::mutex> lock(mutex_);
-    server_ = std::move(server);
+    servers_ = std::move(servers);
 }
 
 void DohBootstrap::request(const std::string& host) {
@@ -64,24 +63,26 @@ void DohBootstrap::stop() {
 void DohBootstrap::run() {
     for (;;) {
         std::string host;
-        std::optional<DnsBalancerUpstream> server;
+        std::vector<DnsBalancerUpstream> servers;
         {
             std::unique_lock<std::mutex> lock(mutex_);
             wake_.wait(lock, [this] { return stopping_ || !queue_.empty(); });
             if (stopping_) return;
             host = std::move(queue_.front());
             queue_.pop_front();
-            server = server_;
+            servers = servers_;
         }
         Result result;
         result.host = host;
         try {
-            result.ips = resolver_(host, server);
+            result.ips = resolver_ ? resolver_(host, servers)
+                                   : resolve(host, servers, &result.detail);
         } catch (const std::exception& error) {
             Logger::instance().warn("DoH: cannot look up '{}': {}", host, error.what());
         }
         if (result.ips.empty()) {
-            Logger::instance().warn("DoH: cannot find the address of '{}'", host);
+            Logger::instance().warn("DoH: cannot find the address of '{}'{}", host,
+                                    result.detail.empty() ? "" : " (" + result.detail + ")");
         } else {
             Logger::instance().verbose("DoH: '{}' is {}", host, result.ips.front());
         }
@@ -94,17 +95,36 @@ void DohBootstrap::run() {
 }
 
 std::vector<std::string> DohBootstrap::resolve(const std::string& host,
-                                               const std::optional<DnsBalancerUpstream>& server) {
+                                               const std::vector<DnsBalancerUpstream>& servers,
+                                               std::string* failures) {
     std::vector<std::string> ips;
-    if (server.has_value()) {
-        for (const std::uint16_t qtype : {kDnsTypeA, kDnsTypeAAAA}) {
-            const DnsQueryResult answer =
-                dns_query(server->ip, server->port, host, qtype, kDnsClassIN, kLookupTimeout);
-            if (answer.status == DnsQueryStatus::Ok) {
-                ips.insert(ips.end(), answer.addresses.begin(), answer.addresses.end());
+    if (!servers.empty()) {
+        std::string said;
+        for (const auto& server : servers) {
+            std::string outcome = "no address";
+            for (const std::uint16_t qtype : {kDnsTypeA, kDnsTypeAAAA}) {
+                const DnsQueryResult answer =
+                    dns_query(server.ip, server.port, host, qtype, kDnsClassIN, kLookupTimeout);
+                if (answer.status == DnsQueryStatus::Ok) {
+                    ips.insert(ips.end(), answer.addresses.begin(), answer.addresses.end());
+                } else if (qtype == kDnsTypeA) {
+                    outcome = dns_query_status_name(answer.status);
+                }
+                if (!ips.empty()) break;  // IPv4 is enough
+                // A server that does not answer or denies the name will not
+                // answer the AAAA question differently.
+                if (qtype == kDnsTypeA && answer.status != DnsQueryStatus::Ok &&
+                    answer.status != DnsQueryStatus::NoData) {
+                    break;
+                }
             }
-            if (!ips.empty()) break;  // IPv4 is enough
+            if (!ips.empty()) return ips;
+            const std::string entry = (server.name.empty() ? server.ip : server.name) + " (" + outcome + ")";
+            if (said.find(entry) == std::string::npos) {
+                said += (said.empty() ? "" : ", ") + entry;
+            }
         }
+        if (failures != nullptr) *failures = said;
         return ips;
     }
 

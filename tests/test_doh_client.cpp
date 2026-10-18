@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstring>
@@ -161,14 +162,22 @@ private:
     std::thread thread_;
 };
 
-// A plain DNS server on 127.0.0.1 (UDP) that answers every query.
+// A plain DNS server on 127.0.0.1 (UDP) that answers every query with `rcode`
+// and, when given, one A record of `answer_ip`.
 class FakeUdpDns {
 public:
-    explicit FakeUdpDns(bool servfail = false) : servfail_(servfail) {
+    explicit FakeUdpDns(int rcode = 0, const char* answer_ip = nullptr, const char* bind_ip = "127.0.0.1")
+        : rcode_(rcode) {
+        if (answer_ip != nullptr) {
+            in_addr parsed{};
+            ::inet_pton(AF_INET, answer_ip, &parsed);
+            std::memcpy(answer_.data(), &parsed, answer_.size());
+            has_answer_ = true;
+        }
         fd_ = ::socket(AF_INET, SOCK_DGRAM, 0);
         sockaddr_in addr{};
         addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        ::inet_pton(AF_INET, bind_ip, &addr.sin_addr);
         REQUIRE(::bind(fd_, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) == 0);
         socklen_t len = sizeof(addr);
         ::getsockname(fd_, reinterpret_cast<sockaddr*>(&addr), &len);
@@ -184,10 +193,24 @@ public:
                                              reinterpret_cast<sockaddr*>(&from), &from_len);
                 if (n < 12) continue;
                 ++hits_;
+                std::size_t length = static_cast<std::size_t>(n);
                 buf[2] = static_cast<std::uint8_t>(buf[2] | 0x80);
-                buf[3] = static_cast<std::uint8_t>((buf[3] & 0xF0) | 0x80 | (servfail_ ? 2 : 0));
-                ::sendto(fd_, buf, static_cast<std::size_t>(n), 0,
-                         reinterpret_cast<const sockaddr*>(&from), from_len);
+                buf[3] = static_cast<std::uint8_t>((buf[3] & 0xF0) | 0x80 | rcode_);
+                if (has_answer_) {
+                    // Header and question, then one A record pointing at the name.
+                    std::size_t end = 12;
+                    while (end < length && buf[end] != 0) end += buf[end] + 1U;
+                    end += 5;
+                    const std::uint8_t record[] = {0xC0, 0x0C, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4,
+                                                   answer_[0], answer_[1], answer_[2], answer_[3]};
+                    std::memcpy(buf + end, record, sizeof(record));
+                    buf[6] = 0;
+                    buf[7] = 1;  // ANCOUNT
+                    buf[10] = 0;
+                    buf[11] = 0;  // no OPT
+                    length = end + sizeof(record);
+                }
+                ::sendto(fd_, buf, length, 0, reinterpret_cast<const sockaddr*>(&from), from_len);
             }
         });
     }
@@ -200,7 +223,9 @@ public:
     int hits() const { return hits_.load(); }
 
 private:
-    bool servfail_;
+    int rcode_;
+    std::array<std::uint8_t, 4> answer_{};
+    bool has_answer_{false};
     int fd_{-1};
     std::uint16_t port_{0};
     std::atomic<bool> stop_{false};
@@ -547,14 +572,14 @@ TEST_CASE("doh bootstrap: looks the host up on a worker thread") {
     std::atomic<int> ready{0};
     DohBootstrap bootstrap(
         [&] { ++ready; },
-        [&](const std::string& host, const std::optional<DnsBalancerUpstream>& server) {
+        [&](const std::string& host, const std::vector<DnsBalancerUpstream>& servers) {
             std::lock_guard<std::mutex> lock(mutex);
             asked.push_back(host);
-            seen_server = server;
+            seen_server = servers.empty() ? std::nullopt : std::optional(servers.front());
             return host == "known.example" ? std::vector<std::string>{"192.0.2.7"}
                                            : std::vector<std::string>{};
         });
-    bootstrap.set_server(DnsBalancerUpstream::plain("10.0.0.1", 53));
+    bootstrap.set_servers({DnsBalancerUpstream::plain("10.0.0.1", 53)});
     bootstrap.request("known.example");
     bootstrap.request("unknown.example");
     for (int i = 0; i < 100 && ready.load() < 2; ++i) std::this_thread::sleep_for(20ms);
@@ -569,12 +594,169 @@ TEST_CASE("doh bootstrap: looks the host up on a worker thread") {
 
 TEST_CASE("doh bootstrap: the default lookup asks the given DNS server, else the system resolver") {
     // A server that answers with a SERVFAIL gives no address.
-    FakeUdpDns servfail(true);
-    CHECK(DohBootstrap::resolve("dns.example", DnsBalancerUpstream::plain("127.0.0.1", servfail.port()))
+    FakeUdpDns servfail(2);
+    CHECK(DohBootstrap::resolve("dns.example", {DnsBalancerUpstream::plain("127.0.0.1", servfail.port())})
               .empty());
     // The system resolver knows localhost.
-    const auto local = DohBootstrap::resolve("localhost", std::nullopt);
+    const auto local = DohBootstrap::resolve("localhost", {});
     CHECK_FALSE(local.empty());
+}
+
+TEST_CASE("doh bootstrap: a server that fails, denies the name or has no address hands over to the next") {
+    FakeUdpDns servfail(2);
+    FakeUdpDns nxdomain(3);
+    FakeUdpDns empty;  // NOERROR without records
+    FakeUdpDns good(0, "192.0.2.9");
+    const auto upstream = [](const FakeUdpDns& dns, const char* name) {
+        auto server = DnsBalancerUpstream::plain("127.0.0.1", dns.port());
+        server.name = name;
+        return server;
+    };
+    // Nothing listens on this port: the query fails at once.
+    auto dead = DnsBalancerUpstream::plain("127.0.0.1", free_udp_port());
+    dead.name = "dead";
+
+    const auto found = DohBootstrap::resolve(
+        "dns.example", {dead, upstream(servfail, "sf"), upstream(nxdomain, "nx"),
+                        upstream(empty, "empty"), upstream(good, "good")});
+    CHECK(found == std::vector<std::string>{"192.0.2.9"});
+    CHECK(servfail.hits() >= 1);
+    CHECK(nxdomain.hits() >= 1);
+    CHECK(empty.hits() >= 1);
+    CHECK(good.hits() == 1);
+
+    // Servers after the one that answered are not asked.
+    FakeUdpDns unused(0, "192.0.2.10");
+    CHECK(DohBootstrap::resolve("dns.example", {upstream(good, "good"), upstream(unused, "unused")}) ==
+          std::vector<std::string>{"192.0.2.9"});
+    CHECK(unused.hits() == 0);
+}
+
+TEST_CASE("doh bootstrap: when no server finds the host, the result names what each one said") {
+    FakeUdpDns nxdomain(3);
+    FakeUdpDns servfail(2);
+    auto first = DnsBalancerUpstream::plain("127.0.0.1", nxdomain.port());
+    first.name = "google_dns";
+    auto second = DnsBalancerUpstream::plain("127.0.0.1", servfail.port());
+    second.name = "quad9";
+
+    std::string failures;
+    CHECK(DohBootstrap::resolve("dns.example", {first, second}, &failures).empty());
+    CHECK(failures == "google_dns (nxdomain), quad9 (servfail)");
+}
+
+namespace {
+
+// The forwarder listens on 127.0.0.1 (see doh_options()); the bootstrap servers
+// of these tests live on another loopback address so they are not mistaken for it.
+DnsBalancerUpstream bootstrap_at(const FakeUdpDns& dns, const char* name) {
+    auto server = DnsBalancerUpstream::plain("127.0.0.3", dns.port());
+    server.name = name;
+    return server;
+}
+
+// The first queries after a configure() may come before the host lookup is
+// over (they get SERVFAIL); asks again until a real answer comes.
+Bytes ask_until_answered(std::uint16_t port, std::uint16_t id) {
+    Bytes answer;
+    for (int i = 0; i < 100; ++i) {
+        answer = ask_udp(port, make_query(id));
+        if (answer.size() > 12 && rcode_of(answer) == 0) break;
+        std::this_thread::sleep_for(20ms);
+    }
+    return answer;
+}
+
+std::string named_doh_url(const FakeDohServer& server) {
+    return "http://doh.test:" + std::to_string(server.port()) + "/dns-query";
+}
+
+} // namespace
+
+TEST_CASE("doh forwarder: the host of a DoH URL is looked up through the bootstrap servers in turn") {
+    CurlRuntime curl;
+    FakeDohServer doh;
+    FakeUdpDns nxdomain(3, nullptr, "127.0.0.3");
+    FakeUdpDns good(0, "127.0.0.1", "127.0.0.3");
+    DnsBalancer balancer(doh_options());
+    const auto port = free_udp_port();
+    DnsBalancerSettings settings = doh_settings();
+    settings.bootstrap = {bootstrap_at(nxdomain, "blocked"), bootstrap_at(good, "good")};
+    balancer.configure({doh_group(port, {DnsBalancerUpstream::doh(named_doh_url(doh))})}, settings);
+
+    REQUIRE(ask_until_answered(port, 1).size() > 12);
+    CHECK(nxdomain.hits() >= 1);
+    CHECK(good.hits() >= 1);
+    CHECK(doh.requests() == 1);
+}
+
+TEST_CASE("doh forwarder: a DoH server with fixed addresses is not looked up and is reached at them") {
+    CurlRuntime curl;
+    FakeDohServer doh;
+    FakeUdpDns bootstrap(0, "192.0.2.1", "127.0.0.3");
+    DnsBalancer balancer(doh_options());
+    const auto port = free_udp_port();
+    DnsBalancerSettings settings = doh_settings();
+    settings.bootstrap = {bootstrap_at(bootstrap, "unused")};
+    balancer.configure(
+        {doh_group(port, {DnsBalancerUpstream::doh(named_doh_url(doh), "", {"127.0.0.1"})})}, settings);
+
+    const Bytes answer = ask_udp(port, make_query(5));
+    REQUIRE(answer.size() > 12);
+    CHECK(rcode_of(answer) == 0);
+    CHECK(doh.requests() == 1);
+    CHECK(bootstrap.hits() == 0);
+
+    // The same URL without addresses is a server of its own: it is looked up.
+    balancer.configure({doh_group(port, {DnsBalancerUpstream::doh(named_doh_url(doh), "", {"127.0.0.1"}),
+                                         DnsBalancerUpstream::doh(named_doh_url(doh))})},
+                       settings);
+    REQUIRE(ask_udp(port, make_query(6)).size() > 12);
+    for (int i = 0; i < 100 && bootstrap.hits() == 0; ++i) std::this_thread::sleep_for(20ms);
+    CHECK(bootstrap.hits() >= 1);
+}
+
+TEST_CASE("doh forwarder: a new list of bootstrap servers looks the hosts up again and keeps the old addresses") {
+    CurlRuntime curl;
+    FakeDohServer doh;
+    FakeUdpDns first(0, "127.0.0.1", "127.0.0.3");
+    FakeUdpDns second(2, nullptr, "127.0.0.3");  // SERVFAIL: finds nothing
+    DnsBalancer balancer(doh_options());
+    const auto port = free_udp_port();
+    DnsBalancerSettings settings = doh_settings();
+    settings.bootstrap = {bootstrap_at(first, "first")};
+    const std::vector<DnsBalancerGroup> groups{
+        doh_group(port, {DnsBalancerUpstream::doh(named_doh_url(doh))})};
+    balancer.configure(groups, settings);
+    REQUIRE(ask_until_answered(port, 1).size() > 12);
+    const int first_hits = first.hits();
+
+    settings.bootstrap = {bootstrap_at(second, "second")};
+    balancer.configure(groups, settings);
+    for (int i = 0; i < 100 && second.hits() == 0; ++i) std::this_thread::sleep_for(20ms);
+    CHECK(second.hits() >= 1);
+    CHECK(first.hits() == first_hits);
+    // The lookup came back empty: the addresses found before keep working.
+    const Bytes answer = ask_udp(port, make_query(2));
+    REQUIRE(answer.size() > 12);
+    CHECK(rcode_of(answer) == 0);
+    CHECK(doh.requests() == 2);
+}
+
+TEST_CASE("doh forwarder: an unresolved host is reported with the bootstrap servers that were tried") {
+    CurlRuntime curl;
+    FakeUdpDns nxdomain(3, nullptr, "127.0.0.3");
+    FakeUdpDns servfail(2, nullptr, "127.0.0.3");
+    DnsBalancer balancer(doh_options());
+    DnsBalancerSettings settings = doh_settings();
+    settings.bootstrap = {bootstrap_at(nxdomain, "google_dns"), bootstrap_at(servfail, "quad9")};
+    DnsProbeRequest wanted;
+    wanted.upstream = DnsBalancerUpstream::doh("http://doh.test:9/dns-query");
+    wanted.query = make_query(1);
+    const auto results = balancer.probe({wanted}, 1500ms, settings);
+    REQUIRE(results.size() == 1);
+    CHECK(results[0].error.find("could not find the address of doh.test via bootstrap servers: "
+                                "google_dns (nxdomain), quad9 (servfail)") != std::string::npos);
 }
 
 TEST_CASE("doh client: direct use on an epoll loop, with cancel and timeout") {
