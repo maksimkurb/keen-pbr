@@ -672,7 +672,7 @@ function getDnsRuleDetails(
         ? formatListValue(rule.list, t)
         : formatTransition(rule.list, afterLists, t)
     ),
-    formatDetail(t("pages.dnsRules.headers.serverTag"), rule.server),
+    formatDetail(t("pages.dnsRules.headers.serverTag"), rule.servers.join(", ")),
   ]
 }
 
@@ -778,7 +778,7 @@ function getTableRowsFromListMap(
           name,
           config?.dns?.rules ?? [],
           (rule) => rule.list,
-          (rule) => rule.server
+          (rule) => rule.servers.join(", ")
         ).length,
       stats: showInlineStats
         ? {

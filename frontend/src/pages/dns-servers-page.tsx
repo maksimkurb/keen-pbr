@@ -335,7 +335,7 @@ function getDnsRuleDetails(
       t("pages.dnsRules.criteriaLabels.lists"),
       formatListValue(rule.list, t)
     ),
-    formatDetail(t("pages.dnsRules.headers.serverTag"), rule.server),
+    formatDetail(t("pages.dnsRules.headers.serverTag"), rule.servers.join(", ")),
   ]
 }
 

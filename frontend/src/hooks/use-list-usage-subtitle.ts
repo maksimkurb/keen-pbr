@@ -36,7 +36,7 @@ export function useListUsageSubtitle(
     return buildListUsageByName(
       rules as DnsRule[],
       (rule) => rule.list,
-      (rule) => rule.server,
+      (rule) => rule.servers.join(", "),
       excludeRuleIndex
     )
   }, [excludeRuleIndex, ruleType, rules])
