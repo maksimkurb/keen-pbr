@@ -3,6 +3,7 @@
 #include "../util/format_compat.hpp"
 
 #include <algorithm>
+#include <map>
 #include <string>
 #include <utility>
 

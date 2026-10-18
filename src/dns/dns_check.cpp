@@ -119,7 +119,9 @@ bool is_valid_dns_check_domain(const std::string& domain) {
         }
         const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
                         c == '-';
-        if (!ok || (c == '-' && label == 0) || ++label > 63) return false;
+        if (!ok || (c == '-' && label == 0)) return false;
+        ++label;
+        if (label > 63) return false;
     }
     return label != 0 && domain.back() != '-';
 }

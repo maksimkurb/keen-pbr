@@ -195,7 +195,9 @@ TEST_CASE("dns check: a reply that never came is an error with its reason") {
         {DnsUpstreamOutcome::NotResolved, "not_resolved"},
         {DnsUpstreamOutcome::NetworkError, "network_error"},
     };
-    for (const auto& [outcome, name] : cases) {
+    for (const auto& item : cases) {
+        const auto outcome = item.first;
+        const std::string name = item.second;
         CAPTURE(name);
         const auto result = classify("yandex.ru", false, failed(outcome, "boom"));
         CHECK(result.status == name);

@@ -486,7 +486,8 @@ TEST_CASE("doh forwarder stats: answers are counted with their time") {
     for (std::uint16_t id = 1; id <= 3; ++id) REQUIRE(ask_udp(port, make_query(id)).size() > 12);
     REQUIRE(ask_tcp(port, make_query(9)).size() > 12);
 
-    const auto& upstream = balancer.stats().listeners.at(0).upstreams.at(0);
+    const auto stats = balancer.stats();
+    const auto& upstream = stats.listeners.at(0).upstreams.at(0);
     CHECK(upstream.results[static_cast<std::size_t>(DnsUpstreamOutcome::Ok)] == 4);
     std::uint64_t timed = 0;
     for (const auto count : upstream.latency_buckets) timed += count;
