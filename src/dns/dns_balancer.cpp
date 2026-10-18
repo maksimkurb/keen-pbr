@@ -188,9 +188,11 @@ struct TcpSession {
 } // namespace
 
 struct DnsBalancer::Impl {
-    explicit Impl(DnsBalancerOptions opts) : options(std::move(opts)) {}
+    explicit Impl(DnsBalancerOptions opts)
+        : options(std::move(opts)), listen_ip(options.listen_ip) {}
 
     DnsBalancerOptions options;
+    std::string listen_ip;  // loop thread: address of the open listeners
 
     // Control side.
     mutable std::mutex mutex;
@@ -427,6 +429,14 @@ struct DnsBalancer::Impl {
         }
         std::vector<std::uint16_t> bind_failed;
         settings = new_settings;
+        const std::string& wanted_ip =
+            settings.listen_ip.empty() ? options.listen_ip : settings.listen_ip;
+        if (wanted_ip != listen_ip) {
+            for (std::size_t i = 0; i < kMaxListeners; ++i) {
+                if (listeners[i].used) drop_listener(i);
+            }
+            listen_ip = wanted_ip;
+        }
         prepare_doh();
 
         for (std::size_t i = 0; i < kMaxListeners; ++i) {
@@ -520,7 +530,7 @@ struct DnsBalancer::Impl {
         }
         // The forwarder must never look the DoH host up through itself.
         auto server = settings.bootstrap;
-        if (server.has_value() && server->ip == options.listen_ip) {
+        if (server.has_value() && server->ip == listen_ip) {
             server.reset();
         }
         bootstrap->set_server(std::move(server));
@@ -713,7 +723,7 @@ struct DnsBalancer::Impl {
 
     bool open_listener(std::size_t index, std::uint16_t port) {
         sockaddr_in addr{};
-        if (!make_listen_addr(options.listen_ip, port, addr)) {
+        if (!make_listen_addr(listen_ip, port, addr)) {
             return false;
         }
         Listener& listener = listeners[index];
@@ -730,7 +740,7 @@ struct DnsBalancer::Impl {
                  ::listen(listener.tcp_fd, 16) == 0;
         }
         if (!ok) {
-            Logger::instance().warn("DNS forwarder: cannot listen on {}:{}: {}", options.listen_ip,
+            Logger::instance().warn("DNS forwarder: cannot listen on {}:{}: {}", listen_ip,
                                     port, std::strerror(errno));
             close_fd(listener.udp_fd);
             close_fd(listener.tcp_fd);

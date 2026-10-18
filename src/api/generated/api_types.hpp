@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesGvfQyb data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesCWsHtZ data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -228,6 +228,8 @@ namespace api {
         std::optional<DnsTestServer> dns_test_server;
         std::optional<std::string> dnsmasq_instance;
         std::optional<std::vector<std::string>> fallback;
+        std::optional<std::string> proxy_address;
+        std::optional<int64_t> proxy_port_start;
         std::optional<ResolverIntegration> resolver_integration;
         std::optional<std::vector<DnsRuleElement>> rules;
         std::optional<std::vector<DnsServerElement>> servers;
@@ -995,7 +997,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesGvfQyb {
+    struct KeenPbrTypesCWsHtZ {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1382,8 +1384,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesGvfQyb & x);
-    void to_json(json & j, const KeenPbrTypesGvfQyb & x);
+    void from_json(const json & j, KeenPbrTypesCWsHtZ & x);
+    void to_json(json & j, const KeenPbrTypesCWsHtZ & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1814,6 +1816,8 @@ namespace api {
         x.dns_test_server = get_stack_optional<DnsTestServer>(j, "dns_test_server");
         x.dnsmasq_instance = get_stack_optional<std::string>(j, "dnsmasq_instance");
         x.fallback = get_stack_optional<std::vector<std::string>>(j, "fallback");
+        x.proxy_address = get_stack_optional<std::string>(j, "proxy_address");
+        x.proxy_port_start = get_stack_optional<int64_t>(j, "proxy_port_start");
         x.resolver_integration = get_stack_optional<ResolverIntegration>(j, "resolver_integration");
         x.rules = get_stack_optional<std::vector<DnsRuleElement>>(j, "rules");
         x.servers = get_stack_optional<std::vector<DnsServerElement>>(j, "servers");
@@ -1825,6 +1829,8 @@ namespace api {
         j["dns_test_server"] = x.dns_test_server;
         j["dnsmasq_instance"] = x.dnsmasq_instance;
         j["fallback"] = x.fallback;
+        j["proxy_address"] = x.proxy_address;
+        j["proxy_port_start"] = x.proxy_port_start;
         j["resolver_integration"] = x.resolver_integration;
         j["rules"] = x.rules;
         j["servers"] = x.servers;
@@ -3230,7 +3236,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesGvfQyb& x) {
+    inline void from_json(const json & j, KeenPbrTypesCWsHtZ& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -3334,7 +3340,7 @@ namespace api {
         x.xt_extension_health = get_stack_optional<XtExtensionHealthElement>(j, "XtExtensionHealth");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesGvfQyb & x) {
+    inline void to_json(json & j, const KeenPbrTypesCWsHtZ & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;

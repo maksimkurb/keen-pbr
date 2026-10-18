@@ -23,7 +23,7 @@ std::map<std::string, DnsListUsage> collect_dns_list_usage(const DnsConfig& dns_
 // Where dnsmasq sends the queries of one list (or the default ones).
 struct DnsTargets {
     // The `server=` addresses: "ip", "ip#port", or the forwarder
-    // "127.0.0.89#port".
+    // "<dns.proxy_address>#port".
     std::vector<std::string> addresses;
     // The servers behind them: "ip", "ip#port" or the DoH URL.
     std::vector<std::string> upstreams;
@@ -49,6 +49,9 @@ public:
     const DnsTargets& list_targets(const std::string& list) const;
     const DnsTargets& fallback_targets() const { return fallback_; }
 
+    // dns.proxy_address, or its default: where the forwarder listens.
+    const std::string& proxy_address() const { return proxy_address_; }
+
     // The forwarder listeners the targets above point at, with their ports.
     const std::vector<DnsBalancerGroup>& balancer_groups() const { return groups_; }
     // Set when there are more distinct server sets than listener ports.
@@ -65,6 +68,7 @@ private:
     std::map<std::string, DnsTargets> list_targets_;
     DnsTargets fallback_;
     std::vector<DnsBalancerGroup> groups_;
+    std::string proxy_address_;
     std::string balancer_error_;
     std::optional<DnsBalancerUpstream> bootstrap_;
     bool uses_doh_{false};

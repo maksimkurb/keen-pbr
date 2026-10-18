@@ -15,6 +15,7 @@ export const defaults = toSettingsDefaults({
   fwmark: { start: "0x00010000", mask: "0x00ff0000" },
   iproute: { table_start: 150, process_router_traffic: false },
   lists_autoupdate: { enabled: false },
+  dns: { proxy_address: "127.0.0.89", proxy_port_start: 52100 },
   intercept: {
     enabled: true,
     min_ttl_ms: 300000,

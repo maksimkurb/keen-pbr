@@ -354,7 +354,27 @@ TEST_CASE("dns balancer: stop is clean and idempotent") {
 }
 
 TEST_CASE("dns balancer: the default listen address is the loopback address 127.0.0.89") {
-    CHECK(std::string(kDnsBalancerAddress) == "127.0.0.89");
     CHECK(DnsBalancerOptions{}.listen_ip == "127.0.0.89");
-    CHECK(kDnsBalancerBasePort + kDnsBalancerMaxGroups <= 65535);
+    CHECK(config_defaults::dns_proxy_port_start + kDnsBalancerMaxGroups <= 65536);
+}
+
+TEST_CASE("dns balancer: a new listen address reopens the listeners there") {
+    const auto connects = [](const char* ip, std::uint16_t port) {
+        const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
+        sockaddr_in to{};
+        to.sin_family = AF_INET;
+        to.sin_port = htons(port);
+        ::inet_pton(AF_INET, ip, &to.sin_addr);
+        const bool ok = ::connect(fd, reinterpret_cast<const sockaddr*>(&to), sizeof(to)) == 0;
+        ::close(fd);
+        return ok;
+    };
+    DnsBalancer balancer(fast_options());
+    CHECK(balancer.configure({group_of(kListen, {29495})}).empty());
+    CHECK(connects("127.0.0.1", kListen));
+    DnsBalancerSettings moved;
+    moved.listen_ip = "127.0.0.2";
+    CHECK(balancer.configure({group_of(kListen, {29495})}, moved).empty());
+    CHECK(connects("127.0.0.2", kListen));
+    CHECK_FALSE(connects("127.0.0.1", kListen));
 }

@@ -1022,6 +1022,12 @@ export const ruTranslation = {
         dnsmasqInstanceHint:
           "Оставьте пустым для автоматического выбора. Заполняйте, только если keen-pbr сообщает, что найдено несколько экземпляров dnsmasq; список покажет команда «keen-pbr resolver dnsmasq detect» на роутере.",
         dnsmasqInstancePlaceholder: "автоматически",
+        proxyAddressLabel: "Адрес DNS-прокси",
+        proxyAddressHint:
+          "IPv4-адрес встроенного DNS-прокси. Через него идут запросы списков с несколькими DNS-серверами или с DNS-over-HTTPS. Адрес должен быть на роутере и не занят другой программой.",
+        proxyPortStartLabel: "Первый порт DNS-прокси",
+        proxyPortStartHint:
+          "Каждый набор DNS-серверов получает свой порт, начиная с этого. Всего занимается до 32 портов подряд.",
       },
       general: {
         title: "Общие",

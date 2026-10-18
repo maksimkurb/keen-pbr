@@ -90,7 +90,11 @@ std::map<std::string, DnsListUsage> collect_dns_list_usage(const DnsConfig& dns_
     return lists;
 }
 
-DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config) {
+DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
+    : proxy_address_(dns_config.proxy_address.value_or(
+          std::string(config_defaults::dns_proxy_address))) {
+    const auto port_start = static_cast<std::uint16_t>(
+        dns_config.proxy_port_start.value_or(config_defaults::dns_proxy_port_start));
     // Parse all DNS server definitions into DnsServerConfig
     for (const auto& server : dns_config.servers.value_or(std::vector<DnsServer>{})) {
         const auto server_type = server.type.value_or(api::DnsServerType::STATIC);
@@ -201,9 +205,9 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config) {
             break;
         }
         DnsBalancerGroup group;
-        group.port = static_cast<std::uint16_t>(kDnsBalancerBasePort + groups_.size());
+        group.port = static_cast<std::uint16_t>(port_start + groups_.size());
         group.upstreams = upstreams;
-        key_address[key] = std::string(kDnsBalancerAddress) + "#" + std::to_string(group.port);
+        key_address[key] = proxy_address_ + "#" + std::to_string(group.port);
         groups_.push_back(std::move(group));
     }
 

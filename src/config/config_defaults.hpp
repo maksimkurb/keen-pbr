@@ -29,6 +29,10 @@ constexpr bool process_router_traffic = false;
 // lists_autoupdate
 constexpr bool lists_autoupdate_enabled = false;
 
+// dns: the built-in DNS proxy (lists with several servers or DoH)
+constexpr std::string_view dns_proxy_address = "127.0.0.89";
+constexpr int64_t dns_proxy_port_start = 52100;
+
 // intercept
 constexpr bool intercept_enabled = true;
 constexpr int64_t intercept_min_ttl_ms = 300000;

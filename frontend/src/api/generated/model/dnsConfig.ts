@@ -25,6 +25,16 @@ export interface DnsConfig {
   /** Selector of the dnsmasq instance keen-pbr manages: `uci:<section>` (OpenWrt), `entware:default` (Keenetic), `systemd:<unit>.service` (Debian). Empty or absent means automatic selection. Needed only when `keen-pbr resolver dnsmasq detect` reports DNSMASQ_INSTANCE_AMBIGUOUS.
    */
   dnsmasq_instance?: string | null;
+  /** IPv4 address the built-in DNS proxy listens on. dnsmasq sends to it the queries of the lists with several DNS servers or a DNS-over-HTTPS one, and the DoH default servers. Absent: the default from GET /api/config/defaults.
+   */
+  proxy_address?: string;
+  /**
+     * First port of the built-in DNS proxy. Each distinct set of DNS servers takes the next port, up to 32 ports. Absent: the default from GET /api/config/defaults.
+
+     * @minimum 1
+     * @maximum 65504
+     */
+  proxy_port_start?: number;
   dns_test_server?: DnsTestServer;
   /**
      * Ignored since 3.4.0.

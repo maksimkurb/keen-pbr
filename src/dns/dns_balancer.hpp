@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../config/config_defaults.hpp"
+
 #include <chrono>
 #include <cstdint>
 #include <map>
@@ -10,12 +12,9 @@
 
 namespace keen_pbr3 {
 
-// The local DNS forwarder listens on this loopback address, one port per set
-// of upstreams (UDP and TCP). Ports are kDnsBalancerBasePort + the position of
-// the set, so the range is
-// [kDnsBalancerBasePort, kDnsBalancerBasePort + kDnsBalancerMaxGroups).
-constexpr const char* kDnsBalancerAddress = "127.0.0.89";
-constexpr std::uint16_t kDnsBalancerBasePort = 5380;
+// The local DNS forwarder listens on one address (dns.proxy_address), one port
+// per set of upstreams (UDP and TCP). Ports are dns.proxy_port_start + the
+// position of the set, at most kDnsBalancerMaxGroups of them.
 constexpr std::size_t kDnsBalancerMaxGroups = 32;
 
 enum class DnsBalancerUpstreamKind : std::uint8_t {
@@ -74,16 +73,19 @@ struct DnsBalancerSettings {
     // Trust anchors for DoH: a file with certificates or a directory of them.
     std::string ca_path;
     bool ca_is_directory{false};
+    // Address of the listeners; empty: DnsBalancerOptions::listen_ip. A new
+    // address reopens every listener.
+    std::string listen_ip;
 };
 
 inline bool operator==(const DnsBalancerSettings& a, const DnsBalancerSettings& b) {
-    return a.detour_marks == b.detour_marks && a.bootstrap == b.bootstrap &&
+    return a.listen_ip == b.listen_ip && a.detour_marks == b.detour_marks && a.bootstrap == b.bootstrap &&
            a.doh_enabled == b.doh_enabled && a.ca_path == b.ca_path &&
            a.ca_is_directory == b.ca_is_directory;
 }
 
 struct DnsBalancerOptions {
-    std::string listen_ip{kDnsBalancerAddress};
+    std::string listen_ip{config_defaults::dns_proxy_address};
     // How long one upstream gets to answer before the next one is tried.
     std::chrono::milliseconds udp_attempt_timeout{1500};
     std::chrono::milliseconds tcp_attempt_timeout{2500};

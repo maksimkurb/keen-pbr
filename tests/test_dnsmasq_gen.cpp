@@ -179,7 +179,7 @@ TEST_CASE("dnsmasq gen: every enabled rule naming a list adds its servers to one
     // Several servers: one row for the list, aimed at the forwarder, which
     // tries the servers in rule order; a repeated tag or address adds nothing.
     CHECK(lines_with_prefix(gen.output, "server=/") ==
-          std::vector<std::string>{"server=/one.example/two.example/127.0.0.89#5380"});
+          std::vector<std::string>{"server=/one.example/two.example/127.0.0.89#52100"});
     REQUIRE(gen.stats.lists.size() == 1);
     CHECK(gen.stats.lists[0].servers == std::vector<std::string>{"a", "b", "dup"});
     CHECK(gen.stats.lists[0].upstreams == std::vector<std::string>{"8.8.8.8", "1.1.1.1"});
@@ -187,7 +187,7 @@ TEST_CASE("dnsmasq gen: every enabled rule naming a list adds its servers to one
 
     const DnsServerRegistry registry(cfg);
     REQUIRE(registry.balancer_groups().size() == 1);
-    CHECK(registry.balancer_groups()[0].port == 5380);
+    CHECK(registry.balancer_groups()[0].port == 52100);
     CHECK(registry.balancer_groups()[0].upstreams ==
           std::vector<DnsBalancerUpstream>{DnsBalancerUpstream::plain("8.8.8.8"),
                                            DnsBalancerUpstream::plain("1.1.1.1")});
@@ -585,7 +585,7 @@ TEST_CASE("dnsmasq gen: one DoH server goes through a forwarder") {
               DnsBalancerUpstream::doh("https://dns.google/dns-query", "vpn")});
     const auto gen = run_generate(cfg, {{"l1", make_list_cfg({"one.example", "two.example"})}});
     CHECK(lines_with_prefix(gen.output, "server=/") ==
-          std::vector<std::string>{"server=/one.example/two.example/127.0.0.89#5380"});
+          std::vector<std::string>{"server=/one.example/two.example/127.0.0.89#52100"});
     REQUIRE(gen.stats.lists.size() == 1);
     CHECK(gen.stats.lists[0].upstreams == std::vector<std::string>{"https://dns.google/dns-query"});
 }
@@ -640,9 +640,9 @@ TEST_CASE("dnsmasq gen: default servers stay separate rows, DoH ones get a forwa
     const auto rows = lines_with_prefix(gen.output, "server=");
     REQUIRE(rows.size() == 4);
     CHECK(rows[0] == "server=8.8.8.8");
-    CHECK(rows[1].rfind("server=127.0.0.89#538", 0) == 0);
+    CHECK(rows[1].rfind("server=127.0.0.89#521", 0) == 0);
     CHECK(rows[2] == "server=1.1.1.1");
-    CHECK(rows[3].rfind("server=127.0.0.89#538", 0) == 0);
+    CHECK(rows[3].rfind("server=127.0.0.89#521", 0) == 0);
     CHECK(rows[1] != rows[3]);
     CHECK(gen.stats.fallback.size() == 4);
 }
@@ -692,4 +692,19 @@ TEST_CASE("dnsmasq gen: a comment above the server= rows says which servers answ
                           "\n") != std::string::npos);
     CHECK(gen.output.find("# List: l2\n\n# direct -> [DNS] 8.8.8.8\nserver=/two.example/8.8.8.8\n") !=
           std::string::npos);
+}
+
+TEST_CASE("dnsmasq gen: the DNS proxy address and first port come from the config") {
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{make_server("a", "8.8.8.8"), make_server("b", "1.1.1.1")};
+    cfg.rules = std::vector<DnsRule>{make_multi_rule("l1", {"a", "b"})};
+    cfg.proxy_address = "127.0.0.53";
+    cfg.proxy_port_start = 40000;
+    const DnsServerRegistry registry(cfg);
+    CHECK(registry.proxy_address() == "127.0.0.53");
+    REQUIRE(registry.balancer_groups().size() == 1);
+    CHECK(registry.balancer_groups()[0].port == 40000);
+    const auto gen = run_generate(cfg, {{"l1", make_list_cfg({"one.example"})}});
+    CHECK(lines_with_prefix(gen.output, "server=/") ==
+          std::vector<std::string>{"server=/one.example/127.0.0.53#40000"});
 }

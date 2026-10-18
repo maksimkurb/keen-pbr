@@ -139,7 +139,12 @@ describe("settings draft mirrors the config document", () => {
 
     const disabledDraft = {
       ...draft,
-      dns: { resolver_integration: "none", dnsmasq_instance: "" },
+      dns: {
+        resolver_integration: "none",
+        dnsmasq_instance: "",
+        proxy_address: "",
+        proxy_port_start: "",
+      },
     }
     const updated = buildUpdatedConfig(configWithDns, disabledDraft)
     expect(updated.dns?.resolver_integration).toBe("none")
@@ -177,5 +182,26 @@ describe("settings draft mirrors the config document", () => {
     draft.dns.dnsmasq_instance = "uci:lan"
     const updated = buildUpdatedConfig(config, draft)
     expect(updated.dns?.dnsmasq_instance).toBe("uci:lan")
+  })
+  test("DNS proxy settings are written only once the user sets them", () => {
+    const draft = getDraftFromConfig(config)
+    expect(draft.dns.proxy_address).toBe("")
+    expect(draft.dns.proxy_port_start).toBe("")
+    const untouched = buildUpdatedConfig(config, draft)
+    expect(untouched.dns ?? {}).not.toHaveProperty("proxy_address")
+    expect(untouched.dns ?? {}).not.toHaveProperty("proxy_port_start")
+
+    draft.dns.proxy_address = "127.0.0.53"
+    draft.dns.proxy_port_start = "40000"
+    const set = buildUpdatedConfig(config, draft)
+    expect(set.dns?.proxy_address).toBe("127.0.0.53")
+    expect(set.dns?.proxy_port_start).toBe(40000)
+
+    const again = getDraftFromConfig(set)
+    again.dns.proxy_address = ""
+    again.dns.proxy_port_start = ""
+    const cleared = buildUpdatedConfig(set, again)
+    expect(cleared.dns ?? {}).not.toHaveProperty("proxy_address")
+    expect(cleared.dns ?? {}).not.toHaveProperty("proxy_port_start")
   })
 })

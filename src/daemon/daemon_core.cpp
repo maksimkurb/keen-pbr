@@ -731,6 +731,7 @@ DnsmasqManagerDeps Daemon::make_dnsmasq_deps() {
 void Daemon::configure_dns_forwarder(const DnsServerRegistry &registry) {
   DnsBalancerSettings settings;
   settings.bootstrap = registry.bootstrap_server();
+  settings.listen_ip = registry.proxy_address();
   settings.doh_enabled = kDohBuiltIn && doh_ca_bundle_.has_value();
   if (doh_ca_bundle_) {
     settings.ca_path = doh_ca_bundle_->path;
@@ -749,7 +750,7 @@ void Daemon::configure_dns_forwarder(const DnsServerRegistry &registry) {
   for (const std::uint16_t port : failed) {
     Logger::instance().warn("DNS forwarder cannot listen on {}:{}; the lists that use "
                             "several DNS servers or DNS-over-HTTPS will not be answered",
-                            kDnsBalancerAddress, port);
+                            registry.proxy_address(), port);
   }
 }
 

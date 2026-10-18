@@ -12,7 +12,10 @@ describe("resolver integration settings", () => {
   test("is the saved value, or none when the field is absent", () => {
     expect(
       effectiveResolverIntegration({
-        dns: { rules: [{ list: ["video"], servers: ["wan"] }], fallback: ["wan"] },
+        dns: {
+          rules: [{ list: ["video"], servers: ["wan"] }],
+          fallback: ["wan"],
+        },
       })
     ).toBe("none")
     expect(effectiveResolverIntegration({ dns: { servers: [] } })).toBe("none")
@@ -73,7 +76,12 @@ describe("resolver integration settings", () => {
       config,
       {
         ...draft,
-        dns: { resolver_integration: "none", dnsmasq_instance: "" },
+        dns: {
+          resolver_integration: "none",
+          dnsmasq_instance: "",
+          proxy_address: "",
+          proxy_port_start: "",
+        },
       },
       defaults
     )
@@ -88,7 +96,12 @@ describe("resolver integration settings", () => {
       off,
       {
         ...getDraftFromConfig(off, defaults),
-        dns: { resolver_integration: "dnsmasq", dnsmasq_instance: "" },
+        dns: {
+          resolver_integration: "dnsmasq",
+          dnsmasq_instance: "",
+          proxy_address: "",
+          proxy_port_start: "",
+        },
       },
       defaults
     )

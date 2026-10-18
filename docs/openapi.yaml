@@ -1484,6 +1484,23 @@ components:
             means automatic selection. Needed only when `keen-pbr resolver dnsmasq detect` reports
             DNSMASQ_INSTANCE_AMBIGUOUS.
           example: "uci:cfg01411c"
+        proxy_address:
+          type: string
+          description: >
+            IPv4 address the built-in DNS proxy listens on. dnsmasq sends to it the
+            queries of the lists with several DNS servers or a DNS-over-HTTPS one,
+            and the DoH default servers. Absent: the default from
+            GET /api/config/defaults.
+          example: "127.0.0.89"
+        proxy_port_start:
+          type: integer
+          minimum: 1
+          maximum: 65504
+          description: >
+            First port of the built-in DNS proxy. Each distinct set of DNS servers
+            takes the next port, up to 32 ports. Absent: the default from
+            GET /api/config/defaults.
+          example: 52100
         dns_test_server:
           $ref: "#/components/schemas/DnsTestServer"
         system_resolver:

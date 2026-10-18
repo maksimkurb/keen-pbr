@@ -77,6 +77,8 @@ export type SettingsDraft = {
   dns: {
     resolver_integration: ResolverIntegrationMode
     dnsmasq_instance: string
+    proxy_address: string
+    proxy_port_start: string
   }
   intercept: {
     enabled: boolean
@@ -115,6 +117,7 @@ export type SettingsDefaults = ReturnType<typeof toSettingsDefaults>
 // eslint-disable-next-line react-refresh/only-export-components
 export function toSettingsDefaults(doc: ConfigObject) {
   const { daemon, fwmark, iproute, lists_autoupdate, intercept } = doc
+  const dnsProxy = doc.dns
   const dns = intercept?.dns
   const l7 = intercept?.l7
   return {
@@ -134,6 +137,10 @@ export function toSettingsDefaults(doc: ConfigObject) {
     iproute: {
       table_start: toStringInt(iproute?.table_start),
       process_router_traffic: iproute?.process_router_traffic ?? false,
+    },
+    dns: {
+      proxy_address: dnsProxy?.proxy_address ?? "",
+      proxy_port_start: toStringInt(dnsProxy?.proxy_port_start),
     },
     intercept: {
       enabled: intercept?.enabled ?? false,
@@ -808,6 +815,42 @@ function LoadedGeneralConfigPage({
                 }}
                 label={t("pages.settings.dns.dnsmasqInstanceLabel")}
               />
+              {advancedMode && (
+                <div className="mt-6 grid gap-6 md:grid-cols-2 [&_[data-slot=field-description]]:text-amber-700 dark:[&_[data-slot=field-description]]:text-amber-400 [&_[data-slot=field-label]]:text-amber-700 dark:[&_[data-slot=field-label]]:text-amber-400">
+                  <TextSettingField
+                    field={form.field("dns.proxy_address")}
+                    placeholder={defaults.dns.proxy_address}
+                    id="dns-proxy-address"
+                    label={
+                      <span className="inline-flex items-center gap-2">
+                        {t("pages.settings.dns.proxyAddressLabel")}
+                        <Toolbox
+                          aria-hidden="true"
+                          className="size-4 shrink-0"
+                        />
+                      </span>
+                    }
+                    hint={t("pages.settings.dns.proxyAddressHint")}
+                  />
+                  <NumberSettingField
+                    field={form.field("dns.proxy_port_start")}
+                    placeholder={defaults.dns.proxy_port_start}
+                    id="dns-proxy-port-start"
+                    label={
+                      <span className="inline-flex items-center gap-2">
+                        {t("pages.settings.dns.proxyPortStartLabel")}
+                        <Toolbox
+                          aria-hidden="true"
+                          className="size-4 shrink-0"
+                        />
+                      </span>
+                    }
+                    hint={t("pages.settings.dns.proxyPortStartHint")}
+                    min={1}
+                    max={65504}
+                  />
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -1070,6 +1113,8 @@ export function getDraftFromConfig(
     dns: {
       resolver_integration: effectiveResolverIntegration(config),
       dnsmasq_instance: config.dns?.dnsmasq_instance ?? "",
+      proxy_address: config.dns?.proxy_address ?? "",
+      proxy_port_start: toStringInt(config.dns?.proxy_port_start),
     },
     intercept: {
       enabled: intercept?.enabled ?? defaults.intercept.enabled,
@@ -1095,20 +1140,29 @@ export function getDraftFromConfig(
   }
 }
 
-// An empty dnsmasq_instance means automatic selection, so the key is omitted.
+// An empty dnsmasq_instance means automatic selection, so the key is omitted;
+// an empty proxy field means the daemon's default.
 function buildUpdatedDns(
   config: ConfigObject,
   draft: SettingsDraft
 ): NonNullable<ConfigObject["dns"]> {
   const dns = { ...config.dns }
   delete dns.dnsmasq_instance
+  delete dns.proxy_address
+  delete dns.proxy_port_start
   const instance = draft.dns.dnsmasq_instance.trim()
+  const proxyAddress = optionalText(draft.dns.proxy_address)
+  const proxyPortStart = toOptionalBackendInteger(draft.dns.proxy_port_start)
   return {
     ...dns,
     ...(effectiveResolverIntegration(config) === draft.dns.resolver_integration
       ? {}
       : { resolver_integration: draft.dns.resolver_integration }),
     ...(instance === "" ? {} : { dnsmasq_instance: instance }),
+    ...(proxyAddress === undefined ? {} : { proxy_address: proxyAddress }),
+    ...(proxyPortStart === undefined
+      ? {}
+      : { proxy_port_start: proxyPortStart }),
   }
 }
 

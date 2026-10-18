@@ -136,7 +136,7 @@ int run_generate_resolver_config(const std::string& resolver_type,
         if (registry.balancer_groups().empty()) {
             log.info("generate-resolver-config: no dns proxies");
         } else {
-            log.info("generate-resolver-config: dns proxies on {}: {}", kDnsBalancerAddress,
+            log.info("generate-resolver-config: dns proxies on {}: {}", registry.proxy_address(),
                      describe_dns_proxies(registry.balancer_groups()));
         }
         DnsmasqGenStats stats;

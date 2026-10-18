@@ -118,8 +118,8 @@ address=/use-application-dns.net/
 no-resolv
 # direct -> [DNS] 192.168.1.1
 server=192.168.1.1
-# dns proxy :5380 -> [DoH] https://dns.google/dns-query
-server=127.0.0.89#5380
+# dns proxy :52100 -> [DoH] https://dns.google/dns-query
+server=127.0.0.89#52100
 
 # List: ai_services
 
@@ -129,8 +129,8 @@ rebind-domain-ok=/openai.com/www.openai.com/...
 
 # List: blocked
 
-# dns proxy :5381 -> [DoH] https://dns.google/dns-query via vpn, [DoH] https://cloudflare-dns.com/dns-query
-server=/example.com/.../127.0.0.89#5381
+# dns proxy :52101 -> [DoH] https://dns.google/dns-query via vpn, [DoH] https://cloudflare-dns.com/dns-query
+server=/example.com/.../127.0.0.89#52101
 ```
 
 **Behavior:**

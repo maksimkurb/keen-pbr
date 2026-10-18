@@ -997,6 +997,12 @@ export const enTranslation = {
         dnsmasqInstanceHint:
           'Leave empty to select automatically. Set it only if keen-pbr reports that several dnsmasq instances were found; run "keen-pbr resolver dnsmasq detect" on the router to list them.',
         dnsmasqInstancePlaceholder: "automatic",
+        proxyAddressLabel: "DNS proxy address",
+        proxyAddressHint:
+          "IPv4 address of the built-in DNS proxy. Queries of the lists with several DNS servers or with DNS-over-HTTPS go through it. The address must be on the router and not used by another program.",
+        proxyPortStartLabel: "First DNS proxy port",
+        proxyPortStartHint:
+          "Each set of DNS servers gets its own port, starting from this one. Up to 32 ports in a row are used.",
       },
       general: {
         title: "General",

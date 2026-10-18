@@ -2479,3 +2479,16 @@ TEST_CASE("dns server type doh needs an https URL") {
     CHECK(valid[0].message.find("WITH_DOH=OFF") != std::string::npos);
 #endif
 }
+
+TEST_CASE("dns validation: the DNS proxy address and first port") {
+    CHECK(validate_issues(R"({"dns":{"proxy_address":"127.0.0.53","proxy_port_start":40000}})").empty());
+    const auto address = validate_issues(R"({"dns":{"proxy_address":"localhost"}})");
+    REQUIRE(address.size() == 1);
+    CHECK(address[0].path == "dns.proxy_address");
+    const auto low = validate_issues(R"({"dns":{"proxy_port_start":0}})");
+    REQUIRE(low.size() == 1);
+    CHECK(low[0].path == "dns.proxy_port_start");
+    // 32 ports must fit below 65536.
+    CHECK(validate_issues(R"({"dns":{"proxy_port_start":65504}})").empty());
+    CHECK(validate_issues(R"({"dns":{"proxy_port_start":65505}})").size() == 1);
+}

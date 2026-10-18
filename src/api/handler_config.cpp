@@ -84,6 +84,10 @@ Config make_config_defaults() {
 
     config.lists_autoupdate.emplace().enabled = d::lists_autoupdate_enabled;
 
+    DnsConfig& dns_config = config.dns.emplace();
+    dns_config.proxy_address = std::string(d::dns_proxy_address);
+    dns_config.proxy_port_start = d::dns_proxy_port_start;
+
     InterceptConfig& intercept = config.intercept.emplace();
     intercept.enabled = d::intercept_enabled;
     intercept.min_ttl_ms = d::intercept_min_ttl_ms;

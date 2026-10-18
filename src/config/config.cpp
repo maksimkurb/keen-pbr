@@ -3,6 +3,7 @@
 #include "config_defaults.hpp"
 #include "dnsmasq_selector.hpp"
 #include "icmptest_limits.hpp"
+#include "../dns/dns_balancer.hpp"
 #include "../dns/dns_server.hpp"
 #include "routing_state.hpp"
 #include "../util/system_info.hpp"
@@ -1917,6 +1918,19 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
             add_issue(issues, "dns.dnsmasq_instance",
                       "dns.dnsmasq_instance must be uci:<section>, entware:default, "
                       "systemd:<unit>.service or test:<name>");
+        }
+
+        if (cfg.dns->proxy_address.has_value() &&
+            !is_valid_ipv4_address(*cfg.dns->proxy_address)) {
+            add_issue(issues, "dns.proxy_address",
+                      "dns.proxy_address must be a valid IPv4 address");
+        }
+        if (cfg.dns->proxy_port_start.has_value() &&
+            (*cfg.dns->proxy_port_start < 1 ||
+             *cfg.dns->proxy_port_start > 65536 - static_cast<int64_t>(kDnsBalancerMaxGroups))) {
+            add_issue(issues, "dns.proxy_port_start",
+                      "dns.proxy_port_start must be between 1 and " +
+                          std::to_string(65536 - kDnsBalancerMaxGroups));
         }
 
         const auto dns_rules = cfg.dns->rules.value_or(std::vector<DnsRule>{});
