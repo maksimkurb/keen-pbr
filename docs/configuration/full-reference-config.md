@@ -450,6 +450,12 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     // `keen-pbr resolver dnsmasq detect` finds several instances.
     "dnsmasq_instance": "uci:cfg01411c",
 
+    // Built-in DNS proxy for lists with several DNS servers or with DoH.
+    // Default: 127.0.0.89 and ports from 52100 (up to 32 ports). Change them
+    // only if the address or the ports are taken.
+    "proxy_address": "127.0.0.89",
+    "proxy_port_start": 52100,
+
     // All supported DNS server styles.
     "servers": [
       {

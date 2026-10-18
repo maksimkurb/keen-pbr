@@ -35,7 +35,7 @@ Do I need dnsmasq?
 	<meta itemprop="name" content="DNS">
 	<meta itemprop="description" content="Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in DNS interception.
 Do I need dnsmasq? No, not for routing. Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough (DoH and DoT are encrypted DNS).">
-	<meta itemprop="wordCount" content="3122">
+	<meta itemprop="wordCount" content="3198">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="DNS">
 	<meta name="twitter:description" content="Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in DNS interception.
@@ -1344,6 +1344,18 @@ On Keenetic routers, <code>type: &quot;keenetic&quot;</code> takes the DNS serve
 					<td>array of string</td>
 					<td>no</td>
 					<td>Tags of upstream DNS servers for queries that match no rule (only active when <code>resolver_integration: &quot;dnsmasq&quot;</code>). In the Web UI: <strong>Default upstream DNS servers</strong>. If omitted, dnsmasq keeps its own servers and also gets the servers from <code>dnsmasq-fallback.conf</code>.</td>
+			</tr>
+			<tr>
+					<td><code>proxy_address</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>IPv4 address of the built-in DNS proxy, which handles the queries of lists with several DNS servers or with DNS-over-HTTPS. Default <code>127.0.0.89</code>. In the Web UI (advanced mode): <strong>DNS proxy address</strong>. Change it only if the address is taken.</td>
+			</tr>
+			<tr>
+					<td><code>proxy_port_start</code></td>
+					<td>integer</td>
+					<td>no</td>
+					<td>First port of the DNS proxy, default <code>52100</code>. Each set of DNS servers takes the next port, up to 32 ports. In the Web UI (advanced mode): <strong>First DNS proxy port</strong>.</td>
 			</tr>
 			<tr>
 					<td><code>dns_test_server</code></td>

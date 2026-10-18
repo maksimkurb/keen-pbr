@@ -1884,6 +1884,18 @@
 					&lt;td&gt;Теги вышестоящих DNS-серверов для запросов, не совпавших с правилом (работают только при &lt;code&gt;resolver_integration: &amp;quot;dnsmasq&amp;quot;&lt;/code&gt;). В веб-интерфейсе: &lt;strong&gt;Вышестоящие DNS-сервера по умолчанию&lt;/strong&gt;. Если не указано, dnsmasq оставляет свои серверы и дополнительно получает серверы из &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt;.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;proxy_address&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;string&lt;/td&gt;
+					&lt;td&gt;нет&lt;/td&gt;
+					&lt;td&gt;IPv4-адрес встроенного DNS-прокси, через который идут запросы списков с несколькими DNS-серверами или с DNS-over-HTTPS. По умолчанию &lt;code&gt;127.0.0.89&lt;/code&gt;. В веб-интерфейсе (продвинутый режим): &lt;strong&gt;Адрес DNS-прокси&lt;/strong&gt;. Меняйте, только если адрес занят.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;proxy_port_start&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;integer&lt;/td&gt;
+					&lt;td&gt;нет&lt;/td&gt;
+					&lt;td&gt;Первый порт DNS-прокси, по умолчанию &lt;code&gt;52100&lt;/code&gt;. Каждый набор DNS-серверов получает следующий порт, всего до 32 портов. В веб-интерфейсе (продвинутый режим): &lt;strong&gt;Первый порт DNS-прокси&lt;/strong&gt;.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;dns_test_server&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;object&lt;/td&gt;
 					&lt;td&gt;нет&lt;/td&gt;
@@ -3107,6 +3119,12 @@
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// По умолчанию: пусто, экземпляр выбирается автоматически. Заполняйте,
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// только если `keen-pbr resolver dnsmasq detect` нашёл несколько экземпляров.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;dnsmasq_instance&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;uci:cfg01411c&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Встроенный DNS-прокси для списков с несколькими DNS-серверами или с DoH.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// По умолчанию: 127.0.0.89 и порты с 52100 (до 32 портов). Меняйте,
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// только если адрес или порты заняты.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;proxy_address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;127.0.0.89&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;proxy_port_start&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;mi&#34;&gt;52100&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Все поддерживаемые типы DNS-серверов.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;servers&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;

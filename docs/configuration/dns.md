@@ -172,6 +172,8 @@ The `dns` section in `config.json`:
 | `dnsmasq_instance` | string | no | Selector of the dnsmasq instance to manage: `uci:<section>` (OpenWrt), `entware:default` (Keenetic), `systemd:<unit>.service` (Debian). In the Web UI: **dnsmasq instance**. Empty means automatic selection; needed only when several instances are found. |
 | `rules` | array | no | Rules that map lists to DNS servers (only active when `resolver_integration: "dnsmasq"`) |
 | `fallback` | array of string | no | Tags of upstream DNS servers for queries that match no rule (only active when `resolver_integration: "dnsmasq"`). In the Web UI: **Default upstream DNS servers**. If omitted, dnsmasq keeps its own servers and also gets the servers from `dnsmasq-fallback.conf`. |
+| `proxy_address` | string | no | IPv4 address of the built-in DNS proxy, which handles the queries of lists with several DNS servers or with DNS-over-HTTPS. Default `127.0.0.89`. In the Web UI (advanced mode): **DNS proxy address**. Change it only if the address is taken. |
+| `proxy_port_start` | integer | no | First port of the DNS proxy, default `52100`. Each set of DNS servers takes the next port, up to 32 ports. In the Web UI (advanced mode): **First DNS proxy port**. |
 | `dns_test_server` | object | no | Ignored; use `intercept.dns.marker` |
 
 Rule (`rules[]` element):
