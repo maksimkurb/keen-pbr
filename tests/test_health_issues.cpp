@@ -258,3 +258,25 @@ TEST_CASE("dnsmasq install guide link follows the OS") {
     CHECK(dnsmasq_setup_docs_url("linux") ==
           "https://keen-pbr.fyi/docs/configuration/dns/#do-i-need-dnsmasq");
 }
+
+TEST_CASE("an undownloaded list is a warning with its name, url, detour and error") {
+    HealthIssueInputs inputs;
+    inputs.service_running = true;
+    inputs.undownloaded_lists.push_back(
+        UndownloadedListInfo{"blocked", "https://example.com/l.txt", "vpn", "HTTP 404"});
+    const auto response = collect_health_issues(inputs);
+    REQUIRE(response.issues.size() == 1);
+    const auto& issue = response.issues[0];
+    CHECK(issue.code == api::Code::LIST_NOT_DOWNLOADED);
+    CHECK(issue.severity == api::Severity::WARNING);
+    CHECK(issue.title == "List 'blocked' is not downloaded yet");
+    CHECK(issue.params.at("list") == "blocked");
+    CHECK(issue.params.at("detour") == "vpn");
+    REQUIRE(issue.detail.has_value());
+    CHECK(issue.detail->find("HTTP 404") != std::string::npos);
+    CHECK(issue.detail->find("https://example.com/l.txt") != std::string::npos);
+    CHECK(issue.detail->find("vpn") != std::string::npos);
+
+    inputs.undownloaded_lists.clear();
+    CHECK(collect_health_issues(inputs).issues.empty());
+}

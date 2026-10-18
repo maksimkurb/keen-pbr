@@ -3,11 +3,19 @@
 #include "../api/generated/api_types.hpp"
 #include "routing_health.hpp"
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace keen_pbr3 {
+
+struct UndownloadedListInfo {
+    std::string name;
+    std::string url;
+    std::optional<std::string> detour;
+    std::string error;
+};
 
 // Inputs of the overview health verdict. Null pointers mean "not available".
 struct HealthIssueInputs {
@@ -24,6 +32,8 @@ struct HealthIssueInputs {
     // The config has DNS-over-HTTPS servers, but no CA certificates were found
     // to verify them: they are not used.
     bool doh_ca_missing{false};
+    // Lists with a url that are not downloaded yet and failed last time.
+    std::vector<UndownloadedListInfo> undownloaded_lists;
 };
 
 // Kernel checks (capabilities, iptables extensions, probes) that apply to

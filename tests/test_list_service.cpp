@@ -564,3 +564,117 @@ TEST_CASE("collect_relevant_list_names: ignores disabled route rules") {
     CHECK(relevant_lists.count("route_disabled") == 0);
     CHECK(relevant_lists.count("route_enabled") == 1);
 }
+
+TEST_CASE("collect_undownloaded_lists: reports only uncached lists whose last download failed") {
+    CurlGlobalGuard curl_guard;
+    TestHttpServer server({
+        {"/bad.txt", HttpResponse{404, "Not Found", ""}},
+        {"/ok.txt", HttpResponse{200, "OK", "example.com\n"}},
+    });
+
+    const auto temp_dir = make_temp_dir();
+    ListService service(temp_dir);
+    service.ensure_dir();
+
+    ListConfig bad;
+    bad.url = server.url("/bad.txt");
+    bad.detour = "vpn";
+    ListConfig ok;
+    ok.url = server.url("/ok.txt");
+    ListConfig local;  // no url: never downloaded
+
+    Config config;
+    config.lists = std::map<std::string, ListConfig>{
+        {"bad", bad}, {"ok", ok}, {"local", local}};
+
+    // Nothing attempted yet: nothing to report.
+    CHECK(collect_undownloaded_lists(config, service.cache_manager(),
+                                     service.refresh_stats()).empty());
+
+    (void)service.refresh_remote_lists(config, OutboundMarkMap{});
+    auto missing = collect_undownloaded_lists(config, service.cache_manager(),
+                                              service.refresh_stats());
+    REQUIRE(missing.size() == 1);
+    CHECK(missing[0].name == "bad");
+    CHECK(missing[0].url == *bad.url);
+    CHECK(missing[0].detour == std::optional<std::string>{"vpn"});
+    CHECK(missing[0].error.find("404") != std::string::npos);
+
+    // Removed from the config: gone.
+    Config without_bad = config;
+    without_bad.lists->erase("bad");
+    CHECK(collect_undownloaded_lists(without_bad, service.cache_manager(),
+                                     service.refresh_stats()).empty());
+
+    // A later success clears it.
+    Config fixed = config;
+    fixed.lists->at("bad").url = server.url("/ok.txt");
+    (void)service.refresh_remote_lists(fixed, OutboundMarkMap{});
+    CHECK(collect_undownloaded_lists(fixed, service.cache_manager(),
+                                     service.refresh_stats()).empty());
+
+    std::filesystem::remove_all(temp_dir);
+}
+
+TEST_CASE("collect_undownloaded_lists: a cached list that failed to update is not reported") {
+    CurlGlobalGuard curl_guard;
+    TestHttpServer server({
+        {"/ok.txt", HttpResponse{200, "OK", "example.com\n"}},
+        {"/bad.txt", HttpResponse{500, "Error", ""}},
+    });
+
+    const auto temp_dir = make_temp_dir();
+    ListService service(temp_dir);
+    service.ensure_dir();
+
+    ListConfig list;
+    list.url = server.url("/ok.txt");
+    Config config;
+    config.lists = std::map<std::string, ListConfig>{{"blocked", list}};
+    (void)service.refresh_remote_lists(config, OutboundMarkMap{});
+    REQUIRE(service.cache_manager().has_cache("blocked"));
+
+    config.lists->at("blocked").url = server.url("/bad.txt");
+    const auto result = service.refresh_remote_lists(config, OutboundMarkMap{});
+    REQUIRE(result.failed_lists == std::vector<std::string>{"blocked"});
+    CHECK(collect_undownloaded_lists(config, service.cache_manager(),
+                                     service.refresh_stats()).empty());
+
+    std::filesystem::remove_all(temp_dir);
+}
+
+TEST_CASE("uncached_lists_detouring_via: picks uncached lists routed through the group or its pick") {
+    CurlGlobalGuard curl_guard;
+    TestHttpServer server({{"/ok.txt", HttpResponse{200, "OK", "example.com\n"}}});
+
+    const auto temp_dir = make_temp_dir();
+    ListService service(temp_dir);
+    service.ensure_dir();
+
+    ListConfig via_group;
+    via_group.url = server.url("/ok.txt");
+    via_group.detour = "auto";
+    ListConfig via_member = via_group;
+    via_member.detour = "wan2";
+    ListConfig via_other = via_group;
+    via_other.detour = "other";
+    ListConfig no_detour;
+    no_detour.url = server.url("/ok.txt");
+    ListConfig cached = via_group;
+
+    Config config;
+    config.lists = std::map<std::string, ListConfig>{
+        {"cached", cached}, {"group", via_group}, {"member", via_member},
+        {"none", no_detour}, {"other", via_other}};
+
+    Config only_cached;
+    only_cached.lists = std::map<std::string, ListConfig>{{"cached", cached}};
+    (void)service.refresh_remote_lists(only_cached, OutboundMarkMap{});
+
+    CHECK(uncached_lists_detouring_via(config, service.cache_manager(), "auto", {"wan2"}) ==
+          std::vector<std::string>{"group", "member"});
+    CHECK(uncached_lists_detouring_via(config, service.cache_manager(), "auto", {}) ==
+          std::vector<std::string>{"group"});
+
+    std::filesystem::remove_all(temp_dir);
+}

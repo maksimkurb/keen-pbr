@@ -28,4 +28,5 @@ export const HealthIssueCode = {
   outbound_degraded: 'outbound_degraded',
   group_members_failing: 'group_members_failing',
   doh_unavailable: 'doh_unavailable',
+  list_not_downloaded: 'list_not_downloaded',
 } as const;

@@ -94,7 +94,6 @@ struct ListsRefreshExecutionResult {
 struct PreparedRuntimeInputs {
   Config config;
   OutboundMarkMap outbound_marks;
-  bool remote_lists_refreshed{false};
 };
 
 // A URLTEST switch can commit its routing change while the targeted conntrack
@@ -314,15 +313,14 @@ private:
   bool commit_urltest_probe_results(
       const std::string &urltest_tag, std::uint64_t probe_generation,
       std::map<std::string, URLTestResult> results, TraceId trace_id);
-  void apply_config(Config config, bool refresh_remote_lists = true);
+  void apply_config(Config config);
   // Candidate application may mutate kernel state while keeping the
   // externally visible active snapshot unchanged until its transaction commits.
   void apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared,
                                      bool publish_active_snapshot = true,
                                      bool defer_dnsmasq_sync = false);
   PreparedRuntimeInputs
-  prepare_runtime_inputs(const Config &config,
-                         bool refresh_remote_lists = true);
+  prepare_runtime_inputs(const Config &config);
   void reload_from_disk();
   void teardown_routing_and_firewall(bool explicit_stop);
   void setup_routing_and_firewall();
@@ -416,6 +414,7 @@ private:
   // One-shot retry timer for lists that failed to download at startup.
   int startup_list_retry_task_id_{-1};
   unsigned startup_list_retry_attempt_{0};
+  bool list_download_pending_{false};
   // Debounced runtime refresh triggered by SIGUSR1.
   int sigusr1_refresh_task_id_{-1};
   // Retry task for interface monitor netlink reconnect after failure.

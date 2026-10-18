@@ -72,6 +72,29 @@ bool should_reload_runtime_after_list_refresh(bool routing_runtime_active,
 // startup: 10s, 30s, 2m, then every 5m.  `attempt` counts retries already made.
 std::chrono::seconds startup_list_retry_delay(unsigned attempt);
 
+// A list with a url that is not in the cache and whose last download failed:
+// its rules match nothing until a download succeeds.
+struct UndownloadedList {
+    std::string name;
+    std::string url;
+    std::optional<std::string> detour;
+    std::string error;
+};
+
+std::vector<UndownloadedList> collect_undownloaded_lists(
+    const Config& config,
+    const CacheManager& cache_manager,
+    const std::map<std::string, ListRefreshStats>& stats);
+
+// Lists with a url that are not cached yet and download through `outbound_tag`
+// (a urltest/icmptest tag or one of its members), i.e. the lists that can be
+// fetched as soon as that outbound has picked a candidate.
+std::vector<std::string> uncached_lists_detouring_via(
+    const Config& config,
+    const CacheManager& cache_manager,
+    const std::string& outbound_tag,
+    const std::vector<std::string>& selected_members);
+
 std::map<std::string, api::ListRefreshStateValue> build_list_refresh_state_map(const Config& config,
                                                                                const CacheManager& cache_manager);
 

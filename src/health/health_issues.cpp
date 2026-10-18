@@ -451,6 +451,17 @@ api::HealthIssuesResponse collect_health_issues(const HealthIssueInputs& inputs)
         issue.detail = "no CA certificates found to verify the servers";
         issues.push_back(std::move(issue));
     }
+    for (const auto& list : inputs.undownloaded_lists) {
+        auto issue = make_issue("list-" + list.name, api::Severity::WARNING,
+                                api::Code::LIST_NOT_DOWNLOADED,
+                                "List '" + list.name + "' is not downloaded yet");
+        issue.params = {{"list", list.name}, {"url", list.url}};
+        if (list.detour) issue.params["detour"] = *list.detour;
+        std::string detail = list.error + " (" + list.url;
+        if (list.detour) detail += ", via " + *list.detour;
+        issue.detail = detail + ")";
+        issues.push_back(std::move(issue));
+    }
     return response;
 }
 

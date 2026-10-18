@@ -462,7 +462,7 @@ keen-pbr download
 1. Check that the URL is reachable from this same system.
 2. If the list must be downloaded through the VPN, check `lists[].detour` and the matching outbound.
 3. If automatic update is used, check **Refresh schedule** in **General** > **Settings** > **Lists autoupdate**.
-4. If a list failed to download at the first start, keen-pbr keeps retrying in the background: after 10 seconds, 30 seconds, 2 minutes, then every 5 minutes, until the download succeeds. If the domain of the list server must resolve through a separate DNS server, add that domain to an inline list, a file list, or an already cached list, otherwise the first attempt goes through the default DNS.
+4. If a list failed to download at the first start or after a configuration apply, the warnings show "List 'name' is not downloaded yet" with the error. keen-pbr keeps retrying in the background: after 10 seconds, 30 seconds, 2 minutes, then every 5 minutes, until the download succeeds. If the domain of the list server must resolve through a separate DNS server, add that domain to an inline list, a file list, or an already cached list, otherwise the first attempt goes through the default DNS.
 5. After a failure, read the `keen-pbr` log.
 
 {{% details title="Forced full reload" closed="true" %}}

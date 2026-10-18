@@ -203,7 +203,7 @@ export const ruTranslation = {
   lifecycle: {
     stages: {
       validate_config: "Проверка конфигурации",
-      prepare_remote_lists: "Подготовка удалённых списков",
+      prepare_remote_lists: "Фоновая подготовка списков",
       reconcile_runtime: "Согласование маршрутизации и межсетевого экрана",
       stop_routing: "Остановка маршрутизации и межсетевого экрана",
       start_routing: "Запуск маршрутизации и межсетевого экрана",
@@ -268,6 +268,7 @@ export const ruTranslation = {
       outboundDegraded: "{{tag}} работает с перебоями",
       groupMembersFailing: "{{tag}}: неисправных участников: {{count}}",
       dohUnavailable: "DNS-over-HTTPS серверы не используются",
+      listNotDownloaded: "Список «{{list}}» ещё не скачан",
       dohNoCertificates:
         "На роутере нет сертификатов центров сертификации, чтобы проверить серверы. Установите пакет ca-certificates.",
       hostWarning: {

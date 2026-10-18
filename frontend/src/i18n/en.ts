@@ -201,7 +201,7 @@ export const enTranslation = {
   lifecycle: {
     stages: {
       validate_config: "Validate configuration",
-      prepare_remote_lists: "Prepare remote lists",
+      prepare_remote_lists: "Background list preparation",
       reconcile_runtime: "Reconcile routing and firewall",
       stop_routing: "Stop routing and firewall",
       start_routing: "Start routing and firewall",
@@ -263,6 +263,7 @@ export const enTranslation = {
       outboundDegraded: "{{tag}} is degraded",
       groupMembersFailing: "{{tag}}: failing members: {{count}}",
       dohUnavailable: "DNS-over-HTTPS servers are not used",
+      listNotDownloaded: "List '{{list}}' is not downloaded yet",
       dohNoCertificates:
         "The router has no CA certificates to check the servers with. Install the ca-certificates package.",
       hostWarning: {

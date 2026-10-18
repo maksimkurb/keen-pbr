@@ -87,6 +87,7 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
     invalidate_routing_health_cache();
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
     cancel_startup_list_retry();
+    list_download_pending_ = false;
 
     cancel_interface_refresh();
     if (urltest_manager_) {
@@ -165,6 +166,20 @@ void Daemon::complete_running_runtime(const char* reason, bool defer_dnsmasq_syn
         start_dnsmasq_check();
     } else {
         stop_dnsmasq_check();
+    }
+    // After a config apply the new routes and marks are installed: fetch the
+    // lists that are not cached yet through them, in the background.
+    if (list_download_pending_) {
+        list_download_pending_ = false;
+        const auto remote = select_remote_list_targets(config_, std::nullopt).list_names;
+        const bool any_uncached =
+            std::any_of(remote.begin(), remote.end(), [this](const std::string& name) {
+                return !list_service_.cache_manager().has_cache(name);
+            });
+        if (any_uncached) {
+            startup_list_retry_attempt_ = 0;
+            run_startup_list_retry();
+        }
     }
 }
 
@@ -581,6 +596,23 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
         const std::string old_child_tag = applied_it == applied_selections.end()
             ? std::string{}
             : applied_it->second;
+
+        // A list that downloads through this group could not be fetched before
+        // it had a working candidate. Queued behind this task, so the new
+        // selection is routed by the time the download starts.
+        if (!new_child_tag.empty() && new_child_tag != old_child_tag &&
+            !uncached_lists_detouring_via(config_, list_service_.cache_manager(),
+                                          urltest_tag, {new_child_tag}).empty()) {
+            post_control_task(
+                [this, runtime_generation]() {
+                    if (runtime_generation == runtime_generation_.load(std::memory_order_acquire)) {
+                        Logger::instance().info(
+                            "Startup lists: an outbound became available, retrying downloads now");
+                        run_startup_list_retry();
+                    }
+                },
+                "urltest-list-retry");
+        }
 
         const auto configured_outbounds =
             config_.outbounds.value_or(std::vector<Outbound>{});
@@ -1279,8 +1311,7 @@ void Daemon::require_balance_support(const Config& config) const {
 #endif
 }
 
-PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config,
-                                                     bool refresh_remote_lists) {
+PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config) {
     TraceSpan span("prepare-runtime-inputs");
     validate_config(config, ConfigValidationMode::Runtime, validation_context());
     // Before the config is committed or any routing/firewall state changes:
@@ -1294,19 +1325,9 @@ PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config,
         config.fwmark.value_or(FwmarkConfig{}),
         config.outbounds.value_or(std::vector<Outbound>{}));
 
-    if (refresh_remote_lists) {
-        // Preparation runs while the current runtime is still active. Use only
-        // marks that runtime can actually route; a newly introduced detour is
-        // downloaded through the current/default route until reconciliation.
-        const auto refresh = list_service_.download_uncached(
-            prepared.config, config_store_.outbound_marks());
-        if (refresh.any_failed()) {
-            throw DaemonError("Failed to prepare remote list(s): " +
-                              format_list_names(refresh.failed_lists));
-        }
-        prepared.remote_lists_refreshed = true;
-    }
-
+    // Remote lists are not downloaded here: the routes of a new detour do not
+    // exist yet, so a download now would bypass it or deadlock the apply. The
+    // missing lists are fetched in the background once the apply is running.
     return prepared;
 }
 
@@ -1346,6 +1367,9 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
         lists_autoupdate_task_id_ = -1;
     }
     cancel_startup_list_retry();
+    // complete_running_runtime() starts the download of the lists that are not
+    // cached yet, with the marks of the runtime installed here.
+    list_download_pending_ = true;
     cancel_interface_refresh();
     outbound_marks_ = std::move(prepared.outbound_marks);
     config_ = std::move(prepared.config);
@@ -1373,13 +1397,13 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
     publish_runtime_state();
 }
 
-void Daemon::apply_config(Config config, bool refresh_remote_lists) {
+void Daemon::apply_config(Config config) {
     if (event_loop_active_.load(std::memory_order_acquire) && !is_event_loop_thread()) {
         throw DaemonError("apply_config must run on the control/event-loop thread");
     }
 
     try {
-        apply_prepared_runtime_inputs(prepare_runtime_inputs(config, refresh_remote_lists));
+        apply_prepared_runtime_inputs(prepare_runtime_inputs(config));
     } catch (...) {
         config_reload_errors_.fetch_add(1, std::memory_order_relaxed);
         std::string ignored_error;

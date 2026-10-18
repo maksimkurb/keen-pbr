@@ -64,4 +64,25 @@ describe("mapHealthIssues", () => {
     expect(issue.detail).toBe("probe timeout")
     expect(issue.title).toBe('overview.issues.outboundDegraded {"tag":"vpn"}')
   })
+
+  test("translates the not-downloaded list warning and keeps the raw error", () => {
+    const [issue] = mapHealthIssues(
+      [
+        {
+          key: "list-blocked",
+          severity: "warning",
+          code: "list_not_downloaded",
+          params: { list: "blocked", url: "https://example.com/l.txt" },
+          title: "List 'blocked' is not downloaded yet",
+          detail: "HTTP 404 (https://example.com/l.txt)",
+        },
+      ],
+      t
+    )
+    expect(issue.tone).toBe("warn")
+    expect(issue.title).toBe(
+      'overview.issues.listNotDownloaded {"list":"blocked"}'
+    )
+    expect(issue.detail).toBe("HTTP 404 (https://example.com/l.txt)")
+  })
 })

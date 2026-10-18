@@ -2,6 +2,7 @@
 
 #include "../log/logger.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <sstream>
 
@@ -104,6 +105,50 @@ std::chrono::seconds startup_list_retry_delay(unsigned attempt) {
     default:
         return std::chrono::seconds{300};
     }
+}
+
+std::vector<UndownloadedList> collect_undownloaded_lists(
+    const Config& config,
+    const CacheManager& cache_manager,
+    const std::map<std::string, ListRefreshStats>& stats) {
+    std::vector<UndownloadedList> result;
+    for (const auto& [name, list_cfg] : config_lists(config)) {
+        if (!list_cfg.url.has_value()) {
+            continue;
+        }
+        const auto stat = stats.find(name);
+        if (stat == stats.end() || stat->second.last_error.empty()) {
+            continue;
+        }
+        // A cached list keeps working with its old content: not reported.
+        if (cache_manager.has_cache(name)) {
+            continue;
+        }
+        result.push_back(UndownloadedList{name, *list_cfg.url, list_cfg.detour,
+                                          stat->second.last_error});
+    }
+    return result;
+}
+
+std::vector<std::string> uncached_lists_detouring_via(
+    const Config& config,
+    const CacheManager& cache_manager,
+    const std::string& outbound_tag,
+    const std::vector<std::string>& selected_members) {
+    std::vector<std::string> result;
+    for (const auto& [name, list_cfg] : config_lists(config)) {
+        if (!list_cfg.url.has_value() || !list_cfg.detour.has_value()) {
+            continue;
+        }
+        const std::string& detour = *list_cfg.detour;
+        const bool via = detour == outbound_tag ||
+            std::find(selected_members.begin(), selected_members.end(), detour) !=
+                selected_members.end();
+        if (via && !cache_manager.has_cache(name)) {
+            result.push_back(name);
+        }
+    }
+    return result;
 }
 
 std::map<std::string, api::ListRefreshStateValue> build_list_refresh_state_map(const Config& config,
@@ -233,7 +278,11 @@ RemoteListsRefreshResult ListService::download_remote_lists(const Config& config
                 auto& stats = refresh_stats_[name];
                 if (download_result.failed()) {
                     ++stats.errors;
+                    stats.last_error = download_result.error_message.empty()
+                        ? std::string("unknown error")
+                        : download_result.error_message;
                 } else {
+                    stats.last_error.clear();
                     stats.last_success_unix_s = std::chrono::duration_cast<std::chrono::seconds>(
                         std::chrono::system_clock::now().time_since_epoch()).count();
                 }

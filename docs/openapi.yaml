@@ -3447,6 +3447,7 @@ components:
         - outbound_degraded
         - group_members_failing
         - doh_unavailable
+        - list_not_downloaded
 
     HealthIssueDetailCode:
       type: string

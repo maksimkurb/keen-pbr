@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <string>
 
 namespace keen_pbr3 {
 
@@ -12,6 +13,8 @@ struct ListRefreshStats {
     // unchanged); empty until a refresh succeeded in this process.
     std::optional<int64_t> last_success_unix_s;
     uint64_t errors{0};  // failed refresh attempts
+    // Error of the last attempt; empty while the last attempt succeeded.
+    std::string last_error;
 };
 
 } // namespace keen_pbr3

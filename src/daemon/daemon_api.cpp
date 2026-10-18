@@ -135,7 +135,7 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
             succeed_stage();
 
             start_stage("prepare_remote_lists");
-            PreparedRuntimeInputs prepared = prepare_runtime_inputs(*request.config, true);
+            PreparedRuntimeInputs prepared = prepare_runtime_inputs(*request.config);
             succeed_stage();
             request.config.reset();
 
@@ -209,7 +209,7 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
             succeed_stage();
 
             start_stage("prepare_remote_lists");
-            PreparedRuntimeInputs prepared = prepare_runtime_inputs(restored, true);
+            PreparedRuntimeInputs prepared = prepare_runtime_inputs(restored);
             succeed_stage();
 
             run_control("reconcile_runtime", [this, prepared = std::move(prepared)]() mutable {
@@ -341,7 +341,7 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
     result->apply_started_ts = apply_started_ts;
 
     try {
-        *prepared = prepare_runtime_inputs(config, true);
+        *prepared = prepare_runtime_inputs(config);
     } catch (const std::exception& e) {
         config_reload_errors_.fetch_add(1, std::memory_order_relaxed);
         result->error = e.what();

@@ -37,11 +37,12 @@ What changed in each keen-pbr release, and what to do when you upgrade.
   It keeps local networks out of tunnels.
 - **The "What's new?" button.**\
   It opens this page from the Web UI.
-- Lists that failed to download at start are retried in the background.
+- New lists are downloaded in the background after a configuration is applied, not before. A failed download no longer cancels the apply and shows up in the warnings instead. Lists that failed to download at start are retried the same way.
 - Removing the package also removes leftover firewall rules and dnsmasq files.
 
 ### Fixes
 
+- Fixed applying a configuration where a new list downloads through a new outbound: the apply used to fail with "Failed to prepare remote list(s)".
 - `urltest` and `icmptest` groups now accept only `interface` and `table` members: other types never worked and now fail config validation. A `blackhole` member was never selected; keen-pbr now skips it and logs a warning. You do not need it to block traffic: when no link works, traffic is blocked anyway.
 - Fixed automatic list updates stopping after the first list change that affected routing. Lists now update on schedule.
 - Fixed new devices not getting an address over DHCP when a route rule matches all UDP traffic.

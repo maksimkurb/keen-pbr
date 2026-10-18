@@ -717,6 +717,13 @@ Daemon::health_issues_from(const ServiceHealthState &service,
   inputs.outbounds = &outbounds.outbounds;
   inputs.doh_ca_missing = kDohBuiltIn && !doh_ca_bundle_.has_value() &&
                           config_uses_doh(config_store_.active_config());
+  for (auto &list : collect_undownloaded_lists(
+           config_store_.active_config(), list_service_.cache_manager(),
+           list_service_.refresh_stats())) {
+    inputs.undownloaded_lists.push_back(UndownloadedListInfo{
+        std::move(list.name), std::move(list.url), std::move(list.detour),
+        std::move(list.error)});
+  }
   return collect_health_issues(inputs);
 }
 

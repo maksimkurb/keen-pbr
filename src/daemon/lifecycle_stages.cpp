@@ -7,14 +7,14 @@ std::vector<LifecycleOperationStage> lifecycle_stages(LifecycleOperationType typ
     switch (type) {
     case LifecycleOperationType::ApplyConfig:
         stages = {{"validate_config", "Validate configuration"},
-                  {"prepare_remote_lists", "Prepare remote lists"},
+                  {"prepare_remote_lists", "Background list preparation"},
                   {"commit_config", "Commit configuration"},
                   {"reconcile_runtime", "Reconcile routing and firewall"}};
         break;
     case LifecycleOperationType::RollbackConfig:
         stages = {{"restore_config", "Restore previous configuration"},
                   {"validate_config", "Validate restored configuration"},
-                  {"prepare_remote_lists", "Prepare remote lists"},
+                  {"prepare_remote_lists", "Background list preparation"},
                   {"reconcile_runtime", "Reconcile routing and firewall"}};
         break;
     case LifecycleOperationType::Restart:

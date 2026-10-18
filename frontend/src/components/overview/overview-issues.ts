@@ -180,6 +180,8 @@ function translateTitle(issue: HealthIssue, t: TranslateFn): string {
       })
     case "doh_unavailable":
       return t("overview.issues.dohUnavailable")
+    case "list_not_downloaded":
+      return t("overview.issues.listNotDownloaded", { list: params.list })
   }
   return issue.title
 }
