@@ -13,6 +13,11 @@ on:
         required: false
         default: ""
         type: string
+      manual_activation:
+        description: Wait for approval before switching the live symlink
+        required: false
+        default: false
+        type: boolean
     secrets:
       RSYNC_HOST:
         required: false
@@ -41,10 +46,18 @@ on:
         required: false
         default: ""
         type: string
+      manual_activation:
+        description: Wait for approval before switching the live symlink
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   publish:
     runs-on: ubuntu-24.04
+    outputs:
+      link-name: ${{ steps.publish-context.outputs.link-name }}
+      release-dir: ${{ steps.upload.outputs.release-dir }}
     steps:
       - name: Resolve artifact run
         id: artifact
@@ -167,7 +180,8 @@ jobs:
           printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_rsync"
           chmod 600 "$HOME/.ssh/id_rsync"
 
-      - name: Upload release and update branch symlink
+      - name: Upload release
+        id: upload
         shell: bash
         env:
           RSYNC_HOST: ${{ secrets.RSYNC_HOST || vars.RSYNC_HOST }}
@@ -225,7 +239,55 @@ jobs:
             -e "ssh -i $HOME/.ssh/id_rsync -p $RSYNC_PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new" \
             "$source_dir" "$rsync_target:$release_dir/"
 
-          # This runs only after every rsync exits successfully. Renaming the
-          # prepared temporary symlink atomically replaces the live link.
+          echo "release-dir=$release_dir" >> "$GITHUB_OUTPUT"
+
+  # Switching the live symlink is a separate job so that a tag release can wait
+  # for a manual approval (required reviewers on the `stable-release`
+  # environment) and go live together with the blog post.
+  activate:
+    needs: publish
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.manual_activation && 'stable-release' || 'repository-auto' }}
+    steps:
+      - name: Configure SSH
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.RSYNC_SSH_PRIVATE_KEY || vars.RSYNC_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          : "${SSH_PRIVATE_KEY:?RSYNC_SSH_PRIVATE_KEY secret or variable is required}"
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_rsync"
+          chmod 600 "$HOME/.ssh/id_rsync"
+
+      - name: Update live symlink
+        shell: bash
+        env:
+          RSYNC_HOST: ${{ secrets.RSYNC_HOST || vars.RSYNC_HOST }}
+          RSYNC_USERNAME: ${{ secrets.RSYNC_USERNAME || vars.RSYNC_USERNAME }}
+          RSYNC_TARGET_ROOT: ${{ secrets.RSYNC_TARGET_ROOT || vars.RSYNC_TARGET_ROOT }}
+          RSYNC_PORT: ${{ secrets.RSYNC_PORT || vars.RSYNC_PORT || '22' }}
+          LINK_NAME: ${{ needs.publish.outputs.link-name }}
+          RELEASE_DIR: ${{ needs.publish.outputs.release-dir }}
+        run: |
+          set -euo pipefail
+
+          : "${RSYNC_HOST:?RSYNC_HOST secret or variable is required}"
+          : "${RSYNC_USERNAME:?RSYNC_USERNAME secret or variable is required}"
+          : "${RSYNC_TARGET_ROOT:?RSYNC_TARGET_ROOT secret or variable is required}"
+          : "${LINK_NAME:?Live symlink name could not be resolved}"
+          : "${RELEASE_DIR:?Release directory could not be resolved}"
+          RSYNC_PORT="${RSYNC_PORT:-22}"
+          [[ "$RSYNC_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ || "$RSYNC_HOST" =~ ^[0-9A-Fa-f:]+$ ]] || { echo "RSYNC_HOST must be a hostname or IP address" >&2; exit 1; }
+          [[ "$RSYNC_USERNAME" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || { echo "RSYNC_USERNAME contains unsupported characters" >&2; exit 1; }
+          [[ "$RSYNC_TARGET_ROOT" =~ ^/?[A-Za-z0-9._/-]+$ && "$RSYNC_TARGET_ROOT" != *".."* ]] || { echo "RSYNC_TARGET_ROOT must be a safe path without '..'" >&2; exit 1; }
+          [[ "$RSYNC_PORT" =~ ^[0-9]+$ && "$RSYNC_PORT" -ge 1 && "$RSYNC_PORT" -le 65535 ]] || { echo "RSYNC_PORT must be an integer from 1 to 65535" >&2; exit 1; }
+          [[ "$RELEASE_DIR" =~ ^/?[A-Za-z0-9._/-]+$ && "$RELEASE_DIR" != *".."* ]] || { echo "Release directory must be a safe path without '..'" >&2; exit 1; }
+
+          ssh_options=(-i "$HOME/.ssh/id_rsync" -p "$RSYNC_PORT" -o BatchMode=yes -o StrictHostKeyChecking=accept-new)
+          ssh_target="${RSYNC_USERNAME}@${RSYNC_HOST}"
+          repository_root="${RSYNC_TARGET_ROOT%/}/repository"
+
+          # Renaming the prepared temporary symlink atomically replaces the live link.
           ssh "${ssh_options[@]}" "$ssh_target" \
-            "rm -f -- '$repository_root/.${LINK_NAME}.new' && ln -s -- '$release_dir' '$repository_root/.${LINK_NAME}.new' && mv -Tf -- '$repository_root/.${LINK_NAME}.new' '$repository_root/$LINK_NAME'"
+            "rm -f -- '$repository_root/.${LINK_NAME}.new' && ln -s -- '$RELEASE_DIR' '$repository_root/.${LINK_NAME}.new' && mv -Tf -- '$repository_root/.${LINK_NAME}.new' '$repository_root/$LINK_NAME'"

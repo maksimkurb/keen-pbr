@@ -232,6 +232,7 @@ jobs:
     with:
       source_ref_type: tag
       source_ref_name: ${{ github.ref_name }}
+      manual_activation: true
     secrets: inherit
 
   draft-release:

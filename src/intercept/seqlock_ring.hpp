@@ -40,7 +40,8 @@ namespace keen_pbr3 {
 // was overwritten).  push() waits for a concurrent writer of the same slot
 // and never drops a claimed sequence number, so a reader that finds an
 // unwritten slot may simply retry later.
-// The widest unsigned word whose std::atomic is lock-free on this target.
+// The widest unsigned word whose std::atomic is lock-free on this target
+// (32-bit when 64-bit is not, including targets where neither is).
 using SeqlockWord = std::conditional_t<std::atomic<uint64_t>::is_always_lock_free,
                                        uint64_t, uint32_t>;
 
@@ -51,7 +52,12 @@ class SeqlockRing {
     static_assert(std::is_standard_layout_v<Rec> && offsetof(Rec, seq) == 0,
                   "Rec::seq must be the first member");
     static_assert(std::is_same_v<decltype(Rec::seq), uint64_t>, "Rec::seq must be uint64_t");
+#if defined(__ARM_ARCH) && __ARM_ARCH < 6
+    // ARMv4/v5 cores (e.g. FA526) have no ldrex/strex, so even 32-bit RMW goes
+    // through libatomic.  Still correct (single core), just not lock-free.
+#else
     static_assert(std::atomic<Word>::is_always_lock_free, "seqlock words must be lock-free");
+#endif
     // Records are copied through memcpy, so any size works: the last word may
     // be partial (32-bit ABIs align 64-bit members to 4 bytes).
     static constexpr std::size_t kWords = (sizeof(Rec) + sizeof(Word) - 1) / sizeof(Word);
