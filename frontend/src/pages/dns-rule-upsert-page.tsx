@@ -1,6 +1,6 @@
 import { toast } from "sonner"
 import { Trans, useTranslation } from "react-i18next"
-import { useLocation } from "wouter"
+import { Redirect, useLocation } from "wouter"
 
 import { useQueryClient } from "@tanstack/react-query"
 
@@ -41,7 +41,6 @@ export function DnsRuleUpsertPage({
   ruleIndex?: string
 }) {
   const { t } = useTranslation()
-  const [, navigate] = useLocation()
   const configQuery = useGetConfig()
 
   const loadedConfig = selectConfig(configQuery.data)
@@ -53,20 +52,7 @@ export function DnsRuleUpsertPage({
       : undefined
 
   if (mode === "edit" && loadedConfig && !existingRule) {
-    return (
-      <UpsertPage
-        cardDescription={t("pages.dnsRuleUpsert.missing.cardDescription")}
-        cardTitle={t("pages.dnsRuleUpsert.missing.cardTitle")}
-        description={t("pages.dnsRuleUpsert.missing.description")}
-        title={t("pages.dnsRuleUpsert.editTitle")}
-      >
-        <div className="flex justify-end">
-          <Button onClick={() => navigate("/dns-rules")} variant="outline">
-            {t("pages.dnsRuleUpsert.missing.back")}
-          </Button>
-        </div>
-      </UpsertPage>
-    )
+    return <Redirect replace to="/dns-rules" />
   }
 
   if (!loadedConfig) {

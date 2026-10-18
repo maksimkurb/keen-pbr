@@ -1,7 +1,7 @@
 import { ExternalLink } from "lucide-react"
 import { useMemo } from "react"
 import { Trans, useTranslation } from "react-i18next"
-import { useLocation } from "wouter"
+import { Redirect, useLocation } from "wouter"
 
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
@@ -95,20 +95,7 @@ export function DnsServerUpsertPage({
   )
 
   if (mode === "edit" && !existingServer && !configQuery.isLoading) {
-    return (
-      <UpsertPage
-        cardDescription={t("pages.dnsServerUpsert.missingCardDescription")}
-        cardTitle={t("pages.dnsServerUpsert.missingCardTitle")}
-        description={t("pages.dnsServerUpsert.missingDescription")}
-        title={t("pages.dnsServerUpsert.editTitle")}
-      >
-        <div className="flex justify-end">
-          <Button onClick={() => navigate("/dns-servers")} variant="outline">
-            {t("pages.dnsServerUpsert.back")}
-          </Button>
-        </div>
-      </UpsertPage>
-    )
+    return <Redirect replace to="/dns-servers" />
   }
 
   return (

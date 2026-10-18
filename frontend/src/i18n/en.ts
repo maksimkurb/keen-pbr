@@ -1286,11 +1286,6 @@ export const enTranslation = {
     dnsServerUpsert: {
       createTitle: "Create DNS server",
       editTitle: "Edit DNS server",
-      missingCardDescription: "The requested DNS server could not be found.",
-      missingCardTitle: "Missing DNS server",
-      missingDescription:
-        "Return to the DNS servers table and choose a valid entry.",
-      back: "Back to DNS servers",
       description:
         "This server will be available in your DNS rules and among the main DNS servers.",
       cardDescription:
@@ -1426,13 +1421,6 @@ export const enTranslation = {
       },
       messages: {
         saved: "Routing rule staged. Apply new config to persist it.",
-      },
-      missing: {
-        cardDescription: "The requested routing rule could not be found.",
-        cardTitle: "Missing routing rule",
-        description:
-          "Return to the routing rules table and choose a valid entry.",
-        back: "Back to routing rules",
       },
       validation: {
         atLeastOneCondition:
@@ -1611,12 +1599,6 @@ export const enTranslation = {
       description:
         "An outbound can be a single network interface, a routing table, or a urltest group that picks the fastest option.",
       cardDescription: "Configure interface or urltest outbounds.",
-      missing: {
-        cardDescription: "The requested outbound could not be found.",
-        cardTitle: "Missing outbound",
-        description: "Return to the outbounds table and choose a valid entry.",
-        back: "Back to outbounds",
-      },
       actions: { create: "Create outbound", save: "Save outbound" },
       strategy: {
         cards: {
@@ -1859,12 +1841,6 @@ export const enTranslation = {
         unknownLists: "Unknown lists: {{lists}}",
         duplicate: "Duplicate rule entry.",
       },
-      missing: {
-        cardDescription: "The requested DNS rule could not be found.",
-        cardTitle: "Missing DNS rule",
-        description: "Return to DNS Rules and choose a valid entry.",
-        back: "Back to DNS rules",
-      },
       actions: { create: "Create rule", save: "Save rule" },
       fields: {
         serverTag: "DNS servers",
@@ -1976,12 +1952,6 @@ export const enTranslation = {
       messages: {
         created: "List staged. Apply new config to persist it.",
         updated: "List changes staged. Apply new config to persist them.",
-      },
-      missing: {
-        cardDescription: "The requested list could not be found.",
-        cardTitle: "Missing list",
-        description: "Return to the lists table and choose a valid entry.",
-        back: "Back to lists",
       },
       actions: {
         saving: "Saving...",

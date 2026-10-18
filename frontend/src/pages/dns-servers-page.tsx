@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
+import { toast } from "sonner"
 import type { ApiError } from "@/api/client"
 import type { getConfigResponse } from "@/api/generated/keen-api"
 import type { ConfigObject } from "@/api/generated/model/configObject"
@@ -25,7 +26,6 @@ import {
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { MobileAddFab } from "@/components/shared/mobile-add-fab"
 import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
-import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable } from "@/components/shared/data-table"
 import {
   DeleteImpactDialog,
@@ -69,7 +69,13 @@ export function DnsServersPage() {
   const [deletePreview, setDeletePreview] = useState<typeof deleteRequest>(null)
   const configMutationPending = useConfigMutationPending()
   const configQuery = useGetConfig()
-  const postConfigMutation = usePostConfigMutation()
+  const postConfigMutation = usePostConfigMutation({
+    mutation: {
+      onError: (error) => {
+        toast.error(getApiErrorMessage(error as ApiError), { richColors: true })
+      },
+    },
+  })
 
   const checkMutation = usePostDnsServersCheck()
   const [checkSelection, setCheckSelection] = useState<CheckSelection>(() =>
@@ -213,7 +219,6 @@ export function DnsServersPage() {
         title={t("pages.dnsServers.title")}
       />
 
-      <ConfigSaveErrorAlert error={postConfigMutation.error} />
       {configQuery.isLoading ? (
         <TableSkeleton />
       ) : configQuery.isError ? (

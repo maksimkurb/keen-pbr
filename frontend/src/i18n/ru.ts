@@ -1318,11 +1318,6 @@ export const ruTranslation = {
     dnsServerUpsert: {
       createTitle: "Создать DNS-сервер",
       editTitle: "Изменить DNS-сервер",
-      missingCardDescription: "Запрошенный DNS-сервер не найден.",
-      missingCardTitle: "DNS-сервер не найден",
-      missingDescription:
-        "Вернитесь к таблице DNS-серверов и выберите корректную запись.",
-      back: "Назад к DNS-серверам",
       description:
         "Этот сервер будет доступен в DNS-правилах и среди основных DNS-серверов.",
       cardDescription:
@@ -1461,13 +1456,6 @@ export const ruTranslation = {
       messages: {
         saved:
           "Правило маршрутизации сохранено в черновик. Примените новый конфиг, чтобы записать его.",
-      },
-      missing: {
-        cardDescription: "Запрошенное правило маршрутизации не найдено.",
-        cardTitle: "Правило не найдено",
-        description:
-          "Вернитесь к таблице правил маршрутизации и выберите корректную запись.",
-        back: "Назад к правилам маршрутизации",
       },
       validation: {
         atLeastOneCondition:
@@ -1650,13 +1638,6 @@ export const ruTranslation = {
       description:
         "Outbound может быть сетевым интерфейсом, таблицей маршрутизации или группой urltest, которая выбирает самый быстрый вариант.",
       cardDescription: "Настройте interface или urltest outbound.",
-      missing: {
-        cardDescription: "Запрошенный outbound не найден.",
-        cardTitle: "Outbound не найден",
-        description:
-          "Вернитесь к таблице outbounds и выберите корректную запись.",
-        back: "Назад к outbounds",
-      },
       actions: { create: "Создать outbound", save: "Сохранить outbound" },
       strategy: {
         cards: {
@@ -1908,12 +1889,6 @@ export const ruTranslation = {
         unknownLists: "Неизвестные списки: {{lists}}",
         duplicate: "Дублирующееся правило.",
       },
-      missing: {
-        cardDescription: "Запрошенное DNS-правило не найдено.",
-        cardTitle: "DNS-правило не найдено",
-        description: "Вернитесь к DNS-правилам и выберите корректную запись.",
-        back: "Назад к DNS-правилам",
-      },
       actions: { create: "Создать правило", save: "Сохранить правило" },
       fields: {
         serverTag: "DNS-серверы",
@@ -2032,13 +2007,6 @@ export const ruTranslation = {
           "Список сохранён в черновик. Примените новый конфиг, чтобы записать его.",
         updated:
           "Изменения списка сохранены в черновик. Примените новый конфиг, чтобы записать их.",
-      },
-      missing: {
-        cardDescription: "Запрошенный список не найден.",
-        cardTitle: "Список не найден",
-        description:
-          "Вернитесь к таблице списков и выберите корректную запись.",
-        back: "Назад к спискам",
       },
       actions: {
         saving: "Сохранение...",

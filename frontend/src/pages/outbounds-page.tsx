@@ -26,7 +26,6 @@ import { selectConfig, selectOutbounds } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { MobileAddFab } from "@/components/shared/mobile-add-fab"
 import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
-import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable } from "@/components/shared/data-table"
 import {
   DeleteImpactDialog,
@@ -204,7 +203,6 @@ export function OutboundsPage() {
         title={t("pages.outbounds.title")}
       />
 
-      <ConfigSaveErrorAlert error={postConfigMutation.error} />
 
       {configQuery.isLoading ? (
         <TableSkeleton />

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react"
 import { RoutingRuleConditionBuilder } from "@/components/routing-rules/routing-rule-condition-builder"
 import { Trans, useTranslation } from "react-i18next"
-import { useLocation } from "wouter"
+import { Redirect, useLocation } from "wouter"
 
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
@@ -71,7 +71,6 @@ export function RoutingRuleUpsertPage({
   ruleIndex?: string
 }) {
   const { t } = useTranslation()
-  const [, navigate] = useLocation()
   const configQuery = useGetConfig()
   const loadedConfig = selectConfig(configQuery.data)
   const rules = loadedConfig?.route?.rules ?? []
@@ -82,20 +81,7 @@ export function RoutingRuleUpsertPage({
       : undefined
 
   if (mode === "edit" && loadedConfig && !existingRule) {
-    return (
-      <UpsertPage
-        cardDescription={t("pages.routingRuleUpsert.missing.cardDescription")}
-        cardTitle={t("pages.routingRuleUpsert.missing.cardTitle")}
-        description={t("pages.routingRuleUpsert.missing.description")}
-        title={t("pages.routingRuleUpsert.editTitle")}
-      >
-        <div className="flex justify-end">
-          <Button onClick={() => navigate("/routing-rules")} variant="outline">
-            {t("pages.routingRuleUpsert.missing.back")}
-          </Button>
-        </div>
-      </UpsertPage>
-    )
+    return <Redirect replace to="/routing-rules" />
   }
 
   if (!loadedConfig) {

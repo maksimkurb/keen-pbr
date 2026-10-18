@@ -13,7 +13,7 @@ import {
 } from "lucide-react"
 
 import { useQueryClient } from "@tanstack/react-query"
-import { useLocation } from "wouter"
+import { Redirect, useLocation } from "wouter"
 
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
@@ -177,20 +177,7 @@ export function OutboundUpsertPage({
       : undefined
 
   if (mode === "edit" && !existing) {
-    return (
-      <UpsertPage
-        cardDescription={t("pages.outboundUpsert.missing.cardDescription")}
-        cardTitle={t("pages.outboundUpsert.missing.cardTitle")}
-        description={t("pages.outboundUpsert.missing.description")}
-        title={title}
-      >
-        <div className="flex justify-end">
-          <Button onClick={() => navigate("/outbounds")} variant="outline">
-            {t("pages.outboundUpsert.missing.back")}
-          </Button>
-        </div>
-      </UpsertPage>
-    )
+    return <Redirect replace to="/outbounds" />
   }
 
   const draft = existing ? mapOutboundToDraft(existing) : sampleNewOutbound

@@ -34,7 +34,6 @@ import {
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { MobileAddFab } from "@/components/shared/mobile-add-fab"
 import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
-import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable } from "@/components/shared/data-table"
 import {
   DeleteImpactDialog,
@@ -175,6 +174,9 @@ export function ListsPage() {
           queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() }),
         ])
       },
+      onError: (error) => {
+        toast.error(getApiErrorMessage(error as ApiError), { richColors: true })
+      },
     },
   })
 
@@ -310,8 +312,6 @@ export function ListsPage() {
         description={t("pages.lists.description")}
         title={t("pages.lists.title")}
       />
-
-      <ConfigSaveErrorAlert error={postConfigMutation.error} />
 
       {configQuery.isLoading ? (
         <TableSkeleton />

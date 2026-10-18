@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { CloudIcon, FileTextIcon, ScrollTextIcon } from "lucide-react"
 import { useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
-import { useLocation } from "wouter"
+import { Redirect, useLocation } from "wouter"
 import { toast } from "sonner"
 
 import type { ApiError } from "@/api/client"
@@ -78,7 +78,6 @@ export function ListUpsertPage({
   listId?: string
 }) {
   const { t } = useTranslation()
-  const [, navigate] = useLocation()
   const configQuery = useGetConfig()
   const loadedConfig = selectConfig(configQuery.data)
 
@@ -115,20 +114,7 @@ export function ListUpsertPage({
       : sampleNewList
 
   if (mode === "edit" && !draft) {
-    return (
-      <UpsertPage
-        cardDescription={t("pages.listUpsert.missing.cardDescription")}
-        cardTitle={t("pages.listUpsert.missing.cardTitle")}
-        description={t("pages.listUpsert.missing.description")}
-        title={t("pages.listUpsert.editTitle")}
-      >
-        <div className="flex justify-end">
-          <Button onClick={() => navigate("/lists")} variant="outline">
-            {t("pages.listUpsert.missing.back")}
-          </Button>
-        </div>
-      </UpsertPage>
-    )
+    return <Redirect replace to="/lists" />
   }
 
   return (

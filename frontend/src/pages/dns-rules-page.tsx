@@ -19,7 +19,6 @@ import { effectiveResolverIntegration, selectConfig } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { MobileAddFab } from "@/components/shared/mobile-add-fab"
 import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
-import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
@@ -276,7 +275,6 @@ export function DnsRulesPage() {
         title={t("pages.dnsRules.title")}
       />
 
-      <ConfigSaveErrorAlert error={postConfigMutation.error} />
 
       {configQuery.isLoading ? (
         <TableSkeleton />
