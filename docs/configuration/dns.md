@@ -161,6 +161,25 @@ On Keenetic routers, `type: "keenetic"` takes the DNS servers from the router's 
 - `address` is not set for it.
 - keen-pbr reads the servers that are not tied to a domain from the **System** DNS proxy group. If any of them are encrypted ({{< term "DoH" >}}/DoT), all encrypted servers are used in order. Otherwise, all plain servers are used in order.
 
+### Checking the DNS servers {#check-dns-servers}
+
+The **Check** button on **DNS** > **DNS servers** asks every server in the list about a few sites and shows which servers work and which do not. The servers from the applied settings are checked, even when no rule uses them. If the web interface has changes you have not applied, a hint appears above the result.
+
+The arrow next to the button opens a menu of sites. `yandex.ru` and `telegram.org` are selected by default; you can add `youtube.com`, `google.com`, `instagram.com`, `chatgpt.com`, or type your own site into **Another site**. One check asks about five sites at most. The browser remembers your choice.
+
+After the check, a summary appears above the table, and each server gets a status in the **Check** column. Click a status to see the server's answer for each site: the addresses and how long it took.
+
+- "Works": the server answered every question.
+- "Not answering": the server did not answer in time, refused the connection, is unreachable or returned an error. A DNS-over-HTTPS server without certificates cannot be checked, which also shows as "Not answering" with the reason. Servers with an IPv6 address are skipped while IPv6 is off.
+- "Suspicious": the server answers, but the answers look tampered with. The signs are:
+  - the server says a well-known site does not exist;
+  - the answer holds a stub address instead of the site's address: `0.0.0.0`, `127.0.0.1` or an address from a local network. This is how ISPs and filters block sites;
+  - the server answers with addresses for names that do not exist.
+
+For your own site from **Another site**, "does not exist" or "no addresses" stays an ordinary result: keen-pbr cannot know whether the site exists.
+
+If a server tampers with answers, use a DNS-over-HTTPS server, or set an outbound for the server in **Make requests via Outbound** so the requests bypass your ISP.
+
 ## Field reference
 
 The `dns` section in `config.json`:

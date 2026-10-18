@@ -75,6 +75,7 @@ keen-pbr hash-password
 | `GET /api/runtime/outbounds`, `/api/runtime/interfaces` | Текущее состояние outbounds и список системных интерфейсов. |
 | `GET /api/health/routing`, `POST /api/routing/test` | Диагностика маршрутизации и firewall и проверка маршрута для конкретного домена или IP-адреса. |
 | `POST /api/lists/refresh` | Обновление одного или всех удалённых списков URL. |
+| `POST /api/dns/servers/check` | Проверка DNS-серверов из применённой конфигурации: работают ли они и не подменяют ли ответы. |
 | `GET /api/dns/test` | Поток событий перехвата DNS и TLS/QUIC-трафика либо проверка DNS в веб-интерфейсе. |
 | `GET /api/diagnostics/command-failure` | Журнал недавних сбоев системных команд. |
 | `GET /metrics` | Метрики Prometheus в текстовом формате. |
@@ -241,9 +242,37 @@ histogram_quantile(0.99, sum by (le)
 sum by (subsystem) (increase(keen_pbr_errors_total[1h])) > 0
 ```
 
+### DNS-прокси {#dns-proxy}
+
+Метрики встроенного DNS-прокси, куда dnsmasq отправляет запросы к доменам списков с несколькими серверами или с DNS-over-HTTPS. Если прокси не используется, метрики не публикуются. Метки:
+
+- `proxy_port` — порт прокси, он соответствует набору серверов;
+- `server` — названия серверов (`tag`) через запятую;
+- `upstream` — адрес сервера (`ip:port`) или URL DNS-over-HTTPS;
+- `type` — `dns` или `doh`;
+- `detour` — outbound сервера, пусто, если не задан.
+
+| Метрика | Тип | Метки | Смысл |
+|---|---|---|---|
+| `keen_pbr_dns_proxy_queries_total` | counter | `proxy_port`, `transport` = `udp`, `tcp` | Запросы, полученные от dnsmasq, в том числе отброшенные. |
+| `keen_pbr_dns_proxy_dropped_total` | counter | `proxy_port`, `transport`, `reason` = `overload`, `malformed` | Запросы, которые прокси не обслужил: не было свободного места (`overload`) или это не DNS-запрос (`malformed`). |
+| `keen_pbr_dns_proxy_responses_total` | counter | `proxy_port`, `source` = `upstream`, `proxy_servfail` | Ответы клиентам: от сервера (`upstream`) или SERVFAIL самого прокси, когда ни один сервер не ответил (`proxy_servfail`). |
+| `keen_pbr_dns_proxy_upstream_requests_total` | counter | `proxy_port`, `server`, `upstream`, `type`, `detour`, `result` | Попытки получить ответ от сервера по результатам: `ok`, `nxdomain`, `servfail`, `refused`, `other_rcode`, `timeout`, `connection_refused`, `unreachable`, `connection_closed`, `tls_error`, `http_error`, `bad_answer`, `not_resolved`, `network_error`. |
+| `keen_pbr_dns_proxy_upstream_response_duration_seconds` | histogram | как выше, без `result` | Время до ответа сервера. Считаются только попытки, на которые пришёл ответ. Границы (с): 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, +Inf. |
+| `keen_pbr_dns_proxy_upstream_up` | gauge | как выше, без `result` | `0` — прокси пропускает сервер после ошибки (или не может его использовать), `1` — иначе. |
+| `keen_pbr_dns_proxy_upstream_consecutive_failures` | gauge | как выше, без `result` | Попытки подряд без ответа или с ответом SERVFAIL или REFUSED. Любой другой ответ обнуляет счётчик. При 10 появляется предупреждение «DNS-сервер не отвечает». |
+| `keen_pbr_dns_proxy_inflight` | gauge | `transport` | Запросы, которые прокси обрабатывает сейчас. |
+
+Доля неудачных попыток сервера за 5 минут:
+
+```promql
+sum by (server) (rate(keen_pbr_dns_proxy_upstream_requests_total{result=~"timeout|connection_refused|servfail|refused"}[5m]))
+  / sum by (server) (rate(keen_pbr_dns_proxy_upstream_requests_total[5m]))
+```
+
 ### Дашборд Grafana и алерты
 
-Импортируйте [keen-pbr-dashboard.json](https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json) в Grafana (Dashboards > New > Import). Нужен источник данных Prometheus с UID `prometheus`. В дашборде есть переменные `job` и `outbound`, обновление каждые 30 с и разделы Status, Outbounds, DNS interception, Sets & lists и Errors. Интервал scrape должен быть не больше 30 с: столбчатые панели считают `increase()` по окнам в одну минуту.
+Импортируйте [keen-pbr-dashboard.json](https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json) в Grafana (Dashboards > New > Import). Нужен источник данных Prometheus с UID `prometheus`. В дашборде есть переменные `job` и `outbound`, обновление каждые 30 с и разделы Status, Outbounds, DNS interception, DNS proxy, Sets & lists и Errors. Интервал scrape должен быть не больше 30 с: столбчатые панели считают `increase()` по окнам в одну минуту.
 
 Пример правил алертов:
 
@@ -488,6 +517,70 @@ curl http://127.0.0.1:12121/api/runtime/outbounds
 - `status` outbound: `healthy` (работает), `degraded` (работает частично), `unavailable` (нет доступного пути), `unknown`.
 - `status` в `interfaces`: `active` (через него идёт трафик), `backup` (резерв), `degraded`, `unavailable` (отключён после серии сбоев), `unknown`. В группе urltest или icmptest выбранный канал имеет статус `active`.
 - Могут быть дополнительные поля: `latency_ms`, `probe_target`, `detail` и счётчики пакетов.
+
+---
+
+## POST /api/dns/servers/check
+
+Спрашивает все DNS-серверы из применённой конфигурации (не из черновика) о нескольких сайтах и показывает, какие серверы работают, не отвечают или подменяют ответы. Серверы типа `keenetic` проверяются по каждому адресу, который сообщает Keenetic. Одновременно идёт только одна проверка. Все поля тела необязательны.
+
+```bash {filename="bash"}
+curl -X POST http://127.0.0.1:12121/api/dns/servers/check \
+  -H "Content-Type: application/json" \
+  -d '{"domains": ["yandex.ru", "youtube.com"], "custom_domains": ["example.org"], "servers": ["google_dns"]}'
+```
+
+- `domains` — сайты, которые точно существуют: ответ «не существует» для них считается подозрением. По умолчанию `["yandex.ru"]`, если не задан `custom_domains`.
+- `custom_domains` — ваши сайты: «не существует» и отсутствие адресов подозрением не считаются.
+- `servers` — названия серверов (`tag`) из `dns.servers`. По умолчанию проверяются все.
+
+Всего можно указать не больше 5 сайтов.
+
+### Ответ
+
+```json
+{
+  "overall": "warning",
+  "servers": [
+    {
+      "tag": "google_dns",
+      "type": "static",
+      "endpoints": [
+        {
+          "address": "8.8.8.8",
+          "status": "ok",
+          "nxdomain_hijack": false,
+          "results": [
+            {
+              "domain": "yandex.ru",
+              "status": "ok",
+              "severity": "ok",
+              "rcode": 0,
+              "addresses": ["77.88.55.60"],
+              "duration_ms": 14.2
+            },
+            {
+              "domain": "youtube.com",
+              "status": "nxdomain",
+              "severity": "warning",
+              "rcode": 3,
+              "addresses": [],
+              "duration_ms": 9.8
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+- `overall` — `ok`, `warning` (есть признаки подмены) или `error` (какой-то сервер не отвечает).
+- `status` результата — `ok`, `nxdomain`, `nodata`, `stub_address`, `servfail`, `refused`, `rcode` либо причина, по которой ответа нет: `timeout`, `connection_refused`, `unreachable`, `connection_closed`, `tls_error`, `http_error`, `bad_answer`, `not_resolved`, `network_error`. `severity` — `ok`, `warning` или `error`.
+- `nxdomain_hijack` — `true`, если сервер ответил адресами на несуществующее имя.
+- Статус адреса `skipped` значит, что адрес не проверялся (например, IPv6 выключен), `unavailable` — что его нельзя проверить (например, DNS-over-HTTPS без сертификатов); причина в `reason`.
+
+Ошибки: `400` — неверное тело запроса, больше 5 сайтов, неверное имя сайта или неизвестный `tag`; `409` — предыдущая проверка ещё идёт; `503` — сервис остановлен.
 
 ---
 

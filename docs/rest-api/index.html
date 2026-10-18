@@ -51,7 +51,7 @@ Configuration
 Prometheus and Grafana show VPN channel health and latency (see GET /metrics). A cron job refreshes lists on a schedule through POST /api/lists/refresh. A script restarts routing through POST /api/service/restart. If you only use the web interface, you can skip this page.
 The REST API is available when:
 Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration In the web interface, open Security &gt; Authentication and CORS. Turn on Enable authentication, enter a New password and confirm it. If a website on another address must call the API from a browser, add its address to Allowed CORS origins (one per line). Changes take effect immediately.">
-	<meta itemprop="wordCount" content="3085">
+	<meta itemprop="wordCount" content="3693">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
 	<meta name="twitter:description" content="The REST API lets scripts and external systems control and monitor keen-pbr. For example:
@@ -455,6 +455,12 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
                 href="#get-apiruntimeoutbounds"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >GET /api/runtime/outbounds</a>
+            </li>
+          <li>
+              <a
+                href="#post-apidnsserverscheck"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >POST /api/dns/servers/check</a>
             </li>
           <li>
               <a
@@ -1009,6 +1015,10 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-proxy">DNS proxy
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#grafana-dashboard-and-alerts">Grafana dashboard and alerts
         </a>
       </li>
@@ -1073,7 +1083,7 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#post-apiroutingtest">POST /api/routing/test
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#post-apidnsserverscheck">POST /api/dns/servers/check
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1081,11 +1091,19 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#get-apihealthrouting">GET /api/health/routing
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#post-apiroutingtest">POST /api/routing/test
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#response-5">Response
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#get-apihealthrouting">GET /api/health/routing
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#response-6">Response
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1298,6 +1316,10 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
 			<tr>
 					<td><code>POST /api/lists/refresh</code></td>
 					<td>Refresh one or all remote URL lists.</td>
+			</tr>
+			<tr>
+					<td><code>POST /api/dns/servers/check</code></td>
+					<td>Checks the DNS servers of the applied configuration: whether they work and whether they tamper with answers.</td>
 			</tr>
 			<tr>
 					<td><code>GET /api/dns/test</code></td>
@@ -1696,8 +1718,93 @@ probe completed yet. In Grafana this shows up as a gap, never as a <code>0</code
   </button>
 </div>
 </div>
+<h3>DNS proxy<span class="hx:absolute hx:-mt-20" id="dns-proxy"></span>
+    <a href="#dns-proxy" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Metrics of the built-in DNS proxy, where dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS. When the proxy is not used, these metrics are not published. Labels:</p>
+<ul>
+<li><code>proxy_port</code>: the proxy port, one per set of servers;</li>
+<li><code>server</code>: the server names (<code>tag</code>), comma-separated;</li>
+<li><code>upstream</code>: the server address (<code>ip:port</code>) or the DNS-over-HTTPS URL;</li>
+<li><code>type</code>: <code>dns</code> or <code>doh</code>;</li>
+<li><code>detour</code>: the outbound of the server, empty when not set.</li>
+</ul>
+<table>
+	<thead>
+			<tr>
+					<th>Metric</th>
+					<th>Type</th>
+					<th>Labels</th>
+					<th>Meaning</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>keen_pbr_dns_proxy_queries_total</code></td>
+					<td>counter</td>
+					<td><code>proxy_port</code>, <code>transport</code> = <code>udp</code>, <code>tcp</code></td>
+					<td>Queries received from dnsmasq, including dropped ones.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_proxy_dropped_total</code></td>
+					<td>counter</td>
+					<td><code>proxy_port</code>, <code>transport</code>, <code>reason</code> = <code>overload</code>, <code>malformed</code></td>
+					<td>Queries the proxy did not serve: no free room (<code>overload</code>) or not a DNS query (<code>malformed</code>).</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_proxy_responses_total</code></td>
+					<td>counter</td>
+					<td><code>proxy_port</code>, <code>source</code> = <code>upstream</code>, <code>proxy_servfail</code></td>
+					<td>Answers to clients: from a server (<code>upstream</code>) or the proxy&rsquo;s own SERVFAIL when no server answered (<code>proxy_servfail</code>).</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_proxy_upstream_requests_total</code></td>
+					<td>counter</td>
+					<td><code>proxy_port</code>, <code>server</code>, <code>upstream</code>, <code>type</code>, <code>detour</code>, <code>result</code></td>
+					<td>Attempts to get an answer from a server, by result: <code>ok</code>, <code>nxdomain</code>, <code>servfail</code>, <code>refused</code>, <code>other_rcode</code>, <code>timeout</code>, <code>connection_refused</code>, <code>unreachable</code>, <code>connection_closed</code>, <code>tls_error</code>, <code>http_error</code>, <code>bad_answer</code>, <code>not_resolved</code>, <code>network_error</code>.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_proxy_upstream_response_duration_seconds</code></td>
+					<td>histogram</td>
+					<td>as above, without <code>result</code></td>
+					<td>Time until the server answered. Only attempts that got an answer are counted. Bounds (s): 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, +Inf.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_proxy_upstream_up</code></td>
+					<td>gauge</td>
+					<td>as above, without <code>result</code></td>
+					<td><code>0</code> while the proxy skips a server after an error (or cannot use it), <code>1</code> otherwise.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_proxy_upstream_consecutive_failures</code></td>
+					<td>gauge</td>
+					<td>as above, without <code>result</code></td>
+					<td>Attempts in a row with no answer, or with SERVFAIL or REFUSED. Any other answer resets the counter. At 10 the warning &ldquo;DNS server is not answering&rdquo; appears.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_proxy_inflight</code></td>
+					<td>gauge</td>
+					<td><code>transport</code></td>
+					<td>Queries the proxy is working on now.</td>
+			</tr>
+	</tbody>
+</table>
+<p>Share of failed attempts per server over 5 minutes:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-promql" data-lang="promql"><span class="line"><span class="cl"><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">server</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">keen_pbr_dns_proxy_upstream_requests_total</span><span class="p">{</span><span class="nl">result</span><span class="o">=~</span><span class="p">&#34;</span><span class="s">timeout|connection_refused|servfail|refused</span><span class="p">&#34;}[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="o">/</span><span class="w"> </span><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">server</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">keen_pbr_dns_proxy_upstream_requests_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
 <h3>Grafana dashboard and alerts<span class="hx:absolute hx:-mt-20" id="grafana-dashboard-and-alerts"></span>
-    <a href="#grafana-dashboard-and-alerts" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Import <a href="https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json"target="_blank" rel="noopener">keen-pbr-dashboard.json</a> into Grafana (Dashboards &gt; New &gt; Import). It needs a Prometheus data source with UID <code>prometheus</code>. The dashboard has <code>job</code> and <code>outbound</code> variables, a 30 s refresh, and the sections Status, Outbounds, DNS interception, Sets &amp; lists and Errors. Use a scrape interval of 30 s or less: the bar panels compute <code>increase()</code> over one-minute windows.</p>
+    <a href="#grafana-dashboard-and-alerts" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Import <a href="https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json"target="_blank" rel="noopener">keen-pbr-dashboard.json</a> into Grafana (Dashboards &gt; New &gt; Import). It needs a Prometheus data source with UID <code>prometheus</code>. The dashboard has <code>job</code> and <code>outbound</code> variables, a 30 s refresh, and the sections Status, Outbounds, DNS interception, DNS proxy, Sets &amp; lists and Errors. Use a scrape interval of 30 s or less: the bar panels compute <code>increase()</code> over one-minute windows.</p>
 <p>Example alerting rules:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -2084,6 +2191,86 @@ probe completed yet. In Grafana this shows up as a gap, never as a <code>0</code
 <li>Optional fields: <code>latency_ms</code>, <code>probe_target</code>, <code>detail</code> and packet counters.</li>
 </ul>
 <hr>
+<h2>POST /api/dns/servers/check<span class="hx:absolute hx:-mt-20" id="post-apidnsserverscheck"></span>
+    <a href="#post-apidnsserverscheck" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Asks all DNS servers of the applied configuration (not the draft) about a few sites and shows which servers work, do not answer or tamper with answers. A <code>keenetic</code> server is checked at each address Keenetic reports. Only one check runs at a time. All body fields are optional.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://127.0.0.1:12121/api/dns/servers/check <span class="se">\
+</span></span></span><span class="line"><span class="cl">  -H <span class="s2">&#34;Content-Type: application/json&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">  -d <span class="s1">&#39;{&#34;domains&#34;: [&#34;yandex.ru&#34;, &#34;youtube.com&#34;], &#34;custom_domains&#34;: [&#34;example.org&#34;], &#34;servers&#34;: [&#34;google_dns&#34;]}&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<ul>
+<li><code>domains</code>: sites that certainly exist; the answer &ldquo;does not exist&rdquo; for them is suspicious. Defaults to <code>[&quot;yandex.ru&quot;]</code> unless <code>custom_domains</code> is set.</li>
+<li><code>custom_domains</code>: your own sites; &ldquo;does not exist&rdquo; or no addresses is not suspicious.</li>
+<li><code>servers</code>: server names (<code>tag</code>) from <code>dns.servers</code>. All are checked by default.</li>
+</ul>
+<p>You can name at most 5 sites in total.</p>
+<h3>Response<span class="hx:absolute hx:-mt-20" id="response-4"></span>
+    <a href="#response-4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;overall&#34;</span><span class="p">:</span> <span class="s2">&#34;warning&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google_dns&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;static&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;endpoints&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">          <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">          <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">          <span class="nt">&#34;nxdomain_hijack&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">          <span class="nt">&#34;results&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">            <span class="p">{</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;domain&#34;</span><span class="p">:</span> <span class="s2">&#34;yandex.ru&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;severity&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;rcode&#34;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;addresses&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;77.88.55.60&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;duration_ms&#34;</span><span class="p">:</span> <span class="mf">14.2</span>
+</span></span><span class="line"><span class="cl">            <span class="p">},</span>
+</span></span><span class="line"><span class="cl">            <span class="p">{</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;domain&#34;</span><span class="p">:</span> <span class="s2">&#34;youtube.com&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;nxdomain&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;severity&#34;</span><span class="p">:</span> <span class="s2">&#34;warning&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;rcode&#34;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;addresses&#34;</span><span class="p">:</span> <span class="p">[],</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;duration_ms&#34;</span><span class="p">:</span> <span class="mf">9.8</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">          <span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">      <span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<ul>
+<li><code>overall</code> is <code>ok</code>, <code>warning</code> (signs of tampering) or <code>error</code> (a server does not answer).</li>
+<li>A result&rsquo;s <code>status</code> is <code>ok</code>, <code>nxdomain</code>, <code>nodata</code>, <code>stub_address</code>, <code>servfail</code>, <code>refused</code>, <code>rcode</code>, or the reason there is no answer: <code>timeout</code>, <code>connection_refused</code>, <code>unreachable</code>, <code>connection_closed</code>, <code>tls_error</code>, <code>http_error</code>, <code>bad_answer</code>, <code>not_resolved</code>, <code>network_error</code>. <code>severity</code> is <code>ok</code>, <code>warning</code> or <code>error</code>.</li>
+<li><code>nxdomain_hijack</code> is <code>true</code> when the server answered a name that does not exist with addresses.</li>
+<li>An address with status <code>skipped</code> was not checked (for example, IPv6 is off); <code>unavailable</code> means it cannot be checked (for example, DNS-over-HTTPS without certificates). The reason is in <code>reason</code>.</li>
+</ul>
+<p>Errors: <code>400</code> for an invalid body, more than 5 sites, an invalid site name or an unknown <code>tag</code>; <code>409</code> while the previous check is still running; <code>503</code> while the service is stopped.</p>
+<hr>
 <h2>POST /api/routing/test<span class="hx:absolute hx:-mt-20" id="post-apiroutingtest"></span>
     <a href="#post-apiroutingtest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Shows which outbound traffic to a domain or IP address will use. For a domain it first resolves the IP addresses. It then checks the routing rules against the lists (the expected outbound) and the firewall sets (the actual outbound). This helps find a mismatch without restarting the daemon.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -2105,8 +2292,8 @@ probe completed yet. In Grafana this shows up as a gap, never as a <code>0</code
 <p>The optional packet fields (<code>proto</code>: <code>tcp</code>, <code>udp</code>, or <code>other</code>; <code>dest_port</code>,
 <code>src_addr</code>, <code>src_port</code>, and <code>dscp</code>) let you test rules that filter by port,
 address, or <abbr title="A 6-bit field in the IP header used to mark traffic classes for QoS.">DSCP</abbr>. Without them, only list membership of the target is checked.</p>
-<h3>Response<span class="hx:absolute hx:-mt-20" id="response-4"></span>
-    <a href="#response-4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Response<span class="hx:absolute hx:-mt-20" id="response-5"></span>
+    <a href="#response-5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;example.com&#34;</span><span class="p">,</span>
@@ -2157,8 +2344,8 @@ address, or <abbr title="A 6-bit field in the IP header used to mark traffic cla
   </button>
 </div>
 </div>
-<h3>Response<span class="hx:absolute hx:-mt-20" id="response-5"></span>
-    <a href="#response-5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Response<span class="hx:absolute hx:-mt-20" id="response-6"></span>
+    <a href="#response-6" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;overall&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span><span class="p">,</span>

@@ -35,7 +35,7 @@
 	<meta itemprop="name" content="DNS">
 	<meta itemprop="description" content="Домены из ваших списков работают без настройки DNS. keen-pbr сам читает обычные DNS-ответы (порт 53), которые проходят через роутер, и имена сайтов в начале TLS-, HTTP- и QUIC-соединений (это называется L7: имя сайта берётся из первых пакетов соединения). Подробности в разделе DNS-перехват.
 Нужен ли dnsmasq? Для маршрутизации нет. Перехват работает с любым резолвером: DNS-прокси Keenetic, unbound, dnsmasq или другим. Если провайдер подменяет DNS-ответы, обычно хватает DoH/DoT на роутере (DoH и DoT — зашифрованный DNS).">
-	<meta itemprop="wordCount" content="2745">
+	<meta itemprop="wordCount" content="2992">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="DNS">
 	<meta name="twitter:description" content="Домены из ваших списков работают без настройки DNS. keen-pbr сам читает обычные DNS-ответы (порт 53), которые проходят через роутер, и имена сайтов в начале TLS-, HTTP- и QUIC-соединений (это называется L7: имя сайта берётся из первых пакетов соединения). Подробности в разделе DNS-перехват.
@@ -971,6 +971,10 @@
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#check-dns-servers">Проверка DNS-серверов
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%81%d0%bf%d1%80%d0%b0%d0%b2%d0%be%d1%87%d0%bd%d0%b8%d0%ba-%d0%bf%d0%be%d0%bb%d0%b5%d0%b9">Справочник полей
         </a>
       </li>
@@ -1303,6 +1307,23 @@
 <li>Поле <code>address</code> для него не задаётся.</li>
 <li>keen-pbr читает серверы без привязки к домену из группы DNS-прокси <strong>System</strong>. Если среди них есть зашифрованные (<abbr title="DNS over HTTPS — зашифрованный DNS. Роутер не может прочитать такие запросы.">DoH</abbr>/DoT), используются все такие серверы по порядку. Иначе по порядку используются все обычные серверы.</li>
 </ul>
+<h3>Проверка DNS-серверов<span class="hx:absolute hx:-mt-20" id="check-dns-servers"></span>
+    <a href="#check-dns-servers" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Кнопка <strong>Проверить</strong> на странице <strong>DNS</strong> &gt; <strong>DNS-серверы</strong> спрашивает каждый сервер из списка о нескольких сайтах и показывает, какие серверы работают, а какие нет. Проверяются серверы из применённых настроек, даже если ни одно правило их не использует. Если в веб-интерфейсе есть неприменённые изменения, над результатом появится подсказка.</p>
+<p>Стрелка рядом с кнопкой открывает меню с сайтами. По умолчанию выбраны <code>yandex.ru</code> и <code>telegram.org</code>; можно добавить <code>youtube.com</code>, <code>google.com</code>, <code>instagram.com</code>, <code>chatgpt.com</code> или вписать свой сайт в поле <strong>Другой сайт</strong>. За одну проверку можно спросить не больше пяти сайтов. Выбор запоминается в браузере.</p>
+<p>После проверки над таблицей появляется итог, а у каждого сервера в столбце <strong>Проверка</strong> — статус. Нажмите на статус, чтобы увидеть ответ сервера по каждому сайту: адреса и время ответа.</p>
+<ul>
+<li>«Работает»: сервер ответил на все вопросы.</li>
+<li>«Не отвечает»: сервер не ответил вовремя, отказал в соединении, недоступен или вернул ошибку. Сервер DNS-over-HTTPS без сертификатов проверить нельзя, это тоже показывается как «Не отвечает» с причиной. Серверы с IPv6-адресом при выключенном IPv6 пропускаются.</li>
+<li>«Подозрение»: сервер отвечает, но ответы похожи на подмену. Признаки:
+<ul>
+<li>сервер говорит, что известного сайта не существует;</li>
+<li>в ответе вместо адреса сайта стоит адрес-заглушка: <code>0.0.0.0</code>, <code>127.0.0.1</code> или адрес из локальной сети. Так провайдеры и фильтры блокируют сайты;</li>
+<li>сервер отвечает адресами на несуществующие имена.</li>
+</ul>
+</li>
+</ul>
+<p>Для вашего сайта из поля <strong>Другой сайт</strong> ответ «не существует» или «нет адресов» остаётся обычным результатом: keen-pbr не знает, есть ли такой сайт.</p>
+<p>Если сервер подменяет ответы, используйте сервер DNS-over-HTTPS или задайте для сервера outbound в поле <strong>Делать запросы через Outbound</strong>, чтобы запросы шли в обход провайдера.</p>
 <h2>Справочник полей<span class="hx:absolute hx:-mt-20" id="справочник-полей"></span>
     <a href="#%d1%81%d0%bf%d1%80%d0%b0%d0%b2%d0%be%d1%87%d0%bd%d0%b8%d0%ba-%d0%bf%d0%be%d0%bb%d0%b5%d0%b9" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Секция <code>dns</code> в <code>config.json</code>:</p>
 <table>

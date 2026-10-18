@@ -302,6 +302,32 @@ The command shows the dnsmasq instances found, their DNS addresses, and the inst
 3. If the DNS server has a channel set (`detour`, for example `vpn`), make sure this outbound is "Healthy" in the **Outbounds** panel.
 4. Make sure the domains are really in the list. Check them in **Routing** > **Lists** and **DNS** > **DNS Rules**.
 
+## A DNS server does not answer {#dns-server-not-answering}
+
+**Symptom:** the **System overview** page shows the warning "DNS server 'name' is not answering", or sites from a list open slowly.
+
+The warning appears when 10 requests in a row to a server got no answer or ended with SERVFAIL or REFUSED. It concerns servers used in lists with several servers, in lists with DNS-over-HTTPS, and among the default servers with DNS-over-HTTPS. The warning goes away as soon as the server answers. If every server of a list stops answering, the warning becomes an error and names those lists.
+
+**In the web interface.**
+
+1. Open **DNS** > **DNS servers** and click **Check**. The **Check** column shows how each server answers and what exactly is wrong (see [Checking the DNS servers]({{< relref "/docs/configuration/dns#check-dns-servers" >}})).
+2. If the server has an outbound set (**Make requests via Outbound**), make sure it is "Healthy" in the **Outbounds** panel.
+
+**Command.** On the router:
+
+```bash {filename="bash"}
+nslookup example.com 8.8.8.8
+```
+
+Use the address of the server from the warning instead of `8.8.8.8`.
+
+**Fix.**
+
+- "No answer in time", "refused the connection", "unreachable": check the address and port of the server and that the router can reach it. If the server works only through a VPN, set an outbound for it.
+- "Server error (SERVFAIL)": the server could not resolve the name. Try another server.
+- "Refused the request (REFUSED)": the server does not serve requests from your address. Use another server or an outbound.
+- "TLS error" or "no CA certificates" for DNS-over-HTTPS: install the CA certificates package on the router (see [DNS-over-HTTPS]({{< relref "/docs/configuration/dns#dns-over-https" >}})).
+
 ## Firewall and `KeenPbrTable`
 
 **Symptom:** DNS works, the domain resolves, but traffic bypasses the VPN.

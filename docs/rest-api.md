@@ -75,6 +75,7 @@ The [OpenAPI document](https://github.com/maksimkurb/keen-pbr/blob/main/docs/ope
 | `GET /api/runtime/outbounds`, `/api/runtime/interfaces` | Current outbound state and the list of system interfaces. |
 | `GET /api/health/routing`, `POST /api/routing/test` | Routing and firewall diagnostics, and a route check for a specific domain or IP address. |
 | `POST /api/lists/refresh` | Refresh one or all remote URL lists. |
+| `POST /api/dns/servers/check` | Checks the DNS servers of the applied configuration: whether they work and whether they tamper with answers. |
 | `GET /api/dns/test` | Stream of DNS and TLS/QUIC interception events, or the DNS check in the web interface. |
 | `GET /api/diagnostics/command-failure` | Log of recent system command failures. |
 | `GET /metrics` | Prometheus text metrics. |
@@ -241,9 +242,37 @@ histogram_quantile(0.99, sum by (le)
 sum by (subsystem) (increase(keen_pbr_errors_total[1h])) > 0
 ```
 
+### DNS proxy {#dns-proxy}
+
+Metrics of the built-in DNS proxy, where dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS. When the proxy is not used, these metrics are not published. Labels:
+
+- `proxy_port`: the proxy port, one per set of servers;
+- `server`: the server names (`tag`), comma-separated;
+- `upstream`: the server address (`ip:port`) or the DNS-over-HTTPS URL;
+- `type`: `dns` or `doh`;
+- `detour`: the outbound of the server, empty when not set.
+
+| Metric | Type | Labels | Meaning |
+|---|---|---|---|
+| `keen_pbr_dns_proxy_queries_total` | counter | `proxy_port`, `transport` = `udp`, `tcp` | Queries received from dnsmasq, including dropped ones. |
+| `keen_pbr_dns_proxy_dropped_total` | counter | `proxy_port`, `transport`, `reason` = `overload`, `malformed` | Queries the proxy did not serve: no free room (`overload`) or not a DNS query (`malformed`). |
+| `keen_pbr_dns_proxy_responses_total` | counter | `proxy_port`, `source` = `upstream`, `proxy_servfail` | Answers to clients: from a server (`upstream`) or the proxy's own SERVFAIL when no server answered (`proxy_servfail`). |
+| `keen_pbr_dns_proxy_upstream_requests_total` | counter | `proxy_port`, `server`, `upstream`, `type`, `detour`, `result` | Attempts to get an answer from a server, by result: `ok`, `nxdomain`, `servfail`, `refused`, `other_rcode`, `timeout`, `connection_refused`, `unreachable`, `connection_closed`, `tls_error`, `http_error`, `bad_answer`, `not_resolved`, `network_error`. |
+| `keen_pbr_dns_proxy_upstream_response_duration_seconds` | histogram | as above, without `result` | Time until the server answered. Only attempts that got an answer are counted. Bounds (s): 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, +Inf. |
+| `keen_pbr_dns_proxy_upstream_up` | gauge | as above, without `result` | `0` while the proxy skips a server after an error (or cannot use it), `1` otherwise. |
+| `keen_pbr_dns_proxy_upstream_consecutive_failures` | gauge | as above, without `result` | Attempts in a row with no answer, or with SERVFAIL or REFUSED. Any other answer resets the counter. At 10 the warning "DNS server is not answering" appears. |
+| `keen_pbr_dns_proxy_inflight` | gauge | `transport` | Queries the proxy is working on now. |
+
+Share of failed attempts per server over 5 minutes:
+
+```promql
+sum by (server) (rate(keen_pbr_dns_proxy_upstream_requests_total{result=~"timeout|connection_refused|servfail|refused"}[5m]))
+  / sum by (server) (rate(keen_pbr_dns_proxy_upstream_requests_total[5m]))
+```
+
 ### Grafana dashboard and alerts
 
-Import [keen-pbr-dashboard.json](https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json) into Grafana (Dashboards > New > Import). It needs a Prometheus data source with UID `prometheus`. The dashboard has `job` and `outbound` variables, a 30 s refresh, and the sections Status, Outbounds, DNS interception, Sets & lists and Errors. Use a scrape interval of 30 s or less: the bar panels compute `increase()` over one-minute windows.
+Import [keen-pbr-dashboard.json](https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json) into Grafana (Dashboards > New > Import). It needs a Prometheus data source with UID `prometheus`. The dashboard has `job` and `outbound` variables, a 30 s refresh, and the sections Status, Outbounds, DNS interception, DNS proxy, Sets & lists and Errors. Use a scrape interval of 30 s or less: the bar panels compute `increase()` over one-minute windows.
 
 Example alerting rules:
 
@@ -488,6 +517,70 @@ curl http://127.0.0.1:12121/api/runtime/outbounds
 - Outbound `status`: `healthy` (working), `degraded` (partly working), `unavailable` (no usable path), `unknown`.
 - `status` in `interfaces`: `active` (traffic goes through it), `backup` (standby), `degraded`, `unavailable` (switched off after a series of failures), `unknown`. In a urltest or icmptest group the selected channel is `active`.
 - Optional fields: `latency_ms`, `probe_target`, `detail` and packet counters.
+
+---
+
+## POST /api/dns/servers/check
+
+Asks all DNS servers of the applied configuration (not the draft) about a few sites and shows which servers work, do not answer or tamper with answers. A `keenetic` server is checked at each address Keenetic reports. Only one check runs at a time. All body fields are optional.
+
+```bash {filename="bash"}
+curl -X POST http://127.0.0.1:12121/api/dns/servers/check \
+  -H "Content-Type: application/json" \
+  -d '{"domains": ["yandex.ru", "youtube.com"], "custom_domains": ["example.org"], "servers": ["google_dns"]}'
+```
+
+- `domains`: sites that certainly exist; the answer "does not exist" for them is suspicious. Defaults to `["yandex.ru"]` unless `custom_domains` is set.
+- `custom_domains`: your own sites; "does not exist" or no addresses is not suspicious.
+- `servers`: server names (`tag`) from `dns.servers`. All are checked by default.
+
+You can name at most 5 sites in total.
+
+### Response
+
+```json
+{
+  "overall": "warning",
+  "servers": [
+    {
+      "tag": "google_dns",
+      "type": "static",
+      "endpoints": [
+        {
+          "address": "8.8.8.8",
+          "status": "ok",
+          "nxdomain_hijack": false,
+          "results": [
+            {
+              "domain": "yandex.ru",
+              "status": "ok",
+              "severity": "ok",
+              "rcode": 0,
+              "addresses": ["77.88.55.60"],
+              "duration_ms": 14.2
+            },
+            {
+              "domain": "youtube.com",
+              "status": "nxdomain",
+              "severity": "warning",
+              "rcode": 3,
+              "addresses": [],
+              "duration_ms": 9.8
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+- `overall` is `ok`, `warning` (signs of tampering) or `error` (a server does not answer).
+- A result's `status` is `ok`, `nxdomain`, `nodata`, `stub_address`, `servfail`, `refused`, `rcode`, or the reason there is no answer: `timeout`, `connection_refused`, `unreachable`, `connection_closed`, `tls_error`, `http_error`, `bad_answer`, `not_resolved`, `network_error`. `severity` is `ok`, `warning` or `error`.
+- `nxdomain_hijack` is `true` when the server answered a name that does not exist with addresses.
+- An address with status `skipped` was not checked (for example, IPv6 is off); `unavailable` means it cannot be checked (for example, DNS-over-HTTPS without certificates). The reason is in `reason`.
+
+Errors: `400` for an invalid body, more than 5 sites, an invalid site name or an unknown `tag`; `409` while the previous check is still running; `503` while the service is stopped.
 
 ---
 

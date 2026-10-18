@@ -51,7 +51,7 @@ REST API доступен, если:
 Prometheus и Grafana показывают состояние VPN-каналов и задержку (см. GET /metrics). Задание cron обновляет списки по расписанию через POST /api/lists/refresh. Скрипт перезапускает маршрутизацию через POST /api/service/restart. Если вы пользуетесь только веб-интерфейсом, эту страницу можно не читать.
 REST API доступен, если:
 Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация В веб-интерфейсе откройте Безопасность &gt; Аутентификация и CORS. Включите Включить аутентификацию, введите Новый пароль и подтвердите его. Если API должен принимать запросы из браузера с другого сайта, добавьте его адрес в Разрешённые источники CORS (по одному в строке). Изменения вступают в силу сразу.">
-	<meta itemprop="wordCount" content="2770">
+	<meta itemprop="wordCount" content="3314">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
 	<meta name="twitter:description" content="REST API нужен, чтобы управлять keen-pbr и следить за ним из скриптов и внешних систем. Например:
@@ -455,6 +455,12 @@ REST API доступен, если:
                 href="#get-apiruntimeoutbounds"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >GET /api/runtime/outbounds</a>
+            </li>
+          <li>
+              <a
+                href="#post-apidnsserverscheck"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >POST /api/dns/servers/check</a>
             </li>
           <li>
               <a
@@ -1009,6 +1015,10 @@ REST API доступен, если:
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-proxy">DNS-прокси
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b4%d0%b0%d1%88%d0%b1%d0%be%d1%80%d0%b4-grafana-%d0%b8-%d0%b0%d0%bb%d0%b5%d1%80%d1%82%d1%8b">Дашборд Grafana и алерты
         </a>
       </li>
@@ -1073,7 +1083,7 @@ REST API доступен, если:
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#post-apiroutingtest">POST /api/routing/test
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#post-apidnsserverscheck">POST /api/dns/servers/check
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1081,11 +1091,19 @@ REST API доступен, если:
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#get-apihealthrouting">GET /api/health/routing
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#post-apiroutingtest">POST /api/routing/test
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-5">Ответ
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#get-apihealthrouting">GET /api/health/routing
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-6">Ответ
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1298,6 +1316,10 @@ REST API доступен, если:
 			<tr>
 					<td><code>POST /api/lists/refresh</code></td>
 					<td>Обновление одного или всех удалённых списков URL.</td>
+			</tr>
+			<tr>
+					<td><code>POST /api/dns/servers/check</code></td>
+					<td>Проверка DNS-серверов из применённой конфигурации: работают ли они и не подменяют ли ответы.</td>
 			</tr>
 			<tr>
 					<td><code>GET /api/dns/test</code></td>
@@ -1696,8 +1718,93 @@ REST API доступен, если:
   </button>
 </div>
 </div>
+<h3>DNS-прокси<span class="hx:absolute hx:-mt-20" id="dns-proxy"></span>
+    <a href="#dns-proxy" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Метрики встроенного DNS-прокси, куда dnsmasq отправляет запросы к доменам списков с несколькими серверами или с DNS-over-HTTPS. Если прокси не используется, метрики не публикуются. Метки:</p>
+<ul>
+<li><code>proxy_port</code> — порт прокси, он соответствует набору серверов;</li>
+<li><code>server</code> — названия серверов (<code>tag</code>) через запятую;</li>
+<li><code>upstream</code> — адрес сервера (<code>ip:port</code>) или URL DNS-over-HTTPS;</li>
+<li><code>type</code> — <code>dns</code> или <code>doh</code>;</li>
+<li><code>detour</code> — outbound сервера, пусто, если не задан.</li>
+</ul>
+<table>
+	<thead>
+			<tr>
+					<th>Метрика</th>
+					<th>Тип</th>
+					<th>Метки</th>
+					<th>Смысл</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>keen_pbr_dns_proxy_queries_total</code></td>
+					<td>counter</td>
+					<td><code>proxy_port</code>, <code>transport</code> = <code>udp</code>, <code>tcp</code></td>
+					<td>Запросы, полученные от dnsmasq, в том числе отброшенные.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_proxy_dropped_total</code></td>
+					<td>counter</td>
+					<td><code>proxy_port</code>, <code>transport</code>, <code>reason</code> = <code>overload</code>, <code>malformed</code></td>
+					<td>Запросы, которые прокси не обслужил: не было свободного места (<code>overload</code>) или это не DNS-запрос (<code>malformed</code>).</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_proxy_responses_total</code></td>
+					<td>counter</td>
+					<td><code>proxy_port</code>, <code>source</code> = <code>upstream</code>, <code>proxy_servfail</code></td>
+					<td>Ответы клиентам: от сервера (<code>upstream</code>) или SERVFAIL самого прокси, когда ни один сервер не ответил (<code>proxy_servfail</code>).</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_proxy_upstream_requests_total</code></td>
+					<td>counter</td>
+					<td><code>proxy_port</code>, <code>server</code>, <code>upstream</code>, <code>type</code>, <code>detour</code>, <code>result</code></td>
+					<td>Попытки получить ответ от сервера по результатам: <code>ok</code>, <code>nxdomain</code>, <code>servfail</code>, <code>refused</code>, <code>other_rcode</code>, <code>timeout</code>, <code>connection_refused</code>, <code>unreachable</code>, <code>connection_closed</code>, <code>tls_error</code>, <code>http_error</code>, <code>bad_answer</code>, <code>not_resolved</code>, <code>network_error</code>.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_proxy_upstream_response_duration_seconds</code></td>
+					<td>histogram</td>
+					<td>как выше, без <code>result</code></td>
+					<td>Время до ответа сервера. Считаются только попытки, на которые пришёл ответ. Границы (с): 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, +Inf.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_proxy_upstream_up</code></td>
+					<td>gauge</td>
+					<td>как выше, без <code>result</code></td>
+					<td><code>0</code> — прокси пропускает сервер после ошибки (или не может его использовать), <code>1</code> — иначе.</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_proxy_upstream_consecutive_failures</code></td>
+					<td>gauge</td>
+					<td>как выше, без <code>result</code></td>
+					<td>Попытки подряд без ответа или с ответом SERVFAIL или REFUSED. Любой другой ответ обнуляет счётчик. При 10 появляется предупреждение «DNS-сервер не отвечает».</td>
+			</tr>
+			<tr>
+					<td><code>keen_pbr_dns_proxy_inflight</code></td>
+					<td>gauge</td>
+					<td><code>transport</code></td>
+					<td>Запросы, которые прокси обрабатывает сейчас.</td>
+			</tr>
+	</tbody>
+</table>
+<p>Доля неудачных попыток сервера за 5 минут:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-promql" data-lang="promql"><span class="line"><span class="cl"><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">server</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">keen_pbr_dns_proxy_upstream_requests_total</span><span class="p">{</span><span class="nl">result</span><span class="o">=~</span><span class="p">&#34;</span><span class="s">timeout|connection_refused|servfail|refused</span><span class="p">&#34;}[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="o">/</span><span class="w"> </span><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">server</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="kr">rate</span><span class="o">(</span><span class="nv">keen_pbr_dns_proxy_upstream_requests_total</span><span class="p">[</span><span class="s">5m</span><span class="p">]</span><span class="o">))</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
 <h3>Дашборд Grafana и алерты<span class="hx:absolute hx:-mt-20" id="дашборд-grafana-и-алерты"></span>
-    <a href="#%d0%b4%d0%b0%d1%88%d0%b1%d0%be%d1%80%d0%b4-grafana-%d0%b8-%d0%b0%d0%bb%d0%b5%d1%80%d1%82%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Импортируйте <a href="https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json"target="_blank" rel="noopener">keen-pbr-dashboard.json</a> в Grafana (Dashboards &gt; New &gt; Import). Нужен источник данных Prometheus с UID <code>prometheus</code>. В дашборде есть переменные <code>job</code> и <code>outbound</code>, обновление каждые 30 с и разделы Status, Outbounds, DNS interception, Sets &amp; lists и Errors. Интервал scrape должен быть не больше 30 с: столбчатые панели считают <code>increase()</code> по окнам в одну минуту.</p>
+    <a href="#%d0%b4%d0%b0%d1%88%d0%b1%d0%be%d1%80%d0%b4-grafana-%d0%b8-%d0%b0%d0%bb%d0%b5%d1%80%d1%82%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Импортируйте <a href="https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json"target="_blank" rel="noopener">keen-pbr-dashboard.json</a> в Grafana (Dashboards &gt; New &gt; Import). Нужен источник данных Prometheus с UID <code>prometheus</code>. В дашборде есть переменные <code>job</code> и <code>outbound</code>, обновление каждые 30 с и разделы Status, Outbounds, DNS interception, DNS proxy, Sets &amp; lists и Errors. Интервал scrape должен быть не больше 30 с: столбчатые панели считают <code>increase()</code> по окнам в одну минуту.</p>
 <p>Пример правил алертов:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -2084,6 +2191,86 @@ REST API доступен, если:
 <li>Могут быть дополнительные поля: <code>latency_ms</code>, <code>probe_target</code>, <code>detail</code> и счётчики пакетов.</li>
 </ul>
 <hr>
+<h2>POST /api/dns/servers/check<span class="hx:absolute hx:-mt-20" id="post-apidnsserverscheck"></span>
+    <a href="#post-apidnsserverscheck" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Спрашивает все DNS-серверы из применённой конфигурации (не из черновика) о нескольких сайтах и показывает, какие серверы работают, не отвечают или подменяют ответы. Серверы типа <code>keenetic</code> проверяются по каждому адресу, который сообщает Keenetic. Одновременно идёт только одна проверка. Все поля тела необязательны.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://127.0.0.1:12121/api/dns/servers/check <span class="se">\
+</span></span></span><span class="line"><span class="cl">  -H <span class="s2">&#34;Content-Type: application/json&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">  -d <span class="s1">&#39;{&#34;domains&#34;: [&#34;yandex.ru&#34;, &#34;youtube.com&#34;], &#34;custom_domains&#34;: [&#34;example.org&#34;], &#34;servers&#34;: [&#34;google_dns&#34;]}&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<ul>
+<li><code>domains</code> — сайты, которые точно существуют: ответ «не существует» для них считается подозрением. По умолчанию <code>[&quot;yandex.ru&quot;]</code>, если не задан <code>custom_domains</code>.</li>
+<li><code>custom_domains</code> — ваши сайты: «не существует» и отсутствие адресов подозрением не считаются.</li>
+<li><code>servers</code> — названия серверов (<code>tag</code>) из <code>dns.servers</code>. По умолчанию проверяются все.</li>
+</ul>
+<p>Всего можно указать не больше 5 сайтов.</p>
+<h3>Ответ<span class="hx:absolute hx:-mt-20" id="ответ-4"></span>
+    <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-4" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;overall&#34;</span><span class="p">:</span> <span class="s2">&#34;warning&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google_dns&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;static&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;endpoints&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">          <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">          <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">          <span class="nt">&#34;nxdomain_hijack&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">          <span class="nt">&#34;results&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">            <span class="p">{</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;domain&#34;</span><span class="p">:</span> <span class="s2">&#34;yandex.ru&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;severity&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;rcode&#34;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;addresses&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;77.88.55.60&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;duration_ms&#34;</span><span class="p">:</span> <span class="mf">14.2</span>
+</span></span><span class="line"><span class="cl">            <span class="p">},</span>
+</span></span><span class="line"><span class="cl">            <span class="p">{</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;domain&#34;</span><span class="p">:</span> <span class="s2">&#34;youtube.com&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;nxdomain&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;severity&#34;</span><span class="p">:</span> <span class="s2">&#34;warning&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;rcode&#34;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;addresses&#34;</span><span class="p">:</span> <span class="p">[],</span>
+</span></span><span class="line"><span class="cl">              <span class="nt">&#34;duration_ms&#34;</span><span class="p">:</span> <span class="mf">9.8</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">          <span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">      <span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<ul>
+<li><code>overall</code> — <code>ok</code>, <code>warning</code> (есть признаки подмены) или <code>error</code> (какой-то сервер не отвечает).</li>
+<li><code>status</code> результата — <code>ok</code>, <code>nxdomain</code>, <code>nodata</code>, <code>stub_address</code>, <code>servfail</code>, <code>refused</code>, <code>rcode</code> либо причина, по которой ответа нет: <code>timeout</code>, <code>connection_refused</code>, <code>unreachable</code>, <code>connection_closed</code>, <code>tls_error</code>, <code>http_error</code>, <code>bad_answer</code>, <code>not_resolved</code>, <code>network_error</code>. <code>severity</code> — <code>ok</code>, <code>warning</code> или <code>error</code>.</li>
+<li><code>nxdomain_hijack</code> — <code>true</code>, если сервер ответил адресами на несуществующее имя.</li>
+<li>Статус адреса <code>skipped</code> значит, что адрес не проверялся (например, IPv6 выключен), <code>unavailable</code> — что его нельзя проверить (например, DNS-over-HTTPS без сертификатов); причина в <code>reason</code>.</li>
+</ul>
+<p>Ошибки: <code>400</code> — неверное тело запроса, больше 5 сайтов, неверное имя сайта или неизвестный <code>tag</code>; <code>409</code> — предыдущая проверка ещё идёт; <code>503</code> — сервис остановлен.</p>
+<hr>
 <h2>POST /api/routing/test<span class="hx:absolute hx:-mt-20" id="post-apiroutingtest"></span>
     <a href="#post-apiroutingtest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Показывает, через какой outbound пойдёт трафик к домену или IP-адресу. Для домена сначала определяет его IP-адреса. Затем сверяет правила маршрутизации со списками (ожидаемый outbound) и наборами firewall (фактический outbound). Так можно найти расхождение, не перезапуская демон.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -2105,8 +2292,8 @@ REST API доступен, если:
 <p>Необязательные поля пакета (<code>proto</code> — <code>tcp</code>, <code>udp</code> или <code>other</code>, <code>dest_port</code>,
 <code>src_addr</code>, <code>src_port</code> и <code>dscp</code>) нужны, чтобы проверить правила с фильтрами по
 портам, адресам и <abbr title="6-битное поле в IP-заголовке, которым помечают класс трафика для QoS.">DSCP</abbr>. Без них проверяется только попадание цели в списки.</p>
-<h3>Ответ<span class="hx:absolute hx:-mt-20" id="ответ-4"></span>
-    <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-4" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Ответ<span class="hx:absolute hx:-mt-20" id="ответ-5"></span>
+    <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-5" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;example.com&#34;</span><span class="p">,</span>
@@ -2157,8 +2344,8 @@ REST API доступен, если:
   </button>
 </div>
 </div>
-<h3>Ответ<span class="hx:absolute hx:-mt-20" id="ответ-5"></span>
-    <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-5" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<h3>Ответ<span class="hx:absolute hx:-mt-20" id="ответ-6"></span>
+    <a href="#%d0%be%d1%82%d0%b2%d0%b5%d1%82-6" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;overall&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span><span class="p">,</span>

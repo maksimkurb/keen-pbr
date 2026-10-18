@@ -38,7 +38,7 @@ Quick check in the web interface
 	<meta itemprop="description" content="Start with the General &gt; Dashboard page in the web interface: it shows whether the service is running and what exactly is broken. If that is not enough, read the system log: keen-pbr writes the reason for every error there.
 Each section below follows the same order: symptom, check in the web interface, check by command, fix.
 Quick check in the web interface Open http://&lt;router-ip&gt;:12121/ and go to General &gt; Dashboard.">
-	<meta itemprop="wordCount" content="3931">
+	<meta itemprop="wordCount" content="4182">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Troubleshooting">
 	<meta name="twitter:description" content="Start with the General &gt; Dashboard page in the web interface: it shows whether the service is running and what exactly is broken. If that is not enough, read the system log: keen-pbr writes the reason for every error there.
@@ -471,6 +471,12 @@ Quick check in the web interface Open http://&lt;router-ip&gt;:12121/ and go to 
                 href="#per-list-dns-servers-do-not-work"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >Per-list DNS servers do not work</a>
+            </li>
+          <li>
+              <a
+                href="#dns-server-not-answering"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >A DNS server does not answer</a>
             </li>
           <li>
               <a
@@ -1034,6 +1040,10 @@ Quick check in the web interface Open http://&lt;router-ip&gt;:12121/ and go to 
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#per-list-dns-servers-do-not-work">Per-list DNS servers do not work
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-server-not-answering">A DNS server does not answer
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1780,6 +1790,37 @@ Quick check in the web interface Open http://&lt;router-ip&gt;:12121/ and go to 
 <li>If the DNS server has a channel set (<code>detour</code>, for example <code>vpn</code>), make sure this outbound is &ldquo;Healthy&rdquo; in the <strong>Outbounds</strong> panel.</li>
 <li>Make sure the domains are really in the list. Check them in <strong>Routing</strong> &gt; <strong>Lists</strong> and <strong>DNS</strong> &gt; <strong>DNS Rules</strong>.</li>
 </ol>
+<h2>A DNS server does not answer<span class="hx:absolute hx:-mt-20" id="dns-server-not-answering"></span>
+    <a href="#dns-server-not-answering" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><strong>Symptom:</strong> the <strong>System overview</strong> page shows the warning &ldquo;DNS server &rsquo;name&rsquo; is not answering&rdquo;, or sites from a list open slowly.</p>
+<p>The warning appears when 10 requests in a row to a server got no answer or ended with SERVFAIL or REFUSED. It concerns servers used in lists with several servers, in lists with DNS-over-HTTPS, and among the default servers with DNS-over-HTTPS. The warning goes away as soon as the server answers. If every server of a list stops answering, the warning becomes an error and names those lists.</p>
+<p><strong>In the web interface.</strong></p>
+<ol>
+<li>Open <strong>DNS</strong> &gt; <strong>DNS servers</strong> and click <strong>Check</strong>. The <strong>Check</strong> column shows how each server answers and what exactly is wrong (see <a href="/docs/configuration/dns/#check-dns-servers">Checking the DNS servers</a>).</li>
+<li>If the server has an outbound set (<strong>Make requests via Outbound</strong>), make sure it is &ldquo;Healthy&rdquo; in the <strong>Outbounds</strong> panel.</li>
+</ol>
+<p><strong>Command.</strong> On the router:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nslookup example.com 8.8.8.8</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Use the address of the server from the warning instead of <code>8.8.8.8</code>.</p>
+<p><strong>Fix.</strong></p>
+<ul>
+<li>&ldquo;No answer in time&rdquo;, &ldquo;refused the connection&rdquo;, &ldquo;unreachable&rdquo;: check the address and port of the server and that the router can reach it. If the server works only through a VPN, set an outbound for it.</li>
+<li>&ldquo;Server error (SERVFAIL)&rdquo;: the server could not resolve the name. Try another server.</li>
+<li>&ldquo;Refused the request (REFUSED)&rdquo;: the server does not serve requests from your address. Use another server or an outbound.</li>
+<li>&ldquo;TLS error&rdquo; or &ldquo;no CA certificates&rdquo; for DNS-over-HTTPS: install the CA certificates package on the router (see <a href="/docs/configuration/dns/#dns-over-https">DNS-over-HTTPS</a>).</li>
+</ul>
 <h2>Firewall and <code>KeenPbrTable</code><span class="hx:absolute hx:-mt-20" id="firewall-and-keenpbrtable"></span>
     <a href="#firewall-and-keenpbrtable" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><strong>Symptom:</strong> DNS works, the domain resolves, but traffic bypasses the VPN.</p>
 <p><strong>In the web interface.</strong> In the <strong>Diagnostics</strong> panel, look for messages about the chain, firewall rules and policies (see the message list above).</p>
@@ -2176,9 +2217,9 @@ Tailscale runs as a subnet router or exit node.</p>
 
 
 <div class="hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain">
-  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="iptables / ipset,nftables / nftset,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-19-0" role="tab" type="button" aria-controls="tabs-panel-tabs-19-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>iptables / ipset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-19-1" role="tab" type="button" aria-controls="tabs-panel-tabs-19-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>nftables / nftset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-19-2" role="tab" type="button" aria-controls="tabs-panel-tabs-19-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
+  <div class="hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800" role="tablist" data-tab-group="iptables / ipset,nftables / nftset,Debian"><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-21-0" role="tab" type="button" aria-controls="tabs-panel-tabs-21-0" aria-selected="true" tabindex="0" data-state="selected"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>iptables / ipset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-21-1" role="tab" type="button" aria-controls="tabs-panel-tabs-21-1" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>nftables / nftset</span></span></button><button class="hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset" id="tabs-tab-tabs-21-2" role="tab" type="button" aria-controls="tabs-panel-tabs-21-2" aria-selected="false" tabindex="-1"><span class="hx:inline-flex hx:items-center hx:gap-1.5"><span>Debian</span></span></button></div>
 </div>
-<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-19-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-19-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+<div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-21-0" role="tabpanel" aria-labelledby="tabs-tab-tabs-21-0" aria-hidden="false" tabindex="0" data-state="selected"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">iptables-save <span class="p">|</span> grep -E <span class="s1">&#39;MARK|CONNMARK|KeenPbrTable&#39;</span>
 </span></span><span class="line"><span class="cl">ip6tables-save <span class="p">|</span> grep -E <span class="s1">&#39;MARK|CONNMARK|KeenPbrTable&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -2193,7 +2234,7 @@ Tailscale runs as a subnet router or exit node.</p>
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-19-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-19-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-21-1" role="tabpanel" aria-labelledby="tabs-tab-tabs-21-1" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">nft -t list ruleset <span class="p">|</span> grep -E <span class="s1">&#39;mark|KeenPbrTable&#39;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -2207,7 +2248,7 @@ Tailscale runs as a subnet router or exit node.</p>
   </button>
 </div>
 </div>
-</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-19-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-19-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+</div><div class="hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block" id="tabs-panel-tabs-21-2" role="tabpanel" aria-labelledby="tabs-tab-tabs-21-2" aria-hidden="true"><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">iptables-save <span class="p">|</span> grep -E <span class="s1">&#39;MARK|CONNMARK|KeenPbrTable&#39;</span>
 </span></span><span class="line"><span class="cl">ip6tables-save <span class="p">|</span> grep -E <span class="s1">&#39;MARK|CONNMARK|KeenPbrTable&#39;</span>
