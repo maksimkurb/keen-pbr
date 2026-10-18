@@ -38,7 +38,7 @@ Quick check in the web interface
 	<meta itemprop="description" content="Start with the General &gt; Dashboard page in the web interface: it shows whether the service is running and what exactly is broken. If that is not enough, read the system log: keen-pbr writes the reason for every error there.
 Each section below follows the same order: symptom, check in the web interface, check by command, fix.
 Quick check in the web interface Open http://&lt;router-ip&gt;:12121/ and go to General &gt; Dashboard.">
-	<meta itemprop="wordCount" content="3914">
+	<meta itemprop="wordCount" content="3931">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Troubleshooting">
 	<meta name="twitter:description" content="Start with the General &gt; Dashboard page in the web interface: it shows whether the service is running and what exactly is broken. If that is not enough, read the system log: keen-pbr writes the reason for every error there.
@@ -2069,7 +2069,7 @@ Tailscale runs as a subnet router or exit node.</p>
 <li>Check that the URL is reachable from this same system.</li>
 <li>If the list must be downloaded through the VPN, check <code>lists[].detour</code> and the matching outbound.</li>
 <li>If automatic update is used, check <strong>Refresh schedule</strong> in <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Lists autoupdate</strong>.</li>
-<li>If a list failed to download at the first start, keen-pbr keeps retrying in the background: after 10 seconds, 30 seconds, 2 minutes, then every 5 minutes, until the download succeeds. If the domain of the list server must resolve through a separate DNS server, add that domain to an inline list, a file list, or an already cached list, otherwise the first attempt goes through the default DNS.</li>
+<li>If a list failed to download at the first start or after a configuration apply, the warnings show &ldquo;List &rsquo;name&rsquo; is not downloaded yet&rdquo; with the error. keen-pbr keeps retrying in the background: after 10 seconds, 30 seconds, 2 minutes, then every 5 minutes, until the download succeeds. If the domain of the list server must resolve through a separate DNS server, add that domain to an inline list, a file list, or an already cached list, otherwise the first attempt goes through the default DNS.</li>
 <li>After a failure, read the <code>keen-pbr</code> log.</li>
 </ol>
 <details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >

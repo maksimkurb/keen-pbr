@@ -37,7 +37,7 @@ In the config file, the lists key is an object where each key is the list name a
 	<meta itemprop="description" content="A list is a set of sites or IP ranges. keen-pbr sends traffic to them according to your route rules.
 In the Web UI: open Routing &gt; Lists and click Add list. Enter a name and pick a source: URL, File on device or Domains / IPs. Then click Apply in the draft bar.
 In the config file, the lists key is an object where each key is the list name and the value is its settings. A list name uses lowercase Latin letters, digits and _, starts with a letter, and is at most 24 characters long (^[a-z][a-z0-9_]*$).">
-	<meta itemprop="wordCount" content="661">
+	<meta itemprop="wordCount" content="726">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Lists">
 	<meta name="twitter:description" content="A list is a set of sites or IP ranges. keen-pbr sends traffic to them according to your route rules.
@@ -1095,6 +1095,7 @@ In the config file, the lists key is an object where each key is the list name a
 </table>
 <p>Domains are written the same way in every source. <code>google.com</code> covers the domain and all its subdomains; <code>*.google.com</code> means the same, so you do not need the <code>*.</code> prefix. Invalid domains are skipped in files and URL lists, and cause a configuration error in <code>domains</code>.</p>
 <p>URL lists are downloaded only over HTTP or HTTPS, including from addresses on your local network.</p>
+<p>New URL lists are downloaded in the background right after the configuration is applied, already through the chosen <code>detour</code>. Until a list is downloaded, its rule affects nothing. If the download fails, the warnings show &ldquo;List &rsquo;name&rsquo; is not downloaded yet&rdquo; with the error text, and keen-pbr keeps retrying. As soon as a urltest or icmptest outbound picks a working link, the retry runs immediately.</p>
 <p>A local file must be a regular file (not a symlink). File size is limited by <code>daemon.max_file_size_bytes</code> (8 MiB by default), and line length by 4096 bytes.</p>
 <p>A list must have at least one of <code>url</code>, <code>domains</code>, <code>ip_cidrs</code> or <code>file</code>.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200">

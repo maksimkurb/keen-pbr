@@ -33,6 +33,8 @@ Domains are written the same way in every source. `google.com` covers the domain
 
 URL lists are downloaded only over HTTP or HTTPS, including from addresses on your local network.
 
+New URL lists are downloaded in the background right after the configuration is applied, already through the chosen `detour`. Until a list is downloaded, its rule affects nothing. If the download fails, the warnings show "List 'name' is not downloaded yet" with the error text, and keen-pbr keeps retrying. As soon as a urltest or icmptest outbound picks a working link, the retry runs immediately.
+
 A local file must be a regular file (not a symlink). File size is limited by `daemon.max_file_size_bytes` (8 MiB by default), and line length by 4096 bytes.
 
 A list must have at least one of `url`, `domains`, `ip_cidrs` or `file`.
