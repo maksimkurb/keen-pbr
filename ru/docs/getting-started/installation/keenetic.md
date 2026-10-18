@@ -128,7 +128,7 @@ KEEN_PBR_RAW_PREROUTING="disable"
 
 ## Отдельные DNS-серверы для списков (dnsmasq) {#dnsmasq}
 
-Для маршрутизации dnsmasq не нужен. dnsmasq — DNS-сервер, который ставится на роутер рядом с keen-pbr. Ставьте его, если хотите отправлять домены некоторых списков на отдельные DNS-серверы или задать свои DNS-серверы по умолчанию. Подробнее: [Нужен ли dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}).
+Для маршрутизации dnsmasq не нужен. dnsmasq — DNS-сервер, который ставится на роутер рядом с keen-pbr. Ставьте его, если хотите отправлять домены некоторых списков на отдельные DNS-серверы или задать свои основные DNS-серверы. Подробнее: [Нужен ли dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}).
 
 ### Установка dnsmasq {#dnsmasq-install}
 

@@ -191,7 +191,8 @@ Metrics for DNS interception and traffic (L7) analysis. `path` is `dns` or `l7`.
 
 ### Balancing and marked packets
 
-{{< only iptables >}} These metrics exist only with this firewall backend. A series with no data is omitted. Counters restart from zero when the firewall rules are rebuilt.
+{{< only iptables >}}\
+These metrics exist only with this firewall backend. A series with no data is omitted. Counters restart from zero when the firewall rules are rebuilt.
 
 | Metric | Type | Labels | Meaning |
 |---|---|---|---|

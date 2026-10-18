@@ -119,7 +119,7 @@ keen-pbr-headless takes less space: about 1.2 MB instead of 2.8 MB. It has no we
 Open the web UI Open http://&lt;router-ip&gt;:12121 in your browser, for example http://192.168.1.1:12121. The headless version has no web UI.
 Set up your first rules Go to the Quick Start page and open the Web UI tab. If you installed keen-pbr-headless, open the JSON tab.
 If there are no ready-made packages for your platform, build keen-pbr yourself: Build from Source.">
-	<meta itemprop="wordCount" content="432">
+	<meta itemprop="wordCount" content="431">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="OpenWrt">
 	<meta name="twitter:description" content="keen-pbr is installed on OpenWrt from the keen-pbr package repository. You run the commands over SSH.
@@ -130,8 +130,8 @@ Open the web UI Open http://&lt;router-ip&gt;:12121 in your browser, for example
 Set up your first rules Go to the Quick Start page and open the Web UI tab. If you installed keen-pbr-headless, open the JSON tab.
 If there are no ready-made packages for your platform, build keen-pbr yourself: Build from Source.">
 
-    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
-    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link rel="preload" href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" as="style" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
+    <link href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" rel="stylesheet" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
 
   
 
@@ -1113,6 +1113,7 @@ If there are no ready-made packages for your platform, build keen-pbr yourself: 
     </div>
           </div>
           
+          
           <p>keen-pbr is installed on OpenWrt from the keen-pbr package repository. You run the commands over SSH.</p>
 <div class="hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]">
 <h3>Find out which package manager your OpenWrt uses<span class="hx:absolute hx:-mt-20" id="find-out-which-package-manager-your-openwrt-uses"></span>
@@ -1228,7 +1229,7 @@ If there are no ready-made packages for your platform, build keen-pbr yourself: 
     <a href="#dnsmasq" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>On OpenWrt, dnsmasq already works as the router&rsquo;s DNS server. keen-pbr does not need it for routing. To decide whether to let keen-pbr manage it, see <a href="/docs/configuration/dns/#do-i-need-dnsmasq">Do I need dnsmasq?</a>.</p>
 <h3>Turn it on<span class="hx:absolute hx:-mt-20" id="dnsmasq-install"></span>
     <a href="#dnsmasq-install" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>In the Web UI, open <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Local DNS server management</strong> and turn on <strong>Manage dnsmasq configuration</strong>.</p>
-<p>While management is on and <strong>Default upstream DNS servers</strong> are set, keen-pbr takes the servers without a domain out of the list in <code>/etc/config/dhcp</code> (LuCI <strong>DNS forwardings</strong>). Per-domain servers such as <code>/lan/192.168.1.1</code> stay. The removed servers return when you turn management off or clear those servers.</p>
+<p>While management is on and <strong>Main DNS servers</strong> are set, keen-pbr takes the servers without a domain out of the list in <code>/etc/config/dhcp</code> (LuCI <strong>DNS forwardings</strong>). Per-domain servers such as <code>/lan/192.168.1.1</code> stay. The removed servers return when you turn management off or clear those servers.</p>
 <h3>Return to how it was<span class="hx:absolute hx:-mt-20" id="dnsmasq-rollback"></span>
     <a href="#dnsmasq-rollback" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Turn off <strong>Manage dnsmasq configuration</strong> and apply the config. keen-pbr restarts dnsmasq and returns the removed servers.</p>
 

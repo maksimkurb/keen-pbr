@@ -81,8 +81,8 @@ Commands:
 Команды status, download и test-routing обращаются к работающему сервису. Если сервис не запущен, они завершаются с ошибкой и кодом 1. Сначала запустите сервис (на роутере он стартует вместе с системой).
 Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file (default: &lt;KEEN_PBR_DEFAULT_CONFIG_PATH&gt;) --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug (default: info) --log-target &lt;target&gt; Log destination: stderr, syslog, or both (default: both) --pid-file &lt;path&gt; Override daemon.pid_file when running the service command --crash-report &lt;path&gt; Last-crash report path (default: /tmp/keen-pbr-crash.log) --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service Start the routing service (foreground) status Show routing/firewall status and exit download Download all configured lists to cache and exit test-routing &lt;ip-or-domain&gt; [packet options] Test expected vs actual routing for an IP or domain --proto &lt;tcp|udp|other&gt; Packet protocol --src-addr &lt;ip&gt; Packet source address --src-port &lt;port&gt; Packet source port --dest-port &lt;port&gt; Packet destination port --dscp &lt;0-63&gt; Packet DSCP (default: 0) resolver dnsmasq print-config Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0) resolver dnsmasq detect [--json] List dnsmasq instances, their DNS endpoints and which one keen-pbr uses hash-password [--update] Generate an authentication password hash; --update writes config.json Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze.">
 
-    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
-    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link rel="preload" href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" as="style" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
+    <link href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" rel="stylesheet" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
 
   
 
@@ -1070,6 +1070,7 @@ Commands:
     </div>
           </div>
           
+          
           <p><code>keen-pbr</code> умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и проверять решения маршрутизации.</p>
 <p>Команды <code>status</code>, <code>download</code> и <code>test-routing</code> обращаются к работающему сервису. Если сервис не запущен, они завершаются с ошибкой и кодом 1. Сначала запустите сервис (на роутере он стартует вместе с системой).</p>
 <h2>Использование<span class="hx:absolute hx:-mt-20" id="использование"></span>
@@ -1150,11 +1151,13 @@ Commands:
 			</tr>
 			<tr>
 					<td><code>--use-raw-prerouting</code></td>
-					<td>Использовать raw <abbr title="Точка в firewall, через которую проходят входящие пакеты до выбора маршрута. Здесь keen-pbr ставит fwmark.">PREROUTING</abbr> для классификации пересылаемого IPv4-трафика. <span class="only-badges" title="Только для iptables"><span class="only-badge only-badge--iptables">iptables</span></span></td>
+					<td><span class="only-badges" title="Только для iptables"><span class="only-badge only-badge--iptables">iptables</span></span>
+ Использовать raw <abbr title="Точка в firewall, через которую проходят входящие пакеты до выбора маршрута. Здесь keen-pbr ставит fwmark.">PREROUTING</abbr> для классификации пересылаемого IPv4-трафика.</td>
 			</tr>
 			<tr>
 					<td><code>--use-raw6-prerouting</code></td>
-					<td>Использовать raw PREROUTING для классификации пересылаемого IPv6-трафика. <span class="only-badges" title="Только для iptables"><span class="only-badge only-badge--iptables">iptables</span></span></td>
+					<td><span class="only-badges" title="Только для iptables"><span class="only-badge only-badge--iptables">iptables</span></span>
+ Использовать raw PREROUTING для классификации пересылаемого IPv6-трафика.</td>
 			</tr>
 			<tr>
 					<td><code>--version</code></td>

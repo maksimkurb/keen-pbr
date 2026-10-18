@@ -35,14 +35,14 @@ Do I need dnsmasq?
 	<meta itemprop="name" content="DNS">
 	<meta itemprop="description" content="Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in DNS interception.
 Do I need dnsmasq? No, not for routing. Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough (DoH and DoT are encrypted DNS).">
-	<meta itemprop="wordCount" content="3507">
+	<meta itemprop="wordCount" content="3825">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="DNS">
 	<meta name="twitter:description" content="Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in DNS interception.
 Do I need dnsmasq? No, not for routing. Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough (DoH and DoT are encrypted DNS).">
 
-    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
-    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link rel="preload" href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" as="style" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
+    <link href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" rel="stylesheet" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
 
   
 
@@ -951,7 +951,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#set-default-dns-servers-optional">Set default DNS servers (optional)
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#set-main-dns-servers-optional">Set main DNS servers (optional)
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -964,6 +964,10 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-over-https">The “DNS-over-HTTPS” type
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#doh-bootstrap">Bootstrap servers
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1105,13 +1109,14 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
     </div>
           </div>
           
+          
           <p>Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in <a href="#dns-interception">DNS interception</a>.</p>
 <h2>Do I need dnsmasq?<span class="hx:absolute hx:-mt-20" id="do-i-need-dnsmasq"></span>
     <a href="#do-i-need-dnsmasq" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><strong>No, not for routing.</strong> Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough (DoH and DoT are encrypted DNS).</p>
 <p><strong>Yes, if you need one of these two things:</strong></p>
 <ul>
 <li>to resolve the domains of some lists through a separate DNS server. For example, a CDN (content delivery network) should answer for your VPN&rsquo;s region, or the domains resolve only inside the VPN;</li>
-<li>to set your own default DNS servers for the whole network right in keen-pbr.</li>
+<li>to set your own main DNS servers for the whole network right in keen-pbr.</li>
 </ul>
 <p>Both work only through dnsmasq. If neither fits you, leave the <strong>Manage dnsmasq configuration</strong> switch off. If you upgraded from 3.3.x, the switch is already on: turn it off if you do not need dnsmasq (see <a href="/docs/changelog/#upgrading-from-33x">Breaking Changes in 3.4.0</a>).</p>
 <p>How to install dnsmasq and how to roll back: <a href="/docs/getting-started/installation/keenetic/#dnsmasq">Keenetic</a>, <a href="/docs/getting-started/installation/openwrt/#dnsmasq">OpenWrt</a>, <a href="/docs/getting-started/installation/debian/#dnsmasq">Debian</a>.</p>
@@ -1151,8 +1156,8 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
     <a href="#add-a-dns-server" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Open <strong>DNS</strong> &gt; <strong>DNS servers</strong> &gt; <strong>Add DNS server</strong>. Fill in <strong>Name</strong>, <strong>DNS type</strong> and <strong>Address</strong>. In <strong>Make requests via Outbound</strong> pick an outbound (the channel the traffic goes through: a VPN interface, your ISP or a block) if the server is reachable only through it, for example through the VPN.</p>
 <h3>Link the server to lists<span class="hx:absolute hx:-mt-20" id="link-the-server-to-lists"></span>
     <a href="#link-the-server-to-lists" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Open <strong>DNS</strong> &gt; <strong>DNS Rules</strong> &gt; <strong>Add DNS rule</strong>. In <strong>Domain lists</strong> pick the lists, and in <strong>DNS servers</strong> the server from the previous step. You can pick several servers.</p>
-<h3>Set default DNS servers (optional)<span class="hx:absolute hx:-mt-20" id="set-default-dns-servers-optional"></span>
-    <a href="#set-default-dns-servers-optional" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>In the <strong>Default upstream DNS servers</strong> block click <strong>Add default DNS server</strong> and pick the servers for all other domains. If the block is empty, dnsmasq uses its usual DNS servers.</p>
+<h3>Set main DNS servers (optional)<span class="hx:absolute hx:-mt-20" id="set-main-dns-servers-optional"></span>
+    <a href="#set-main-dns-servers-optional" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>On the <strong>DNS</strong> &gt; <strong>DNS servers</strong> page, find the <strong>Main DNS servers</strong> block under the table, click <strong>Add main DNS server</strong> and pick the servers for all other domains. If the block is empty, dnsmasq uses its usual DNS servers.</p>
 <h3>Apply the settings<span class="hx:absolute hx:-mt-20" id="apply-the-settings"></span>
     <a href="#apply-the-settings" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Click <strong>Apply</strong> (or <strong>Apply &amp; Restart</strong>).</p>
 </div>
@@ -1234,7 +1239,8 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 					<td><code>type</code></td>
 					<td>string</td>
 					<td>no</td>
-					<td>Server type (<strong>DNS type</strong>): <code>static</code> (<strong>Plaintext DNS</strong>, default), <code>doh</code> (<strong>DNS-over-HTTPS</strong>) or <code>keenetic</code> (<strong>Keenetic DNS</strong>, <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>)</td>
+					<td>Server type (<strong>DNS type</strong>):<ul><li><code>static</code> (<strong>Plaintext DNS</strong>, default)</li><li><code>doh</code> (<strong>DNS-over-HTTPS</strong>)</li><li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+ <code>keenetic</code> (<strong>Keenetic DNS</strong>)</li></ul></td>
 			</tr>
 			<tr>
 					<td><code>address</code></td>
@@ -1247,6 +1253,12 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 					<td>string</td>
 					<td>no</td>
 					<td>Outbound the router itself uses to send queries to this server (<strong>Make requests via Outbound</strong>)</td>
+			</tr>
+			<tr>
+					<td><code>ips</code></td>
+					<td>array of string</td>
+					<td>no</td>
+					<td>Only for <code>doh</code>: IP addresses of the server, without a port (<strong>Server IP addresses</strong>). When set, keen-pbr connects only to these addresses. The server certificate is still checked against the name in <code>address</code>. See <a href="#doh-bootstrap">Bootstrap servers</a></td>
 			</tr>
 	</tbody>
 </table>
@@ -1296,12 +1308,47 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 <h3>The &ldquo;DNS-over-HTTPS&rdquo; type<span class="hx:absolute hx:-mt-20" id="dns-over-https"></span>
     <a href="#dns-over-https" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>DNS-over-HTTPS (DoH) sends requests to the server over an encrypted HTTPS connection, so your ISP cannot read or spoof the answers. Pick <strong>DNS-over-HTTPS</strong> as <strong>DNS type</strong> and enter the server address in <strong>URL</strong>, for example <code>https://dns.google/dns-query</code> or <code>https://cloudflare-dns.com/dns-query</code>.</p>
 <ul>
-<li>Use the server in a DNS rule or in the default servers like any other one. Several DoH servers, or a DoH server together with plain ones, can be picked in one rule.</li>
+<li>Use the server in a DNS rule or among the main DNS servers like any other one. Several DoH servers, or a DoH server together with plain ones, can be picked in one rule.</li>
 <li><strong>Make requests via Outbound</strong> works as for other servers: keen-pbr connects to the DoH server through the chosen outbound.</li>
 <li>The router must have CA certificates installed to check the server (Keenetic: the <code>ca-certificates</code> package in Entware; OpenWrt: <code>ca-bundle</code>; Debian: <code>ca-certificates</code>). If it has none, the status page shows the problem &ldquo;DNS-over-HTTPS servers are not used&rdquo;.</li>
 </ul>
+<h3>Bootstrap servers<span class="hx:absolute hx:-mt-20" id="doh-bootstrap"></span>
+    <a href="#doh-bootstrap" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>When the URL of a DoH server has a host name (<code>dns.google</code>) and not an IP address, keen-pbr first asks a plain DNS server for the address of that name. These servers are called bootstrap servers.</p>
+<p>By default keen-pbr asks the first plain server of the <strong>DNS servers</strong> table. To choose other ones, open <strong>DNS</strong> &gt; <strong>DNS servers</strong>, find the <strong>Bootstrap servers</strong> block under <strong>Main DNS servers</strong>, and click <strong>Add bootstrap server</strong>. Plain DNS servers and Keenetic DNS fit. The servers are asked in the order of the list. If a server does not answer, answers with an error, says the name does not exist, or gives no address, keen-pbr asks the next one. After you change the list, the addresses are looked up again.</p>
+<p>If your ISP blocks the name of a DoH server, put first a bootstrap server that does not block it, for example one reached through a VPN (<strong>Make requests via Outbound</strong>).</p>
+<p>If you know the addresses of the server, enter them in the <strong>Server IP addresses</strong> field of the DoH server, separated by commas. keen-pbr then connects only to them and does not look the server up.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span><span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google_dns&#34;</span><span class="p">,</span> <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span><span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;quad9&#34;</span><span class="p">,</span> <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;9.9.9.9&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span><span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google_doh&#34;</span><span class="p">,</span> <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;doh&#34;</span><span class="p">,</span> <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;https://dns.google/dns-query&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;cloudflare_doh&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;doh&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;https://cloudflare-dns.com/dns-query&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;ips&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;1.1.1.1&#34;</span><span class="p">,</span> <span class="s2">&#34;1.0.0.1&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;bootstrap&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;google_dns&#34;</span><span class="p">,</span> <span class="s2">&#34;quad9&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
 <h3>The &ldquo;Keenetic DNS&rdquo; type<span class="hx:absolute hx:-mt-20" id="the-keenetic-dns-type"></span>
-    <a href="#the-keenetic-dns-type" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+    <a href="#the-keenetic-dns-type" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+<br>
 On Keenetic routers, <code>type: &quot;keenetic&quot;</code> takes the DNS servers from the router&rsquo;s current settings. You set them in the Keenetic web interface: <strong>Network rules</strong> &gt; <strong>Internet safety</strong> &gt; <strong>DNS Configuration</strong>. If DoT or DoH servers are set there, only they are used.</p>
 <ul>
 <li><code>address</code> is not set for it.</li>
@@ -1361,10 +1408,16 @@ On Keenetic routers, <code>type: &quot;keenetic&quot;</code> takes the DNS serve
 					<td>Rules that map lists to DNS servers (only active when <code>resolver_integration: &quot;dnsmasq&quot;</code>)</td>
 			</tr>
 			<tr>
+					<td><code>bootstrap</code></td>
+					<td>array of string</td>
+					<td>no</td>
+					<td>Tags of plain DNS servers (<code>static</code> or <code>keenetic</code>) that find the IP addresses of DoH servers, asked in order. In the Web UI: <strong>Bootstrap servers</strong>. If omitted, the first plain server of <code>servers</code> is used.</td>
+			</tr>
+			<tr>
 					<td><code>fallback</code></td>
 					<td>array of string</td>
 					<td>no</td>
-					<td>Tags of upstream DNS servers for queries that match no rule (only active when <code>resolver_integration: &quot;dnsmasq&quot;</code>). In the Web UI: <strong>Default upstream DNS servers</strong>. If omitted, dnsmasq keeps its own servers and also gets the servers from <code>dnsmasq-fallback.conf</code>.</td>
+					<td>Tags of the main DNS servers, used for queries that match no rule (only active when <code>resolver_integration: &quot;dnsmasq&quot;</code>). In the Web UI: <strong>Main DNS servers</strong>. If omitted, dnsmasq keeps its own servers and also gets the servers from <code>dnsmasq-fallback.conf</code>.</td>
 			</tr>
 			<tr>
 					<td><code>proxy_address</code></td>
@@ -1523,7 +1576,7 @@ On Keenetic routers, <code>type: &quot;keenetic&quot;</code> takes the DNS serve
 <h2>If you use dnsmasq: installation and problems<span class="hx:absolute hx:-mt-20" id="if-you-use-dnsmasq-installation-and-problems"></span>
     <a href="#if-you-use-dnsmasq-installation-and-problems" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>Installation by platform<span class="hx:absolute hx:-mt-20" id="installation-by-platform"></span>
     <a href="#installation-by-platform" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>keen-pbr does not install dnsmasq; install it yourself when you need this feature. Step-by-step install and rollback are on the installation pages: <a href="/docs/getting-started/installation/keenetic/#dnsmasq">Keenetic</a>, <a href="/docs/getting-started/installation/openwrt/#dnsmasq">OpenWrt</a>, <a href="/docs/getting-started/installation/debian/#dnsmasq">Debian</a>. What keen-pbr changes on each platform:</p>
-<p><strong>OpenWrt</strong>: install <code>dnsmasq</code>. keen-pbr adds three <code>addnmount</code> entries to the dnsmasq section in <code>/etc/config/dhcp</code>, so that the sandboxed dnsmasq can run keen-pbr. While management is on and default DNS servers are set, keen-pbr takes the servers without a domain out of <code>/etc/config/dhcp</code>; per-domain servers stay. Turning management off or clearing the default servers returns them. Removing the package removes the added entries.</p>
+<p><strong>OpenWrt</strong>: install <code>dnsmasq</code>. keen-pbr adds three <code>addnmount</code> entries to the dnsmasq section in <code>/etc/config/dhcp</code>, so that the sandboxed dnsmasq can run keen-pbr. While management is on and main DNS servers are set, keen-pbr takes the servers without a domain out of <code>/etc/config/dhcp</code>; per-domain servers stay. Turning management off or clearing the main servers returns them. Removing the package removes the added entries.</p>
 <p><strong>Keenetic (Entware)</strong>: install <code>dnsmasq-full</code> (replaces the built-in ndnproxy as the LAN resolver). The first time you turn management on, keen-pbr adds a marked block with one <code>conf-script</code> line to <code>/opt/etc/dnsmasq.conf</code>. <code>install-recommended-config</code> adds the same block. If dnsmasq is not installed, the status page shows an error.</p>
 <p><strong>Debian</strong>: install <code>dnsmasq</code>. The first time you turn management on, keen-pbr adds a marked block to <code>/etc/dnsmasq.conf</code>. <code>install-recommended-config</code> adds the same block. If dnsmasq is not installed, the status page shows an error.</p>
 <p>Keenetic and Debian also ship <code>install-recommended-config</code> (see the installation pages). It replaces the main dnsmasq config with recommended settings, saves the previous file next to it, and restarts dnsmasq.</p>
@@ -1687,11 +1740,11 @@ On Keenetic routers, <code>type: &quot;keenetic&quot;</code> takes the DNS serve
 	</tbody>
 </table>
 <h3>How it works<span class="hx:absolute hx:-mt-20" id="how-it-works"></span>
-    <a href="#how-it-works" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>One <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr> line in the dnsmasq configuration makes dnsmasq run keen-pbr at every start and get the per-list rules and default DNS servers from it.</p>
+    <a href="#how-it-works" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>One <abbr title="A small extra configuration file that a program reads in addition to its main config.">drop-in</abbr> line in the dnsmasq configuration makes dnsmasq run keen-pbr at every start and get the per-list rules and main DNS servers from it.</p>
 <ul>
 <li>With <strong>Manage dnsmasq configuration</strong> on, dnsmasq is restarted when this data changes (list update, settings change, or once after keen-pbr starts), and only after the checks described in <a href="#checks-before-every-restart">Checks before every restart</a> have passed.</li>
 <li>With it off, dnsmasq gets the servers from the <code>dnsmasq-fallback.conf</code> file (Keenetic: <code>/opt/etc/keen-pbr/</code>, Debian and OpenWrt: <code>/etc/keen-pbr/</code>). They are added to dnsmasq&rsquo;s own servers; clear the file to avoid that. On OpenWrt the file is empty by default.</li>
-<li>With it on but no default DNS servers set, dnsmasq also gets the servers from <code>dnsmasq-fallback.conf</code>.</li>
+<li>With it on but no main DNS servers set, dnsmasq also gets the servers from <code>dnsmasq-fallback.conf</code>.</li>
 </ul>
 <h3>On stop, disable, or uninstall<span class="hx:absolute hx:-mt-20" id="on-stop-disable-or-uninstall"></span>
     <a href="#on-stop-disable-or-uninstall" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>

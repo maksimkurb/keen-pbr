@@ -44,8 +44,8 @@ Some of these settings are in the web UI: General &gt; Settings &gt; General, Li
 These settings are for advanced setups and service-level tuning: daemon, api, fwmark, iproute, and lists_autoupdate.
 Some of these settings are in the web UI: General &gt; Settings &gt; General, Lists autoupdate and Advanced routing settings. The low-level fields appear after you switch Settings mode to Advanced. This page describes every config.json field; next to a field you will find where it is in the UI.">
 
-    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
-    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link rel="preload" href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" as="style" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
+    <link href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" rel="stylesheet" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
 
   
 
@@ -1050,6 +1050,7 @@ Some of these settings are in the web UI: General &gt; Settings &gt; General, Li
     </div>
           </div>
           
+          
           <p>Most users can skip this page.</p>
 <p>These settings are for advanced setups and service-level tuning: <code>daemon</code>, <code>api</code>, <code>fwmark</code>, <code>iproute</code>, and <code>lists_autoupdate</code>.</p>
 <p>Some of these settings are in the web UI: <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>General</strong>, <strong>Lists autoupdate</strong> and <strong>Advanced routing settings</strong>. The low-level fields appear after you switch <strong>Settings mode</strong> to <strong>Advanced</strong>. This page describes every <code>config.json</code> field; next to a field you will find where it is in the UI.</p>
@@ -1093,13 +1094,15 @@ Some of these settings are in the web UI: General &gt; Settings &gt; General, Li
 					<td><code>ipset_hashsize</code></td>
 					<td>integer</td>
 					<td>absent</td>
-					<td><span class="only-badges" title="Only for iptables"><span class="only-badge only-badge--iptables">iptables</span></span> Optional initial hash table size for ipsets created by the iptables backend (default <code>1024</code>). Has no effect with nftables. Must be between 1 and 2147483648. Web UI (<strong>Advanced</strong> mode): <strong>IPSet hash table size (ipset hashsize)</strong>. Changing it recreates the sets and empties the dynamic sets.</td>
+					<td><span class="only-badges" title="Only for iptables"><span class="only-badge only-badge--iptables">iptables</span></span>
+ Optional initial hash table size for ipsets created by the iptables backend (default <code>1024</code>). Has no effect with nftables. Must be between 1 and 2147483648. Web UI (<strong>Advanced</strong> mode): <strong>IPSet hash table size (ipset hashsize)</strong>. Changing it recreates the sets and empties the dynamic sets.</td>
 			</tr>
 			<tr>
 					<td><code>ipset_maxelem</code></td>
 					<td>integer</td>
 					<td>absent</td>
-					<td><span class="only-badges" title="Only for iptables"><span class="only-badge only-badge--iptables">iptables</span></span> Optional maximum element count for ipsets created by the iptables backend (default <code>65536</code>). Has no effect with nftables. Must be between 1 and 4294967295. Web UI: <strong>Maximum entries in ipset (ipset maxelem)</strong>. Changing it recreates the sets and empties the dynamic sets.</td>
+					<td><span class="only-badges" title="Only for iptables"><span class="only-badge only-badge--iptables">iptables</span></span>
+ Optional maximum element count for ipsets created by the iptables backend (default <code>65536</code>). Has no effect with nftables. Must be between 1 and 4294967295. Web UI: <strong>Maximum entries in ipset (ipset maxelem)</strong>. Changing it recreates the sets and empties the dynamic sets.</td>
 			</tr>
 			<tr>
 					<td><code>reuse_static_sets_on_runtime_refresh</code></td>

@@ -13,11 +13,10 @@
 3.4.0 What’s new Domain lists work without a resolver setup.
 keen-pbr reads DNS replies passing through the router and the site names in TLS, HTTP and QUIC connections, and fills the sets of your lists itself. If a device looks up the site over plain DNS, the very first connection already takes the right route. If the device uses encrypted DNS, keen-pbr learns the site only from its name at the start of the connection. That first connection breaks, and the browser or app reconnects, this time over the right route. If the kernel lacks a feature, only that part (DNS or connections) is turned off, and the status page says why. See DNS. dnsmasq is optional.
 You need it only for split DNS (different DNS servers depending on the domain) or to set DNS servers for the whole network right in keen-pbr. See Do I need dnsmasq?. keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and repairs it when it loses the config. New commands: keen-pbr resolver dnsmasq detect and keen-pbr resolver dnsmasq print-config. DNS-over-HTTPS.
-Added DNS-over-HTTPS support: add a DNS server of type DNS-over-HTTPS and use it in DNS rules and as a default server. See DNS. Several DNS servers for a list.
-Added the ability to pick several DNS servers for a list. Requests go to them in turn, and if a server does not answer, the next one takes over. In config.json the server field of a DNS rule is now servers, an array of server names; keen-pbr converts old configs automatically. dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS to the keen-pbr built-in DNS proxy on 127.0.0.89, with ports starting at 52100. You can change the address and the first port in the Advanced settings mode: DNS proxy address and First DNS proxy port. See DNS. Load balancing across several links. OpenWrtDebian
-A urltest or icmptest outbound with strategy: &#34;balance&#34; spreads connections across links, each with its own weight. A connection stays on the link it started on. See Multi-WAN Load Balancing. Automatic gateway detection.
-An interface outbound can use &#34;gateway&#34;: &#34;auto&#34;, and the default gateway can now be edited in the Web UI. See interface. All internet traffic through failover or balancing. nftables
-The new default_gateway route rule condition. See Route rules. New Web UI.
+Added DNS-over-HTTPS support: add a DNS server of type DNS-over-HTTPS and use it in DNS rules and among the main DNS servers. See DNS. Bootstrap servers for DoH.
+You can choose which plain servers keen-pbr asks for the addresses of DoH servers. A DoH server can have its IP addresses set. See DNS. Several DNS servers for a list.
+Added the ability to pick several DNS servers for a list. Requests go to them in turn, and if a server does not answer, the next one takes over. In config.json the server field of a DNS rule is now servers, an array of server names; keen-pbr converts old configs automatically. dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS to the keen-pbr built-in DNS proxy on 127.0.0.89, with ports starting at 52100. You can change the address and the first port in the Advanced settings mode: DNS proxy address and First DNS proxy port. See DNS. The main DNS servers moved from the DNS rules page to the DNS servers page. A new DNS rule no longer starts with a server picked: choose one yourself. Load balancing across several links. OpenWrtDebian A urltest or icmptest outbound with strategy: &#34;balance&#34; spreads connections across links, each with its own weight. A connection stays on the link it started on. See Multi-WAN Load Balancing. Automatic gateway detection.
+An interface outbound can use &#34;gateway&#34;: &#34;auto&#34;, and the default gateway can now be edited in the Web UI. See interface. All internet traffic through failover or balancing. OpenWrtDebian The new default_gateway route rule condition. See Route rules. New Web UI.
 Compact overview, live table of current requests, request log with explained badges and filters, a diagnostics panel (kernel checks first), redesigned outbound editor, updates over a live stream instead of polling, better mobile layout, and a settings page that shows the daemon’s defaults. Health checks.
 keen-pbr warns about missing NAT or strict rp_filter on balanced links, foreign fwmarks that overlap fwmark.mask, and missing iptables extensions. keen-pbr status shows the same issue list as the Web UI. Prometheus endpoint.
 GET /metrics reports probe latency, link selection, list updates, balance and interception counters. A Grafana dashboard and alert examples are included. See REST API. Checking the DNS servers.
@@ -27,7 +26,7 @@ If 10 requests in a row to a server got no answer or ended with an error, the st
 The command takes protocol, ports, addresses and DSCP, and runs in the daemon, the same way as the routing test in the Web UI. The router’s own traffic is left alone by default.
 Route rules apply to devices in your network. To include the router, set iproute.process_router_traffic to true. See iproute. Local networks rule in the default config.
 It keeps local networks out of tunnels. The “What’s new?” button.
-It opens this page from the Web UI. New lists are downloaded in the background after a configuration is applied, not before. A failed download no longer cancels the apply and shows up in the warnings instead. Lists that failed to download at start are retried the same way. Removing the package also removes leftover firewall rules and dnsmasq files. Fixes Fixed applying a configuration where a new list downloads through a new outbound: the apply used to fail with “Failed to prepare remote list(s)”. urltest and icmptest groups now accept only interface and table members: other types never worked and now fail config validation. A blackhole member was never selected; keen-pbr now skips it and logs a warning. You do not need it to block traffic: when no link works, traffic is blocked anyway. Fixed automatic list updates stopping after the first list change that affected routing. Lists now update on schedule. Fixed new devices not getting an address over DHCP when a route rule matches all UDP traffic. Fixed the router’s own traffic skipping route rules when inbound_interfaces is set. When several DNS rules name the same list, the list now uses the servers of every rule. Before, only the first rule’s server was used. Keenetic/NetCraze Fixed routing being built from a half-updated route table when routes change one after another during a WAN DHCP renewal. Fixed a list cache file being left empty after a power loss. Keenetic/NetCraze Fixed a package upgrade where the old version did not stop in time: it kept running after the install instead of the new one. Fixed the routing test with IPv6 turned off: it used to check the domain’s IPv6 addresses too. Fixed the routing test showing one route rule as several blocks. Fixed keen-pbr status reporting every urltest and icmptest rule as an error. The Web UI now keeps conntrack_on_switch, strict_enforcement_action and the urltest probe timeout when saving an outbound. Fixed DNS servers with detour through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address). Breaking Changes Debian Before the upgrade. keen-pbr 3.3.x depended on dnsmasq, so apt marked it as automatically installed, and apt autoremove may remove it. If you need dnsmasq, first run:" /><link rel="canonical" href="https://keen-pbr.fyi/docs/changelog/" itemprop="url" />
+It opens this page from the Web UI. New lists are downloaded in the background after a configuration is applied, not before. A failed download no longer cancels the apply and shows up in the warnings instead. Lists that failed to download at start are retried the same way. Removing the package also removes leftover firewall rules and dnsmasq files. Fixes Fixed applying a configuration where a new list downloads through a new outbound: the apply used to fail with “Failed to prepare remote list(s)”. urltest and icmptest groups now accept only interface and table members: other types never worked and now fail config validation. A blackhole member was never selected; keen-pbr now skips it and logs a warning. You do not need it to block traffic: when no link works, traffic is blocked anyway. Fixed automatic list updates stopping after the first list change that affected routing. Lists now update on schedule. Fixed new devices not getting an address over DHCP when a route rule matches all UDP traffic. Fixed the router’s own traffic skipping route rules when inbound_interfaces is set. When several DNS rules name the same list, the list now uses the servers of every rule. Before, only the first rule’s server was used. Keenetic/NetCraze Fixed routing being built from a half-updated route table when routes change one after another during a WAN DHCP renewal. Fixed a list cache file being left empty after a power loss. Keenetic/NetCraze Fixed a package upgrade where the old version did not stop in time: it kept running after the install instead of the new one. Fixed the routing test with IPv6 turned off: it used to check the domain’s IPv6 addresses too. Fixed the routing test showing one route rule as several blocks. Fixed keen-pbr status reporting every urltest and icmptest rule as an error. The Web UI now keeps conntrack_on_switch, strict_enforcement_action and the urltest probe timeout when saving an outbound. Fixed DNS servers with detour through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address). iptables Fixed routing rules that negate several addresses (!a,b) on iptables: such a rule used to match all traffic. Breaking Changes Before the upgrade. Debian keen-pbr 3.3.x depended on dnsmasq, so apt marked it as automatically installed, and apt autoremove may remove it. If you need dnsmasq, first run:" /><link rel="canonical" href="https://keen-pbr.fyi/docs/changelog/" itemprop="url" />
 
 <meta property="og:title" content="Changelog">
 <meta
@@ -43,14 +42,19 @@ keen-pbr reads DNS replies passing through the router and the site names in TLS,
 dnsmasq is optional.
 You need it only for split DNS (different DNS servers depending on the domain) or to set DNS servers for the whole network right in keen-pbr. See Do I need dnsmasq?. keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and repairs it when it loses the config. New commands: keen-pbr resolver dnsmasq detect and keen-pbr resolver dnsmasq print-config.
 DNS-over-HTTPS.
-Added DNS-over-HTTPS support: add a DNS server of type DNS-over-HTTPS and use it in DNS rules and as a default server. See DNS.
+Added DNS-over-HTTPS support: add a DNS server of type DNS-over-HTTPS and use it in DNS rules and among the main DNS servers. See DNS.
+Bootstrap servers for DoH.
+You can choose which plain servers keen-pbr asks for the addresses of DoH servers. A DoH server can have its IP addresses set. See DNS.
 Several DNS servers for a list.
 Added the ability to pick several DNS servers for a list. Requests go to them in turn, and if a server does not answer, the next one takes over. In config.json the server field of a DNS rule is now servers, an array of server names; keen-pbr converts old configs automatically. dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS to the keen-pbr built-in DNS proxy on 127.0.0.89, with ports starting at 52100. You can change the address and the first port in the Advanced settings mode: DNS proxy address and First DNS proxy port. See DNS.
+The main DNS servers moved from the DNS rules page to the DNS servers page. A new DNS rule no longer starts with a server picked: choose one yourself.
 Load balancing across several links. OpenWrtDebian
+
 A urltest or icmptest outbound with strategy: &quot;balance&quot; spreads connections across links, each with its own weight. A connection stays on the link it started on. See Multi-WAN Load Balancing.
 Automatic gateway detection.
 An interface outbound can use &quot;gateway&quot;: &quot;auto&quot;, and the default gateway can now be edited in the Web UI. See interface.
-All internet traffic through failover or balancing. nftables
+All internet traffic through failover or balancing. OpenWrtDebian
+
 The new default_gateway route rule condition. See Route rules.
 New Web UI.
 Compact overview, live table of current requests, request log with explained badges and filters, a diagnostics panel (kernel checks first), redesigned outbound editor, updates over a live stream instead of polling, better mobile layout, and a settings page that shows the daemon&rsquo;s defaults.
@@ -83,17 +87,23 @@ Fixed automatic list updates stopping after the first list change that affected 
 Fixed new devices not getting an address over DHCP when a route rule matches all UDP traffic.
 Fixed the router&rsquo;s own traffic skipping route rules when inbound_interfaces is set.
 When several DNS rules name the same list, the list now uses the servers of every rule. Before, only the first rule&rsquo;s server was used.
-Keenetic/NetCraze Fixed routing being built from a half-updated route table when routes change one after another during a WAN DHCP renewal.
+Keenetic/NetCraze
+ Fixed routing being built from a half-updated route table when routes change one after another during a WAN DHCP renewal.
 Fixed a list cache file being left empty after a power loss.
-Keenetic/NetCraze Fixed a package upgrade where the old version did not stop in time: it kept running after the install instead of the new one.
+Keenetic/NetCraze
+ Fixed a package upgrade where the old version did not stop in time: it kept running after the install instead of the new one.
 Fixed the routing test with IPv6 turned off: it used to check the domain&rsquo;s IPv6 addresses too.
 Fixed the routing test showing one route rule as several blocks.
 Fixed keen-pbr status reporting every urltest and icmptest rule as an error.
 The Web UI now keeps conntrack_on_switch, strict_enforcement_action and the urltest probe timeout when saving an outbound.
 Fixed DNS servers with detour through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address).
+iptables
+ Fixed routing rules that negate several addresses (!a,b) on iptables: such a rule used to match all traffic.
 
 Breaking Changes
-    Debian Before the upgrade. keen-pbr 3.3.x depended on dnsmasq, so apt marked it as automatically installed, and apt autoremove may remove it. If you need dnsmasq, first run:
+    Before the upgrade. Debian
+
+keen-pbr 3.3.x depended on dnsmasq, so apt marked it as automatically installed, and apt autoremove may remove it. If you need dnsmasq, first run:
     
   ">
 <meta
@@ -111,11 +121,10 @@ Breaking Changes
 3.4.0 What’s new Domain lists work without a resolver setup.
 keen-pbr reads DNS replies passing through the router and the site names in TLS, HTTP and QUIC connections, and fills the sets of your lists itself. If a device looks up the site over plain DNS, the very first connection already takes the right route. If the device uses encrypted DNS, keen-pbr learns the site only from its name at the start of the connection. That first connection breaks, and the browser or app reconnects, this time over the right route. If the kernel lacks a feature, only that part (DNS or connections) is turned off, and the status page says why. See DNS. dnsmasq is optional.
 You need it only for split DNS (different DNS servers depending on the domain) or to set DNS servers for the whole network right in keen-pbr. See Do I need dnsmasq?. keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and repairs it when it loses the config. New commands: keen-pbr resolver dnsmasq detect and keen-pbr resolver dnsmasq print-config. DNS-over-HTTPS.
-Added DNS-over-HTTPS support: add a DNS server of type DNS-over-HTTPS and use it in DNS rules and as a default server. See DNS. Several DNS servers for a list.
-Added the ability to pick several DNS servers for a list. Requests go to them in turn, and if a server does not answer, the next one takes over. In config.json the server field of a DNS rule is now servers, an array of server names; keen-pbr converts old configs automatically. dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS to the keen-pbr built-in DNS proxy on 127.0.0.89, with ports starting at 52100. You can change the address and the first port in the Advanced settings mode: DNS proxy address and First DNS proxy port. See DNS. Load balancing across several links. OpenWrtDebian
-A urltest or icmptest outbound with strategy: &#34;balance&#34; spreads connections across links, each with its own weight. A connection stays on the link it started on. See Multi-WAN Load Balancing. Automatic gateway detection.
-An interface outbound can use &#34;gateway&#34;: &#34;auto&#34;, and the default gateway can now be edited in the Web UI. See interface. All internet traffic through failover or balancing. nftables
-The new default_gateway route rule condition. See Route rules. New Web UI.
+Added DNS-over-HTTPS support: add a DNS server of type DNS-over-HTTPS and use it in DNS rules and among the main DNS servers. See DNS. Bootstrap servers for DoH.
+You can choose which plain servers keen-pbr asks for the addresses of DoH servers. A DoH server can have its IP addresses set. See DNS. Several DNS servers for a list.
+Added the ability to pick several DNS servers for a list. Requests go to them in turn, and if a server does not answer, the next one takes over. In config.json the server field of a DNS rule is now servers, an array of server names; keen-pbr converts old configs automatically. dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS to the keen-pbr built-in DNS proxy on 127.0.0.89, with ports starting at 52100. You can change the address and the first port in the Advanced settings mode: DNS proxy address and First DNS proxy port. See DNS. The main DNS servers moved from the DNS rules page to the DNS servers page. A new DNS rule no longer starts with a server picked: choose one yourself. Load balancing across several links. OpenWrtDebian A urltest or icmptest outbound with strategy: &#34;balance&#34; spreads connections across links, each with its own weight. A connection stays on the link it started on. See Multi-WAN Load Balancing. Automatic gateway detection.
+An interface outbound can use &#34;gateway&#34;: &#34;auto&#34;, and the default gateway can now be edited in the Web UI. See interface. All internet traffic through failover or balancing. OpenWrtDebian The new default_gateway route rule condition. See Route rules. New Web UI.
 Compact overview, live table of current requests, request log with explained badges and filters, a diagnostics panel (kernel checks first), redesigned outbound editor, updates over a live stream instead of polling, better mobile layout, and a settings page that shows the daemon’s defaults. Health checks.
 keen-pbr warns about missing NAT or strict rp_filter on balanced links, foreign fwmarks that overlap fwmark.mask, and missing iptables extensions. keen-pbr status shows the same issue list as the Web UI. Prometheus endpoint.
 GET /metrics reports probe latency, link selection, list updates, balance and interception counters. A Grafana dashboard and alert examples are included. See REST API. Checking the DNS servers.
@@ -125,19 +134,18 @@ If 10 requests in a row to a server got no answer or ended with an error, the st
 The command takes protocol, ports, addresses and DSCP, and runs in the daemon, the same way as the routing test in the Web UI. The router’s own traffic is left alone by default.
 Route rules apply to devices in your network. To include the router, set iproute.process_router_traffic to true. See iproute. Local networks rule in the default config.
 It keeps local networks out of tunnels. The “What’s new?” button.
-It opens this page from the Web UI. New lists are downloaded in the background after a configuration is applied, not before. A failed download no longer cancels the apply and shows up in the warnings instead. Lists that failed to download at start are retried the same way. Removing the package also removes leftover firewall rules and dnsmasq files. Fixes Fixed applying a configuration where a new list downloads through a new outbound: the apply used to fail with “Failed to prepare remote list(s)”. urltest and icmptest groups now accept only interface and table members: other types never worked and now fail config validation. A blackhole member was never selected; keen-pbr now skips it and logs a warning. You do not need it to block traffic: when no link works, traffic is blocked anyway. Fixed automatic list updates stopping after the first list change that affected routing. Lists now update on schedule. Fixed new devices not getting an address over DHCP when a route rule matches all UDP traffic. Fixed the router’s own traffic skipping route rules when inbound_interfaces is set. When several DNS rules name the same list, the list now uses the servers of every rule. Before, only the first rule’s server was used. Keenetic/NetCraze Fixed routing being built from a half-updated route table when routes change one after another during a WAN DHCP renewal. Fixed a list cache file being left empty after a power loss. Keenetic/NetCraze Fixed a package upgrade where the old version did not stop in time: it kept running after the install instead of the new one. Fixed the routing test with IPv6 turned off: it used to check the domain’s IPv6 addresses too. Fixed the routing test showing one route rule as several blocks. Fixed keen-pbr status reporting every urltest and icmptest rule as an error. The Web UI now keeps conntrack_on_switch, strict_enforcement_action and the urltest probe timeout when saving an outbound. Fixed DNS servers with detour through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address). Breaking Changes Debian Before the upgrade. keen-pbr 3.3.x depended on dnsmasq, so apt marked it as automatically installed, and apt autoremove may remove it. If you need dnsmasq, first run:">
-	<meta itemprop="wordCount" content="4157">
+It opens this page from the Web UI. New lists are downloaded in the background after a configuration is applied, not before. A failed download no longer cancels the apply and shows up in the warnings instead. Lists that failed to download at start are retried the same way. Removing the package also removes leftover firewall rules and dnsmasq files. Fixes Fixed applying a configuration where a new list downloads through a new outbound: the apply used to fail with “Failed to prepare remote list(s)”. urltest and icmptest groups now accept only interface and table members: other types never worked and now fail config validation. A blackhole member was never selected; keen-pbr now skips it and logs a warning. You do not need it to block traffic: when no link works, traffic is blocked anyway. Fixed automatic list updates stopping after the first list change that affected routing. Lists now update on schedule. Fixed new devices not getting an address over DHCP when a route rule matches all UDP traffic. Fixed the router’s own traffic skipping route rules when inbound_interfaces is set. When several DNS rules name the same list, the list now uses the servers of every rule. Before, only the first rule’s server was used. Keenetic/NetCraze Fixed routing being built from a half-updated route table when routes change one after another during a WAN DHCP renewal. Fixed a list cache file being left empty after a power loss. Keenetic/NetCraze Fixed a package upgrade where the old version did not stop in time: it kept running after the install instead of the new one. Fixed the routing test with IPv6 turned off: it used to check the domain’s IPv6 addresses too. Fixed the routing test showing one route rule as several blocks. Fixed keen-pbr status reporting every urltest and icmptest rule as an error. The Web UI now keeps conntrack_on_switch, strict_enforcement_action and the urltest probe timeout when saving an outbound. Fixed DNS servers with detour through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address). iptables Fixed routing rules that negate several addresses (!a,b) on iptables: such a rule used to match all traffic. Breaking Changes Before the upgrade. Debian keen-pbr 3.3.x depended on dnsmasq, so apt marked it as automatically installed, and apt autoremove may remove it. If you need dnsmasq, first run:">
+	<meta itemprop="wordCount" content="4235">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Changelog">
 	<meta name="twitter:description" content="What changed in each keen-pbr release, and what to do when you upgrade.
 3.4.0 What’s new Domain lists work without a resolver setup.
 keen-pbr reads DNS replies passing through the router and the site names in TLS, HTTP and QUIC connections, and fills the sets of your lists itself. If a device looks up the site over plain DNS, the very first connection already takes the right route. If the device uses encrypted DNS, keen-pbr learns the site only from its name at the start of the connection. That first connection breaks, and the browser or app reconnects, this time over the right route. If the kernel lacks a feature, only that part (DNS or connections) is turned off, and the status page says why. See DNS. dnsmasq is optional.
 You need it only for split DNS (different DNS servers depending on the domain) or to set DNS servers for the whole network right in keen-pbr. See Do I need dnsmasq?. keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and repairs it when it loses the config. New commands: keen-pbr resolver dnsmasq detect and keen-pbr resolver dnsmasq print-config. DNS-over-HTTPS.
-Added DNS-over-HTTPS support: add a DNS server of type DNS-over-HTTPS and use it in DNS rules and as a default server. See DNS. Several DNS servers for a list.
-Added the ability to pick several DNS servers for a list. Requests go to them in turn, and if a server does not answer, the next one takes over. In config.json the server field of a DNS rule is now servers, an array of server names; keen-pbr converts old configs automatically. dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS to the keen-pbr built-in DNS proxy on 127.0.0.89, with ports starting at 52100. You can change the address and the first port in the Advanced settings mode: DNS proxy address and First DNS proxy port. See DNS. Load balancing across several links. OpenWrtDebian
-A urltest or icmptest outbound with strategy: &#34;balance&#34; spreads connections across links, each with its own weight. A connection stays on the link it started on. See Multi-WAN Load Balancing. Automatic gateway detection.
-An interface outbound can use &#34;gateway&#34;: &#34;auto&#34;, and the default gateway can now be edited in the Web UI. See interface. All internet traffic through failover or balancing. nftables
-The new default_gateway route rule condition. See Route rules. New Web UI.
+Added DNS-over-HTTPS support: add a DNS server of type DNS-over-HTTPS and use it in DNS rules and among the main DNS servers. See DNS. Bootstrap servers for DoH.
+You can choose which plain servers keen-pbr asks for the addresses of DoH servers. A DoH server can have its IP addresses set. See DNS. Several DNS servers for a list.
+Added the ability to pick several DNS servers for a list. Requests go to them in turn, and if a server does not answer, the next one takes over. In config.json the server field of a DNS rule is now servers, an array of server names; keen-pbr converts old configs automatically. dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS to the keen-pbr built-in DNS proxy on 127.0.0.89, with ports starting at 52100. You can change the address and the first port in the Advanced settings mode: DNS proxy address and First DNS proxy port. See DNS. The main DNS servers moved from the DNS rules page to the DNS servers page. A new DNS rule no longer starts with a server picked: choose one yourself. Load balancing across several links. OpenWrtDebian A urltest or icmptest outbound with strategy: &#34;balance&#34; spreads connections across links, each with its own weight. A connection stays on the link it started on. See Multi-WAN Load Balancing. Automatic gateway detection.
+An interface outbound can use &#34;gateway&#34;: &#34;auto&#34;, and the default gateway can now be edited in the Web UI. See interface. All internet traffic through failover or balancing. OpenWrtDebian The new default_gateway route rule condition. See Route rules. New Web UI.
 Compact overview, live table of current requests, request log with explained badges and filters, a diagnostics panel (kernel checks first), redesigned outbound editor, updates over a live stream instead of polling, better mobile layout, and a settings page that shows the daemon’s defaults. Health checks.
 keen-pbr warns about missing NAT or strict rp_filter on balanced links, foreign fwmarks that overlap fwmark.mask, and missing iptables extensions. keen-pbr status shows the same issue list as the Web UI. Prometheus endpoint.
 GET /metrics reports probe latency, link selection, list updates, balance and interception counters. A Grafana dashboard and alert examples are included. See REST API. Checking the DNS servers.
@@ -147,10 +155,10 @@ If 10 requests in a row to a server got no answer or ended with an error, the st
 The command takes protocol, ports, addresses and DSCP, and runs in the daemon, the same way as the routing test in the Web UI. The router’s own traffic is left alone by default.
 Route rules apply to devices in your network. To include the router, set iproute.process_router_traffic to true. See iproute. Local networks rule in the default config.
 It keeps local networks out of tunnels. The “What’s new?” button.
-It opens this page from the Web UI. New lists are downloaded in the background after a configuration is applied, not before. A failed download no longer cancels the apply and shows up in the warnings instead. Lists that failed to download at start are retried the same way. Removing the package also removes leftover firewall rules and dnsmasq files. Fixes Fixed applying a configuration where a new list downloads through a new outbound: the apply used to fail with “Failed to prepare remote list(s)”. urltest and icmptest groups now accept only interface and table members: other types never worked and now fail config validation. A blackhole member was never selected; keen-pbr now skips it and logs a warning. You do not need it to block traffic: when no link works, traffic is blocked anyway. Fixed automatic list updates stopping after the first list change that affected routing. Lists now update on schedule. Fixed new devices not getting an address over DHCP when a route rule matches all UDP traffic. Fixed the router’s own traffic skipping route rules when inbound_interfaces is set. When several DNS rules name the same list, the list now uses the servers of every rule. Before, only the first rule’s server was used. Keenetic/NetCraze Fixed routing being built from a half-updated route table when routes change one after another during a WAN DHCP renewal. Fixed a list cache file being left empty after a power loss. Keenetic/NetCraze Fixed a package upgrade where the old version did not stop in time: it kept running after the install instead of the new one. Fixed the routing test with IPv6 turned off: it used to check the domain’s IPv6 addresses too. Fixed the routing test showing one route rule as several blocks. Fixed keen-pbr status reporting every urltest and icmptest rule as an error. The Web UI now keeps conntrack_on_switch, strict_enforcement_action and the urltest probe timeout when saving an outbound. Fixed DNS servers with detour through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address). Breaking Changes Debian Before the upgrade. keen-pbr 3.3.x depended on dnsmasq, so apt marked it as automatically installed, and apt autoremove may remove it. If you need dnsmasq, first run:">
+It opens this page from the Web UI. New lists are downloaded in the background after a configuration is applied, not before. A failed download no longer cancels the apply and shows up in the warnings instead. Lists that failed to download at start are retried the same way. Removing the package also removes leftover firewall rules and dnsmasq files. Fixes Fixed applying a configuration where a new list downloads through a new outbound: the apply used to fail with “Failed to prepare remote list(s)”. urltest and icmptest groups now accept only interface and table members: other types never worked and now fail config validation. A blackhole member was never selected; keen-pbr now skips it and logs a warning. You do not need it to block traffic: when no link works, traffic is blocked anyway. Fixed automatic list updates stopping after the first list change that affected routing. Lists now update on schedule. Fixed new devices not getting an address over DHCP when a route rule matches all UDP traffic. Fixed the router’s own traffic skipping route rules when inbound_interfaces is set. When several DNS rules name the same list, the list now uses the servers of every rule. Before, only the first rule’s server was used. Keenetic/NetCraze Fixed routing being built from a half-updated route table when routes change one after another during a WAN DHCP renewal. Fixed a list cache file being left empty after a power loss. Keenetic/NetCraze Fixed a package upgrade where the old version did not stop in time: it kept running after the install instead of the new one. Fixed the routing test with IPv6 turned off: it used to check the domain’s IPv6 addresses too. Fixed the routing test showing one route rule as several blocks. Fixed keen-pbr status reporting every urltest and icmptest rule as an error. The Web UI now keeps conntrack_on_switch, strict_enforcement_action and the urltest probe timeout when saving an outbound. Fixed DNS servers with detour through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address). iptables Fixed routing rules that negate several addresses (!a,b) on iptables: such a rule used to match all traffic. Breaking Changes Before the upgrade. Debian keen-pbr 3.3.x depended on dnsmasq, so apt marked it as automatically installed, and apt autoremove may remove it. If you need dnsmasq, first run:">
 
-    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
-    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link rel="preload" href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" as="style" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
+    <link href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" rel="stylesheet" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
 
   
 
@@ -1354,6 +1362,7 @@ It opens this page from the Web UI. New lists are downloaded in the background a
     </div>
           </div>
           
+          
           <p>What changed in each keen-pbr release, and what to do when you upgrade.</p>
 <h2>3.4.0<span class="hx:absolute hx:-mt-20" id="v3-4-0"></span>
     <a href="#v3-4-0" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>What&rsquo;s new<span class="hx:absolute hx:-mt-20" id="whats-new"></span>
@@ -1363,14 +1372,19 @@ keen-pbr reads DNS replies passing through the router and the site names in TLS,
 <li><strong>dnsmasq is optional.</strong><br>
 You need it only for <abbr title="A setup where domains from different lists are resolved through different DNS servers.">split DNS</abbr> (different DNS servers depending on the domain) or to set DNS servers for the whole network right in keen-pbr. See <a href="/docs/configuration/dns/#do-i-need-dnsmasq">Do I need dnsmasq?</a>. keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and repairs it when it loses the config. New commands: <code>keen-pbr resolver dnsmasq detect</code> and <code>keen-pbr resolver dnsmasq print-config</code>.</li>
 <li><strong>DNS-over-HTTPS.</strong><br>
-Added DNS-over-HTTPS support: add a DNS server of type <strong>DNS-over-HTTPS</strong> and use it in DNS rules and as a default server. See <a href="/docs/configuration/dns/#dns-over-https">DNS</a>.</li>
+Added DNS-over-HTTPS support: add a DNS server of type <strong>DNS-over-HTTPS</strong> and use it in DNS rules and among the main DNS servers. See <a href="/docs/configuration/dns/#dns-over-https">DNS</a>.</li>
+<li><strong>Bootstrap servers for DoH.</strong><br>
+You can choose which plain servers keen-pbr asks for the addresses of DoH servers. A DoH server can have its IP addresses set. See <a href="/docs/configuration/dns/#doh-bootstrap">DNS</a>.</li>
 <li><strong>Several DNS servers for a list.</strong><br>
 Added the ability to pick several DNS servers for a list. Requests go to them in turn, and if a server does not answer, the next one takes over. In <code>config.json</code> the <code>server</code> field of a DNS rule is now <code>servers</code>, an array of server names; keen-pbr converts old configs automatically. dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS to the keen-pbr built-in DNS proxy on <code>127.0.0.89</code>, with ports starting at 52100. You can change the address and the first port in the <strong>Advanced</strong> settings mode: <strong>DNS proxy address</strong> and <strong>First DNS proxy port</strong>. See <a href="/docs/configuration/dns/#per-list-dns-servers-dnsmasq">DNS</a>.</li>
-<li><strong>Load balancing across several links.</strong> <span class="only-badges" title="Only for OpenWrt, Debian"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--debian">Debian</span></span><br>
+<li>The main DNS servers moved from the <strong>DNS rules</strong> page to the <strong>DNS servers</strong> page. A new DNS rule no longer starts with a server picked: choose one yourself.</li>
+<li><strong>Load balancing across several links.</strong> <span class="only-badges" title="Only for OpenWrt, Debian"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--debian">Debian</span></span>
+<br>
 A <code>urltest</code> or <code>icmptest</code> outbound with <code>strategy: &quot;balance&quot;</code> spreads connections across links, each with its own weight. A connection stays on the link it started on. See <a href="/docs/configuration/multi-wan/">Multi-WAN Load Balancing</a>.</li>
 <li><strong>Automatic gateway detection.</strong><br>
 An <code>interface</code> outbound can use <code>&quot;gateway&quot;: &quot;auto&quot;</code>, and the default gateway can now be edited in the Web UI. See <a href="/docs/configuration/outbounds/#interface">interface</a>.</li>
-<li><strong>All internet traffic through failover or balancing.</strong> <span class="only-badges" title="Only for nftables"><span class="only-badge only-badge--nftables">nftables</span></span><br>
+<li><strong>All internet traffic through failover or balancing.</strong> <span class="only-badges" title="Only for OpenWrt, Debian"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--debian">Debian</span></span>
+<br>
 The new <code>default_gateway</code> route rule condition. See <a href="/docs/configuration/route-rules/#failover-or-balancing-for-all-internet-traffic">Route rules</a>.</li>
 <li><strong>New Web UI.</strong><br>
 Compact overview, live table of current requests, request log with explained badges and filters, a diagnostics panel (kernel checks first), redesigned outbound editor, updates over a live stream instead of polling, better mobile layout, and a settings page that shows the daemon&rsquo;s defaults.</li>
@@ -1403,17 +1417,23 @@ It opens this page from the Web UI.</li>
 <li>Fixed new devices not getting an address over DHCP when a route rule matches all UDP traffic.</li>
 <li>Fixed the router&rsquo;s own traffic skipping route rules when <code>inbound_interfaces</code> is set.</li>
 <li>When several DNS rules name the same list, the list now uses the servers of every rule. Before, only the first rule&rsquo;s server was used.</li>
-<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> Fixed routing being built from a half-updated route table when routes change one after another during a WAN DHCP renewal.</li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+ Fixed routing being built from a half-updated route table when routes change one after another during a WAN DHCP renewal.</li>
 <li>Fixed a list cache file being left empty after a power loss.</li>
-<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> Fixed a package upgrade where the old version did not stop in time: it kept running after the install instead of the new one.</li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+ Fixed a package upgrade where the old version did not stop in time: it kept running after the install instead of the new one.</li>
 <li>Fixed the routing test with IPv6 turned off: it used to check the domain&rsquo;s IPv6 addresses too.</li>
 <li>Fixed the routing test showing one route rule as several blocks.</li>
 <li>Fixed <code>keen-pbr status</code> reporting every <code>urltest</code> and <code>icmptest</code> rule as an error.</li>
 <li>The Web UI now keeps <code>conntrack_on_switch</code>, <code>strict_enforcement_action</code> and the <code>urltest</code> probe timeout when saving an outbound.</li>
 <li>Fixed DNS servers with <code>detour</code> through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address).</li>
+<li><span class="only-badges" title="Only for iptables"><span class="only-badge only-badge--iptables">iptables</span></span>
+ Fixed routing rules that negate several addresses (<code>!a,b</code>) on iptables: such a rule used to match all traffic.</li>
 </ul>
 <h3>Breaking Changes<span class="hx:absolute hx:-mt-20" id="upgrading-from-33x"></span>
-    <a href="#upgrading-from-33x" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><span class="only-badges" title="Only for Debian"><span class="only-badge only-badge--debian">Debian</span></span> <strong>Before the upgrade.</strong> keen-pbr 3.3.x depended on <code>dnsmasq</code>, so apt marked it as automatically installed, and <code>apt autoremove</code> may remove it. If you need dnsmasq, first run:</p>
+    <a href="#upgrading-from-33x" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><strong>Before the upgrade.</strong> <span class="only-badges" title="Only for Debian"><span class="only-badge only-badge--debian">Debian</span></span>
+<br>
+keen-pbr 3.3.x depended on <code>dnsmasq</code>, so apt marked it as automatically installed, and <code>apt autoremove</code> may remove it. If you need dnsmasq, first run:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">sudo apt-mark manual dnsmasq</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1428,7 +1448,9 @@ It opens this page from the Web UI.</li>
   </button>
 </div>
 </div>
-<p><span class="only-badges" title="Only for OpenWrt, Keenetic/NetCraze"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> <strong>Before the upgrade.</strong> keen-pbr 3.3.x installed <code>dnsmasq-full</code> as a dependency, and opkg may remove it during the upgrade. If you need dnsmasq, first run over SSH:</p>
+<p><strong>Before the upgrade.</strong> <span class="only-badges" title="Only for OpenWrt, Keenetic/NetCraze"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+<br>
+keen-pbr 3.3.x installed <code>dnsmasq-full</code> as a dependency, and opkg may remove it during the upgrade. If you need dnsmasq, first run over SSH:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opkg flag user dnsmasq-full</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1443,19 +1465,22 @@ It opens this page from the Web UI.</li>
   </button>
 </div>
 </div>
-<p><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> If the package is already gone and you turned on <code>opkg dns-override</code>, devices in your network are left without DNS: the router still hands their queries to dnsmasq, which is gone. The keen-pbr Web UI offers two ways out:</p>
+<p><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+ If the package is already gone and you turned on <code>opkg dns-override</code>, devices in your network are left without DNS: the router still hands their queries to dnsmasq, which is gone. The keen-pbr Web UI offers two ways out:</p>
 <ul>
 <li><strong>Keep dnsmasq.</strong><br>
 Install it again with <code>opkg install dnsmasq-full</code>.</li>
 <li><strong>Go without dnsmasq.</strong><br>
 Turn off <strong>Manage dnsmasq configuration</strong>. Then, in the router&rsquo;s web console (<a href="http://my.keenetic.net/a"target="_blank" rel="noopener">http://my.keenetic.net/a</a>), run <code>no opkg dns-override</code> and <code>system configuration save</code>, and reboot the router.</li>
 </ul>
-<p>After the upgrade, dnsmasq management stays on, as in 3.3.x. If you do not need it, turn off <strong>Manage dnsmasq configuration</strong> in the Web UI (<strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Local DNS server management</strong>) and follow the rollback steps: <a href="/docs/getting-started/installation/keenetic/#dnsmasq-rollback">Keenetic</a>, <a href="/docs/getting-started/installation/openwrt/#dnsmasq-rollback">OpenWrt</a>, <a href="/docs/getting-started/installation/debian/#dnsmasq-rollback">Debian</a>. Without it, DNS rules and default DNS servers stop working.</p>
+<p>After the upgrade, dnsmasq management stays on, as in 3.3.x. If you do not need it, turn off <strong>Manage dnsmasq configuration</strong> in the Web UI (<strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Local DNS server management</strong>) and follow the rollback steps: <a href="/docs/getting-started/installation/keenetic/#dnsmasq-rollback">Keenetic</a>, <a href="/docs/getting-started/installation/openwrt/#dnsmasq-rollback">OpenWrt</a>, <a href="/docs/getting-started/installation/debian/#dnsmasq-rollback">Debian</a>. Without it, DNS rules and main DNS servers stop working.</p>
 <p>What to check after the upgrade:</p>
 <ul>
-<li><strong>Kernel modules.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+<li><strong>Kernel modules.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+<br>
 Domains are now detected by interception. If the <strong>Netfilter Subsystem Kernel Modules</strong> and <strong>Xtables-addons Extension Package for Netfilter</strong> components are not installed yet, install them. Then open the status page in the Web UI and run the DNS check.</li>
-<li><strong>iptables only.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+<li><strong>iptables only.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+<br>
 The Keenetic build always works through iptables. A config with <code>daemon.firewall_backend: &quot;nftables&quot;</code> or <code>strategy: &quot;balance&quot;</code> fails validation there.</li>
 <li><strong>Debian 11 (bullseye) is no longer supported.</strong></li>
 <li><strong>A list&rsquo;s <code>ttl_ms</code> is now a minimum time.</strong><br>
@@ -1506,7 +1531,8 @@ You can raise the <abbr title="A named set of IP addresses or subnets in the Lin
 <li><strong>Config rollback.</strong><br>
 If a config fails to apply, you can go back to the previous one.</li>
 <li>The Web UI reconnects by itself when the connection to the router is lost.</li>
-<li><strong>RAW separately for IPv4 and IPv6.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+<li><strong>RAW separately for IPv4 and IPv6.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+<br>
 <code>KEEN_PBR_RAW_PREROUTING</code> values: <code>auto</code>, <code>enable</code>, <code>disable</code>, <code>ipv4-only</code> and <code>ipv6-only</code>. See <a href="/docs/getting-started/installation/keenetic/#raw-or-mangle">RAW or mangle</a>.</li>
 </ul>
 <h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-2"></span>
@@ -1517,7 +1543,8 @@ Fixed: keen-pbr polled state all the time and used about 20% of the CPU (measure
 </ul>
 <h3>Breaking Changes<span class="hx:absolute hx:-mt-20" id="upgrading-from-32x"></span>
     <a href="#upgrading-from-32x" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
-<li><strong>The <code>enable</code> value for RAW.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+<li><strong>The <code>enable</code> value for RAW.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+<br>
 <code>KEEN_PBR_RAW_PREROUTING=enable</code> now requires RAW support for both IPv4 and IPv6. If you need RAW for only one of them, use <code>ipv4-only</code> or <code>ipv6-only</code>.</li>
 </ul>
 <h2>3.2.1<span class="hx:absolute hx:-mt-20" id="v3-2-1"></span>
@@ -1533,7 +1560,8 @@ Checks links with a ping (<abbr title="Service protocol for network diagnostics.
 <li>Unapplied config changes can be discarded in the Web UI and through the API.</li>
 <li>The Web UI now has links to the documentation.</li>
 <li>You can change the order of route rules by dragging.</li>
-<li><strong>RAW or mangle.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+<li><strong>RAW or mangle.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+<br>
 In <code>/opt/etc/keen-pbr/defaults</code> you can pick the table in which devices&rsquo; IPv4 traffic is marked. RAW is not flushed when Keenetic rebuilds its firewall and connections do not break, but it works only for devices with the <strong>Default policy</strong>. <abbr title="The iptables table for changing packet metadata, such as setting a fwmark, before routing.">mangle</abbr> suits any policy from <strong>Connection priorities</strong>, but the rules disappear while the firewall is being rebuilt. See <a href="/docs/getting-started/installation/keenetic/#raw-or-mangle">RAW or mangle</a>.</li>
 <li>Packages for Debian 11 (Bullseye), 12 (Bookworm) and 13 (Trixie).</li>
 <li>The full package got smaller.</li>
@@ -1541,9 +1569,11 @@ In <code>/opt/etc/keen-pbr/defaults</code> you can pick the table in which devic
 </ul>
 <h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-3"></span>
     <a href="#fixes-3" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
-<li><strong>Start after a router reboot.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+<li><strong>Start after a router reboot.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+<br>
 Fixed: keen-pbr started before <abbr title="The Keenetic router&#39;s built-in configuration API.">RCI</abbr> and might fail to start. The service now waits for RCI. <a href="https://t.me/keen_pbr/1/3041"target="_blank" rel="noopener">Details</a></li>
-<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> Fixed rules with a <abbr title="A 6-bit field in the IP header used to mark traffic classes for QoS.">DSCP</abbr> condition: the <code>xt_dscp</code> module is now loaded automatically.</li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+ Fixed rules with a <abbr title="A 6-bit field in the IP header used to mark traffic classes for QoS.">DSCP</abbr> condition: the <code>xt_dscp</code> module is now loaded automatically.</li>
 <li>Fixed a resource leak in the Web UI update stream.</li>
 </ul>
 <h2>3.1.1<span class="hx:absolute hx:-mt-20" id="v3-1-1"></span>
@@ -1554,7 +1584,8 @@ Fixed: keen-pbr started before <abbr title="The Keenetic router&#39;s built-in c
 </ul>
 <h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-4"></span>
     <a href="#fixes-4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
-<li><span class="only-badges" title="Only for iptables"><span class="only-badge only-badge--iptables">iptables</span></span> Fixed applying iptables rules, which sometimes did not work.</li>
+<li><span class="only-badges" title="Only for iptables"><span class="only-badge only-badge--iptables">iptables</span></span>
+ Fixed applying iptables rules, which sometimes did not work.</li>
 </ul>
 <h2>3.1.0<span class="hx:absolute hx:-mt-20" id="v3-1-0"></span>
     <a href="#v3-1-0" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>25 July 2026</em></p>
@@ -1579,9 +1610,11 @@ Changes in service, outbound and interface state show up right away, with no pag
 <li><strong>Detailed diagnostics.</strong><br>
 You can see whether the config in memory matches the config on disk, whether dnsmasq got the current config, and which cache files are missing.</li>
 <li><code>keen-pbr status</code> takes its data from the running service.</li>
-<li><strong>Marks in the RAW table.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+<li><strong>Marks in the RAW table.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+<br>
 Devices&rsquo; IPv4 traffic is marked in the RAW table. Keenetic does not rebuild it, so games and calls drop less often. If RAW is not available, keen-pbr warns you and uses <abbr title="The iptables table for changing packet metadata, such as setting a fwmark, before routing.">mangle</abbr>.</li>
-<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> Next to the system interface names, the Web UI shows their names from Keenetic.</li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+ Next to the system interface names, the Web UI shows their names from Keenetic.</li>
 <li>The package now depends on <code>conntrack</code>.</li>
 <li>In the API, the <code>apply</code>, <code>start</code>, <code>stop</code> and <code>restart</code> commands reply with <code>202</code> and an operation number. If such a command is already running, the next one gets <code>409</code>.</li>
 </ul>
@@ -1594,7 +1627,8 @@ Devices&rsquo; IPv4 traffic is marked in the RAW table. Keenetic does not rebuil
     <a href="#v3-0-7" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>29 June 2026</em></p>
 <h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-6"></span>
     <a href="#fixes-6" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
-<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> Fixed the IPv6 support check in iptables mode: keen-pbr could decide that IPv6 is not supported (<a href="https://github.com/maksimkurb/keen-pbr/issues/139"target="_blank" rel="noopener">#139</a>).</li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+ Fixed the IPv6 support check in iptables mode: keen-pbr could decide that IPv6 is not supported (<a href="https://github.com/maksimkurb/keen-pbr/issues/139"target="_blank" rel="noopener">#139</a>).</li>
 </ul>
 <h2>3.0.6 (beta)<span class="hx:absolute hx:-mt-20" id="v3-0-6"></span>
     <a href="#v3-0-6" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>3 June 2026. Version 3.0.5 was never released: it had a bug that kept keen-pbr from installing on OpenWrt 25.x.</em></p>
@@ -1604,7 +1638,8 @@ Devices&rsquo; IPv4 traffic is marked in the RAW table. Keenetic does not rebuil
 <li>A <code>urltest</code> link selected for both IPv4 and IPv6 is no longer treated as an error.</li>
 <li><code>keen-pbr status</code> marks rules that pass traffic through unchanged as <code>PASS</code>.</li>
 <li>With IPv6 turned off, <code>keen-pbr status</code> no longer shows IPv6 sets.</li>
-<li><span class="only-badges" title="Only for OpenWrt"><span class="only-badge only-badge--openwrt">OpenWrt</span></span> Fixed the <code>.apk</code> packages and the repository index for OpenWrt 25.x.</li>
+<li><span class="only-badges" title="Only for OpenWrt"><span class="only-badge only-badge--openwrt">OpenWrt</span></span>
+ Fixed the <code>.apk</code> packages and the repository index for OpenWrt 25.x.</li>
 <li>Fixed IPv6 detection with old versions of <code>ip6tables-restore</code> (<a href="https://github.com/maksimkurb/keen-pbr/issues/138"target="_blank" rel="noopener">#138</a>).</li>
 </ul>
 <h2>3.0.4 (beta)<span class="hx:absolute hx:-mt-20" id="v3-0-4"></span>
@@ -1626,7 +1661,8 @@ Shows all known interfaces, whether they are up and their addresses. You can sea
 Shows which rule matched, which outbound and interface were chosen, and which lists the address is in.</li>
 <li>Before you change or delete a list, you can see where else it is used.</li>
 <li>Config validation errors are shown next to the fields when you save.</li>
-<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> On start, kernel ipset support is checked. If Netfilter components are missing, the error message is clearer. Messages about loading the <code>xt_multiport</code> module are clearer too.</li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+ On start, kernel ipset support is checked. If Netfilter components are missing, the error message is clearer. Messages about loading the <code>xt_multiport</code> module are clearer too.</li>
 </ul>
 <h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-8"></span>
     <a href="#fixes-8" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
@@ -1655,7 +1691,8 @@ Fixed: the missing IPv6 routes were added, and for <code>urltest</code> an <code
 <li>Fixed checking links over IPv6.</li>
 <li>Fixed keen-pbr crashing when the router has no internet.</li>
 <li>Fixed the handling of the <code>urltest</code> check timeout and the priority of <code>unreachable</code> routes.</li>
-<li><span class="only-badges" title="Only for nftables"><span class="only-badge only-badge--nftables">nftables</span></span> Fixed port forwarding when the request comes from an address in a list.</li>
+<li><span class="only-badges" title="Only for nftables"><span class="only-badge only-badge--nftables">nftables</span></span>
+ Fixed port forwarding when the request comes from an address in a list.</li>
 <li>Fixed the display of list auto-update: the Web UI showed it as on when it was off.</li>
 <li>The external link icon is now clickable.</li>
 </ul>
@@ -1663,7 +1700,8 @@ Fixed: the missing IPv6 routes were added, and for <code>urltest</code> an <code
     <a href="#v3-0-2" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>26 April 2026</em></p>
 <h3>Breaking Changes<span class="hx:absolute hx:-mt-20" id="upgrading-from-301"></span>
     <a href="#upgrading-from-301" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
-<li><strong>New repository address.</strong> <span class="only-badges" title="Only for OpenWrt"><span class="only-badge only-badge--openwrt">OpenWrt</span></span><br>
+<li><strong>New repository address.</strong> <span class="only-badges" title="Only for OpenWrt"><span class="only-badge only-badge--openwrt">OpenWrt</span></span>
+<br>
 Packages are now built per CPU architecture, not per router model. If keen-pbr is already installed on OpenWrt, change the repository address in the package manager settings. See <a href="/docs/getting-started/installation/openwrt/">Installing on OpenWrt</a>.</li>
 </ul>
 <h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-10"></span>
@@ -1678,21 +1716,30 @@ Packages are now built per CPU architecture, not per router model. If keen-pbr i
 </ul>
 <h3>Fixes<span class="hx:absolute hx:-mt-20" id="fixes-11"></span>
     <a href="#fixes-11" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
-<li><strong>The route check no longer touches the firewall.</strong> <span class="only-badges" title="Only for nftables"><span class="only-badge only-badge--nftables">nftables</span></span><br>
+<li><strong>The route check no longer touches the firewall.</strong> <span class="only-badges" title="Only for nftables"><span class="only-badge only-badge--nftables">nftables</span></span>
+<br>
 Before, the route check in the Web UI wiped firewall rules.</li>
 <li>Fixed dnsmasq starting after a router reboot: sometimes it did not start.</li>
 <li><strong>Route check through dnsmasq.</strong><br>
 Addresses are resolved through dnsmasq, not the ISP&rsquo;s DNS. Before, the check could get a reply forged by the ISP and show a wrong route.</li>
-<li><span class="only-badges" title="Only for OpenWrt"><span class="only-badge only-badge--openwrt">OpenWrt</span></span> Fixed nftables rules disappearing.</li>
-<li><strong>fw4 support.</strong> <span class="only-badges" title="Only for OpenWrt"><span class="only-badge only-badge--openwrt">OpenWrt</span></span><br>
+<li><span class="only-badges" title="Only for OpenWrt"><span class="only-badge only-badge--openwrt">OpenWrt</span></span>
+ Fixed nftables rules disappearing.</li>
+<li><strong>fw4 support.</strong> <span class="only-badges" title="Only for OpenWrt"><span class="only-badge only-badge--openwrt">OpenWrt</span></span>
+<br>
 The firewall integration was redone: on newer OpenWrt versions the <code>/etc/hotplug.d/firewall/70-keen-pbr</code> script stopped running.</li>
-<li><span class="only-badges" title="Only for OpenWrt"><span class="only-badge only-badge--openwrt">OpenWrt</span></span> <code>dnsmasq-full</code> was added to the package dependencies. Fixed writing to the system log.</li>
-<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> Fixed starting on old NDMS 2.x firmware with <code>keenetic</code>-type DNS.</li>
-<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> <abbr title="DNS over TLS: encrypted DNS. The router cannot read these queries.">DoT</abbr> DNS servers from Keenetic settings are now used.</li>
-<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> <code>iptables</code> and <code>ipset</code> were added to the package dependencies.</li>
-<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span> Fixed <code>opkg update</code> errors for those who still had the old repository address.</li>
+<li><span class="only-badges" title="Only for OpenWrt"><span class="only-badge only-badge--openwrt">OpenWrt</span></span>
+ <code>dnsmasq-full</code> was added to the package dependencies. Fixed writing to the system log.</li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+ Fixed starting on old NDMS 2.x firmware with <code>keenetic</code>-type DNS.</li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+ <abbr title="DNS over TLS: encrypted DNS. The router cannot read these queries.">DoT</abbr> DNS servers from Keenetic settings are now used.</li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+ <code>iptables</code> and <code>ipset</code> were added to the package dependencies.</li>
+<li><span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+ Fixed <code>opkg update</code> errors for those who still had the old repository address.</li>
 <li>Fixed the <strong>Save</strong> button: after an error in the rule form it could not be clicked until the page was reloaded.</li>
-<li><span class="only-badges" title="Only for iptables"><span class="only-badge only-badge--iptables">iptables</span></span> The port list is checked against iptables limits.</li>
+<li><span class="only-badges" title="Only for iptables"><span class="only-badge only-badge--iptables">iptables</span></span>
+ The port list is checked against iptables limits.</li>
 </ul>
 <h2>3.0.0 (beta)<span class="hx:absolute hx:-mt-20" id="v3-0-0"></span>
     <a href="#v3-0-0" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><em>22 April 2026</em></p>

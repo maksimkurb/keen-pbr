@@ -383,7 +383,8 @@
 					&lt;td&gt;&lt;code&gt;strategy&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;string&lt;/td&gt;
 					&lt;td&gt;нет (по умолчанию: &lt;code&gt;&amp;quot;priority&amp;quot;&lt;/code&gt;)&lt;/td&gt;
-					&lt;td&gt;Как выбирать канал. В веб-интерфейсе: &lt;strong&gt;Стратегия выбора&lt;/strong&gt;. &lt;code&gt;&amp;quot;priority&amp;quot;&lt;/code&gt; (&lt;strong&gt;Самый быстрый&lt;/strong&gt;) — весь трафик идёт через один канал: с самой низкой задержкой в первой рабочей ступени. &lt;code&gt;&amp;quot;balance&amp;quot;&lt;/code&gt; (&lt;strong&gt;Многопутевая передача&lt;/strong&gt;) — новые соединения распределяются между рабочими каналами по весу. &lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;&lt;/td&gt;
+					&lt;td&gt;Как выбирать канал. В веб-интерфейсе: &lt;strong&gt;Стратегия выбора&lt;/strong&gt;.&lt;ul&gt;&lt;li&gt;&lt;code&gt;&amp;quot;priority&amp;quot;&lt;/code&gt; (&lt;strong&gt;Самый быстрый&lt;/strong&gt;) — весь трафик идёт через один канал: с самой низкой задержкой в первой рабочей ступени.&lt;/li&gt;&lt;li&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
+ &lt;code&gt;&amp;quot;balance&amp;quot;&lt;/code&gt; (&lt;strong&gt;Многопутевая передача&lt;/strong&gt;) — новые соединения распределяются между рабочими каналами по весу.&lt;/li&gt;&lt;/ul&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;conntrack_on_switch&lt;/code&gt;&lt;/td&gt;
@@ -492,7 +493,8 @@
 					&lt;td&gt;&lt;code&gt;weight&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer 1-100&lt;/td&gt;
 					&lt;td&gt;нет (по умолчанию: &lt;code&gt;1&lt;/code&gt;)&lt;/td&gt;
-					&lt;td&gt;Вес канала, в веб-интерфейсе — &lt;strong&gt;Вес&lt;/strong&gt;. &lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt; Нужен только при &lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt;: чем больше вес, тем больше новых соединений получает канал. Каналы с весами 7 и 3 получат 70% и 30% новых соединений, пока оба работают. Если один канал недоступен, его доля делится между остальными. Уже открытые соединения не переносятся&lt;/td&gt;
+					&lt;td&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
+ Вес канала, в веб-интерфейсе — &lt;strong&gt;Вес&lt;/strong&gt;. Нужен только при &lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt;: чем больше вес, тем больше новых соединений получает канал. Каналы с весами 7 и 3 получат 70% и 30% новых соединений, пока оба работают. Если один канал недоступен, его доля делится между остальными. Уже открытые соединения не переносятся&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
@@ -514,10 +516,13 @@
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;h3&gt;Многопутевая передача (&lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt;)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;многопутевая-передача-strategy-balance&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%bc%d0%bd%d0%be%d0%b3%d0%be%d0%bf%d1%83%d1%82%d0%b5%d0%b2%d0%b0%d1%8f-%d0%bf%d0%b5%d1%80%d0%b5%d0%b4%d0%b0%d1%87%d0%b0-strategy-balance&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+    &lt;a href=&#34;#%d0%bc%d0%bd%d0%be%d0%b3%d0%be%d0%bf%d1%83%d1%82%d0%b5%d0%b2%d0%b0%d1%8f-%d0%bf%d0%b5%d1%80%d0%b5%d0%b4%d0%b0%d1%87%d0%b0-strategy-balance&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
+&lt;br&gt;
 Эта стратегия распределяет нагрузку между несколькими работающими каналами первой рабочей ступени. Канал выбирается для каждого нового соединения, а не для каждого запроса: всё соединение, включая HTTP/2 и &lt;abbr title=&#34;Транспортный протокол поверх UDP, на нём работает HTTP/3.&#34;&gt;QUIC&lt;/abbr&gt;, идёт через один канал. &lt;code&gt;tolerance_ms&lt;/code&gt; и &lt;code&gt;conntrack_on_switch&lt;/code&gt; при балансировке не используются. Если канал перестал работать, записи &lt;abbr title=&#34;Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).&#34;&gt;conntrack&lt;/abbr&gt; его соединений удаляются, а новые соединения распределяются между оставшимися каналами.&lt;/p&gt;
-&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt; Соединения распределяются точно по весам.&lt;br&gt;
-&lt;span class=&#34;only-badges&#34; title=&#34;Только для iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt; Канал выбирается случайно с нужной вероятностью, поэтому на малом числе соединений доли могут заметно отличаться от весов, а на большом выравниваются. Для iptables нужен модуль ядра &lt;code&gt;xt_statistic&lt;/code&gt;; если его нет, keen-pbr сообщит об этом при применении конфигурации. На Keenetic эта стратегия недоступна. С &lt;code&gt;--use-raw-prerouting&lt;/code&gt; балансировка недоступна.&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt;
+ Соединения распределяются точно по весам.&lt;br&gt;
+&lt;span class=&#34;only-badges&#34; title=&#34;Только для iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt;
+ Канал выбирается случайно с нужной вероятностью, поэтому на малом числе соединений доли могут заметно отличаться от весов, а на большом выравниваются. Для iptables нужен модуль ядра &lt;code&gt;xt_statistic&lt;/code&gt;; если его нет, keen-pbr сообщит об этом при применении конфигурации. На Keenetic эта стратегия недоступна. С &lt;code&gt;--use-raw-prerouting&lt;/code&gt; балансировка недоступна.&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
 
@@ -1138,12 +1143,16 @@
 					&lt;td&gt;&lt;code&gt;default_gateway&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;&amp;quot;ipv4&amp;quot;&lt;/code&gt; или &lt;code&gt;&amp;quot;ipv6&amp;quot;&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;нет&lt;/td&gt;
-					&lt;td&gt;Весь интернет-трафик, который иначе ушёл бы через основной шлюз роутера (кроме адресов локальной сети). В веб-интерфейсе: &lt;strong&gt;Тип правила&lt;/strong&gt; &amp;gt; &lt;strong&gt;Шлюз по умолчанию IPv4&lt;/strong&gt; / &lt;strong&gt;Шлюз по умолчанию IPv6&lt;/strong&gt;. &lt;span class=&#34;only-badges&#34; title=&#34;Только для nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt; Ставьте такие правила последними&lt;/td&gt;
+					&lt;td&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
+ Весь интернет-трафик, который иначе ушёл бы через основной шлюз роутера (кроме адресов локальной сети). В веб-интерфейсе: &lt;strong&gt;Тип правила&lt;/strong&gt; &amp;gt; &lt;strong&gt;Шлюз по умолчанию IPv4&lt;/strong&gt; / &lt;strong&gt;Шлюз по умолчанию IPv6&lt;/strong&gt;. Ставьте такие правила последними&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;h2&gt;Резервный канал или балансировка для всего интернета&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;failover-or-balancing-for-all-internet-traffic&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#failover-or-balancing-for-all-internet-traffic&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Это нужно, чтобы весь интернет-трафик шёл через автовыбор (&lt;code&gt;urltest&lt;/code&gt; или &lt;code&gt;icmptest&lt;/code&gt;): если основной канал упал, трафик переключится на запасной, а при &lt;code&gt;balance&lt;/code&gt; распределится между несколькими. &lt;span class=&#34;only-badges&#34; title=&#34;Только для nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt; Для этого в конец списка правил добавьте по правилу с &lt;code&gt;default_gateway&lt;/code&gt; для IPv4 и для IPv6. С iptables (и на Keenetic) конфигурация не пройдёт проверку. Адреса локальной сети остаются на обычной маршрутизации.&lt;/p&gt;
+    &lt;a href=&#34;#failover-or-balancing-for-all-internet-traffic&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Это нужно, чтобы весь интернет-трафик шёл через автовыбор (&lt;code&gt;urltest&lt;/code&gt; или &lt;code&gt;icmptest&lt;/code&gt;): если основной канал упал, трафик переключится на запасной, а при &lt;code&gt;balance&lt;/code&gt; распределится между несколькими.&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
+&lt;br&gt;
+Для этого в конец списка правил добавьте по правилу с &lt;code&gt;default_gateway&lt;/code&gt; для IPv4 и для IPv6. Адреса локальной сети остаются на обычной маршрутизации.&lt;/p&gt;
 &lt;p&gt;По умолчанию такие правила действуют только на трафик устройств в сети. Чтобы они действовали и на трафик самого роутера, включите &lt;strong&gt;Общее&lt;/strong&gt; &amp;gt; &lt;strong&gt;Настройки&lt;/strong&gt; &amp;gt; &lt;strong&gt;Общие&lt;/strong&gt; &amp;gt; &lt;strong&gt;Обрабатывать собственный трафик роутера&lt;/strong&gt; (&lt;code&gt;iproute.process_router_traffic: true&lt;/code&gt;).&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -1646,7 +1655,7 @@
 &lt;p&gt;&lt;strong&gt;Да, если вам нужно одно из двух:&lt;/strong&gt;&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;разрешать домены некоторых списков через отдельный DNS-сервер. Например, CDN (сеть доставки контента) должна отдавать адреса для региона вашего VPN, или домены резолвятся только внутри VPN;&lt;/li&gt;
-&lt;li&gt;задать свои DNS-серверы по умолчанию для всей сети прямо в keen-pbr.&lt;/li&gt;
+&lt;li&gt;задать свои основные DNS-серверы для всей сети прямо в keen-pbr.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;Оба случая работают только через dnsmasq. Если ни один вам не подходит, оставьте переключатель &lt;strong&gt;Управлять конфигурацией dnsmasq&lt;/strong&gt; выключенным. Если вы обновились с 3.3.x, переключатель уже включён: выключите его, если dnsmasq вам не нужен (см. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/changelog/#upgrading-from-33x&#34;&gt;Ломающие изменения в 3.4.0&lt;/a&gt;).&lt;/p&gt;
 &lt;p&gt;Как установить dnsmasq и как вернуть всё обратно: &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/getting-started/installation/keenetic/#dnsmasq&#34;&gt;Keenetic&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/getting-started/installation/openwrt/#dnsmasq&#34;&gt;OpenWrt&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/getting-started/installation/debian/#dnsmasq&#34;&gt;Debian&lt;/a&gt;.&lt;/p&gt;
@@ -1686,8 +1695,8 @@
     &lt;a href=&#34;#%d0%b4%d0%be%d0%b1%d0%b0%d0%b2%d1%8c%d1%82%d0%b5-dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Откройте &lt;strong&gt;DNS&lt;/strong&gt; &amp;gt; &lt;strong&gt;DNS серверы&lt;/strong&gt; &amp;gt; &lt;strong&gt;Добавить DNS-сервер&lt;/strong&gt;. Заполните &lt;strong&gt;Название&lt;/strong&gt;, &lt;strong&gt;Тип DNS&lt;/strong&gt; и &lt;strong&gt;Адрес&lt;/strong&gt;. В поле &lt;strong&gt;Делать запросы через Outbound&lt;/strong&gt; выберите outbound (канал, через который пойдёт трафик: VPN-интерфейс, провайдер или блокировка), если сервер доступен только через него, например через VPN.&lt;/p&gt;
 &lt;h3&gt;Привяжите сервер к спискам&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;привяжите-сервер-к-спискам&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%bf%d1%80%d0%b8%d0%b2%d1%8f%d0%b6%d0%b8%d1%82%d0%b5-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80-%d0%ba-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0%d0%bc&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Откройте &lt;strong&gt;DNS&lt;/strong&gt; &amp;gt; &lt;strong&gt;Правила DNS&lt;/strong&gt; &amp;gt; &lt;strong&gt;Добавить правило DNS&lt;/strong&gt;. В поле &lt;strong&gt;Списки доменов&lt;/strong&gt; выберите списки, а в поле &lt;strong&gt;DNS-серверы&lt;/strong&gt; сервер из предыдущего шага. Серверов можно выбрать несколько.&lt;/p&gt;
-&lt;h3&gt;Задайте DNS-серверы по умолчанию (необязательно)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;задайте-dns-серверы-по-умолчанию-необязательно&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%b7%d0%b0%d0%b4%d0%b0%d0%b9%d1%82%d0%b5-dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80%d1%8b-%d0%bf%d0%be-%d1%83%d0%bc%d0%be%d0%bb%d1%87%d0%b0%d0%bd%d0%b8%d1%8e-%d0%bd%d0%b5%d0%be%d0%b1%d1%8f%d0%b7%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;В блоке &lt;strong&gt;Вышестоящие DNS-сервера по умолчанию&lt;/strong&gt; нажмите &lt;strong&gt;Добавить DNS-сервер по умолчанию&lt;/strong&gt; и выберите серверы для всех остальных доменов. Если блок пуст, dnsmasq использует свои обычные DNS-серверы.&lt;/p&gt;
+&lt;h3&gt;Задайте основные DNS-серверы (необязательно)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;задайте-основные-dns-серверы-необязательно&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%b7%d0%b0%d0%b4%d0%b0%d0%b9%d1%82%d0%b5-%d0%be%d1%81%d0%bd%d0%be%d0%b2%d0%bd%d1%8b%d0%b5-dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80%d1%8b-%d0%bd%d0%b5%d0%be%d0%b1%d1%8f%d0%b7%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;На странице &lt;strong&gt;DNS&lt;/strong&gt; &amp;gt; &lt;strong&gt;DNS серверы&lt;/strong&gt; под таблицей найдите блок &lt;strong&gt;Основные DNS-серверы&lt;/strong&gt;, нажмите &lt;strong&gt;Добавить основной DNS-сервер&lt;/strong&gt; и выберите серверы для всех остальных доменов. Если блок пуст, dnsmasq использует свои обычные DNS-серверы.&lt;/p&gt;
 &lt;h3&gt;Примените настройки&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;примените-настройки&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d0%bd%d0%b8%d1%82%d0%b5-%d0%bd%d0%b0%d1%81%d1%82%d1%80%d0%be%d0%b9%d0%ba%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Нажмите &lt;strong&gt;Применить&lt;/strong&gt; (или &lt;strong&gt;Применить и перезапустить&lt;/strong&gt;).&lt;/p&gt;
 &lt;/div&gt;
@@ -1769,7 +1778,8 @@
 					&lt;td&gt;&lt;code&gt;type&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;string&lt;/td&gt;
 					&lt;td&gt;нет&lt;/td&gt;
-					&lt;td&gt;Тип сервера (&lt;strong&gt;Тип DNS&lt;/strong&gt;): &lt;code&gt;static&lt;/code&gt; (&lt;strong&gt;DNS без шифрования&lt;/strong&gt;, по умолчанию), &lt;code&gt;doh&lt;/code&gt; (&lt;strong&gt;DNS-over-HTTPS&lt;/strong&gt;) или &lt;code&gt;keenetic&lt;/code&gt; (&lt;strong&gt;Keenetic DNS&lt;/strong&gt;, &lt;span class=&#34;only-badges&#34; title=&#34;Только для Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;)&lt;/td&gt;
+					&lt;td&gt;Тип сервера (&lt;strong&gt;Тип DNS&lt;/strong&gt;):&lt;ul&gt;&lt;li&gt;&lt;code&gt;static&lt;/code&gt; (&lt;strong&gt;DNS без шифрования&lt;/strong&gt;, по умолчанию)&lt;/li&gt;&lt;li&gt;&lt;code&gt;doh&lt;/code&gt; (&lt;strong&gt;DNS-over-HTTPS&lt;/strong&gt;)&lt;/li&gt;&lt;li&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;
+ &lt;code&gt;keenetic&lt;/code&gt; (&lt;strong&gt;Keenetic DNS&lt;/strong&gt;)&lt;/li&gt;&lt;/ul&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;address&lt;/code&gt;&lt;/td&gt;
@@ -1782,6 +1792,12 @@
 					&lt;td&gt;string&lt;/td&gt;
 					&lt;td&gt;нет&lt;/td&gt;
 					&lt;td&gt;Outbound, через который роутер сам отправляет запросы к этому серверу (&lt;strong&gt;Делать запросы через Outbound&lt;/strong&gt;)&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;ips&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;array of string&lt;/td&gt;
+					&lt;td&gt;нет&lt;/td&gt;
+					&lt;td&gt;Только для &lt;code&gt;doh&lt;/code&gt;: IP-адреса сервера без порта (&lt;strong&gt;IP-адреса сервера&lt;/strong&gt;). Если указаны, keen-pbr подключается только к ним. Сертификат сервера по-прежнему проверяется по имени из &lt;code&gt;address&lt;/code&gt;. См. &lt;a href=&#34;#doh-bootstrap&#34;&gt;Bootstrap-серверы&lt;/a&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
@@ -1831,12 +1847,47 @@
 &lt;h3&gt;Тип «DNS-over-HTTPS»&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dns-over-https&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#dns-over-https&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;DNS-over-HTTPS (DoH) отправляет запросы серверу по зашифрованному HTTPS-соединению, поэтому провайдер не может прочитать или подменить ответы. Выберите &lt;strong&gt;DNS-over-HTTPS&lt;/strong&gt; в поле &lt;strong&gt;Тип DNS&lt;/strong&gt; и введите адрес сервера в поле &lt;strong&gt;URL&lt;/strong&gt;, например &lt;code&gt;https://dns.google/dns-query&lt;/code&gt; или &lt;code&gt;https://cloudflare-dns.com/dns-query&lt;/code&gt;.&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;Сервер используется в DNS-правилах и среди серверов по умолчанию так же, как любой другой. В одном правиле можно выбрать несколько DoH-серверов или DoH-сервер вместе с обычными.&lt;/li&gt;
+&lt;li&gt;Сервер используется в DNS-правилах и среди основных DNS-серверов так же, как любой другой. В одном правиле можно выбрать несколько DoH-серверов или DoH-сервер вместе с обычными.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Делать запросы через Outbound&lt;/strong&gt; работает как у других серверов: keen-pbr подключается к DoH-серверу через выбранный outbound.&lt;/li&gt;
 &lt;li&gt;Для проверки сервера на роутере должны быть установлены сертификаты центров сертификации (Keenetic: пакет &lt;code&gt;ca-certificates&lt;/code&gt; в Entware; OpenWrt: &lt;code&gt;ca-bundle&lt;/code&gt;; Debian: &lt;code&gt;ca-certificates&lt;/code&gt;). Если их нет, на странице состояния появляется проблема «DNS-over-HTTPS серверы не используются».&lt;/li&gt;
 &lt;/ul&gt;
+&lt;h3&gt;Bootstrap-серверы&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;doh-bootstrap&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#doh-bootstrap&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Если в адресе DoH-сервера стоит имя (&lt;code&gt;dns.google&lt;/code&gt;), а не IP-адрес, keen-pbr сначала спрашивает у обычного DNS-сервера, какой IP-адрес у этого имени. Такие серверы называются bootstrap-серверами.&lt;/p&gt;
+&lt;p&gt;По умолчанию keen-pbr спрашивает первый обычный сервер из таблицы &lt;strong&gt;DNS-серверы&lt;/strong&gt;. Чтобы выбрать другие, откройте &lt;strong&gt;DNS&lt;/strong&gt; &amp;gt; &lt;strong&gt;DNS серверы&lt;/strong&gt;, найдите под блоком &lt;strong&gt;Основные DNS-серверы&lt;/strong&gt; блок &lt;strong&gt;Bootstrap-серверы&lt;/strong&gt; и нажмите &lt;strong&gt;Добавить bootstrap-сервер&lt;/strong&gt;. Подходят обычные DNS-серверы и Keenetic DNS. Серверы опрашиваются по порядку списка. Если сервер не ответил, ответил ошибкой, сказал, что такого имени нет, или не вернул адрес, keen-pbr спрашивает следующий. После изменения списка адреса ищутся заново.&lt;/p&gt;
+&lt;p&gt;Если провайдер блокирует имя DoH-сервера, поставьте первым bootstrap-сервер, который его не блокирует, например доступный через VPN (&lt;strong&gt;Делать запросы через Outbound&lt;/strong&gt;).&lt;/p&gt;
+&lt;p&gt;Если адреса сервера вам известны, впишите их через запятую в поле &lt;strong&gt;IP-адреса сервера&lt;/strong&gt; у DoH-сервера. Тогда keen-pbr подключается только к ним и адрес не ищет.&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;servers&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;&lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;google_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;8.8.8.8&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;&lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;quad9&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;9.9.9.9&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;&lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;google_doh&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;doh&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;https://dns.google/dns-query&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;cloudflare_doh&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;doh&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;https://cloudflare-dns.com/dns-query&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;ips&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;1.1.1.1&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;1.0.0.1&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;bootstrap&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;google_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;quad9&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
 &lt;h3&gt;Тип «Keenetic DNS»&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;тип-keenetic-dns&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d1%82%d0%b8%d0%bf-keenetic-dns&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+    &lt;a href=&#34;#%d1%82%d0%b8%d0%bf-keenetic-dns&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;
+&lt;br&gt;
 На роутерах Keenetic &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt; берёт DNS-серверы из текущих настроек роутера. Их настраивают в веб-интерфейсе Keenetic: &lt;strong&gt;Сетевые правила&lt;/strong&gt; &amp;gt; &lt;strong&gt;Интернет-фильтры&lt;/strong&gt; &amp;gt; &lt;strong&gt;Настройка DNS&lt;/strong&gt;. Если там заданы DoT или DoH серверы, используются только они.&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;Поле &lt;code&gt;address&lt;/code&gt; для него не задаётся.&lt;/li&gt;
@@ -1896,10 +1947,16 @@
 					&lt;td&gt;Правила, которые привязывают списки к DNS-серверам (работают только при &lt;code&gt;resolver_integration: &amp;quot;dnsmasq&amp;quot;&lt;/code&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;bootstrap&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;array of string&lt;/td&gt;
+					&lt;td&gt;нет&lt;/td&gt;
+					&lt;td&gt;Теги обычных DNS-серверов (&lt;code&gt;static&lt;/code&gt; или &lt;code&gt;keenetic&lt;/code&gt;), через которые keen-pbr по порядку ищет IP-адреса DoH-серверов. В веб-интерфейсе: &lt;strong&gt;Bootstrap-серверы&lt;/strong&gt;. Если не указано, используется первый обычный сервер из &lt;code&gt;servers&lt;/code&gt;.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;fallback&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;array of string&lt;/td&gt;
 					&lt;td&gt;нет&lt;/td&gt;
-					&lt;td&gt;Теги вышестоящих DNS-серверов для запросов, не совпавших с правилом (работают только при &lt;code&gt;resolver_integration: &amp;quot;dnsmasq&amp;quot;&lt;/code&gt;). В веб-интерфейсе: &lt;strong&gt;Вышестоящие DNS-сервера по умолчанию&lt;/strong&gt;. Если не указано, dnsmasq оставляет свои серверы и дополнительно получает серверы из &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt;.&lt;/td&gt;
+					&lt;td&gt;Теги основных DNS-серверов для запросов, не совпавших с правилом (работают только при &lt;code&gt;resolver_integration: &amp;quot;dnsmasq&amp;quot;&lt;/code&gt;). В веб-интерфейсе: &lt;strong&gt;Основные DNS-серверы&lt;/strong&gt;. Если не указано, dnsmasq оставляет свои серверы и дополнительно получает серверы из &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt;.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;proxy_address&lt;/code&gt;&lt;/td&gt;
@@ -2295,13 +2352,15 @@
 					&lt;td&gt;&lt;code&gt;ipset_hashsize&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;отсутствует&lt;/td&gt;
-					&lt;td&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt; Необязательный начальный размер хеш-таблицы &lt;abbr title=&#34;Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.&#34;&gt;ipset&lt;/abbr&gt;, создаваемых бэкендом iptables (по умолчанию &lt;code&gt;1024&lt;/code&gt;). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. Веб-интерфейс (&lt;strong&gt;Продвинутый&lt;/strong&gt; режим): &lt;strong&gt;Размер хеш-таблицы IPSet (ipset hashsize)&lt;/strong&gt;. При изменении наборы пересоздаются, а динамические наборы очищаются.&lt;/td&gt;
+					&lt;td&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt;
+ Необязательный начальный размер хеш-таблицы &lt;abbr title=&#34;Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.&#34;&gt;ipset&lt;/abbr&gt;, создаваемых бэкендом iptables (по умолчанию &lt;code&gt;1024&lt;/code&gt;). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. Веб-интерфейс (&lt;strong&gt;Продвинутый&lt;/strong&gt; режим): &lt;strong&gt;Размер хеш-таблицы IPSet (ipset hashsize)&lt;/strong&gt;. При изменении наборы пересоздаются, а динамические наборы очищаются.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;ipset_maxelem&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;отсутствует&lt;/td&gt;
-					&lt;td&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt; Необязательное максимальное число элементов ipset, создаваемых бэкендом iptables (по умолчанию &lt;code&gt;65536&lt;/code&gt;). Не действует с nftables. Допустимый диапазон: от 1 до 4294967295. Веб-интерфейс: &lt;strong&gt;Максимальное количество элементов в ipset (ipset maxelem)&lt;/strong&gt;. При изменении наборы пересоздаются, а динамические наборы очищаются.&lt;/td&gt;
+					&lt;td&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt;
+ Необязательное максимальное число элементов ipset, создаваемых бэкендом iptables (по умолчанию &lt;code&gt;65536&lt;/code&gt;). Не действует с nftables. Допустимый диапазон: от 1 до 4294967295. Веб-интерфейс: &lt;strong&gt;Максимальное количество элементов в ipset (ipset maxelem)&lt;/strong&gt;. При изменении наборы пересоздаются, а динамические наборы очищаются.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;reuse_static_sets_on_runtime_refresh&lt;/code&gt;&lt;/td&gt;
@@ -3184,7 +3243,12 @@
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// detour для него работает так же, как для других серверов.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;google_doh&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;doh&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;https://dns.google/dns-query&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;https://dns.google/dns-query&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Необязательные IP-адреса сервера. Если указаны, keen-pbr подключается
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// только к ним и не ищет адрес сервера через bootstrap-серверы.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// По умолчанию: не указано, адрес ищется.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;ips&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;8.8.8.8&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;8.8.4.4&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
@@ -3217,10 +3281,16 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// DNS-серверы для доменов, которые не подошли ни под одно правило
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Основные DNS-серверы для доменов, которые не подошли ни под одно правило
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// (работают только при resolver_integration: &amp;#34;dnsmasq&amp;#34;).
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// По умолчанию: пусто (используются серверы из resolv.conf).
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;fallback&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;google_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;fallback&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;google_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Обычные DNS-серверы (static или keenetic), через которые ищутся адреса
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// DoH-серверов, у которых в адресе указано имя. Опрашиваются по порядку:
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// если сервер не ответил, ответил ошибкой или не знает адрес, берётся следующий.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// По умолчанию: не указано, берётся первый обычный сервер из &amp;#34;servers&amp;#34;.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;bootstrap&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;google_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;c1&#34;&gt;// Перехват трафика. Все поля ниже имеют значения по умолчанию. Если ядру
@@ -3456,14 +3526,16 @@
 &lt;/div&gt;
 
 &lt;h2&gt;Как это работает&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;как-это-работает&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+    &lt;a href=&#34;#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
+&lt;br&gt;
 Outbound &lt;code&gt;urltest&lt;/code&gt; или &lt;code&gt;icmptest&lt;/code&gt; с &lt;code&gt;&amp;quot;strategy&amp;quot;: &amp;quot;balance&amp;quot;&lt;/code&gt; выбирает один из рабочих каналов для каждого &lt;strong&gt;нового&lt;/strong&gt; соединения пропорционально их &lt;code&gt;weight&lt;/code&gt; (от 1 до 100, по умолчанию 1). Всё соединение идёт через один канал. Каналы, которые не прошли проверку, исключаются из распределения и возвращаются, когда снова заработают.&lt;/p&gt;
 &lt;p&gt;В системе вам нужно настроить &lt;abbr title=&#34;Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.&#34;&gt;NAT&lt;/abbr&gt; на каждом провайдере и &lt;code&gt;rp_filter&lt;/code&gt; (см. ниже).&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
 
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt; Каналы выбираются случайно с заданной вероятностью, поэтому на небольшом числе соединений доли получаются приблизительными. Бэкенду &lt;code&gt;iptables&lt;/code&gt; нужен модуль ядра &lt;code&gt;xt_statistic&lt;/code&gt;, а поле &lt;code&gt;default_gateway&lt;/code&gt; в правилах маршрутизации работает только с &lt;code&gt;nftables&lt;/code&gt;. Менять &lt;code&gt;firewall_backend&lt;/code&gt; обычно не нужно: keen-pbr сам выбирает подходящий бэкенд.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt;
+Каналы выбираются случайно с заданной вероятностью, поэтому на небольшом числе соединений доли получаются приблизительными. Бэкенду &lt;code&gt;iptables&lt;/code&gt; нужен модуль ядра &lt;code&gt;xt_statistic&lt;/code&gt;. Менять &lt;code&gt;firewall_backend&lt;/code&gt; обычно не нужно: keen-pbr сам выбирает подходящий бэкенд.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 
@@ -3524,9 +3596,11 @@ Outbound &lt;code&gt;urltest&lt;/code&gt; или &lt;code&gt;icmptest&lt;/code&g
 &lt;h2&gt;Обязательная настройка системы&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;обязательная-настройка-системы&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%be%d0%b1%d1%8f%d0%b7%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%b0%d1%8f-%d0%bd%d0%b0%d1%81%d1%82%d1%80%d0%be%d0%b9%d0%ba%d0%b0-%d1%81%d0%b8%d1%81%d1%82%d0%b5%d0%bc%d1%8b&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;h3&gt;1. NAT на каждом WAN&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;1-nat-на-каждом-wan&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#1-nat-%d0%bd%d0%b0-%d0%ba%d0%b0%d0%b6%d0%b4%d0%be%d0%bc-wan&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;abbr title=&#34;Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.&#34;&gt;NAT&lt;/abbr&gt; &lt;strong&gt;обязателен на каждом WAN-интерфейсе&lt;/strong&gt;. Без него пакет уходит ко второму провайдеру с адресом из вашей локальной сети, ответ не возвращается, и соединение зависает. Проверки каналов при этом проходят, поэтому проблему легко пропустить. Это касается и трафика самого хоста.&lt;/p&gt;
-&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;/span&gt;
+&lt;br&gt;
 В &lt;strong&gt;Network&lt;/strong&gt; &amp;gt; &lt;strong&gt;Firewall&lt;/strong&gt; &amp;gt; &lt;strong&gt;Zones&lt;/strong&gt; включите &lt;strong&gt;Masquerading&lt;/strong&gt; для каждой зоны, в которой есть подключение к провайдеру (по умолчанию это зона &lt;code&gt;wan&lt;/code&gt;).&lt;/p&gt;
-&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt;
+&lt;br&gt;
 Добавьте &lt;code&gt;masquerade&lt;/code&gt; для обоих интерфейсов, например в &lt;code&gt;/etc/nftables.conf&lt;/code&gt;:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -3547,7 +3621,8 @@ Outbound &lt;code&gt;urltest&lt;/code&gt; или &lt;code&gt;icmptest&lt;/code&g
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt;
+&lt;br&gt;
 Добавьте правила &lt;code&gt;MASQUERADE&lt;/code&gt; и сохраните их, например через &lt;code&gt;iptables-persistent&lt;/code&gt;:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 

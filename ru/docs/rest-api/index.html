@@ -59,8 +59,8 @@ Prometheus и Grafana показывают состояние VPN-каналов
 REST API доступен, если:
 Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация В веб-интерфейсе откройте Безопасность &gt; Аутентификация и CORS. Включите Включить аутентификацию, введите Новый пароль и подтвердите его. Если API должен принимать запросы из браузера с другого сайта, добавьте его адрес в Разрешённые источники CORS (по одному в строке). Изменения вступают в силу сразу.">
 
-    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
-    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link rel="preload" href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" as="style" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
+    <link href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" rel="stylesheet" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
 
   
 
@@ -1198,6 +1198,7 @@ REST API доступен, если:
     </div>
           </div>
           
+          
           <p>REST API нужен, чтобы управлять keen-pbr и следить за ним из скриптов и внешних систем. Например:</p>
 <ul>
 <li>Prometheus и Grafana показывают состояние VPN-каналов и задержку (см. <a href="#get-metrics">GET /metrics</a>).</li>
@@ -1632,7 +1633,9 @@ REST API доступен, если:
 	</tbody>
 </table>
 <h3>Балансировка и маркированные пакеты<span class="hx:absolute hx:-mt-20" id="балансировка-и-маркированные-пакеты"></span>
-    <a href="#%d0%b1%d0%b0%d0%bb%d0%b0%d0%bd%d1%81%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-%d0%b8-%d0%bc%d0%b0%d1%80%d0%ba%d0%b8%d1%80%d0%be%d0%b2%d0%b0%d0%bd%d0%bd%d1%8b%d0%b5-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p><span class="only-badges" title="Только для iptables"><span class="only-badge only-badge--iptables">iptables</span></span> Эти метрики есть только при этом firewall-бэкенде. Если данных нет, серия не публикуется. После перестроения правил firewall счётчики начинаются с нуля.</p>
+    <a href="#%d0%b1%d0%b0%d0%bb%d0%b0%d0%bd%d1%81%d0%b8%d1%80%d0%be%d0%b2%d0%ba%d0%b0-%d0%b8-%d0%bc%d0%b0%d1%80%d0%ba%d0%b8%d1%80%d0%be%d0%b2%d0%b0%d0%bd%d0%bd%d1%8b%d0%b5-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p><span class="only-badges" title="Только для iptables"><span class="only-badge only-badge--iptables">iptables</span></span>
+<br>
+Эти метрики есть только при этом firewall-бэкенде. Если данных нет, серия не публикуется. После перестроения правил firewall счётчики начинаются с нуля.</p>
 <table>
 	<thead>
 			<tr>

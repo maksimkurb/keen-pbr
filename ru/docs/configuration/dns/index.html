@@ -35,14 +35,14 @@
 	<meta itemprop="name" content="DNS">
 	<meta itemprop="description" content="Домены из ваших списков работают без настройки DNS. keen-pbr сам читает обычные DNS-ответы (порт 53), которые проходят через роутер, и имена сайтов в начале TLS-, HTTP- и QUIC-соединений (это называется L7: имя сайта берётся из первых пакетов соединения). Подробности в разделе DNS-перехват.
 Нужен ли dnsmasq? Для маршрутизации нет. Перехват работает с любым резолвером: DNS-прокси Keenetic, unbound, dnsmasq или другим. Если провайдер подменяет DNS-ответы, обычно хватает DoH/DoT на роутере (DoH и DoT — зашифрованный DNS).">
-	<meta itemprop="wordCount" content="2992">
+	<meta itemprop="wordCount" content="3221">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="DNS">
 	<meta name="twitter:description" content="Домены из ваших списков работают без настройки DNS. keen-pbr сам читает обычные DNS-ответы (порт 53), которые проходят через роутер, и имена сайтов в начале TLS-, HTTP- и QUIC-соединений (это называется L7: имя сайта берётся из первых пакетов соединения). Подробности в разделе DNS-перехват.
 Нужен ли dnsmasq? Для маршрутизации нет. Перехват работает с любым резолвером: DNS-прокси Keenetic, unbound, dnsmasq или другим. Если провайдер подменяет DNS-ответы, обычно хватает DoH/DoT на роутере (DoH и DoT — зашифрованный DNS).">
 
-    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
-    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link rel="preload" href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" as="style" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
+    <link href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" rel="stylesheet" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
 
   
 
@@ -951,7 +951,7 @@
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b7%d0%b0%d0%b4%d0%b0%d0%b9%d1%82%d0%b5-dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80%d1%8b-%d0%bf%d0%be-%d1%83%d0%bc%d0%be%d0%bb%d1%87%d0%b0%d0%bd%d0%b8%d1%8e-%d0%bd%d0%b5%d0%be%d0%b1%d1%8f%d0%b7%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be">Задайте DNS-серверы по умолчанию (необязательно)
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%b7%d0%b0%d0%b4%d0%b0%d0%b9%d1%82%d0%b5-%d0%be%d1%81%d0%bd%d0%be%d0%b2%d0%bd%d1%8b%d0%b5-dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80%d1%8b-%d0%bd%d0%b5%d0%be%d0%b1%d1%8f%d0%b7%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be">Задайте основные DNS-серверы (необязательно)
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -964,6 +964,10 @@
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-over-https">Тип «DNS-over-HTTPS»
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#doh-bootstrap">Bootstrap-серверы
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1105,13 +1109,14 @@
     </div>
           </div>
           
+          
           <p>Домены из ваших списков работают без настройки DNS. keen-pbr сам читает обычные DNS-ответы (порт 53), которые проходят через роутер, и имена сайтов в начале TLS-, HTTP- и QUIC-соединений (это называется L7: имя сайта берётся из первых пакетов соединения). Подробности в разделе <a href="#dns-%d0%bf%d0%b5%d1%80%d0%b5%d1%85%d0%b2%d0%b0%d1%82">DNS-перехват</a>.</p>
 <h2>Нужен ли dnsmasq?<span class="hx:absolute hx:-mt-20" id="do-i-need-dnsmasq"></span>
     <a href="#do-i-need-dnsmasq" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><strong>Для маршрутизации нет.</strong> Перехват работает с любым резолвером: DNS-прокси Keenetic, unbound, dnsmasq или другим. Если провайдер подменяет DNS-ответы, обычно хватает DoH/DoT на роутере (DoH и DoT — зашифрованный DNS).</p>
 <p><strong>Да, если вам нужно одно из двух:</strong></p>
 <ul>
 <li>разрешать домены некоторых списков через отдельный DNS-сервер. Например, CDN (сеть доставки контента) должна отдавать адреса для региона вашего VPN, или домены резолвятся только внутри VPN;</li>
-<li>задать свои DNS-серверы по умолчанию для всей сети прямо в keen-pbr.</li>
+<li>задать свои основные DNS-серверы для всей сети прямо в keen-pbr.</li>
 </ul>
 <p>Оба случая работают только через dnsmasq. Если ни один вам не подходит, оставьте переключатель <strong>Управлять конфигурацией dnsmasq</strong> выключенным. Если вы обновились с 3.3.x, переключатель уже включён: выключите его, если dnsmasq вам не нужен (см. <a href="/ru/docs/changelog/#upgrading-from-33x">Ломающие изменения в 3.4.0</a>).</p>
 <p>Как установить dnsmasq и как вернуть всё обратно: <a href="/ru/docs/getting-started/installation/keenetic/#dnsmasq">Keenetic</a>, <a href="/ru/docs/getting-started/installation/openwrt/#dnsmasq">OpenWrt</a>, <a href="/ru/docs/getting-started/installation/debian/#dnsmasq">Debian</a>.</p>
@@ -1151,8 +1156,8 @@
     <a href="#%d0%b4%d0%be%d0%b1%d0%b0%d0%b2%d1%8c%d1%82%d0%b5-dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Откройте <strong>DNS</strong> &gt; <strong>DNS серверы</strong> &gt; <strong>Добавить DNS-сервер</strong>. Заполните <strong>Название</strong>, <strong>Тип DNS</strong> и <strong>Адрес</strong>. В поле <strong>Делать запросы через Outbound</strong> выберите outbound (канал, через который пойдёт трафик: VPN-интерфейс, провайдер или блокировка), если сервер доступен только через него, например через VPN.</p>
 <h3>Привяжите сервер к спискам<span class="hx:absolute hx:-mt-20" id="привяжите-сервер-к-спискам"></span>
     <a href="#%d0%bf%d1%80%d0%b8%d0%b2%d1%8f%d0%b6%d0%b8%d1%82%d0%b5-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80-%d0%ba-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0%d0%bc" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Откройте <strong>DNS</strong> &gt; <strong>Правила DNS</strong> &gt; <strong>Добавить правило DNS</strong>. В поле <strong>Списки доменов</strong> выберите списки, а в поле <strong>DNS-серверы</strong> сервер из предыдущего шага. Серверов можно выбрать несколько.</p>
-<h3>Задайте DNS-серверы по умолчанию (необязательно)<span class="hx:absolute hx:-mt-20" id="задайте-dns-серверы-по-умолчанию-необязательно"></span>
-    <a href="#%d0%b7%d0%b0%d0%b4%d0%b0%d0%b9%d1%82%d0%b5-dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80%d1%8b-%d0%bf%d0%be-%d1%83%d0%bc%d0%be%d0%bb%d1%87%d0%b0%d0%bd%d0%b8%d1%8e-%d0%bd%d0%b5%d0%be%d0%b1%d1%8f%d0%b7%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>В блоке <strong>Вышестоящие DNS-сервера по умолчанию</strong> нажмите <strong>Добавить DNS-сервер по умолчанию</strong> и выберите серверы для всех остальных доменов. Если блок пуст, dnsmasq использует свои обычные DNS-серверы.</p>
+<h3>Задайте основные DNS-серверы (необязательно)<span class="hx:absolute hx:-mt-20" id="задайте-основные-dns-серверы-необязательно"></span>
+    <a href="#%d0%b7%d0%b0%d0%b4%d0%b0%d0%b9%d1%82%d0%b5-%d0%be%d1%81%d0%bd%d0%be%d0%b2%d0%bd%d1%8b%d0%b5-dns-%d1%81%d0%b5%d1%80%d0%b2%d0%b5%d1%80%d1%8b-%d0%bd%d0%b5%d0%be%d0%b1%d1%8f%d0%b7%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>На странице <strong>DNS</strong> &gt; <strong>DNS серверы</strong> под таблицей найдите блок <strong>Основные DNS-серверы</strong>, нажмите <strong>Добавить основной DNS-сервер</strong> и выберите серверы для всех остальных доменов. Если блок пуст, dnsmasq использует свои обычные DNS-серверы.</p>
 <h3>Примените настройки<span class="hx:absolute hx:-mt-20" id="примените-настройки"></span>
     <a href="#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d0%bd%d0%b8%d1%82%d0%b5-%d0%bd%d0%b0%d1%81%d1%82%d1%80%d0%be%d0%b9%d0%ba%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Нажмите <strong>Применить</strong> (или <strong>Применить и перезапустить</strong>).</p>
 </div>
@@ -1234,7 +1239,8 @@
 					<td><code>type</code></td>
 					<td>string</td>
 					<td>нет</td>
-					<td>Тип сервера (<strong>Тип DNS</strong>): <code>static</code> (<strong>DNS без шифрования</strong>, по умолчанию), <code>doh</code> (<strong>DNS-over-HTTPS</strong>) или <code>keenetic</code> (<strong>Keenetic DNS</strong>, <span class="only-badges" title="Только для Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>)</td>
+					<td>Тип сервера (<strong>Тип DNS</strong>):<ul><li><code>static</code> (<strong>DNS без шифрования</strong>, по умолчанию)</li><li><code>doh</code> (<strong>DNS-over-HTTPS</strong>)</li><li><span class="only-badges" title="Только для Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+ <code>keenetic</code> (<strong>Keenetic DNS</strong>)</li></ul></td>
 			</tr>
 			<tr>
 					<td><code>address</code></td>
@@ -1247,6 +1253,12 @@
 					<td>string</td>
 					<td>нет</td>
 					<td>Outbound, через который роутер сам отправляет запросы к этому серверу (<strong>Делать запросы через Outbound</strong>)</td>
+			</tr>
+			<tr>
+					<td><code>ips</code></td>
+					<td>array of string</td>
+					<td>нет</td>
+					<td>Только для <code>doh</code>: IP-адреса сервера без порта (<strong>IP-адреса сервера</strong>). Если указаны, keen-pbr подключается только к ним. Сертификат сервера по-прежнему проверяется по имени из <code>address</code>. См. <a href="#doh-bootstrap">Bootstrap-серверы</a></td>
 			</tr>
 	</tbody>
 </table>
@@ -1296,12 +1308,47 @@
 <h3>Тип «DNS-over-HTTPS»<span class="hx:absolute hx:-mt-20" id="dns-over-https"></span>
     <a href="#dns-over-https" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>DNS-over-HTTPS (DoH) отправляет запросы серверу по зашифрованному HTTPS-соединению, поэтому провайдер не может прочитать или подменить ответы. Выберите <strong>DNS-over-HTTPS</strong> в поле <strong>Тип DNS</strong> и введите адрес сервера в поле <strong>URL</strong>, например <code>https://dns.google/dns-query</code> или <code>https://cloudflare-dns.com/dns-query</code>.</p>
 <ul>
-<li>Сервер используется в DNS-правилах и среди серверов по умолчанию так же, как любой другой. В одном правиле можно выбрать несколько DoH-серверов или DoH-сервер вместе с обычными.</li>
+<li>Сервер используется в DNS-правилах и среди основных DNS-серверов так же, как любой другой. В одном правиле можно выбрать несколько DoH-серверов или DoH-сервер вместе с обычными.</li>
 <li><strong>Делать запросы через Outbound</strong> работает как у других серверов: keen-pbr подключается к DoH-серверу через выбранный outbound.</li>
 <li>Для проверки сервера на роутере должны быть установлены сертификаты центров сертификации (Keenetic: пакет <code>ca-certificates</code> в Entware; OpenWrt: <code>ca-bundle</code>; Debian: <code>ca-certificates</code>). Если их нет, на странице состояния появляется проблема «DNS-over-HTTPS серверы не используются».</li>
 </ul>
+<h3>Bootstrap-серверы<span class="hx:absolute hx:-mt-20" id="doh-bootstrap"></span>
+    <a href="#doh-bootstrap" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Если в адресе DoH-сервера стоит имя (<code>dns.google</code>), а не IP-адрес, keen-pbr сначала спрашивает у обычного DNS-сервера, какой IP-адрес у этого имени. Такие серверы называются bootstrap-серверами.</p>
+<p>По умолчанию keen-pbr спрашивает первый обычный сервер из таблицы <strong>DNS-серверы</strong>. Чтобы выбрать другие, откройте <strong>DNS</strong> &gt; <strong>DNS серверы</strong>, найдите под блоком <strong>Основные DNS-серверы</strong> блок <strong>Bootstrap-серверы</strong> и нажмите <strong>Добавить bootstrap-сервер</strong>. Подходят обычные DNS-серверы и Keenetic DNS. Серверы опрашиваются по порядку списка. Если сервер не ответил, ответил ошибкой, сказал, что такого имени нет, или не вернул адрес, keen-pbr спрашивает следующий. После изменения списка адреса ищутся заново.</p>
+<p>Если провайдер блокирует имя DoH-сервера, поставьте первым bootstrap-сервер, который его не блокирует, например доступный через VPN (<strong>Делать запросы через Outbound</strong>).</p>
+<p>Если адреса сервера вам известны, впишите их через запятую в поле <strong>IP-адреса сервера</strong> у DoH-сервера. Тогда keen-pbr подключается только к ним и адрес не ищет.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span><span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google_dns&#34;</span><span class="p">,</span> <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span><span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;quad9&#34;</span><span class="p">,</span> <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;9.9.9.9&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span><span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google_doh&#34;</span><span class="p">,</span> <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;doh&#34;</span><span class="p">,</span> <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;https://dns.google/dns-query&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;cloudflare_doh&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;doh&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;https://cloudflare-dns.com/dns-query&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;ips&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;1.1.1.1&#34;</span><span class="p">,</span> <span class="s2">&#34;1.0.0.1&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;bootstrap&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;google_dns&#34;</span><span class="p">,</span> <span class="s2">&#34;quad9&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
 <h3>Тип «Keenetic DNS»<span class="hx:absolute hx:-mt-20" id="тип-keenetic-dns"></span>
-    <a href="#%d1%82%d0%b8%d0%bf-keenetic-dns" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p><span class="only-badges" title="Только для Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span><br>
+    <a href="#%d1%82%d0%b8%d0%bf-keenetic-dns" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p><span class="only-badges" title="Только для Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+<br>
 На роутерах Keenetic <code>type: &quot;keenetic&quot;</code> берёт DNS-серверы из текущих настроек роутера. Их настраивают в веб-интерфейсе Keenetic: <strong>Сетевые правила</strong> &gt; <strong>Интернет-фильтры</strong> &gt; <strong>Настройка DNS</strong>. Если там заданы DoT или DoH серверы, используются только они.</p>
 <ul>
 <li>Поле <code>address</code> для него не задаётся.</li>
@@ -1361,10 +1408,16 @@
 					<td>Правила, которые привязывают списки к DNS-серверам (работают только при <code>resolver_integration: &quot;dnsmasq&quot;</code>)</td>
 			</tr>
 			<tr>
+					<td><code>bootstrap</code></td>
+					<td>array of string</td>
+					<td>нет</td>
+					<td>Теги обычных DNS-серверов (<code>static</code> или <code>keenetic</code>), через которые keen-pbr по порядку ищет IP-адреса DoH-серверов. В веб-интерфейсе: <strong>Bootstrap-серверы</strong>. Если не указано, используется первый обычный сервер из <code>servers</code>.</td>
+			</tr>
+			<tr>
 					<td><code>fallback</code></td>
 					<td>array of string</td>
 					<td>нет</td>
-					<td>Теги вышестоящих DNS-серверов для запросов, не совпавших с правилом (работают только при <code>resolver_integration: &quot;dnsmasq&quot;</code>). В веб-интерфейсе: <strong>Вышестоящие DNS-сервера по умолчанию</strong>. Если не указано, dnsmasq оставляет свои серверы и дополнительно получает серверы из <code>dnsmasq-fallback.conf</code>.</td>
+					<td>Теги основных DNS-серверов для запросов, не совпавших с правилом (работают только при <code>resolver_integration: &quot;dnsmasq&quot;</code>). В веб-интерфейсе: <strong>Основные DNS-серверы</strong>. Если не указано, dnsmasq оставляет свои серверы и дополнительно получает серверы из <code>dnsmasq-fallback.conf</code>.</td>
 			</tr>
 			<tr>
 					<td><code>proxy_address</code></td>

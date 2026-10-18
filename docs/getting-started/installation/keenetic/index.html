@@ -154,8 +154,8 @@ Open the web UI Open http://my.keenetic.net:12121 in your browser. If the addres
 The headless version has no web UI. Its configuration is the file /opt/etc/keen-pbr/config.json.
 Set up your first rules Go to the Quick Start page and open the Web UI tab. If you installed keen-pbr-headless, open the JSON tab.">
 
-    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
-    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link rel="preload" href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" as="style" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
+    <link href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" rel="stylesheet" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
 
   
 
@@ -1155,6 +1155,7 @@ Set up your first rules Go to the Quick Start page and open the Web UI tab. If y
     </div>
           </div>
           
+          
           <p>On Keenetic and NetCraze, keen-pbr is installed from <abbr title="A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.">Entware</abbr>. Entware is a set of extra programs for the router, installed on a USB drive. Do use a USB drive: that way installing packages and running programs does not wear out the router&rsquo;s built-in memory. You install programs from Entware with the <code>opkg</code> command over SSH.</p>
 <div class="hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]">
 <h3>Install Entware<span class="hx:absolute hx:-mt-20" id="install-entware"></span>
@@ -1357,7 +1358,7 @@ Set up your first rules Go to the Quick Start page and open the Web UI tab. If y
 </div>
 <p>The other values of this setting are described in <a href="/docs/cli/#--use-raw-prerouting">CLI</a>.</p>
 <h2>Separate DNS servers for lists (dnsmasq)<span class="hx:absolute hx:-mt-20" id="dnsmasq"></span>
-    <a href="#dnsmasq" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>keen-pbr does not need dnsmasq for routing. Install it only if you want to send the domains of some lists to separate DNS servers, or set your own default DNS servers. See <a href="/docs/configuration/dns/#do-i-need-dnsmasq">Do I need dnsmasq?</a>.</p>
+    <a href="#dnsmasq" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>keen-pbr does not need dnsmasq for routing. Install it only if you want to send the domains of some lists to separate DNS servers, or set your own main DNS servers. See <a href="/docs/configuration/dns/#do-i-need-dnsmasq">Do I need dnsmasq?</a>.</p>
 <h3>Install dnsmasq<span class="hx:absolute hx:-mt-20" id="dnsmasq-install"></span>
     <a href="#dnsmasq-install" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ol>
 <li>Install the package over SSH. Entware has only <code>dnsmasq-full</code>; the name <code>dnsmasq</code> resolves to it:

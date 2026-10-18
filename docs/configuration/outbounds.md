@@ -165,7 +165,7 @@ If no link works, traffic for this outbound is blocked rather than leaking throu
 | `interval_ms` | integer | no (default: `180000`) | Interval between checks in milliseconds |
 | `probe_timeout_ms` | integer | no (default: `5000`) | Timeout for one check in milliseconds |
 | `tolerance_ms` | integer | no (default: `100`) | Do not switch to another link if it is faster than the current one by less than this many milliseconds |
-| `strategy` | string | no (default: `"priority"`) | How to pick a link. In the Web UI: **Selection strategy**. `"priority"` (**Fastest**): all traffic goes through one link, the one with the lowest latency in the first working tier. `"balance"` (**Multipath**): new connections are spread across the working links by weight. {{< only openwrt debian >}} |
+| `strategy` | string | no (default: `"priority"`) | How to pick a link. In the Web UI: **Selection strategy**.<ul><li>`"priority"` (**Fastest**): all traffic goes through one link, the one with the lowest latency in the first working tier.</li><li>{{< only openwrt debian >}} `"balance"` (**Multipath**): new connections are spread across the working links by weight.</li></ul> |
 | `conntrack_on_switch` | string | no (default: `"preserve"`) | What to do with open connections when switching to another link. In the Web UI: **Existing connections on switch**. `"preserve"` (**Keep**) keeps them on the old link, `"delete"` (**Reset**) deletes their {{< term "conntrack" >}} entries so they reconnect. See [Failover]({{< relref "/docs/configuration/advanced#failover" >}}) |
 | `outbound_groups` | array | yes | Ordered list of link groups, called tiers in the Web UI (see below) |
 | `retry` | object | no | Check retries (see below) |
@@ -215,7 +215,7 @@ Each link in a group:
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `outbound` | string | yes | Tag of an `interface` or `table` outbound. You do not need a tier that blocks traffic: when no link works, traffic is blocked anyway |
-| `weight` | integer 1-100 | no (default: `1`) | Link weight; in the Web UI, **Weight**. {{< only openwrt debian >}} Used only with `strategy: "balance"`: the higher the weight, the more new connections the link gets. Links with weights 7 and 3 get 70% and 30% of new connections while both work. If one link is down, its share is split among the others. Connections that are already open are not moved |
+| `weight` | integer 1-100 | no (default: `1`) | {{< only openwrt debian >}} Link weight; in the Web UI, **Weight**. Used only with `strategy: "balance"`: the higher the weight, the more new connections the link gets. Links with weights 7 and 3 get 70% and 30% of new connections while both work. If one link is down, its share is split among the others. Connections that are already open are not moved |
 
 ```json { filename="config.json" }
 "outbound_groups": [

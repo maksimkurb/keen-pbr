@@ -58,7 +58,7 @@ config.json{
 В веб-интерфейсе: откройте Маршрутизация &gt; Правила маршрутизации и нажмите Добавить правило маршрутизации. Выберите Тип правила, задайте условия и Outbound, затем нажмите Применить в панели черновика. Чтобы временно отключить правило, снимите переключатель Включить правило.
 Большинству пользователей нужно одно простое правило на каждый список, например:
 config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Правила проверяются сверху вниз, срабатывает первое подходящее. Трафик, который не подошёл ни под одно правило, идёт по обычной маршрутизации роутера.">
-	<meta itemprop="wordCount" content="1593">
+	<meta itemprop="wordCount" content="1584">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Правила маршрутизации">
 	<meta name="twitter:description" content="Правило маршрутизации связывает условие («трафик к сайтам из этого списка») с outbound («отправить через этот канал»). Outbound — канал для трафика: VPN, провайдер или блокировка, см. Outbounds.
@@ -66,8 +66,8 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 Большинству пользователей нужно одно простое правило на каждый список, например:
 config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Правила проверяются сверху вниз, срабатывает первое подходящее. Трафик, который не подошёл ни под одно правило, идёт по обычной маршрутизации роутера.">
 
-    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
-    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link rel="preload" href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" as="style" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
+    <link href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" rel="stylesheet" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
 
   
 
@@ -1098,6 +1098,7 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
     </div>
           </div>
           
+          
           <p>Правило маршрутизации связывает условие («трафик к сайтам из этого списка») с outbound («отправить через этот канал»). Outbound — канал для трафика: VPN, провайдер или блокировка, см. <a href="/ru/docs/configuration/outbounds/">Outbounds</a>.</p>
 <p><strong>В веб-интерфейсе:</strong> откройте <strong>Маршрутизация</strong> &gt; <strong>Правила маршрутизации</strong> и нажмите <strong>Добавить правило маршрутизации</strong>. Выберите <strong>Тип правила</strong>, задайте условия и <strong>Outbound</strong>, затем нажмите <strong>Применить</strong> в панели черновика. Чтобы временно отключить правило, снимите переключатель <strong>Включить правило</strong>.</p>
 <p>Большинству пользователей нужно одно простое правило на каждый список, например:</p>
@@ -1307,12 +1308,16 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 					<td><code>default_gateway</code></td>
 					<td><code>&quot;ipv4&quot;</code> или <code>&quot;ipv6&quot;</code></td>
 					<td>нет</td>
-					<td>Весь интернет-трафик, который иначе ушёл бы через основной шлюз роутера (кроме адресов локальной сети). В веб-интерфейсе: <strong>Тип правила</strong> &gt; <strong>Шлюз по умолчанию IPv4</strong> / <strong>Шлюз по умолчанию IPv6</strong>. <span class="only-badges" title="Только для nftables"><span class="only-badge only-badge--nftables">nftables</span></span> Ставьте такие правила последними</td>
+					<td><span class="only-badges" title="Только для OpenWrt, Debian"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--debian">Debian</span></span>
+ Весь интернет-трафик, который иначе ушёл бы через основной шлюз роутера (кроме адресов локальной сети). В веб-интерфейсе: <strong>Тип правила</strong> &gt; <strong>Шлюз по умолчанию IPv4</strong> / <strong>Шлюз по умолчанию IPv6</strong>. Ставьте такие правила последними</td>
 			</tr>
 	</tbody>
 </table>
 <h2>Резервный канал или балансировка для всего интернета<span class="hx:absolute hx:-mt-20" id="failover-or-balancing-for-all-internet-traffic"></span>
-    <a href="#failover-or-balancing-for-all-internet-traffic" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Это нужно, чтобы весь интернет-трафик шёл через автовыбор (<code>urltest</code> или <code>icmptest</code>): если основной канал упал, трафик переключится на запасной, а при <code>balance</code> распределится между несколькими. <span class="only-badges" title="Только для nftables"><span class="only-badge only-badge--nftables">nftables</span></span> Для этого в конец списка правил добавьте по правилу с <code>default_gateway</code> для IPv4 и для IPv6. С iptables (и на Keenetic) конфигурация не пройдёт проверку. Адреса локальной сети остаются на обычной маршрутизации.</p>
+    <a href="#failover-or-balancing-for-all-internet-traffic" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Это нужно, чтобы весь интернет-трафик шёл через автовыбор (<code>urltest</code> или <code>icmptest</code>): если основной канал упал, трафик переключится на запасной, а при <code>balance</code> распределится между несколькими.</p>
+<p><span class="only-badges" title="Только для OpenWrt, Debian"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--debian">Debian</span></span>
+<br>
+Для этого в конец списка правил добавьте по правилу с <code>default_gateway</code> для IPv4 и для IPv6. Адреса локальной сети остаются на обычной маршрутизации.</p>
 <p>По умолчанию такие правила действуют только на трафик устройств в сети. Чтобы они действовали и на трафик самого роутера, включите <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Общие</strong> &gt; <strong>Обрабатывать собственный трафик роутера</strong> (<code>iproute.process_router_traffic: true</code>).</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 

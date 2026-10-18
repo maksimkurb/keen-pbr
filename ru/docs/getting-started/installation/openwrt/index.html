@@ -119,7 +119,7 @@ keen-pbr-headless занимает меньше места: около 1,2 МБ 
 Откройте веб-интерфейс Откройте в браузере http://&lt;ip-роутера&gt;:12121, например http://192.168.1.1:12121. В headless-версии веб-интерфейса нет.
 Настройте первые правила Перейдите к Быстрому старту и откройте вкладку Веб-интерфейс. Если поставили keen-pbr-headless, откройте вкладку JSON.
 Если готовых пакетов для вашей платформы нет, соберите keen-pbr сами: Сборка из исходного кода.">
-	<meta itemprop="wordCount" content="360">
+	<meta itemprop="wordCount" content="358">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="OpenWrt">
 	<meta name="twitter:description" content="keen-pbr ставится на OpenWrt из репозитория пакетов keen-pbr. Команды выполняются по SSH.
@@ -130,8 +130,8 @@ keen-pbr-headless занимает меньше места: около 1,2 МБ 
 Настройте первые правила Перейдите к Быстрому старту и откройте вкладку Веб-интерфейс. Если поставили keen-pbr-headless, откройте вкладку JSON.
 Если готовых пакетов для вашей платформы нет, соберите keen-pbr сами: Сборка из исходного кода.">
 
-    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
-    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link rel="preload" href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" as="style" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
+    <link href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" rel="stylesheet" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
 
   
 
@@ -1113,6 +1113,7 @@ keen-pbr-headless занимает меньше места: около 1,2 МБ 
     </div>
           </div>
           
+          
           <p>keen-pbr ставится на OpenWrt из репозитория пакетов keen-pbr. Команды выполняются по SSH.</p>
 <div class="hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]">
 <h3>Узнайте, какой менеджер пакетов у вашей OpenWrt<span class="hx:absolute hx:-mt-20" id="узнайте-какой-менеджер-пакетов-у-вашей-openwrt"></span>
@@ -1228,7 +1229,7 @@ keen-pbr-headless занимает меньше места: около 1,2 МБ 
     <a href="#dnsmasq" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>В OpenWrt dnsmasq уже работает как DNS-сервер роутера. Для маршрутизации keen-pbr он не нужен. Стоит ли отдать его под управление keen-pbr, читайте в разделе <a href="/ru/docs/configuration/dns/#do-i-need-dnsmasq">Нужен ли dnsmasq?</a>.</p>
 <h3>Включение<span class="hx:absolute hx:-mt-20" id="dnsmasq-install"></span>
     <a href="#dnsmasq-install" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>В веб-интерфейсе откройте <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Управление локальным DNS-сервером</strong> и включите <strong>Управлять конфигурацией dnsmasq</strong>.</p>
-<p>Пока управление включено и заданы <strong>Вышестоящие DNS-сервера по умолчанию</strong>, keen-pbr убирает из списка в <code>/etc/config/dhcp</code> (в LuCI <strong>DNS forwardings</strong>) серверы без домена. Серверы для отдельных доменов, например <code>/lan/192.168.1.1</code>, остаются. Убранные серверы вернутся, когда вы выключите управление или очистите эти серверы.</p>
+<p>Пока управление включено и заданы <strong>Основные DNS-серверы</strong>, keen-pbr убирает из списка в <code>/etc/config/dhcp</code> (в LuCI <strong>DNS forwardings</strong>) серверы без домена. Серверы для отдельных доменов, например <code>/lan/192.168.1.1</code>, остаются. Убранные серверы вернутся, когда вы выключите управление или очистите эти серверы.</p>
 <h3>Вернуть как было<span class="hx:absolute hx:-mt-20" id="dnsmasq-rollback"></span>
     <a href="#dnsmasq-rollback" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Выключите <strong>Управлять конфигурацией dnsmasq</strong> и примените конфигурацию. keen-pbr перезапустит dnsmasq и вернёт убранные серверы.</p>
 

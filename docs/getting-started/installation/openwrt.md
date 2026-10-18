@@ -86,7 +86,7 @@ On OpenWrt, dnsmasq already works as the router's DNS server. keen-pbr does not 
 
 In the Web UI, open **General** > **Settings** > **Local DNS server management** and turn on **Manage dnsmasq configuration**.
 
-While management is on and **Default upstream DNS servers** are set, keen-pbr takes the servers without a domain out of the list in `/etc/config/dhcp` (LuCI **DNS forwardings**). Per-domain servers such as `/lan/192.168.1.1` stay. The removed servers return when you turn management off or clear those servers.
+While management is on and **Main DNS servers** are set, keen-pbr takes the servers without a domain out of the list in `/etc/config/dhcp` (LuCI **DNS forwardings**). Per-domain servers such as `/lan/192.168.1.1` stay. The removed servers return when you turn management off or clear those servers.
 
 ### Return to how it was {#dnsmasq-rollback}
 

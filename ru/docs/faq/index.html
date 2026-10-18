@@ -82,8 +82,8 @@ Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr reload bashserv
 Как перезагрузить списки без перезапуска сервиса? Выполните команду для вашей платформы:
 Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr reload bashservice keen-pbr reload bashsystemctl reload keen-pbr Это полная перезагрузка: заново скачиваются все удалённые списки и повторно применяются правила межсетевого экрана и маршрутизации.">
 
-    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
-    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link rel="preload" href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" as="style" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
+    <link href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" rel="stylesheet" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
 
   
 
@@ -1094,6 +1094,7 @@ Keenetic / NetCrazeOpenWrtDebian bash/opt/etc/init.d/S80keen-pbr reload bashserv
           </li></ul>
     </div>
           </div>
+          
           
           <h2>Какой бэкенд firewall будет использоваться?<span class="hx:absolute hx:-mt-20" id="какой-бэкенд-firewall-будет-использоваться"></span>
     <a href="#%d0%ba%d0%b0%d0%ba%d0%be%d0%b9-%d0%b1%d1%8d%d0%ba%d0%b5%d0%bd%d0%b4-firewall-%d0%b1%d1%83%d0%b4%d0%b5%d1%82-%d0%b8%d1%81%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d0%be%d0%b2%d0%b0%d1%82%d1%8c%d1%81%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Выбор зависит от параметра <code>daemon.firewall_backend</code>. По умолчанию стоит <code>&quot;auto&quot;</code>: keen-pbr использует nftables, если в системе есть команда <code>nft</code>, а иначе iptables/ipset. На Keenetic всегда используется iptables/ipset.</p>

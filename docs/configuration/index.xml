@@ -383,7 +383,8 @@
 					&lt;td&gt;&lt;code&gt;strategy&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;string&lt;/td&gt;
 					&lt;td&gt;no (default: &lt;code&gt;&amp;quot;priority&amp;quot;&lt;/code&gt;)&lt;/td&gt;
-					&lt;td&gt;How to pick a link. In the Web UI: &lt;strong&gt;Selection strategy&lt;/strong&gt;. &lt;code&gt;&amp;quot;priority&amp;quot;&lt;/code&gt; (&lt;strong&gt;Fastest&lt;/strong&gt;): all traffic goes through one link, the one with the lowest latency in the first working tier. &lt;code&gt;&amp;quot;balance&amp;quot;&lt;/code&gt; (&lt;strong&gt;Multipath&lt;/strong&gt;): new connections are spread across the working links by weight. &lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;&lt;/td&gt;
+					&lt;td&gt;How to pick a link. In the Web UI: &lt;strong&gt;Selection strategy&lt;/strong&gt;.&lt;ul&gt;&lt;li&gt;&lt;code&gt;&amp;quot;priority&amp;quot;&lt;/code&gt; (&lt;strong&gt;Fastest&lt;/strong&gt;): all traffic goes through one link, the one with the lowest latency in the first working tier.&lt;/li&gt;&lt;li&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
+ &lt;code&gt;&amp;quot;balance&amp;quot;&lt;/code&gt; (&lt;strong&gt;Multipath&lt;/strong&gt;): new connections are spread across the working links by weight.&lt;/li&gt;&lt;/ul&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;conntrack_on_switch&lt;/code&gt;&lt;/td&gt;
@@ -492,7 +493,8 @@
 					&lt;td&gt;&lt;code&gt;weight&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer 1-100&lt;/td&gt;
 					&lt;td&gt;no (default: &lt;code&gt;1&lt;/code&gt;)&lt;/td&gt;
-					&lt;td&gt;Link weight; in the Web UI, &lt;strong&gt;Weight&lt;/strong&gt;. &lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt; Used only with &lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt;: the higher the weight, the more new connections the link gets. Links with weights 7 and 3 get 70% and 30% of new connections while both work. If one link is down, its share is split among the others. Connections that are already open are not moved&lt;/td&gt;
+					&lt;td&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
+ Link weight; in the Web UI, &lt;strong&gt;Weight&lt;/strong&gt;. Used only with &lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt;: the higher the weight, the more new connections the link gets. Links with weights 7 and 3 get 70% and 30% of new connections while both work. If one link is down, its share is split among the others. Connections that are already open are not moved&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
@@ -514,10 +516,13 @@
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;h3&gt;Multipath (&lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt;)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;multipath-strategy-balance&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#multipath-strategy-balance&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+    &lt;a href=&#34;#multipath-strategy-balance&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
+&lt;br&gt;
 This strategy spreads load across the working links of the first working tier. A link is chosen per new connection, not per request: the whole connection, including HTTP/2 and &lt;abbr title=&#34;A transport protocol over UDP used by HTTP/3.&#34;&gt;QUIC&lt;/abbr&gt;, stays on one link. &lt;code&gt;tolerance_ms&lt;/code&gt; and &lt;code&gt;conntrack_on_switch&lt;/code&gt; are not used with balancing. When a link stops working, &lt;abbr title=&#34;Connection tracking: the Linux kernel&amp;#39;s table of open connections. Each entry can carry its own mark (connmark).&#34;&gt;conntrack&lt;/abbr&gt; entries of its connections are deleted, and new connections are spread across the remaining links.&lt;/p&gt;
-&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt; Connections are split exactly by weight.&lt;br&gt;
-&lt;span class=&#34;only-badges&#34; title=&#34;Only for iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt; A link is picked at random with the right probability, so with only a few connections the shares can differ noticeably from the weights; with many connections they even out. iptables needs the &lt;code&gt;xt_statistic&lt;/code&gt; kernel module; if it is missing, keen-pbr reports it when applying the configuration. This strategy is not available on Keenetic. Balancing is not available with &lt;code&gt;--use-raw-prerouting&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt;
+ Connections are split exactly by weight.&lt;br&gt;
+&lt;span class=&#34;only-badges&#34; title=&#34;Only for iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt;
+ A link is picked at random with the right probability, so with only a few connections the shares can differ noticeably from the weights; with many connections they even out. iptables needs the &lt;code&gt;xt_statistic&lt;/code&gt; kernel module; if it is missing, keen-pbr reports it when applying the configuration. This strategy is not available on Keenetic. Balancing is not available with &lt;code&gt;--use-raw-prerouting&lt;/code&gt;.&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
 
@@ -1138,12 +1143,16 @@ This strategy spreads load across the working links of the first working tier. A
 					&lt;td&gt;&lt;code&gt;default_gateway&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;&amp;quot;ipv4&amp;quot;&lt;/code&gt; or &lt;code&gt;&amp;quot;ipv6&amp;quot;&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;no&lt;/td&gt;
-					&lt;td&gt;All internet traffic that would otherwise go through the router&amp;rsquo;s main gateway (except local network addresses). In the Web UI: &lt;strong&gt;Rule type&lt;/strong&gt; &amp;gt; &lt;strong&gt;IPv4 default gateway&lt;/strong&gt; / &lt;strong&gt;IPv6 default gateway&lt;/strong&gt;. &lt;span class=&#34;only-badges&#34; title=&#34;Only for nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt; Put these rules last&lt;/td&gt;
+					&lt;td&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
+ All internet traffic that would otherwise go through the router&amp;rsquo;s main gateway (except local network addresses). In the Web UI: &lt;strong&gt;Rule type&lt;/strong&gt; &amp;gt; &lt;strong&gt;IPv4 default gateway&lt;/strong&gt; / &lt;strong&gt;IPv6 default gateway&lt;/strong&gt;. Put these rules last&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;h2&gt;Failover or balancing for all internet traffic&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;failover-or-balancing-for-all-internet-traffic&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#failover-or-balancing-for-all-internet-traffic&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Use this to send all internet traffic through an auto-select outbound (&lt;code&gt;urltest&lt;/code&gt; or &lt;code&gt;icmptest&lt;/code&gt;): if the main link fails, traffic switches to a backup, and with &lt;code&gt;balance&lt;/code&gt; it is spread across several links. &lt;span class=&#34;only-badges&#34; title=&#34;Only for nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt; Add one &lt;code&gt;default_gateway&lt;/code&gt; rule for IPv4 and one for IPv6 at the end of the rule list. With iptables (and on Keenetic) the configuration fails validation. Addresses on your local network keep normal routing.&lt;/p&gt;
+    &lt;a href=&#34;#failover-or-balancing-for-all-internet-traffic&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Use this to send all internet traffic through an auto-select outbound (&lt;code&gt;urltest&lt;/code&gt; or &lt;code&gt;icmptest&lt;/code&gt;): if the main link fails, traffic switches to a backup, and with &lt;code&gt;balance&lt;/code&gt; it is spread across several links.&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
+&lt;br&gt;
+Add one &lt;code&gt;default_gateway&lt;/code&gt; rule for IPv4 and one for IPv6 at the end of the rule list. Addresses on your local network keep normal routing.&lt;/p&gt;
 &lt;p&gt;By default these rules apply only to traffic from devices on your network. To include the router&amp;rsquo;s own traffic, turn on &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Process router&amp;rsquo;s own traffic&lt;/strong&gt; (&lt;code&gt;iproute.process_router_traffic: true&lt;/code&gt;).&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -1646,7 +1655,7 @@ This strategy spreads load across the working links of the first working tier. A
 &lt;p&gt;&lt;strong&gt;Yes, if you need one of these two things:&lt;/strong&gt;&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;to resolve the domains of some lists through a separate DNS server. For example, a CDN (content delivery network) should answer for your VPN&amp;rsquo;s region, or the domains resolve only inside the VPN;&lt;/li&gt;
-&lt;li&gt;to set your own default DNS servers for the whole network right in keen-pbr.&lt;/li&gt;
+&lt;li&gt;to set your own main DNS servers for the whole network right in keen-pbr.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;Both work only through dnsmasq. If neither fits you, leave the &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt; switch off. If you upgraded from 3.3.x, the switch is already on: turn it off if you do not need dnsmasq (see &lt;a href=&#34;https://keen-pbr.fyi/docs/changelog/#upgrading-from-33x&#34;&gt;Breaking Changes in 3.4.0&lt;/a&gt;).&lt;/p&gt;
 &lt;p&gt;How to install dnsmasq and how to roll back: &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/keenetic/#dnsmasq&#34;&gt;Keenetic&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/openwrt/#dnsmasq&#34;&gt;OpenWrt&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/debian/#dnsmasq&#34;&gt;Debian&lt;/a&gt;.&lt;/p&gt;
@@ -1686,8 +1695,8 @@ This strategy spreads load across the working links of the first working tier. A
     &lt;a href=&#34;#add-a-dns-server&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open &lt;strong&gt;DNS&lt;/strong&gt; &amp;gt; &lt;strong&gt;DNS servers&lt;/strong&gt; &amp;gt; &lt;strong&gt;Add DNS server&lt;/strong&gt;. Fill in &lt;strong&gt;Name&lt;/strong&gt;, &lt;strong&gt;DNS type&lt;/strong&gt; and &lt;strong&gt;Address&lt;/strong&gt;. In &lt;strong&gt;Make requests via Outbound&lt;/strong&gt; pick an outbound (the channel the traffic goes through: a VPN interface, your ISP or a block) if the server is reachable only through it, for example through the VPN.&lt;/p&gt;
 &lt;h3&gt;Link the server to lists&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;link-the-server-to-lists&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#link-the-server-to-lists&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open &lt;strong&gt;DNS&lt;/strong&gt; &amp;gt; &lt;strong&gt;DNS Rules&lt;/strong&gt; &amp;gt; &lt;strong&gt;Add DNS rule&lt;/strong&gt;. In &lt;strong&gt;Domain lists&lt;/strong&gt; pick the lists, and in &lt;strong&gt;DNS servers&lt;/strong&gt; the server from the previous step. You can pick several servers.&lt;/p&gt;
-&lt;h3&gt;Set default DNS servers (optional)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;set-default-dns-servers-optional&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#set-default-dns-servers-optional&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;In the &lt;strong&gt;Default upstream DNS servers&lt;/strong&gt; block click &lt;strong&gt;Add default DNS server&lt;/strong&gt; and pick the servers for all other domains. If the block is empty, dnsmasq uses its usual DNS servers.&lt;/p&gt;
+&lt;h3&gt;Set main DNS servers (optional)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;set-main-dns-servers-optional&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#set-main-dns-servers-optional&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;On the &lt;strong&gt;DNS&lt;/strong&gt; &amp;gt; &lt;strong&gt;DNS servers&lt;/strong&gt; page, find the &lt;strong&gt;Main DNS servers&lt;/strong&gt; block under the table, click &lt;strong&gt;Add main DNS server&lt;/strong&gt; and pick the servers for all other domains. If the block is empty, dnsmasq uses its usual DNS servers.&lt;/p&gt;
 &lt;h3&gt;Apply the settings&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;apply-the-settings&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#apply-the-settings&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Click &lt;strong&gt;Apply&lt;/strong&gt; (or &lt;strong&gt;Apply &amp;amp; Restart&lt;/strong&gt;).&lt;/p&gt;
 &lt;/div&gt;
@@ -1769,7 +1778,8 @@ This strategy spreads load across the working links of the first working tier. A
 					&lt;td&gt;&lt;code&gt;type&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;string&lt;/td&gt;
 					&lt;td&gt;no&lt;/td&gt;
-					&lt;td&gt;Server type (&lt;strong&gt;DNS type&lt;/strong&gt;): &lt;code&gt;static&lt;/code&gt; (&lt;strong&gt;Plaintext DNS&lt;/strong&gt;, default), &lt;code&gt;doh&lt;/code&gt; (&lt;strong&gt;DNS-over-HTTPS&lt;/strong&gt;) or &lt;code&gt;keenetic&lt;/code&gt; (&lt;strong&gt;Keenetic DNS&lt;/strong&gt;, &lt;span class=&#34;only-badges&#34; title=&#34;Only for Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;)&lt;/td&gt;
+					&lt;td&gt;Server type (&lt;strong&gt;DNS type&lt;/strong&gt;):&lt;ul&gt;&lt;li&gt;&lt;code&gt;static&lt;/code&gt; (&lt;strong&gt;Plaintext DNS&lt;/strong&gt;, default)&lt;/li&gt;&lt;li&gt;&lt;code&gt;doh&lt;/code&gt; (&lt;strong&gt;DNS-over-HTTPS&lt;/strong&gt;)&lt;/li&gt;&lt;li&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;
+ &lt;code&gt;keenetic&lt;/code&gt; (&lt;strong&gt;Keenetic DNS&lt;/strong&gt;)&lt;/li&gt;&lt;/ul&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;address&lt;/code&gt;&lt;/td&gt;
@@ -1782,6 +1792,12 @@ This strategy spreads load across the working links of the first working tier. A
 					&lt;td&gt;string&lt;/td&gt;
 					&lt;td&gt;no&lt;/td&gt;
 					&lt;td&gt;Outbound the router itself uses to send queries to this server (&lt;strong&gt;Make requests via Outbound&lt;/strong&gt;)&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;ips&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;array of string&lt;/td&gt;
+					&lt;td&gt;no&lt;/td&gt;
+					&lt;td&gt;Only for &lt;code&gt;doh&lt;/code&gt;: IP addresses of the server, without a port (&lt;strong&gt;Server IP addresses&lt;/strong&gt;). When set, keen-pbr connects only to these addresses. The server certificate is still checked against the name in &lt;code&gt;address&lt;/code&gt;. See &lt;a href=&#34;#doh-bootstrap&#34;&gt;Bootstrap servers&lt;/a&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
@@ -1831,12 +1847,47 @@ This strategy spreads load across the working links of the first working tier. A
 &lt;h3&gt;The &amp;ldquo;DNS-over-HTTPS&amp;rdquo; type&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dns-over-https&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#dns-over-https&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;DNS-over-HTTPS (DoH) sends requests to the server over an encrypted HTTPS connection, so your ISP cannot read or spoof the answers. Pick &lt;strong&gt;DNS-over-HTTPS&lt;/strong&gt; as &lt;strong&gt;DNS type&lt;/strong&gt; and enter the server address in &lt;strong&gt;URL&lt;/strong&gt;, for example &lt;code&gt;https://dns.google/dns-query&lt;/code&gt; or &lt;code&gt;https://cloudflare-dns.com/dns-query&lt;/code&gt;.&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;Use the server in a DNS rule or in the default servers like any other one. Several DoH servers, or a DoH server together with plain ones, can be picked in one rule.&lt;/li&gt;
+&lt;li&gt;Use the server in a DNS rule or among the main DNS servers like any other one. Several DoH servers, or a DoH server together with plain ones, can be picked in one rule.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Make requests via Outbound&lt;/strong&gt; works as for other servers: keen-pbr connects to the DoH server through the chosen outbound.&lt;/li&gt;
 &lt;li&gt;The router must have CA certificates installed to check the server (Keenetic: the &lt;code&gt;ca-certificates&lt;/code&gt; package in Entware; OpenWrt: &lt;code&gt;ca-bundle&lt;/code&gt;; Debian: &lt;code&gt;ca-certificates&lt;/code&gt;). If it has none, the status page shows the problem &amp;ldquo;DNS-over-HTTPS servers are not used&amp;rdquo;.&lt;/li&gt;
 &lt;/ul&gt;
+&lt;h3&gt;Bootstrap servers&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;doh-bootstrap&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#doh-bootstrap&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;When the URL of a DoH server has a host name (&lt;code&gt;dns.google&lt;/code&gt;) and not an IP address, keen-pbr first asks a plain DNS server for the address of that name. These servers are called bootstrap servers.&lt;/p&gt;
+&lt;p&gt;By default keen-pbr asks the first plain server of the &lt;strong&gt;DNS servers&lt;/strong&gt; table. To choose other ones, open &lt;strong&gt;DNS&lt;/strong&gt; &amp;gt; &lt;strong&gt;DNS servers&lt;/strong&gt;, find the &lt;strong&gt;Bootstrap servers&lt;/strong&gt; block under &lt;strong&gt;Main DNS servers&lt;/strong&gt;, and click &lt;strong&gt;Add bootstrap server&lt;/strong&gt;. Plain DNS servers and Keenetic DNS fit. The servers are asked in the order of the list. If a server does not answer, answers with an error, says the name does not exist, or gives no address, keen-pbr asks the next one. After you change the list, the addresses are looked up again.&lt;/p&gt;
+&lt;p&gt;If your ISP blocks the name of a DoH server, put first a bootstrap server that does not block it, for example one reached through a VPN (&lt;strong&gt;Make requests via Outbound&lt;/strong&gt;).&lt;/p&gt;
+&lt;p&gt;If you know the addresses of the server, enter them in the &lt;strong&gt;Server IP addresses&lt;/strong&gt; field of the DoH server, separated by commas. keen-pbr then connects only to them and does not look the server up.&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;servers&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;&lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;google_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;8.8.8.8&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;&lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;quad9&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;9.9.9.9&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;&lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;google_doh&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;doh&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;https://dns.google/dns-query&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;cloudflare_doh&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;doh&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;https://cloudflare-dns.com/dns-query&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;ips&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;1.1.1.1&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;1.0.0.1&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;bootstrap&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;google_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;quad9&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
 &lt;h3&gt;The &amp;ldquo;Keenetic DNS&amp;rdquo; type&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;the-keenetic-dns-type&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#the-keenetic-dns-type&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+    &lt;a href=&#34;#the-keenetic-dns-type&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;
+&lt;br&gt;
 On Keenetic routers, &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt; takes the DNS servers from the router&amp;rsquo;s current settings. You set them in the Keenetic web interface: &lt;strong&gt;Network rules&lt;/strong&gt; &amp;gt; &lt;strong&gt;Internet safety&lt;/strong&gt; &amp;gt; &lt;strong&gt;DNS Configuration&lt;/strong&gt;. If DoT or DoH servers are set there, only they are used.&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;address&lt;/code&gt; is not set for it.&lt;/li&gt;
@@ -1896,10 +1947,16 @@ On Keenetic routers, &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;
 					&lt;td&gt;Rules that map lists to DNS servers (only active when &lt;code&gt;resolver_integration: &amp;quot;dnsmasq&amp;quot;&lt;/code&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;bootstrap&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;array of string&lt;/td&gt;
+					&lt;td&gt;no&lt;/td&gt;
+					&lt;td&gt;Tags of plain DNS servers (&lt;code&gt;static&lt;/code&gt; or &lt;code&gt;keenetic&lt;/code&gt;) that find the IP addresses of DoH servers, asked in order. In the Web UI: &lt;strong&gt;Bootstrap servers&lt;/strong&gt;. If omitted, the first plain server of &lt;code&gt;servers&lt;/code&gt; is used.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;fallback&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;array of string&lt;/td&gt;
 					&lt;td&gt;no&lt;/td&gt;
-					&lt;td&gt;Tags of upstream DNS servers for queries that match no rule (only active when &lt;code&gt;resolver_integration: &amp;quot;dnsmasq&amp;quot;&lt;/code&gt;). In the Web UI: &lt;strong&gt;Default upstream DNS servers&lt;/strong&gt;. If omitted, dnsmasq keeps its own servers and also gets the servers from &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt;.&lt;/td&gt;
+					&lt;td&gt;Tags of the main DNS servers, used for queries that match no rule (only active when &lt;code&gt;resolver_integration: &amp;quot;dnsmasq&amp;quot;&lt;/code&gt;). In the Web UI: &lt;strong&gt;Main DNS servers&lt;/strong&gt;. If omitted, dnsmasq keeps its own servers and also gets the servers from &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt;.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;proxy_address&lt;/code&gt;&lt;/td&gt;
@@ -2058,7 +2115,7 @@ On Keenetic routers, &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;
 &lt;h2&gt;If you use dnsmasq: installation and problems&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;if-you-use-dnsmasq-installation-and-problems&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#if-you-use-dnsmasq-installation-and-problems&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;h3&gt;Installation by platform&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;installation-by-platform&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#installation-by-platform&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;keen-pbr does not install dnsmasq; install it yourself when you need this feature. Step-by-step install and rollback are on the installation pages: &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/keenetic/#dnsmasq&#34;&gt;Keenetic&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/openwrt/#dnsmasq&#34;&gt;OpenWrt&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/debian/#dnsmasq&#34;&gt;Debian&lt;/a&gt;. What keen-pbr changes on each platform:&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;OpenWrt&lt;/strong&gt;: install &lt;code&gt;dnsmasq&lt;/code&gt;. keen-pbr adds three &lt;code&gt;addnmount&lt;/code&gt; entries to the dnsmasq section in &lt;code&gt;/etc/config/dhcp&lt;/code&gt;, so that the sandboxed dnsmasq can run keen-pbr. While management is on and default DNS servers are set, keen-pbr takes the servers without a domain out of &lt;code&gt;/etc/config/dhcp&lt;/code&gt;; per-domain servers stay. Turning management off or clearing the default servers returns them. Removing the package removes the added entries.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;OpenWrt&lt;/strong&gt;: install &lt;code&gt;dnsmasq&lt;/code&gt;. keen-pbr adds three &lt;code&gt;addnmount&lt;/code&gt; entries to the dnsmasq section in &lt;code&gt;/etc/config/dhcp&lt;/code&gt;, so that the sandboxed dnsmasq can run keen-pbr. While management is on and main DNS servers are set, keen-pbr takes the servers without a domain out of &lt;code&gt;/etc/config/dhcp&lt;/code&gt;; per-domain servers stay. Turning management off or clearing the main servers returns them. Removing the package removes the added entries.&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;Keenetic (Entware)&lt;/strong&gt;: install &lt;code&gt;dnsmasq-full&lt;/code&gt; (replaces the built-in ndnproxy as the LAN resolver). The first time you turn management on, keen-pbr adds a marked block with one &lt;code&gt;conf-script&lt;/code&gt; line to &lt;code&gt;/opt/etc/dnsmasq.conf&lt;/code&gt;. &lt;code&gt;install-recommended-config&lt;/code&gt; adds the same block. If dnsmasq is not installed, the status page shows an error.&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;Debian&lt;/strong&gt;: install &lt;code&gt;dnsmasq&lt;/code&gt;. The first time you turn management on, keen-pbr adds a marked block to &lt;code&gt;/etc/dnsmasq.conf&lt;/code&gt;. &lt;code&gt;install-recommended-config&lt;/code&gt; adds the same block. If dnsmasq is not installed, the status page shows an error.&lt;/p&gt;
 &lt;p&gt;Keenetic and Debian also ship &lt;code&gt;install-recommended-config&lt;/code&gt; (see the installation pages). It replaces the main dnsmasq config with recommended settings, saves the previous file next to it, and restarts dnsmasq.&lt;/p&gt;
@@ -2222,11 +2279,11 @@ On Keenetic routers, &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;h3&gt;How it works&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-it-works&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#how-it-works&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;One &lt;abbr title=&#34;A small extra configuration file that a program reads in addition to its main config.&#34;&gt;drop-in&lt;/abbr&gt; line in the dnsmasq configuration makes dnsmasq run keen-pbr at every start and get the per-list rules and default DNS servers from it.&lt;/p&gt;
+    &lt;a href=&#34;#how-it-works&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;One &lt;abbr title=&#34;A small extra configuration file that a program reads in addition to its main config.&#34;&gt;drop-in&lt;/abbr&gt; line in the dnsmasq configuration makes dnsmasq run keen-pbr at every start and get the per-list rules and main DNS servers from it.&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;With &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt; on, dnsmasq is restarted when this data changes (list update, settings change, or once after keen-pbr starts), and only after the checks described in &lt;a href=&#34;#checks-before-every-restart&#34;&gt;Checks before every restart&lt;/a&gt; have passed.&lt;/li&gt;
 &lt;li&gt;With it off, dnsmasq gets the servers from the &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt; file (Keenetic: &lt;code&gt;/opt/etc/keen-pbr/&lt;/code&gt;, Debian and OpenWrt: &lt;code&gt;/etc/keen-pbr/&lt;/code&gt;). They are added to dnsmasq&amp;rsquo;s own servers; clear the file to avoid that. On OpenWrt the file is empty by default.&lt;/li&gt;
-&lt;li&gt;With it on but no default DNS servers set, dnsmasq also gets the servers from &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;With it on but no main DNS servers set, dnsmasq also gets the servers from &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt;.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3&gt;On stop, disable, or uninstall&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;on-stop-disable-or-uninstall&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#on-stop-disable-or-uninstall&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
@@ -2294,13 +2351,15 @@ On Keenetic routers, &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;
 					&lt;td&gt;&lt;code&gt;ipset_hashsize&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;absent&lt;/td&gt;
-					&lt;td&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt; Optional initial hash table size for ipsets created by the iptables backend (default &lt;code&gt;1024&lt;/code&gt;). Has no effect with nftables. Must be between 1 and 2147483648. Web UI (&lt;strong&gt;Advanced&lt;/strong&gt; mode): &lt;strong&gt;IPSet hash table size (ipset hashsize)&lt;/strong&gt;. Changing it recreates the sets and empties the dynamic sets.&lt;/td&gt;
+					&lt;td&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt;
+ Optional initial hash table size for ipsets created by the iptables backend (default &lt;code&gt;1024&lt;/code&gt;). Has no effect with nftables. Must be between 1 and 2147483648. Web UI (&lt;strong&gt;Advanced&lt;/strong&gt; mode): &lt;strong&gt;IPSet hash table size (ipset hashsize)&lt;/strong&gt;. Changing it recreates the sets and empties the dynamic sets.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;ipset_maxelem&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;absent&lt;/td&gt;
-					&lt;td&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt; Optional maximum element count for ipsets created by the iptables backend (default &lt;code&gt;65536&lt;/code&gt;). Has no effect with nftables. Must be between 1 and 4294967295. Web UI: &lt;strong&gt;Maximum entries in ipset (ipset maxelem)&lt;/strong&gt;. Changing it recreates the sets and empties the dynamic sets.&lt;/td&gt;
+					&lt;td&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt;
+ Optional maximum element count for ipsets created by the iptables backend (default &lt;code&gt;65536&lt;/code&gt;). Has no effect with nftables. Must be between 1 and 4294967295. Web UI: &lt;strong&gt;Maximum entries in ipset (ipset maxelem)&lt;/strong&gt;. Changing it recreates the sets and empties the dynamic sets.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;reuse_static_sets_on_runtime_refresh&lt;/code&gt;&lt;/td&gt;
@@ -3182,7 +3241,12 @@ On Keenetic routers, &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// detour works for it like for other servers.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;google_doh&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;doh&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;https://dns.google/dns-query&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;https://dns.google/dns-query&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Optional IP addresses of the server. When set, keen-pbr connects only
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// to them and does not look the server up through the bootstrap servers.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;c1&#34;&gt;// Default: not set, the address is looked up.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;ips&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;8.8.8.8&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;8.8.4.4&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
@@ -3214,10 +3278,16 @@ On Keenetic routers, &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// DNS servers for domains that match no rule
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Main DNS servers, for domains that match no rule
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// (only work when resolver_integration: &amp;#34;dnsmasq&amp;#34;).
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Default: empty (servers from resolv.conf are used).
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;fallback&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;google_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;fallback&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;google_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Plain DNS servers (static or keenetic) that find the addresses of DoH
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// servers whose URL has a host name. Asked in order; the next one is used
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// when a server does not answer, answers with an error or knows no address.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Default: not set, the first plain server of &amp;#34;servers&amp;#34; is used.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;bootstrap&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;google_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;c1&#34;&gt;// Traffic interception. All fields below have defaults. If the kernel lacks
@@ -3453,14 +3523,16 @@ On Keenetic routers, &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;
 &lt;/div&gt;
 
 &lt;h2&gt;How it works&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-it-works&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#how-it-works&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+    &lt;a href=&#34;#how-it-works&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
+&lt;br&gt;
 A &lt;code&gt;urltest&lt;/code&gt; or &lt;code&gt;icmptest&lt;/code&gt; outbound with &lt;code&gt;&amp;quot;strategy&amp;quot;: &amp;quot;balance&amp;quot;&lt;/code&gt; picks one of its working links for every &lt;strong&gt;new&lt;/strong&gt; connection, in proportion to the link&amp;rsquo;s &lt;code&gt;weight&lt;/code&gt; (1-100, default 1). The whole connection uses one link. Links that fail their checks are removed from the split and come back when they work again.&lt;/p&gt;
 &lt;p&gt;You need to set up &lt;abbr title=&#34;Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&amp;#39;s WAN address.&#34;&gt;NAT&lt;/abbr&gt; on every provider and &lt;code&gt;rp_filter&lt;/code&gt; on the system (see below).&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
 
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt; Links are picked at random with the configured probability, so over a small number of connections the shares are only approximate. The &lt;code&gt;iptables&lt;/code&gt; backend needs the &lt;code&gt;xt_statistic&lt;/code&gt; kernel module, and the &lt;code&gt;default_gateway&lt;/code&gt; route rule field works only with &lt;code&gt;nftables&lt;/code&gt;. You normally do not need to change &lt;code&gt;firewall_backend&lt;/code&gt;: keen-pbr picks the backend that fits the system.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt;
+Links are picked at random with the configured probability, so over a small number of connections the shares are only approximate. The &lt;code&gt;iptables&lt;/code&gt; backend needs the &lt;code&gt;xt_statistic&lt;/code&gt; kernel module. You normally do not need to change &lt;code&gt;firewall_backend&lt;/code&gt;: keen-pbr picks the backend that fits the system.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 
@@ -3521,9 +3593,11 @@ A &lt;code&gt;urltest&lt;/code&gt; or &lt;code&gt;icmptest&lt;/code&gt; outbound
 &lt;h2&gt;Required system setup&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;required-system-setup&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#required-system-setup&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;h3&gt;1. NAT on every WAN&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;1-nat-on-every-wan&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#1-nat-on-every-wan&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;abbr title=&#34;Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router&amp;#39;s WAN address.&#34;&gt;NAT&lt;/abbr&gt; is &lt;strong&gt;mandatory on every WAN interface&lt;/strong&gt;. Without it, a packet leaves toward the second provider with an address from your local network, the reply never comes back, and the connection hangs. Link checks still pass, so the problem is easy to miss. This applies to the host&amp;rsquo;s own traffic too.&lt;/p&gt;
-&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;/span&gt;
+&lt;br&gt;
 In &lt;strong&gt;Network&lt;/strong&gt; &amp;gt; &lt;strong&gt;Firewall&lt;/strong&gt; &amp;gt; &lt;strong&gt;Zones&lt;/strong&gt;, enable &lt;strong&gt;Masquerading&lt;/strong&gt; on every zone that contains an uplink (by default, the &lt;code&gt;wan&lt;/code&gt; zone).&lt;/p&gt;
-&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for nftables&#34;&gt;&lt;span class=&#34;only-badge only-badge--nftables&#34;&gt;nftables&lt;/span&gt;&lt;/span&gt;
+&lt;br&gt;
 Add a &lt;code&gt;masquerade&lt;/code&gt; rule for both interfaces, for example in &lt;code&gt;/etc/nftables.conf&lt;/code&gt;:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -3544,7 +3618,8 @@ Add a &lt;code&gt;masquerade&lt;/code&gt; rule for both interfaces, for example 
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+&lt;p&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt;
+&lt;br&gt;
 Add &lt;code&gt;MASQUERADE&lt;/code&gt; rules and make them persistent, for example with &lt;code&gt;iptables-persistent&lt;/code&gt;:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 

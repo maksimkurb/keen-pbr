@@ -128,7 +128,7 @@ The other values of this setting are described in [CLI]({{< relref "/docs/cli#--
 
 ## Separate DNS servers for lists (dnsmasq) {#dnsmasq}
 
-keen-pbr does not need dnsmasq for routing. Install it only if you want to send the domains of some lists to separate DNS servers, or set your own default DNS servers. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}).
+keen-pbr does not need dnsmasq for routing. Install it only if you want to send the domains of some lists to separate DNS servers, or set your own main DNS servers. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}).
 
 ### Install dnsmasq {#dnsmasq-install}
 

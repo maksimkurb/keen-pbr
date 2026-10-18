@@ -49,8 +49,8 @@ daemon Управляет путём к PID-файлу (файлу с номер
 Часть настроек есть в веб-интерфейсе: Общее &gt; Настройки &gt; Общие, Автообновление списков и Расширенные настройки маршрутизации. Низкоуровневые поля видны после переключения Режим настроек на Продвинутый. Страница описывает все поля config.json; рядом с полем указано, где его найти в интерфейсе.
 daemon Управляет путём к PID-файлу (файлу с номером процесса сервиса), каталогом кэша и общим поведением маршрутизации.">
 
-    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
-    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link rel="preload" href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" as="style" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
+    <link href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" rel="stylesheet" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
 
   
 
@@ -1055,6 +1055,7 @@ daemon Управляет путём к PID-файлу (файлу с номер
     </div>
           </div>
           
+          
           <p>Большинству пользователей эта страница не понадобится.</p>
 <p>Здесь описаны настройки для продвинутых сценариев и на уровне сервиса: <code>daemon</code>, <code>api</code>, <code>fwmark</code>, <code>iproute</code> и <code>lists_autoupdate</code>.</p>
 <p>Часть настроек есть в веб-интерфейсе: <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Общие</strong>, <strong>Автообновление списков</strong> и <strong>Расширенные настройки маршрутизации</strong>. Низкоуровневые поля видны после переключения <strong>Режим настроек</strong> на <strong>Продвинутый</strong>. Страница описывает все поля <code>config.json</code>; рядом с полем указано, где его найти в интерфейсе.</p>
@@ -1098,13 +1099,15 @@ daemon Управляет путём к PID-файлу (файлу с номер
 					<td><code>ipset_hashsize</code></td>
 					<td>integer</td>
 					<td>отсутствует</td>
-					<td><span class="only-badges" title="Только для iptables"><span class="only-badge only-badge--iptables">iptables</span></span> Необязательный начальный размер хеш-таблицы <abbr title="Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.">ipset</abbr>, создаваемых бэкендом iptables (по умолчанию <code>1024</code>). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. Веб-интерфейс (<strong>Продвинутый</strong> режим): <strong>Размер хеш-таблицы IPSet (ipset hashsize)</strong>. При изменении наборы пересоздаются, а динамические наборы очищаются.</td>
+					<td><span class="only-badges" title="Только для iptables"><span class="only-badge only-badge--iptables">iptables</span></span>
+ Необязательный начальный размер хеш-таблицы <abbr title="Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.">ipset</abbr>, создаваемых бэкендом iptables (по умолчанию <code>1024</code>). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. Веб-интерфейс (<strong>Продвинутый</strong> режим): <strong>Размер хеш-таблицы IPSet (ipset hashsize)</strong>. При изменении наборы пересоздаются, а динамические наборы очищаются.</td>
 			</tr>
 			<tr>
 					<td><code>ipset_maxelem</code></td>
 					<td>integer</td>
 					<td>отсутствует</td>
-					<td><span class="only-badges" title="Только для iptables"><span class="only-badge only-badge--iptables">iptables</span></span> Необязательное максимальное число элементов ipset, создаваемых бэкендом iptables (по умолчанию <code>65536</code>). Не действует с nftables. Допустимый диапазон: от 1 до 4294967295. Веб-интерфейс: <strong>Максимальное количество элементов в ipset (ipset maxelem)</strong>. При изменении наборы пересоздаются, а динамические наборы очищаются.</td>
+					<td><span class="only-badges" title="Только для iptables"><span class="only-badge only-badge--iptables">iptables</span></span>
+ Необязательное максимальное число элементов ipset, создаваемых бэкендом iptables (по умолчанию <code>65536</code>). Не действует с nftables. Допустимый диапазон: от 1 до 4294967295. Веб-интерфейс: <strong>Максимальное количество элементов в ipset (ipset maxelem)</strong>. При изменении наборы пересоздаются, а динамические наборы очищаются.</td>
 			</tr>
 			<tr>
 					<td><code>reuse_static_sets_on_runtime_refresh</code></td>

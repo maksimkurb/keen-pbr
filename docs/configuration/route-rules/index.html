@@ -34,14 +34,14 @@ In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick 
 	<meta itemprop="name" content="Route Rules">
 	<meta itemprop="description" content="A route rule links a condition (“traffic to sites from this list”) with an outbound (“send it through this channel”). An outbound is a channel for traffic: a VPN, your ISP connection or a block; see Outbounds.
 In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick a Rule type, set the conditions and the Outbound, then click Apply in the draft bar. To turn a rule off temporarily, clear the Enable rule switch.">
-	<meta itemprop="wordCount" content="1753">
+	<meta itemprop="wordCount" content="1744">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Route Rules">
 	<meta name="twitter:description" content="A route rule links a condition (“traffic to sites from this list”) with an outbound (“send it through this channel”). An outbound is a channel for traffic: a VPN, your ISP connection or a block; see Outbounds.
 In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick a Rule type, set the conditions and the Outbound, then click Apply in the draft bar. To turn a rule off temporarily, clear the Enable rule switch.">
 
-    <link rel="preload" href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" as="style" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
-    <link href="/css/compiled/main.min.01c3c7007fbca01787314fb71e451584e7a1a92c0726b0182bdd7c516eff8df1.css" rel="stylesheet" integrity="sha256-AcPHAH&#43;8oBeHMU&#43;3HkUVhOehqSwHJrAYK918UW7/jfE=" />
+    <link rel="preload" href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" as="style" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
+    <link href="/css/compiled/main.min.1062c3d8d1b6a3f7d34db3fab684515c1633d75cd5b8a54fc1670559ab2632b8.css" rel="stylesheet" integrity="sha256-EGLD2NG2o/fTTbP6toRRXBYz11zVuKVPwWcFWasmMrg=" />
 
   
 
@@ -1072,6 +1072,7 @@ In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick 
     </div>
           </div>
           
+          
           <p>A route rule links a condition (&ldquo;traffic to sites from this list&rdquo;) with an outbound (&ldquo;send it through this channel&rdquo;). An outbound is a channel for traffic: a VPN, your ISP connection or a block; see <a href="/docs/configuration/outbounds/">Outbounds</a>.</p>
 <p><strong>In the Web UI:</strong> open <strong>Routing</strong> &gt; <strong>Routing rules</strong> and click <strong>Add routing rule</strong>. Pick a <strong>Rule type</strong>, set the conditions and the <strong>Outbound</strong>, then click <strong>Apply</strong> in the draft bar. To turn a rule off temporarily, clear the <strong>Enable rule</strong> switch.</p>
 <p>Most users need one simple rule per list, for example:</p>
@@ -1281,12 +1282,16 @@ In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick 
 					<td><code>default_gateway</code></td>
 					<td><code>&quot;ipv4&quot;</code> or <code>&quot;ipv6&quot;</code></td>
 					<td>no</td>
-					<td>All internet traffic that would otherwise go through the router&rsquo;s main gateway (except local network addresses). In the Web UI: <strong>Rule type</strong> &gt; <strong>IPv4 default gateway</strong> / <strong>IPv6 default gateway</strong>. <span class="only-badges" title="Only for nftables"><span class="only-badge only-badge--nftables">nftables</span></span> Put these rules last</td>
+					<td><span class="only-badges" title="Only for OpenWrt, Debian"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--debian">Debian</span></span>
+ All internet traffic that would otherwise go through the router&rsquo;s main gateway (except local network addresses). In the Web UI: <strong>Rule type</strong> &gt; <strong>IPv4 default gateway</strong> / <strong>IPv6 default gateway</strong>. Put these rules last</td>
 			</tr>
 	</tbody>
 </table>
 <h2>Failover or balancing for all internet traffic<span class="hx:absolute hx:-mt-20" id="failover-or-balancing-for-all-internet-traffic"></span>
-    <a href="#failover-or-balancing-for-all-internet-traffic" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use this to send all internet traffic through an auto-select outbound (<code>urltest</code> or <code>icmptest</code>): if the main link fails, traffic switches to a backup, and with <code>balance</code> it is spread across several links. <span class="only-badges" title="Only for nftables"><span class="only-badge only-badge--nftables">nftables</span></span> Add one <code>default_gateway</code> rule for IPv4 and one for IPv6 at the end of the rule list. With iptables (and on Keenetic) the configuration fails validation. Addresses on your local network keep normal routing.</p>
+    <a href="#failover-or-balancing-for-all-internet-traffic" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use this to send all internet traffic through an auto-select outbound (<code>urltest</code> or <code>icmptest</code>): if the main link fails, traffic switches to a backup, and with <code>balance</code> it is spread across several links.</p>
+<p><span class="only-badges" title="Only for OpenWrt, Debian"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--debian">Debian</span></span>
+<br>
+Add one <code>default_gateway</code> rule for IPv4 and one for IPv6 at the end of the rule list. Addresses on your local network keep normal routing.</p>
 <p>By default these rules apply only to traffic from devices on your network. To include the router&rsquo;s own traffic, turn on <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>General</strong> &gt; <strong>Process router&rsquo;s own traffic</strong> (<code>iproute.process_router_traffic: true</code>).</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 

@@ -496,7 +496,12 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
         // detour works for it like for other servers.
         "tag": "google_doh",
         "type": "doh",
-        "address": "https://dns.google/dns-query"
+        "address": "https://dns.google/dns-query",
+
+        // Optional IP addresses of the server. When set, keen-pbr connects only
+        // to them and does not look the server up through the bootstrap servers.
+        // Default: not set, the address is looked up.
+        "ips": ["8.8.8.8", "8.8.4.4"]
       },
 
       {
@@ -528,10 +533,16 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       }
     ],
 
-    // DNS servers for domains that match no rule
+    // Main DNS servers, for domains that match no rule
     // (only work when resolver_integration: "dnsmasq").
     // Default: empty (servers from resolv.conf are used).
-    "fallback": ["google_dns"]
+    "fallback": ["google_dns"],
+
+    // Plain DNS servers (static or keenetic) that find the addresses of DoH
+    // servers whose URL has a host name. Asked in order; the next one is used
+    // when a server does not answer, answers with an error or knows no address.
+    // Default: not set, the first plain server of "servers" is used.
+    "bootstrap": ["google_dns"]
   },
 
   // Traffic interception. All fields below have defaults. If the kernel lacks
