@@ -168,7 +168,7 @@ If no link works, traffic for this outbound is blocked rather than leaking throu
 | `interval_ms` | integer | no (default: `180000`) | Interval between checks in milliseconds |
 | `probe_timeout_ms` | integer | no (default: `5000`) | Timeout for one check in milliseconds |
 | `tolerance_ms` | integer | no (default: `100`) | Do not switch to another link if it is faster than the current one by less than this many milliseconds |
-| `strategy` | string | no (default: `"priority"`) | How to pick a link. In the Web UI: **Selection strategy**. `"priority"` (**Fastest**): all traffic goes through one link, the one with the lowest latency in the first working tier. `"balance"` (**Multipath**): new connections are spread across the working links by weight. {{< only openwrt debian >}} |
+| `strategy` | string | no (default: `"priority"`) | How to pick a link. In the Web UI: **Selection strategy**.<ul><li>`"priority"` (**Fastest**): all traffic goes through one link, the one with the lowest latency in the first working tier.</li><li>{{< only openwrt debian >}} `"balance"` (**Multipath**): new connections are spread across the working links by weight.</li></ul> |
 | `conntrack_on_switch` | string | no (default: `"preserve"`) | What to do with open connections when switching to another link. In the Web UI: **Existing connections on switch**. `"preserve"` (**Keep**) keeps them on the old link, `"delete"` (**Reset**) deletes their {{< term "conntrack" >}} entries so they reconnect. See [Failover]({{< relref "/docs/configuration/advanced#failover" >}}) |
 | `outbound_groups` | array | yes | Ordered list of link groups, called tiers in the Web UI (see below) |
 | `retry` | object | no | Check retries (see below) |

@@ -110,7 +110,7 @@ A server name (`tag`) must be unique: lowercase Latin letters, digits and `_`, s
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `tag` | string | yes | Server name (**Name**) |
-| `type` | string | no | Server type (**DNS type**): `static` (**Plaintext DNS**, default), `doh` (**DNS-over-HTTPS**) or `keenetic` (**Keenetic DNS**, {{< only keenetic >}}) |
+| `type` | string | no | Server type (**DNS type**):<ul><li>`static` (**Plaintext DNS**, default)</li><li>`doh` (**DNS-over-HTTPS**)</li><li>{{< only keenetic >}} `keenetic` (**Keenetic DNS**)</li></ul> |
 | `address` | string | for `static` and `doh` | `static`: IP address of the DNS server, with optional port, for example `"10.8.0.1"`, `"10.8.0.1:5353"`, `"2001:4860:4860::8888"`, or `"[2001:4860:4860::8888]:5353"`. `doh`: the server URL starting with `https://`, for example `"https://dns.google/dns-query"` (**URL**) |
 | `detour` | string | no | Outbound the router itself uses to send queries to this server (**Make requests via Outbound**) |
 | `ips` | array of string | no | Only for `doh`: IP addresses of the server, without a port (**Server IP addresses**). When set, keen-pbr connects only to these addresses. The server certificate is still checked against the name in `address`. See [Finding the address of a DoH server](#doh-bootstrap) |
