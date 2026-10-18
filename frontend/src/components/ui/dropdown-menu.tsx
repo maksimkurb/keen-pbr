@@ -1,5 +1,6 @@
 import type { ComponentProps } from "react"
 import { Menu } from "@base-ui/react/menu"
+import { CheckIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const DropdownMenu = Menu.Root
@@ -51,9 +52,33 @@ function DropdownMenuItem({
   )
 }
 
+function DropdownMenuCheckboxItem({
+  className,
+  children,
+  ...props
+}: ComponentProps<typeof Menu.CheckboxItem>) {
+  return (
+    <Menu.CheckboxItem
+      className={cn(
+        "flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm outline-none select-none hover:bg-accent hover:text-accent-foreground data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50",
+        className
+      )}
+      {...props}
+    >
+      <span className="flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground">
+        <Menu.CheckboxItemIndicator>
+          <CheckIcon className="size-3.5" />
+        </Menu.CheckboxItemIndicator>
+      </span>
+      {children}
+    </Menu.CheckboxItem>
+  )
+}
+
 export {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuCheckboxItem,
 }

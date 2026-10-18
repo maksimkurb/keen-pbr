@@ -33,6 +33,7 @@ using Clock = std::chrono::steady_clock;
 constexpr std::size_t kMaxListeners = kDnsBalancerMaxGroups;
 constexpr std::size_t kUdpSlots = 128;
 constexpr std::size_t kTcpSessions = 16;
+constexpr std::size_t kProbeSlots = 64;
 constexpr std::size_t kUdpQueryMax = 1500;
 constexpr std::size_t kUdpAnswerMax = 16384;
 constexpr std::size_t kTcpQueryMax = 4096;
@@ -44,7 +45,7 @@ constexpr std::size_t kNoTransfer = static_cast<std::size_t>(-1);
 // A DoH host whose connections fail is looked up again, at most this often.
 constexpr std::chrono::seconds kBootstrapRetry{30};
 
-enum class Kind : std::uint32_t { Wake, ListenUdp, ListenTcp, UdpUp, TcpClient, TcpUp, Doh };
+enum class Kind : std::uint32_t { Wake, ListenUdp, ListenTcp, UdpUp, TcpClient, TcpUp, Doh, ProbeUp };
 
 std::uint64_t make_tag(Kind kind, std::size_t index) {
     return (static_cast<std::uint64_t>(kind) << 32) | static_cast<std::uint32_t>(index);
@@ -240,6 +241,30 @@ struct TcpSession {
     Clock::time_point deadline{};
 };
 
+// A batch of probe queries, handed to the forwarder thread.
+struct ProbeJob {
+    DnsBalancerSettings settings;
+    std::vector<DnsProbeRequest> requests;
+    std::vector<DnsProbeResult> results;
+    std::vector<bool> filled;  // results that are final
+    std::size_t next{0};      // the next request to start
+    std::size_t finished{0};
+    Clock::time_point deadline{};
+    bool done{false};         // guarded by DnsBalancer::Impl::mutex
+};
+
+// One probe query in flight.
+struct ProbeSlot {
+    bool used{false};
+    std::size_t request{0};
+    int up_fd{-1};
+    std::size_t doh{kNoTransfer};
+    std::size_t endpoint{kNoTransfer};  // DoH: waits for the address of its host
+    bool waiting{false};
+    Clock::time_point start{};
+    Clock::time_point deadline{};
+};
+
 } // namespace
 
 const char* dns_upstream_outcome_name(DnsUpstreamOutcome outcome) {
@@ -286,6 +311,9 @@ struct DnsBalancer::Impl {
     std::uint64_t stats_requested{0};
     std::uint64_t stats_served{0};
     DnsBalancerStats last_stats;
+    // probe(): the batch waiting for the loop thread.
+    std::shared_ptr<ProbeJob> probe_job;
+    std::condition_variable probe_cv;
 
     // Loop side: touched by the thread only (and by stop() after join).
     int epoll_fd{-1};
@@ -295,6 +323,8 @@ struct DnsBalancer::Impl {
     std::vector<TcpSession> tcp_sessions;
     std::array<std::uint8_t, kUdpAnswerMax> udp_answer{};
     DnsBalancerSettings settings;  // the applied ones, loop side
+    std::shared_ptr<ProbeJob> active_job;  // the batch being worked on
+    std::vector<ProbeSlot> probe_slots;
     std::map<std::string, Streak> streaks;  // by upstream identity
     std::set<std::string> failing_reported;  // the failing identities the callback last heard of
 #ifdef WITH_DOH
@@ -326,6 +356,7 @@ struct DnsBalancer::Impl {
         ::epoll_ctl(epoll_fd, EPOLL_CTL_ADD, wake_fd, &ev);
         udp_slots.resize(kUdpSlots);
         tcp_sessions.resize(kTcpSessions);
+        probe_slots.assign(kProbeSlots, ProbeSlot{});
         stopping = false;
         thread = std::thread([this] { loop(); });
         return true;
@@ -397,6 +428,35 @@ struct DnsBalancer::Impl {
         return failed;
     }
 
+    std::vector<DnsProbeResult> probe(const std::vector<DnsProbeRequest>& requests,
+                                      std::chrono::milliseconds deadline,
+                                      const DnsBalancerSettings& probe_settings) {
+        if (requests.empty()) {
+            return {};
+        }
+        auto job = std::make_shared<ProbeJob>();
+        job->settings = probe_settings;
+        job->requests = requests;
+        job->results.resize(requests.size());
+        job->filled.assign(requests.size(), false);
+        job->deadline = Clock::now() + deadline;
+        std::unique_lock<std::mutex> lock(mutex);
+        probe_cv.wait(lock, [&] { return probe_job == nullptr; });
+        if (!thread.joinable()) {
+            if (!start_thread_locked()) {
+                for (auto& result : job->results) {
+                    result.usable = false;
+                    result.error = "cannot start the DNS client";
+                }
+                return std::move(job->results);
+            }
+        }
+        probe_job = job;
+        wake();
+        probe_cv.wait(lock, [&] { return job->done; });
+        return std::move(job->results);
+    }
+
     DnsBalancerStats stats() {
         std::unique_lock<std::mutex> lock(mutex);
         if (!thread.joinable()) {
@@ -437,6 +497,7 @@ struct DnsBalancer::Impl {
                     case Kind::TcpClient: on_tcp_client(index, flags); break;
                     case Kind::TcpUp: on_tcp_up(index, flags); break;
                     case Kind::Doh: on_doh_socket(static_cast<int>(index), flags); break;
+                    case Kind::ProbeUp: on_probe_up(index); break;
                 }
             }
 #ifdef WITH_DOH
@@ -453,7 +514,9 @@ struct DnsBalancer::Impl {
                 }
                 apply_pending();
                 apply_bootstrap_results();
+                resume_waiting_probes();
                 serve_stats();
+                pump_probes();
             } else if (should_stop()) {
                 break;
             }
@@ -461,6 +524,7 @@ struct DnsBalancer::Impl {
         for (std::size_t i = 0; i < kMaxListeners; ++i) {
             drop_listener(i);
         }
+        abort_probes();
     }
 
     bool should_stop() {
@@ -475,6 +539,9 @@ struct DnsBalancer::Impl {
         }
         for (const auto& session : tcp_sessions) {
             if (session.used) earliest = std::min(earliest, session.deadline);
+        }
+        for (const auto& slot : probe_slots) {
+            if (slot.used) earliest = std::min(earliest, slot.deadline);
         }
         int result = -1;
         if (earliest != Clock::time_point::max()) {
@@ -758,7 +825,9 @@ struct DnsBalancer::Impl {
         const auto kind = static_cast<Kind>(user >> 32);
         const auto index = static_cast<std::size_t>(user & 0xFFFFFFFFu);
         const auto now = Clock::now();
-        if (kind == Kind::UdpUp && index < udp_slots.size() && udp_slots[index].used) {
+        if (kind == Kind::ProbeUp) {
+            on_probe_doh_done(index, result, now);
+        } else if (kind == Kind::UdpUp && index < udp_slots.size() && udp_slots[index].used) {
             UdpSlot& slot = udp_slots[index];
             slot.doh = kNoTransfer;
             Listener& listener = listeners[slot.listener];
@@ -1506,9 +1575,281 @@ struct DnsBalancer::Impl {
         epoll_mod(session.client_fd, EPOLLIN | EPOLLRDHUP, Kind::TcpClient, index);
     }
 
+    // --- probes -----------------------------------------------------------------
+
+    // Takes over the batch handed in by probe() and starts what fits.
+    void pump_probes() {
+        if (!active_job) {
+            std::lock_guard<std::mutex> lock(mutex);
+            if (probe_job && !probe_job->done) {
+                active_job = probe_job;
+            }
+        }
+        if (active_job && active_job->next == 0) {
+            merge_probe_settings(active_job->settings);
+        }
+        while (active_job && active_job->next < active_job->requests.size()) {
+            std::size_t slot = probe_slots.size();
+            for (std::size_t i = 0; i < probe_slots.size(); ++i) {
+                if (!probe_slots[i].used) {
+                    slot = i;
+                    break;
+                }
+            }
+            if (slot == probe_slots.size()) {
+                return;  // the rest starts as slots free up
+            }
+            start_probe(slot, active_job->next++);
+        }
+    }
+
+    // The groups' settings stay; what DoH needs and they lack is added.
+    void merge_probe_settings(const DnsBalancerSettings& wanted) {
+        if (wanted.doh_enabled && !settings.doh_enabled) {
+            settings.doh_enabled = true;
+            settings.ca_path = wanted.ca_path;
+            settings.ca_is_directory = wanted.ca_is_directory;
+        }
+        for (const auto& [tag, mark] : wanted.detour_marks) {
+            settings.detour_marks.emplace(tag, mark);
+        }
+        if (!settings.bootstrap) {
+            settings.bootstrap = wanted.bootstrap;
+        }
+        prepare_doh();
+    }
+
+    // Sends request `request` of the batch through slot `index`.
+    void start_probe(std::size_t index, std::size_t request) {
+        ProbeSlot& slot = probe_slots[index];
+        const DnsProbeRequest& wanted = active_job->requests[request];
+        const auto now = Clock::now();
+        slot = ProbeSlot{};
+        slot.used = true;
+        slot.request = request;
+        slot.start = now;
+        if (wanted.query.size() < kDnsHeaderLen) {
+            finish_probe(index, DnsUpstreamOutcome::BadAnswer, "the query is not a DNS message",
+                         nullptr, 0, now);
+            return;
+        }
+        if (wanted.upstream.kind == DnsBalancerUpstreamKind::Doh) {
+            start_probe_doh(index, wanted, now);
+            return;
+        }
+        sockaddr_storage addr{};
+        socklen_t addr_len = 0;
+        if (!make_addr(wanted.upstream.ip, wanted.upstream.port, addr, addr_len)) {
+            finish_probe(index, DnsUpstreamOutcome::NetworkError, "invalid server address", nullptr,
+                         0, now);
+            return;
+        }
+        const int fd = ::socket(addr.ss_family, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+        if (fd < 0) {
+            const int error = errno;
+            finish_probe(index, outcome_for_errno(error), std::strerror(error), nullptr, 0, now);
+            return;
+        }
+        if (::connect(fd, reinterpret_cast<const sockaddr*>(&addr), addr_len) != 0 ||
+            ::send(fd, wanted.query.data(), wanted.query.size(), MSG_NOSIGNAL) !=
+                static_cast<ssize_t>(wanted.query.size())) {
+            const int error = errno;
+            ::close(fd);
+            finish_probe(index, outcome_for_errno(error), std::strerror(error), nullptr, 0, now);
+            return;
+        }
+        slot.up_fd = fd;
+        slot.deadline = std::min(active_job->deadline, now + options.udp_attempt_timeout);
+        epoll_add(fd, EPOLLIN, Kind::ProbeUp, index);
+    }
+
+    void start_probe_doh([[maybe_unused]] std::size_t index,
+                         [[maybe_unused]] const DnsProbeRequest& wanted,
+                         [[maybe_unused]] Clock::time_point now) {
+#ifdef WITH_DOH
+        ProbeSlot& slot = probe_slots[index];
+        const auto& spec = wanted.upstream;
+        if (!settings.doh_enabled || !doh) {
+            finish_probe(index, DnsUpstreamOutcome::NetworkError,
+                         "DNS-over-HTTPS is not available", nullptr, 0, now, false);
+            return;
+        }
+        if (!spec.detour.empty()) {
+            const auto mark = settings.detour_marks.find(spec.detour);
+            if (mark == settings.detour_marks.end() || mark->second == 0) {
+                finish_probe(index, DnsUpstreamOutcome::NetworkError,
+                             "the outbound has no routing mark", nullptr, 0, now, false);
+                return;
+            }
+        }
+        Upstream upstream;
+        upstream.spec = spec;
+        if (!prepare_doh_upstream(upstream)) {
+            finish_probe(index, DnsUpstreamOutcome::NetworkError, "invalid DNS-over-HTTPS URL",
+                         nullptr, 0, now, false);
+            return;
+        }
+        slot.endpoint = upstream.doh_endpoint;
+        slot.deadline = active_job->deadline;
+        if (!doh->endpoint_ready(slot.endpoint)) {
+            slot.waiting = true;
+            request_bootstrap(doh->endpoint_host(slot.endpoint), true);
+            return;
+        }
+        send_probe_doh(index, now);
+#else
+        finish_probe(index, DnsUpstreamOutcome::NetworkError,
+                     "this build has no DNS-over-HTTPS support", nullptr, 0, now, false);
+#endif
+    }
+
+#ifdef WITH_DOH
+    void send_probe_doh(std::size_t index, Clock::time_point now) {
+        ProbeSlot& slot = probe_slots[index];
+        const DnsProbeRequest& wanted = active_job->requests[slot.request];
+        const auto timeout = std::max<Clock::duration>(
+            std::min<Clock::duration>(options.doh_attempt_timeout, active_job->deadline - now),
+            std::chrono::milliseconds(1));
+        const std::size_t transfer =
+            doh->start(slot.endpoint, wanted.query.data(), wanted.query.size(),
+                       std::chrono::duration_cast<std::chrono::milliseconds>(timeout),
+                       make_tag(Kind::ProbeUp, index));
+        if (transfer == kNoTransfer) {
+            finish_probe(index, DnsUpstreamOutcome::NetworkError, "cannot start the request",
+                         nullptr, 0, now);
+            return;
+        }
+        slot.doh = transfer;
+        slot.waiting = false;
+        slot.start = now;
+        slot.deadline = std::min(active_job->deadline, now + options.doh_attempt_timeout);
+    }
+#endif
+
+    // The host of a DoH probe got an address.
+    void resume_waiting_probes() {
+#ifdef WITH_DOH
+        if (!doh || !active_job) return;
+        const auto now = Clock::now();
+        for (std::size_t i = 0; i < probe_slots.size(); ++i) {
+            if (probe_slots[i].used && probe_slots[i].waiting &&
+                doh->endpoint_ready(probe_slots[i].endpoint)) {
+                send_probe_doh(i, now);
+            }
+        }
+#endif
+    }
+
+    void on_probe_up(std::size_t index) {
+        if (index >= probe_slots.size() || !probe_slots[index].used || probe_slots[index].up_fd < 0) {
+            return;
+        }
+        ProbeSlot& slot = probe_slots[index];
+        const DnsProbeRequest& wanted = active_job->requests[slot.request];
+        const auto now = Clock::now();
+        const ssize_t n = ::recv(slot.up_fd, udp_answer.data(), udp_answer.size(), 0);
+        if (n < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) return;
+            const int error = errno;
+            finish_probe(index, outcome_for_errno(error), std::strerror(error), nullptr, 0, now);
+            return;
+        }
+        const auto len = static_cast<std::size_t>(n);
+        if (len < kDnsHeaderLen || udp_answer[0] != wanted.query[0] || udp_answer[1] != wanted.query[1] ||
+            (udp_answer[2] & 0x80) == 0) {
+            return;  // not the answer to this query; keep waiting
+        }
+        finish_probe(index, outcome_for_rcode(udp_answer.data()), {}, udp_answer.data(), len, now);
+    }
+
+#ifdef WITH_DOH
+    void on_probe_doh_done(std::size_t index, const DohResult& result, Clock::time_point now) {
+        if (index >= probe_slots.size() || !probe_slots[index].used) return;
+        probe_slots[index].doh = kNoTransfer;
+        const DnsProbeRequest& wanted = active_job->requests[probe_slots[index].request];
+        if (result.ok && (result.body[2] & 0x80) != 0) {
+            std::vector<std::uint8_t> answer(result.body, result.body + result.body_len);
+            answer[0] = wanted.query[0];
+            answer[1] = wanted.query[1];
+            finish_probe(index, outcome_for_rcode(answer.data()), {}, answer.data(), answer.size(), now);
+            return;
+        }
+        finish_probe(index, outcome_for_doh(result), result.ok ? "unusable answer" : result.error,
+                     nullptr, 0, now);
+    }
+#endif
+
+    // Ends the probe of slot `index` with its result and starts the next.
+    void finish_probe(std::size_t index, DnsUpstreamOutcome outcome, std::string_view error,
+                      const std::uint8_t* answer, std::size_t answer_len, Clock::time_point now,
+                      bool usable = true) {
+        ProbeSlot& slot = probe_slots[index];
+        DnsProbeResult& result = active_job->results[slot.request];
+        active_job->filled[slot.request] = true;
+        result.outcome = outcome;
+        result.usable = usable;
+        result.error.assign(error);
+        if (answer != nullptr) {
+            result.answer.assign(answer, answer + answer_len);
+        }
+        result.duration = std::chrono::duration_cast<std::chrono::microseconds>(now - slot.start);
+        close_fd(slot.up_fd);
+        doh_cancel(slot.doh);
+        slot.used = false;
+        slot.waiting = false;
+        if (++active_job->finished == active_job->requests.size()) {
+            complete_probe_job();
+        } else {
+            pump_probes();
+        }
+    }
+
+    void complete_probe_job() {
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            active_job->done = true;
+            if (probe_job == active_job) probe_job.reset();
+        }
+        active_job.reset();
+        probe_cv.notify_all();
+    }
+
+    // The thread ends: whatever was not answered is not going to be.
+    void abort_probes() {
+        std::shared_ptr<ProbeJob> job;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            job = active_job ? active_job : probe_job;
+        }
+        for (auto& slot : probe_slots) {
+            close_fd(slot.up_fd);
+            doh_cancel(slot.doh);
+            slot.used = false;
+        }
+        if (!job) return;
+        active_job = job;
+        for (std::size_t i = 0; i < job->results.size(); ++i) {
+            if (!job->filled[i]) {
+                job->results[i].usable = false;
+                job->results[i].error = "the DNS client stopped";
+            }
+        }
+        complete_probe_job();
+    }
+
     // --- deadlines ------------------------------------------------------------------
 
     void expire(Clock::time_point now) {
+        for (std::size_t i = 0; i < probe_slots.size(); ++i) {
+            if (probe_slots[i].used && probe_slots[i].deadline <= now) {
+                finish_probe(i, probe_slots[i].waiting ? DnsUpstreamOutcome::NotResolved
+                                                       : DnsUpstreamOutcome::Timeout,
+                             probe_slots[i].waiting ? "the host name of the server is not resolved"
+                                                    : "no answer in time",
+                             nullptr, 0, now);
+            }
+        }
+
         for (auto& slot : udp_slots) {
             if (slot.used && slot.deadline <= now) {
                 Listener& listener = listeners[slot.listener];
@@ -1545,6 +1886,12 @@ std::vector<std::uint16_t> DnsBalancer::configure(const std::vector<DnsBalancerG
 std::vector<DnsBalancerGroup> DnsBalancer::groups() const {
     std::lock_guard<std::mutex> lock(impl_->mutex);
     return impl_->applied;
+}
+
+std::vector<DnsProbeResult> DnsBalancer::probe(const std::vector<DnsProbeRequest>& requests,
+                                               std::chrono::milliseconds deadline,
+                                               const DnsBalancerSettings& settings) {
+    return impl_->probe(requests, deadline, settings);
 }
 
 DnsBalancerStats DnsBalancer::stats() {

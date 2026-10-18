@@ -35,6 +35,8 @@ import type {
   ConfigObject,
   ConfigStateResponse,
   ConfigUpdateResponse,
+  DnsCheckRequest,
+  DnsCheckResponse,
   DraftConfig,
   ErrorResponse,
   GetDnsTestParams,
@@ -2752,6 +2754,108 @@ export function useGetStatusEvents<TData = Awaited<ReturnType<typeof getStatusEv
 
 
 
+
+/**
+ * Asks every server of `dns.servers` of the applied configuration (not the staged one), whether or not the rules or the DNS proxy use it, for a few well known domains, and tells apart servers that work, servers that do not answer and servers whose answers look tampered with (a known domain reported as not existing, an address of a block page, a made-up name that resolves). A `keenetic` server is checked at each address Keenetic reports. Only one check runs at a time. All fields of the body are optional.
+
+ * @summary Check the DNS servers
+ */
+export type postDnsServersCheckResponse200 = {
+  data: DnsCheckResponse
+  status: 200
+}
+
+export type postDnsServersCheckResponse400 = {
+  data: ErrorResponse
+  status: 400
+}
+
+export type postDnsServersCheckResponse409 = {
+  data: ErrorResponse
+  status: 409
+}
+
+export type postDnsServersCheckResponse503 = {
+  data: ErrorResponse
+  status: 503
+}
+
+export type postDnsServersCheckResponseSuccess = (postDnsServersCheckResponse200) & {
+  headers: Headers;
+};
+export type postDnsServersCheckResponseError = (postDnsServersCheckResponse400 | postDnsServersCheckResponse409 | postDnsServersCheckResponse503) & {
+  headers: Headers;
+};
+
+export type postDnsServersCheckResponse = (postDnsServersCheckResponseSuccess | postDnsServersCheckResponseError)
+
+export const getPostDnsServersCheckUrl = () => {
+
+
+
+
+  return `/api/dns/servers/check`
+}
+
+export const postDnsServersCheck = async (dnsCheckRequest?: DnsCheckRequest, options?: RequestInit): Promise<postDnsServersCheckResponse> => {
+
+  return apiFetch<postDnsServersCheckResponse>(getPostDnsServersCheckUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      dnsCheckRequest,)
+  }
+);}
+
+
+
+
+export const getPostDnsServersCheckMutationOptions = <TError = ErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postDnsServersCheck>>, TError,{data: DnsCheckRequest}, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postDnsServersCheck>>, TError,{data: DnsCheckRequest}, TContext> => {
+
+const mutationKey = ['postDnsServersCheck'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postDnsServersCheck>>, {data: DnsCheckRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postDnsServersCheck(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostDnsServersCheckMutationResult = NonNullable<Awaited<ReturnType<typeof postDnsServersCheck>>>
+    export type PostDnsServersCheckMutationBody = DnsCheckRequest
+    export type PostDnsServersCheckMutationError = ErrorResponse
+
+    /**
+ * @summary Check the DNS servers
+ */
+export const usePostDnsServersCheck = <TError = ErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postDnsServersCheck>>, TError,{data: DnsCheckRequest}, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postDnsServersCheck>>,
+        TError,
+        {data: DnsCheckRequest},
+        TContext
+      > => {
+      return useMutation(getPostDnsServersCheckMutationOptions(options), queryClient);
+    }
 
 /**
  * Streams the daemon's traffic interception events as Server-Sent Events. Each connection receives `HELLO` first. By default only DNS marker events used by the dashboard self-check are delivered. Set `show=all` (or the compatibility alias `show=full`) to receive every observed DNS, TLS SNI, HTTP Host, QUIC Initial, and marker event, including parsed DNS responses that did not match a configured list. The DNS marker domain (`intercept.dns.marker`) is answered by the interceptor and reported as an `INTERCEPT` event with `source` `marker`. `show=all` requires API authentication to be enabled; without it the request is refused with `403`.

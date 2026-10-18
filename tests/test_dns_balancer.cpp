@@ -637,3 +637,126 @@ TEST_CASE("dns balancer stats: the streak of a server is shared by the groups it
     CHECK(upstream_stats(stats, kListen, 0).consecutive_failures == 5);
     CHECK(upstream_stats(stats, kListen + 1, 0).consecutive_failures == 5);
 }
+
+// --- probes ---------------------------------------------------------------------
+
+namespace {
+
+DnsProbeRequest probe_request(std::uint16_t port, std::uint16_t id) {
+    DnsProbeRequest request;
+    request.upstream = DnsBalancerUpstream::plain("127.0.0.1", port);
+    request.query = query(id);
+    return request;
+}
+
+} // namespace
+
+TEST_CASE("dns balancer probe: answers, rcodes and silence of plain servers, all at once") {
+    FakeDns ok(29601, FakeDns::Mode::Answer);
+    FakeDns missing(29602, FakeDns::Mode::Nxdomain);
+    FakeDns failing(29603, FakeDns::Mode::Servfail);
+    FakeDns silent(29604, FakeDns::Mode::Silent);
+    // Nothing listens on 29605.
+    DnsBalancer balancer(fast_options());  // no groups: the probe starts the thread
+
+    const auto started = std::chrono::steady_clock::now();
+    const auto results = balancer.probe({probe_request(29601, 11), probe_request(29602, 12),
+                                         probe_request(29603, 13), probe_request(29604, 14),
+                                         probe_request(29605, 15)},
+                                        std::chrono::seconds(5), {});
+    const auto took = std::chrono::steady_clock::now() - started;
+    REQUIRE(results.size() == 5);
+    CHECK(results[0].outcome == DnsUpstreamOutcome::Ok);
+    REQUIRE(results[0].answer.size() > 12);
+    CHECK(id_of(results[0].answer) == 11);
+    CHECK(results[0].usable);
+    CHECK(results[0].duration.count() > 0);
+    CHECK(results[1].outcome == DnsUpstreamOutcome::Nxdomain);
+    CHECK(rcode_of(results[1].answer) == 3);
+    // A SERVFAIL is reported as it is, not retried elsewhere.
+    CHECK(results[2].outcome == DnsUpstreamOutcome::Servfail);
+    CHECK(results[3].outcome == DnsUpstreamOutcome::Timeout);
+    CHECK(results[3].answer.empty());
+    CHECK(results[4].outcome == DnsUpstreamOutcome::ConnectionRefused);
+    CHECK_FALSE(results[4].error.empty());
+    // They ran side by side: about one attempt timeout, not the sum.
+    CHECK(took < std::chrono::milliseconds(1000));
+}
+
+TEST_CASE("dns balancer probe: the deadline cuts a slow server short") {
+    FakeDns silent(29611, FakeDns::Mode::Silent);
+    DnsBalancerOptions options = fast_options();
+    options.udp_attempt_timeout = std::chrono::seconds(5);
+    DnsBalancer balancer(options);
+    const auto started = std::chrono::steady_clock::now();
+    const auto results = balancer.probe({probe_request(29611, 1)}, std::chrono::milliseconds(200), {});
+    const auto took = std::chrono::steady_clock::now() - started;
+    REQUIRE(results.size() == 1);
+    CHECK(results[0].outcome == DnsUpstreamOutcome::Timeout);
+    CHECK(took < std::chrono::milliseconds(1500));
+}
+
+TEST_CASE("dns balancer probe: more questions than slots are all answered") {
+    FakeDns ok(29621, FakeDns::Mode::Answer);
+    DnsBalancer balancer(fast_options());
+    std::vector<DnsProbeRequest> requests;
+    for (std::uint16_t i = 1; i <= 150; ++i) requests.push_back(probe_request(29621, i));
+    const auto results = balancer.probe(requests, std::chrono::seconds(5), {});
+    REQUIRE(results.size() == 150);
+    for (std::size_t i = 0; i < results.size(); ++i) {
+        CAPTURE(i);
+        CHECK(results[i].outcome == DnsUpstreamOutcome::Ok);
+    }
+    CHECK(balancer.probe({}, std::chrono::seconds(1), {}).empty());
+}
+
+TEST_CASE("dns balancer probe: no effect on counters, skipped servers or the streak") {
+    FakeDns silent(29631, FakeDns::Mode::Silent);
+    FakeDns alive(29632, FakeDns::Mode::Answer);
+    std::atomic<int> changes{0};
+    DnsBalancerOptions options = fast_options();
+    options.on_health_change = [&] { ++changes; };
+    DnsBalancer balancer(options);
+    CHECK(balancer.configure({group_of(kListen, {29631, 29632})}).empty());
+    const auto before = balancer.stats();
+
+    for (int round = 0; round < 12; ++round) {
+        const auto results =
+            balancer.probe({probe_request(29631, 1), probe_request(29633, 2), probe_request(29632, 3)},
+                           std::chrono::seconds(3), {});
+        REQUIRE(results.size() == 3);
+        CHECK(results[0].outcome == DnsUpstreamOutcome::Timeout);
+    }
+    const auto after = balancer.stats();
+    for (std::size_t i = 0; i < 2; ++i) {
+        const auto& was = upstream_stats(before, kListen, i);
+        const auto& now = upstream_stats(after, kListen, i);
+        CHECK(now.results == was.results);
+        CHECK(now.consecutive_failures == was.consecutive_failures);
+        CHECK(now.up == was.up);
+    }
+    CHECK(changes.load() == 0);
+    // The group keeps working next to the probes.
+    CHECK(rcode_of(udp_ask(kListen, 7)) == 0);
+}
+
+TEST_CASE("dns balancer probe: DoH is unusable without settings for it") {
+    DnsBalancer balancer(fast_options());
+    DnsProbeRequest request;
+    request.upstream = DnsBalancerUpstream::doh("https://dns.example/dns-query");
+    request.query = query(1);
+    const auto results = balancer.probe({request}, std::chrono::seconds(1), {});
+    REQUIRE(results.size() == 1);
+    CHECK_FALSE(results[0].usable);
+    CHECK_FALSE(results[0].error.empty());
+}
+
+TEST_CASE("dns balancer probe: stop with nothing pending, probe again after it") {
+    FakeDns ok(29641, FakeDns::Mode::Answer);
+    DnsBalancer balancer(fast_options());
+    CHECK(balancer.probe({probe_request(29641, 1)}, std::chrono::seconds(2), {})[0].outcome ==
+          DnsUpstreamOutcome::Ok);
+    balancer.stop();
+    CHECK(balancer.probe({probe_request(29641, 2)}, std::chrono::seconds(2), {})[0].outcome ==
+          DnsUpstreamOutcome::Ok);
+}

@@ -1,12 +1,14 @@
 import { DnsManagementDisabled } from "@/components/shared/dns-management-disabled"
 import { ArrowRight, Pencil, Plus, Trash2 } from "lucide-react"
 import type { ReactNode } from "react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
+import type { ApiError } from "@/api/client"
 import type { getConfigResponse } from "@/api/generated/keen-api"
 import type { ConfigObject } from "@/api/generated/model/configObject"
+import type { DnsCheckResponse } from "@/api/generated/model/dnsCheckResponse"
 import type { DnsRule } from "@/api/generated/model/dnsRule"
 import { DnsServerType } from "@/api/generated/model/dnsServerType"
 import {
@@ -14,7 +16,12 @@ import {
   usePostConfigMutation,
 } from "@/api/mutations"
 import { useGetConfig } from "@/api/queries"
-import { effectiveResolverIntegration } from "@/api/selectors"
+import { usePostDnsServersCheck } from "@/api/generated/keen-api"
+import { getApiErrorMessage } from "@/lib/api-errors"
+import {
+  effectiveResolverIntegration,
+  selectConfigIsDraft,
+} from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { MobileAddFab } from "@/components/shared/mobile-add-fab"
 import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
@@ -28,8 +35,20 @@ import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { useRowSelection } from "@/hooks/use-row-selection"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  DnsCheckBadge,
+  DnsCheckButton,
+  DnsCheckResultAlert,
+} from "@/pages/dns-servers-check"
+import {
+  buildCheckRequest,
+  loadSelection,
+  saveSelection,
+  type CheckSelection,
+} from "@/pages/dns-servers-check-utils"
 import {
   buildUpdatedConfigForDnsServersDelete,
   getDnsServerDeleteImpact,
@@ -49,6 +68,29 @@ export function DnsServersPage() {
   const configMutationPending = useConfigMutationPending()
   const configQuery = useGetConfig()
   const postConfigMutation = usePostConfigMutation()
+
+  const checkMutation = usePostDnsServersCheck()
+  const [checkSelection, setCheckSelection] = useState<CheckSelection>(() =>
+    loadSelection()
+  )
+  const resetCheck = checkMutation.reset
+  // The result describes the settings that were applied when it was made.
+  useEffect(() => {
+    resetCheck()
+  }, [configQuery.dataUpdatedAt, resetCheck])
+
+  const changeCheckSelection = (next: CheckSelection) => {
+    setCheckSelection(next)
+    saveSelection(next)
+  }
+  const runCheck = () => {
+    checkMutation.mutate({ data: buildCheckRequest(checkSelection) })
+  }
+  const checkResponse =
+    checkMutation.data?.status === 200 ? checkMutation.data.data : undefined
+  const checkErrorMessage = checkMutation.isError
+    ? getApiErrorMessage(checkMutation.error as unknown as ApiError | null)
+    : undefined
 
   const config = getConfigData(configQuery.data)
   const visibleDeleteRequest = deleteRequest ?? deletePreview
@@ -117,7 +159,14 @@ export function DnsServersPage() {
       <PageHeader
         actions={
           effectiveResolverIntegration(config) === "dnsmasq" ? (
-            <>
+            <div className="flex flex-wrap items-center gap-2">
+              <DnsCheckButton
+                disabled={configMutationPending || dnsServers.length === 0}
+                isRunning={checkMutation.isPending}
+                onRun={runCheck}
+                onSelectionChange={changeCheckSelection}
+                selection={checkSelection}
+              />
               <Button
                 className="hidden md:inline-flex"
                 disabled={configMutationPending}
@@ -131,7 +180,7 @@ export function DnsServersPage() {
                 icon={<Plus className="size-4" />}
                 onClick={() => navigate("/dns-servers/create")}
               />
-            </>
+            </div>
           ) : null
         }
         description={t("pages.dnsServers.description")}
@@ -139,6 +188,21 @@ export function DnsServersPage() {
       />
 
       <ConfigSaveErrorAlert error={postConfigMutation.error} />
+      {checkResponse ? (
+        <DnsCheckResultAlert
+          draft={selectConfigIsDraft(configQuery.data)}
+          response={checkResponse}
+        />
+      ) : null}
+      {checkErrorMessage ? (
+        <Alert variant="destructive">
+          <AlertDescription>
+            {t("pages.dnsServers.check.result.failed", {
+              message: checkErrorMessage,
+            })}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {configQuery.isLoading ? (
         <TableSkeleton />
@@ -179,11 +243,15 @@ export function DnsServersPage() {
             </BulkSelectionToolbar>
           ) : null}
           <DataTable
-            mobileCards={{ titleColumns: [0], bodyColumns: [1, 2] }}
+            mobileCards={{
+              titleColumns: [0],
+              bodyColumns: checkResponse ? [1, 2, 3] : [1, 2],
+            }}
             headers={[
               t("pages.dnsServers.headers.name"),
               t("pages.dnsServers.headers.address"),
               t("pages.dnsServers.headers.outbound"),
+              ...(checkResponse ? [t("pages.dnsServers.headers.check")] : []),
               t("pages.dnsServers.headers.actions"),
             ]}
             rows={dnsServers.map((server) => [
@@ -204,6 +272,15 @@ export function DnsServersPage() {
               >
                 {server.detour || t("pages.dnsServers.none")}
               </Badge>,
+              ...(checkResponse
+                ? [
+                    <CheckStatusCell
+                      key={`${server.tag}-check`}
+                      response={checkResponse}
+                      tag={server.tag}
+                    />,
+                  ]
+                : []),
               <ActionButtons
                 mobileIcons
                 actions={[
@@ -269,6 +346,17 @@ export function DnsServersPage() {
       />
     </div>
   )
+}
+
+function CheckStatusCell({
+  response,
+  tag,
+}: {
+  response: DnsCheckResponse
+  tag: string
+}) {
+  const checked = response.servers.find((item) => item.tag === tag)
+  return checked ? <DnsCheckBadge server={checked} /> : null
 }
 
 function getDnsServerDeleteImpactItems(

@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "../api/handlers.hpp"
+#include "../dns/keenetic_dns.hpp"
 #include "../api/handler_config.hpp"
 #include "../api/prometheus_metrics.hpp"
 #include "../api/server.hpp"
@@ -522,6 +523,50 @@ ListRefreshOperationResult Daemon::refresh_lists_via_api(std::optional<std::stri
     }
 }
 
+DnsCheckReport Daemon::check_dns_servers(const DnsCheckRequest& request) {
+    if (!routing_runtime_active()) {
+        throw ApiError("The service is not running", 503);
+    }
+    if (dns_check_running_.exchange(true)) {
+        throw ApiError("A DNS server check is already running", 409);
+    }
+    struct Reset {
+        std::atomic<bool>& flag;
+        ~Reset() { flag.store(false); }
+    } reset{dns_check_running_};
+
+    const Config config = config_store_.active_config();
+    DnsCheckInput input;
+    input.request = request;
+    input.servers = config.dns.value_or(DnsConfig{}).servers.value_or(std::vector<DnsServer>{});
+    input.ipv6_enabled = config.daemon.value_or(DaemonConfig{})
+                             .ipv6_enabled.value_or(config_defaults::ipv6_enabled);
+    if (!kDohBuiltIn) {
+        input.doh_unavailable = std::make_pair(std::string("doh_not_built"),
+                                               std::string("this build has no DNS-over-HTTPS support"));
+    } else if (!doh_ca_bundle_) {
+        input.doh_unavailable = std::make_pair(std::string("doh_no_certificates"),
+                                               std::string("no CA certificates found to verify the servers"));
+    }
+    input.keenetic_addresses = [] { return resolve_keenetic_dns_addresses(); };
+    input.settings.doh_enabled = kDohBuiltIn && doh_ca_bundle_.has_value();
+    if (doh_ca_bundle_) {
+        input.settings.ca_path = doh_ca_bundle_->path;
+        input.settings.ca_is_directory = doh_ca_bundle_->is_directory;
+    }
+    const OutboundMarkMap marks = config_store_.outbound_marks();
+    for (const auto& server : input.servers) {
+        if (!server.detour || server.detour->empty()) continue;
+        const auto mark = marks.find(internal_detour_mark_key(*server.detour));
+        if (mark != marks.end()) input.settings.detour_marks[*server.detour] = mark->second;
+    }
+    return run_dns_check(input, [this](const std::vector<DnsProbeRequest>& requests,
+                                       std::chrono::milliseconds deadline,
+                                       const DnsBalancerSettings& settings) {
+        return dns_balancer_.probe(requests, deadline, settings);
+    });
+}
+
 void Daemon::setup_api() {
     if (!config_.api || !config_.api->enabled.value_or(false) || opts_.no_api) return;
 
@@ -736,6 +781,9 @@ void Daemon::setup_api() {
     api_ctx_->compute_test_routing_with_criteria_fn = compute_test_routing_with_criteria;
     api_ctx_->validation_context_fn = [this]() { return validation_context(); };
     api_ctx_->get_health_issues_fn = [this]() { return health_issues(); };
+    api_ctx_->check_dns_servers_fn = [this](const DnsCheckRequest& request) {
+        return check_dns_servers(request);
+    };
     status_stream_ = std::make_unique<StatusStream>(StatusStream::Builders{
         [this]() {
             return build_health_response(api_ctx_->get_service_health());

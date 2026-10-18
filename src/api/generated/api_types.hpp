@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesYxdwyw data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesTVskcr data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -407,6 +407,47 @@ namespace api {
         std::optional<int64_t> apply_started_ts;
         std::string message;
         ConfigUpdateResponseStatus status;
+    };
+
+    struct DnsCheckResultElement {
+        std::vector<std::string> addresses;
+        std::string domain;
+        double duration_ms;
+        std::optional<std::string> error;
+        std::optional<int64_t> rcode;
+        std::string severity;
+        std::string status;
+    };
+
+    enum class DnsCheckEndpointStatus : int { OK, SKIPPED, UNAVAILABLE };
+
+    struct DnsCheckEndpoint {
+        std::string address;
+        std::optional<bool> nxdomain_hijack;
+        std::optional<std::string> reason;
+        std::optional<std::string> reason_code;
+        std::vector<DnsCheckResultElement> results;
+        DnsCheckEndpointStatus status;
+    };
+
+    struct DnsCheckRequest {
+        std::optional<std::vector<std::string>> custom_domains;
+        std::optional<std::vector<std::string>> domains;
+        std::optional<std::vector<std::string>> servers;
+    };
+
+    struct DnsCheckServerElement {
+        std::optional<std::string> detour;
+        std::vector<DnsCheckEndpoint> endpoints;
+        std::optional<std::string> error;
+        std::optional<std::string> error_code;
+        std::string tag;
+        DnsServerType type;
+    };
+
+    struct DnsCheckResponse {
+        std::string overall;
+        std::vector<DnsCheckServerElement> servers;
     };
 
     enum class DnsTestGapEventType : int { GAP };
@@ -997,7 +1038,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesYxdwyw {
+    struct KeenPbrTypesTVskcr {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1017,6 +1058,11 @@ namespace api {
         std::optional<CorsConfigClass> cors_config;
         std::optional<Daemon> daemon_config;
         std::optional<DefaultGateway> default_gateway;
+        std::optional<DnsCheckEndpoint> dns_check_endpoint;
+        std::optional<DnsCheckRequest> dns_check_request;
+        std::optional<DnsCheckResponse> dns_check_response;
+        std::optional<DnsCheckResultElement> dns_check_result;
+        std::optional<DnsCheckServerElement> dns_check_server;
         std::optional<DnsConfigClass> dns_config;
         std::optional<DnsmasqHealth> dnsmasq_health;
         std::optional<DnsRuleElement> dns_rule;
@@ -1225,6 +1271,21 @@ namespace api {
     void from_json(const json & j, ConfigUpdateResponse & x);
     void to_json(json & j, const ConfigUpdateResponse & x);
 
+    void from_json(const json & j, DnsCheckResultElement & x);
+    void to_json(json & j, const DnsCheckResultElement & x);
+
+    void from_json(const json & j, DnsCheckEndpoint & x);
+    void to_json(json & j, const DnsCheckEndpoint & x);
+
+    void from_json(const json & j, DnsCheckRequest & x);
+    void to_json(json & j, const DnsCheckRequest & x);
+
+    void from_json(const json & j, DnsCheckServerElement & x);
+    void to_json(json & j, const DnsCheckServerElement & x);
+
+    void from_json(const json & j, DnsCheckResponse & x);
+    void to_json(json & j, const DnsCheckResponse & x);
+
     void from_json(const json & j, DnsTestGapEvent & x);
     void to_json(json & j, const DnsTestGapEvent & x);
 
@@ -1384,8 +1445,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesYxdwyw & x);
-    void to_json(json & j, const KeenPbrTypesYxdwyw & x);
+    void from_json(const json & j, KeenPbrTypesTVskcr & x);
+    void to_json(json & j, const KeenPbrTypesTVskcr & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1416,6 +1477,9 @@ namespace api {
 
     void from_json(const json & j, ConfigUpdateResponseStatus & x);
     void to_json(json & j, const ConfigUpdateResponseStatus & x);
+
+    void from_json(const json & j, DnsCheckEndpointStatus & x);
+    void to_json(json & j, const DnsCheckEndpointStatus & x);
 
     void from_json(const json & j, DnsTestGapEventType & x);
     void to_json(json & j, const DnsTestGapEventType & x);
@@ -2181,6 +2245,89 @@ namespace api {
         j["apply_started_ts"] = x.apply_started_ts;
         j["message"] = x.message;
         j["status"] = x.status;
+    }
+
+    inline void from_json(const json & j, DnsCheckResultElement& x) {
+        x.addresses = j.at("addresses").get<std::vector<std::string>>();
+        x.domain = j.at("domain").get<std::string>();
+        x.duration_ms = j.at("duration_ms").get<double>();
+        x.error = get_stack_optional<std::string>(j, "error");
+        x.rcode = get_stack_optional<int64_t>(j, "rcode");
+        x.severity = j.at("severity").get<std::string>();
+        x.status = j.at("status").get<std::string>();
+    }
+
+    inline void to_json(json & j, const DnsCheckResultElement & x) {
+        j = json::object();
+        j["addresses"] = x.addresses;
+        j["domain"] = x.domain;
+        j["duration_ms"] = x.duration_ms;
+        j["error"] = x.error;
+        j["rcode"] = x.rcode;
+        j["severity"] = x.severity;
+        j["status"] = x.status;
+    }
+
+    inline void from_json(const json & j, DnsCheckEndpoint& x) {
+        x.address = j.at("address").get<std::string>();
+        x.nxdomain_hijack = get_stack_optional<bool>(j, "nxdomain_hijack");
+        x.reason = get_stack_optional<std::string>(j, "reason");
+        x.reason_code = get_stack_optional<std::string>(j, "reason_code");
+        x.results = j.at("results").get<std::vector<DnsCheckResultElement>>();
+        x.status = j.at("status").get<DnsCheckEndpointStatus>();
+    }
+
+    inline void to_json(json & j, const DnsCheckEndpoint & x) {
+        j = json::object();
+        j["address"] = x.address;
+        j["nxdomain_hijack"] = x.nxdomain_hijack;
+        j["reason"] = x.reason;
+        j["reason_code"] = x.reason_code;
+        j["results"] = x.results;
+        j["status"] = x.status;
+    }
+
+    inline void from_json(const json & j, DnsCheckRequest& x) {
+        x.custom_domains = get_stack_optional<std::vector<std::string>>(j, "custom_domains");
+        x.domains = get_stack_optional<std::vector<std::string>>(j, "domains");
+        x.servers = get_stack_optional<std::vector<std::string>>(j, "servers");
+    }
+
+    inline void to_json(json & j, const DnsCheckRequest & x) {
+        j = json::object();
+        j["custom_domains"] = x.custom_domains;
+        j["domains"] = x.domains;
+        j["servers"] = x.servers;
+    }
+
+    inline void from_json(const json & j, DnsCheckServerElement& x) {
+        x.detour = get_stack_optional<std::string>(j, "detour");
+        x.endpoints = j.at("endpoints").get<std::vector<DnsCheckEndpoint>>();
+        x.error = get_stack_optional<std::string>(j, "error");
+        x.error_code = get_stack_optional<std::string>(j, "error_code");
+        x.tag = j.at("tag").get<std::string>();
+        x.type = j.at("type").get<DnsServerType>();
+    }
+
+    inline void to_json(json & j, const DnsCheckServerElement & x) {
+        j = json::object();
+        j["detour"] = x.detour;
+        j["endpoints"] = x.endpoints;
+        j["error"] = x.error;
+        j["error_code"] = x.error_code;
+        j["tag"] = x.tag;
+        j["type"] = x.type;
+    }
+
+    inline void from_json(const json & j, DnsCheckResponse& x) {
+        x.overall = j.at("overall").get<std::string>();
+        x.servers = j.at("servers").get<std::vector<DnsCheckServerElement>>();
+    }
+
+    inline void to_json(json & j, const DnsCheckResponse & x) {
+        j = json::object();
+        j["overall"] = x.overall;
+        j["servers"] = x.servers;
     }
 
     inline void from_json(const json & j, DnsTestGapEvent& x) {
@@ -3236,7 +3383,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesYxdwyw& x) {
+    inline void from_json(const json & j, KeenPbrTypesTVskcr& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -3256,6 +3403,11 @@ namespace api {
         x.cors_config = get_stack_optional<CorsConfigClass>(j, "CorsConfig");
         x.daemon_config = get_stack_optional<Daemon>(j, "DaemonConfig");
         x.default_gateway = get_stack_optional<DefaultGateway>(j, "DefaultGateway");
+        x.dns_check_endpoint = get_stack_optional<DnsCheckEndpoint>(j, "DnsCheckEndpoint");
+        x.dns_check_request = get_stack_optional<DnsCheckRequest>(j, "DnsCheckRequest");
+        x.dns_check_response = get_stack_optional<DnsCheckResponse>(j, "DnsCheckResponse");
+        x.dns_check_result = get_stack_optional<DnsCheckResultElement>(j, "DnsCheckResult");
+        x.dns_check_server = get_stack_optional<DnsCheckServerElement>(j, "DnsCheckServer");
         x.dns_config = get_stack_optional<DnsConfigClass>(j, "DnsConfig");
         x.dnsmasq_health = get_stack_optional<DnsmasqHealth>(j, "DnsmasqHealth");
         x.dns_rule = get_stack_optional<DnsRuleElement>(j, "DnsRule");
@@ -3340,7 +3492,7 @@ namespace api {
         x.xt_extension_health = get_stack_optional<XtExtensionHealthElement>(j, "XtExtensionHealth");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesYxdwyw & x) {
+    inline void to_json(json & j, const KeenPbrTypesTVskcr & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -3361,6 +3513,11 @@ namespace api {
         j["CorsConfig"] = x.cors_config;
         j["DaemonConfig"] = x.daemon_config;
         j["DefaultGateway"] = x.default_gateway;
+        j["DnsCheckEndpoint"] = x.dns_check_endpoint;
+        j["DnsCheckRequest"] = x.dns_check_request;
+        j["DnsCheckResponse"] = x.dns_check_response;
+        j["DnsCheckResult"] = x.dns_check_result;
+        j["DnsCheckServer"] = x.dns_check_server;
         j["DnsConfig"] = x.dns_config;
         j["DnsmasqHealth"] = x.dnsmasq_health;
         j["DnsRule"] = x.dns_rule;
@@ -3594,6 +3751,22 @@ namespace api {
         switch (x) {
             case ConfigUpdateResponseStatus::OK: j = "ok"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"ConfigUpdateResponseStatus\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, DnsCheckEndpointStatus & x) {
+        if (j == "ok") x = DnsCheckEndpointStatus::OK;
+        else if (j == "skipped") x = DnsCheckEndpointStatus::SKIPPED;
+        else if (j == "unavailable") x = DnsCheckEndpointStatus::UNAVAILABLE;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"DnsCheckEndpointStatus\""); }
+    }
+
+    inline void to_json(json & j, const DnsCheckEndpointStatus & x) {
+        switch (x) {
+            case DnsCheckEndpointStatus::OK: j = "ok"; break;
+            case DnsCheckEndpointStatus::SKIPPED: j = "skipped"; break;
+            case DnsCheckEndpointStatus::UNAVAILABLE: j = "unavailable"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"DnsCheckEndpointStatus\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

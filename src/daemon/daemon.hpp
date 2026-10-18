@@ -6,6 +6,7 @@
 #include "../dns/doh_support.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_counters.hpp"
+#include "../dns/dns_check.hpp"
 #include "../health/health_issues.hpp"
 #include "../health/host_health_warnings.hpp"
 #include "../health/routing_health.hpp"
@@ -386,6 +387,8 @@ private:
 #ifdef WITH_API
   // API integration
   void setup_api();
+  // POST /api/dns/servers/check: asks every DNS server of the applied config.
+  DnsCheckReport check_dns_servers(const DnsCheckRequest &request);
   void finish_config_operation();
   void begin_config_operation_or_throw(ConfigOperationState state,
                                        const char *reason,
@@ -535,6 +538,8 @@ IcmpTester icmp_tester_;
   DnsProxyUsers dns_proxy_users_ GUARDED_BY(dns_proxy_users_mutex_);
   // A status stream refresh for dns_balancer_ is already queued.
   std::atomic<bool> dns_health_refresh_queued_{false};
+  // A check of the DNS servers is running; only one at a time.
+  std::atomic<bool> dns_check_running_{false};
   // Declared before the executor: queued sync jobs reference it, so the
   // executor must be torn down first.
   DnsmasqManager dnsmasq_manager_;

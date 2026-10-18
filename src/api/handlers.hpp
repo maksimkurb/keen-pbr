@@ -6,6 +6,7 @@
 
 #include "../cmd/test_routing.hpp"
 #include "../config/config.hpp"
+#include "../dns/dns_check.hpp"
 #include "../daemon/config_store.hpp"
 #include "../health/routing_health.hpp"
 #include "../health/service_health.hpp"
@@ -96,6 +97,11 @@ struct ApiContext {
 
     // Classified health issues; unset in fixtures that do not serve them.
     std::function<api::HealthIssuesResponse()> get_health_issues_fn;
+
+    // Asks the DNS servers of the applied config; unset in fixtures that do
+    // not serve it. Throws ApiError (409 while another check runs, 503 while
+    // the service is stopped) and DnsCheckRequestError.
+    std::function<DnsCheckReport(const DnsCheckRequest&)> check_dns_servers_fn;
 
     ConfigValidationContext validation_context() const {
         return validation_context_fn ? validation_context_fn()

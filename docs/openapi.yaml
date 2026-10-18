@@ -548,6 +548,51 @@ paths:
                 event: snapshot
                 data: {"type":"snapshot","data":{"service":{},"outbounds":{"outbounds":[]},"interfaces":{"interfaces":[]},"issues":{"issues":[]},"routing":{},"auth":{"enabled":false,"device_name":""},"config":{"revision":1}}}
 
+  /api/dns/servers/check:
+    post:
+      summary: Check the DNS servers
+      description: >
+        Asks every server of `dns.servers` of the applied configuration (not the
+        staged one), whether or not the rules or the DNS proxy use it, for a
+        few well known domains, and tells apart servers that work, servers that
+        do not answer and servers whose answers look tampered with (a known
+        domain reported as not existing, an address of a block page, a made-up
+        name that resolves). A `keenetic` server is checked at each address
+        Keenetic reports. Only one check runs at a time. All fields of the
+        body are optional.
+      operationId: postDnsServersCheck
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DnsCheckRequest"
+      responses:
+        "200":
+          description: Check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DnsCheckResponse"
+        "400":
+          description: Invalid request body, too many domains, an invalid domain or an unknown server tag
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Another check is still running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: The service is not running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/dns/test:
     get:
       summary: Stream DNS test queries
@@ -2290,6 +2335,147 @@ components:
               outbound: "vpn"
             - list: ["local-list"]
               outbound: "auto-select"
+
+    # -------------------------------------------------------------------------
+    # /api/dns/servers/check
+    # -------------------------------------------------------------------------
+
+    DnsCheckRequest:
+      type: object
+      properties:
+        domains:
+          type: array
+          description: >
+            Domains that certainly exist; an answer of "does not exist" for
+            them is suspicious. Default `["yandex.ru"]` unless
+            `custom_domains` is given. `domains` and `custom_domains` together
+            hold at most 5 names.
+          items:
+            type: string
+          maxItems: 5
+          example: ["yandex.ru", "youtube.com"]
+        custom_domains:
+          type: array
+          description: >
+            Domains of the user; "does not exist" or a lack of records is
+            reported without a warning because the daemon cannot know.
+          items:
+            type: string
+          maxItems: 5
+          example: ["example.org"]
+        servers:
+          type: array
+          description: Tags of the `dns.servers` to check. Default all of them.
+          items:
+            type: string
+          example: ["vpn-dns"]
+
+    DnsCheckResult:
+      type: object
+      required: [domain, status, severity, addresses, duration_ms]
+      properties:
+        domain:
+          type: string
+          example: "yandex.ru"
+        status:
+          type: string
+          description: >
+            `ok`, `nxdomain` (the domain does not exist), `nodata` (no A
+            records), `stub_address` (an address that cannot be the site's: 0.0.0.0, loopback,
+            private), `servfail`, `refused`, `rcode` (another error code), or
+            why there is no answer: `timeout`, `connection_refused`,
+            `unreachable`, `connection_closed`, `tls_error`, `http_error`,
+            `bad_answer`, `not_resolved`, `network_error`.
+          example: "ok"
+        severity:
+          type: string
+          description: "`ok`, `warning` or `error`."
+        rcode:
+          type: integer
+          format: int32
+          description: DNS response code, when the server answered.
+        addresses:
+          type: array
+          items:
+            type: string
+          description: The A and AAAA addresses of the answer.
+        duration_ms:
+          type: number
+          format: double
+          description: Time to the answer or to the failure.
+        error:
+          type: string
+          description: Technical detail of a failure, in English.
+
+    DnsCheckEndpoint:
+      type: object
+      required: [address, status, results]
+      properties:
+        address:
+          type: string
+          description: "`ip`, `ip:port`, `[ipv6]:port` or the DNS-over-HTTPS URL."
+          example: "8.8.8.8"
+        status:
+          type: string
+          description: >
+            `ok` (asked), `skipped` (not asked, for example an IPv6 address
+            while IPv6 is disabled) or `unavailable` (cannot be asked, for
+            example DNS-over-HTTPS without CA certificates).
+          enum: [ok, skipped, unavailable]
+        reason_code:
+          type: string
+          description: >
+            Set with `reason` for a known cause: `ipv6_disabled`,
+            `doh_not_built`, `doh_no_certificates`.
+        reason:
+          type: string
+          description: English text for `skipped` and `unavailable`.
+        nxdomain_hijack:
+          type: boolean
+          description: >
+            True when the server resolved a made-up name that does not exist.
+            Absent when it did not answer.
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/DnsCheckResult"
+
+    DnsCheckServer:
+      type: object
+      required: [tag, type, endpoints]
+      properties:
+        tag:
+          type: string
+        type:
+          type: string
+          enum: [static, doh, keenetic]
+        detour:
+          type: string
+        error_code:
+          type: string
+          description: "`keenetic_dns_unavailable` or `invalid_address`."
+        error:
+          type: string
+          description: Set when the addresses of the server could not be determined.
+        endpoints:
+          type: array
+          description: One per address; a `keenetic` server has one per Keenetic DNS server.
+          items:
+            $ref: "#/components/schemas/DnsCheckEndpoint"
+
+    DnsCheckResponse:
+      type: object
+      required: [overall, servers]
+      properties:
+        overall:
+          type: string
+          description: >
+            `ok`, `warning` (a server looks tampered with) or `error` (a
+            server does not answer).
+        servers:
+          type: array
+          items:
+            $ref: "#/components/schemas/DnsCheckServer"
 
     # -------------------------------------------------------------------------
     # /api/routing/test

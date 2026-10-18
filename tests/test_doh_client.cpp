@@ -494,6 +494,51 @@ TEST_CASE("doh forwarder stats: answers are counted with their time") {
     CHECK(upstream.consecutive_failures == 0);
 }
 
+TEST_CASE("doh forwarder probe: asks DoH servers outside the groups") {
+    CurlRuntime curl;
+    FakeDohServer healthy;
+    FakeDohServer broken(FakeDohServer::Mode::Error500);
+    DnsBalancer balancer(doh_options());  // no groups
+    DnsBalancerSettings settings = doh_settings();
+    settings.detour_marks["vpn"] = 7;
+
+    const auto request = [](const std::string& url, const std::string& detour = {}) {
+        DnsProbeRequest wanted;
+        wanted.upstream = DnsBalancerUpstream::doh(url, detour);
+        wanted.query = make_query(0x4242);
+        return wanted;
+    };
+    const auto results = balancer.probe(
+        {request(healthy.url()), request(broken.url()), request("https://127.0.0.1:1/dns-query"),
+         request(healthy.url(), "other")},
+        3s, settings);
+    REQUIRE(results.size() == 4);
+    CHECK(results[0].outcome == DnsUpstreamOutcome::Ok);
+    REQUIRE(results[0].answer.size() > 12);
+    CHECK(results[0].answer[0] == 0x42);  // the id the caller sent
+    CHECK(results[0].answer[1] == 0x42);
+    CHECK(results[1].outcome == DnsUpstreamOutcome::HttpError);
+    CHECK(results[1].usable);
+    CHECK(results[2].usable);
+    CHECK(results[2].outcome != DnsUpstreamOutcome::Ok);
+    // A detour without a routing mark cannot be used.
+    CHECK_FALSE(results[3].usable);
+    CHECK(healthy.requests() == 1);
+}
+
+TEST_CASE("doh forwarder probe: without DoH enabled the server is unusable") {
+    CurlRuntime curl;
+    FakeDohServer healthy;
+    DnsBalancer balancer(doh_options());
+    DnsProbeRequest wanted;
+    wanted.upstream = DnsBalancerUpstream::doh(healthy.url());
+    wanted.query = make_query(1);
+    const auto results = balancer.probe({wanted}, 2s, {});
+    REQUIRE(results.size() == 1);
+    CHECK_FALSE(results[0].usable);
+    CHECK(healthy.requests() == 0);
+}
+
 TEST_CASE("doh bootstrap: looks the host up on a worker thread") {
     std::mutex mutex;
     std::vector<std::string> asked;

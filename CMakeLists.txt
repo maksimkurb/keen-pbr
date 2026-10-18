@@ -345,6 +345,7 @@ set(SOURCES
   src/dns/dns_server.cpp
   src/dns/keenetic_dns.cpp
   src/dns/dns_balancer.cpp
+  src/dns/dns_check.cpp
   src/dns/doh_support.cpp
   src/dns/dns_wire.cpp
   src/dns/dns_txt_probe.cpp
@@ -429,6 +430,7 @@ if(WITH_API)
     src/api/handler_runtime_interfaces.cpp
     src/api/handler_runtime_outbounds.cpp
     src/api/handler_test_routing.cpp
+    src/api/handler_dns_check.cpp
     src/api/handler_status_events.cpp
     src/api/handler_dns_test.cpp
     src/api/handler_diagnostics.cpp

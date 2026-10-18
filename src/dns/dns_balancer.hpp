@@ -187,6 +187,22 @@ struct DnsBalancerStats {
     std::uint32_t inflight_tcp{0};
 };
 
+// One query to one DNS server, outside the groups (see DnsBalancer::probe).
+struct DnsProbeRequest {
+    DnsBalancerUpstream upstream;
+    std::vector<std::uint8_t> query;  // a whole DNS message with the id to expect back
+};
+
+struct DnsProbeResult {
+    DnsUpstreamOutcome outcome{DnsUpstreamOutcome::NetworkError};
+    // False: the server cannot be asked at all (DoH not supported or without
+    // CA certificates, a detour without a routing mark); `error` says why.
+    bool usable{true};
+    std::vector<std::uint8_t> answer;  // the DNS message, when one came back
+    std::string error;                 // text for the user when there is no answer
+    std::chrono::microseconds duration{0};
+};
+
 // A small forwarding DNS server for the lists that use several upstreams or a
 // DoH one. Queries of a group go to its upstreams round-robin; an upstream
 // that times out, refuses or answers SERVFAIL hands the query to the next one,
@@ -210,6 +226,19 @@ public:
 
     // The set applied last.
     std::vector<DnsBalancerGroup> groups() const;
+
+    // Sends each query to its server and waits for all the answers, but at
+    // most `deadline`. The queries run on the forwarder thread (which starts
+    // for the purpose when no group needs it) next to the real traffic and
+    // have no effect on the statistics, on which servers are skipped, or on
+    // the health verdict. Plain servers get UDP; the answer is judged by its
+    // header, a truncated one is not retried over TCP. `settings` say what
+    // DoH needs (CA certificates, marks of the detours, the server that looks
+    // the DoH hosts up); what the groups were configured with stays in
+    // effect. One call at a time, others wait. Thread-safe.
+    std::vector<DnsProbeResult> probe(const std::vector<DnsProbeRequest>& requests,
+                                      std::chrono::milliseconds deadline,
+                                      const DnsBalancerSettings& settings);
 
     // A snapshot of the counters, taken by the forwarder thread (the counters
     // belong to it). Waits for it at most 500 ms, then returns the previous
