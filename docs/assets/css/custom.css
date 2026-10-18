@@ -196,3 +196,260 @@ html.dark .only-badge--keenetic {
   font-size: 0.95rem;
   line-height: 1.5rem;
 }
+
+/* Before/after screenshots in the changelog */
+.shot {
+  margin: 1rem 0 1.5rem;
+}
+
+.shot-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.shot-row + .shot-row {
+  margin-top: 1.25rem;
+}
+
+.shot-row-mobile {
+  grid-template-columns: repeat(auto-fit, minmax(0, 14rem));
+  justify-content: center;
+}
+
+.shot-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.shot-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(100 116 139);
+}
+
+.shot-label-after {
+  color: var(--hx-color-primary-600);
+}
+
+.shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0;
+  border: 1px solid rgb(148 163 184 / 0.35);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.12);
+}
+
+/* Before/after drag slider in the changelog (assets/js/compare.js) */
+.compare-figure {
+  margin: 1rem 0 1.5rem;
+}
+
+.compare + .compare {
+  margin-top: 1.25rem;
+}
+
+.compare-mobile {
+  width: min(100%, 15rem);
+  margin-inline: auto;
+}
+
+.compare-stage {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgb(148 163 184 / 0.35);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.12);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.compare-desktop .compare-stage {
+  aspect-ratio: 16 / 10;
+}
+
+.compare-mobile .compare-stage {
+  aspect-ratio: 1170 / 2532;
+}
+
+.compare-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Without JS the images are stacked and the controls are hidden */
+.compare-label,
+.compare-divider {
+  display: none;
+}
+
+.compare-ready .compare-stage {
+  cursor: ew-resize;
+  touch-action: pan-y;
+}
+
+.compare-ready .compare-img {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* Left part shows "before", right part shows "after" */
+.compare-ready .compare-after {
+  clip-path: inset(0 0 0 var(--pos));
+}
+
+.compare-ready .compare-label {
+  display: block;
+  position: absolute;
+  bottom: 0.75rem;
+  left: 0.75rem;
+  padding: 0.25rem 0.875rem;
+  border-radius: 9999px;
+  background: rgb(15 23 42 / 0.7);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.compare-ready .compare-label-after {
+  left: auto;
+  right: 0.75rem;
+  background: var(--hx-color-primary-600);
+}
+
+.compare-ready .compare-divider {
+  display: block;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--pos);
+  width: 4px;
+  margin-left: -2px;
+  background: var(--hx-color-primary-600);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.3);
+  pointer-events: none;
+}
+
+.compare-handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: -1.25rem 0 0 -1.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--hx-color-primary-600);
+  box-shadow: 0 1px 4px rgb(15 23 42 / 0.35);
+  cursor: ew-resize;
+  pointer-events: auto;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.compare-handle svg {
+  pointer-events: none;
+}
+
+.compare-handle:focus-visible {
+  outline: 2px solid var(--hx-color-primary-600);
+  outline-offset: 2px;
+}
+
+.compare-dragging .compare-stage {
+  cursor: grabbing;
+}
+
+/* The handle grows while dragged. It changes size and margin instead of using a
+   transform, and has no transition: animating it left a repaint artifact on
+   fast clicks. */
+.compare-dragging .compare-handle {
+  width: 3.25rem;
+  height: 3.25rem;
+  margin: -1.625rem 0 0 -1.625rem;
+}
+
+/* Desktop and mobile screenshots in one row, same height */
+.shot-row-devices {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.shot-col-desktop {
+  flex: 1.6 1 0;
+}
+
+.shot-col-mobile {
+  flex: 0.462 1 0;
+}
+
+.compare-mobile.compare-ready .compare-label {
+  bottom: 0.5rem;
+  left: 0.5rem;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.8125rem;
+}
+
+.compare-mobile.compare-ready .compare-label-after {
+  left: auto;
+  right: 0.5rem;
+}
+
+/* Several natural-size screenshots in one row */
+.shot-row-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.shot-row-pair .shot-col {
+  flex: 1 1 16rem;
+  max-width: 100%;
+}
+
+.shot-row-pair img {
+  width: 100%;
+  max-width: 100%;
+}
+
+.shot-caption {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  text-align: center;
+  color: rgb(100 116 139);
+}
+
+.compare-figure .shot-caption {
+  margin-top: 0.75rem;
+}
+
+.shot-row-pair .shot-col {
+  min-width: 0;
+}

@@ -43,3 +43,9 @@ languageSuggestionDismiss: Close language suggestion
 
 onlyFor: Only for
 pageOnlyFor: "This section applies only to:"
+
+shotBefore: Before
+shotAfter: After
+compareHandle: "Drag to compare before and after"
+shotDesktop: Desktop version
+shotMobile: Mobile version

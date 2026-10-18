@@ -1,5 +1,6 @@
 ---
 title: Upgrade from 2.x
+weight: 3
 ---
 
 This guide is for those who already run keen-pbr 2.x on Keenetic / NetCraze. You will replace the repository and the package and move your configuration to the new format. Run all commands over SSH.

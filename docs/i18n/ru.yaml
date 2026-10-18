@@ -43,3 +43,9 @@ languageSuggestionDismiss: Закрыть предложение сменить 
 
 onlyFor: Только для
 pageOnlyFor: "Раздел относится только к:"
+
+shotBefore: До
+shotAfter: После
+compareHandle: "Перетащите, чтобы сравнить «до» и «после»"
+shotDesktop: ПК-версия
+shotMobile: Мобильная версия

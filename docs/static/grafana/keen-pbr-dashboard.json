@@ -2438,13 +2438,91 @@
       }
     },
     {
+      "id": 44,
+      "type": "timeseries",
+      "title": "Failures in a row by server",
+      "description": "Consecutive failed attempts to a DNS server. Drops to 0 on the first answer; a server that keeps growing is skipped by the proxy.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 89,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (server, upstream) (keen_pbr_dns_proxy_upstream_consecutive_failures{job=~\"$job\"})",
+          "legendFormat": "{{server}} ({{upstream}})",
+          "refId": "A",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisPlacement": "auto",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
       "id": 26,
       "type": "row",
       "title": "Sets & lists",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 89,
+        "y": 95,
         "w": 24,
         "h": 1
       },
@@ -2461,7 +2539,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 90,
+        "y": 96,
         "w": 12,
         "h": 8
       },
@@ -2542,7 +2620,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 90,
+        "y": 96,
         "w": 12,
         "h": 8
       },
@@ -2620,7 +2698,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 98,
+        "y": 104,
         "w": 4,
         "h": 4
       },
@@ -2687,7 +2765,7 @@
       },
       "gridPos": {
         "x": 4,
-        "y": 98,
+        "y": 104,
         "w": 4,
         "h": 4
       },
@@ -2748,7 +2826,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 98,
+        "y": 104,
         "w": 8,
         "h": 8
       },
@@ -2825,7 +2903,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 98,
+        "y": 104,
         "w": 8,
         "h": 8
       },
@@ -2918,7 +2996,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 106,
+        "y": 112,
         "w": 12,
         "h": 7
       },
@@ -3067,7 +3145,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 106,
+        "y": 112,
         "w": 12,
         "h": 7
       },
@@ -3150,7 +3228,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 113,
+        "y": 119,
         "w": 24,
         "h": 1
       },
@@ -3167,7 +3245,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 114,
+        "y": 120,
         "w": 24,
         "h": 6
       },

@@ -1,0 +1,43 @@
+{{- /*
+Before/after drag slider for screenshots of the Web UI from static/images/changelog/<dir>/.
+
+Files are named <name>-{before,after}-{desktop,mobile}.png. The left part of the
+slider shows "before", the right part "after". Without JS both images are stacked.
+The script is loaded from _partials/custom/head-end.html on pages that use the shortcode.
+
+@param name    file name prefix
+@param alt     alt text
+@param mobile  "true" to add a narrower slider with phone-size screenshots
+@param start   initial handle position in percent, default 30
+@param dir     version folder, default 3.4.0
+
+@example {{< compare name="dashboard" alt="Dashboard" mobile="true" >}}
+*/ -}}
+{{- $name := .Get "name" -}}
+{{- $alt := .Get "alt" | default $name -}}
+{{- $dir := .Get "dir" | default "3.4.0" -}}
+{{- $start := .Get "start" | default "30" -}}
+{{- $base := printf "images/changelog/%s/%s" $dir $name -}}
+<figure class="compare-figure">
+  {{- range $kind := slice "desktop" "mobile" }}
+  {{- if or (eq $kind "desktop") (eq ($.Get "mobile") "true") }}
+  {{- $suffix := cond (eq $kind "mobile") ", mobile" "" }}
+  <div class="compare compare-{{ $kind }}" style="--pos: {{ $start }}%">
+    <div class="compare-stage">
+      <img class="compare-img compare-before" src="{{ printf "%s-before-%s.png" $base $kind | relURL }}" alt="{{ $alt }} — {{ i18n "shotBefore" }}{{ $suffix }}" {{ if eq $kind "mobile" }}width="1170" height="2532"{{ else }}width="2880" height="1800"{{ end }} loading="lazy" decoding="async" draggable="false">
+      <img class="compare-img compare-after" src="{{ printf "%s-after-%s.png" $base $kind | relURL }}" alt="{{ $alt }} — {{ i18n "shotAfter" }}{{ $suffix }}" {{ if eq $kind "mobile" }}width="1170" height="2532"{{ else }}width="2880" height="1800"{{ end }} loading="lazy" decoding="async" draggable="false">
+      <span class="compare-label">{{ i18n "shotBefore" }}</span>
+      <span class="compare-label compare-label-after">{{ i18n "shotAfter" }}</span>
+      <div class="compare-divider">
+        <button type="button" class="compare-handle" role="slider" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $start }}" aria-label="{{ i18n "compareHandle" }}">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+  {{- end }}
+  {{- end }}
+  {{- with .Get "alt" }}
+  <figcaption class="shot-caption">{{ . }}</figcaption>
+  {{- end }}
+</figure>

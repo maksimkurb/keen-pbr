@@ -3,3 +3,7 @@
     {{ .Params.custom_css | safeCSS }}
   </style>
 {{ end }}
+{{ if .HasShortcode "compare" }}
+  {{- $compare := resources.Get "js/compare.js" | minify | fingerprint -}}
+  <script src="{{ $compare.RelPermalink }}" integrity="{{ $compare.Data.Integrity }}" defer></script>
+{{ end }}

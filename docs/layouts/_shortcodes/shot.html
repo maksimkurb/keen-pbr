@@ -1,0 +1,82 @@
+{{- /*
+Screenshots of the Web UI from static/images/changelog/<dir>/.
+
+Files are named <name>-{before,after}-{desktop,mobile}.png.
+With a "before" screenshot the shortcode shows before/after pairs. With
+only="after" it shows the desktop and mobile versions in one row, keeping
+their aspect ratios.
+
+@param name    file name prefix
+@param alt     alt text
+@param mobile  "true" to add phone-size screenshots
+@param only    "after" when there is no "before" screenshot
+@param dir     version folder, default 3.4.0
+@param names   comma-separated names of "after" screenshots to show side by side at their natural size
+@param alts    pipe-separated alt texts for names
+
+@example {{< shot name="dashboard" alt="Dashboard" mobile="true" >}}
+*/ -}}
+{{- $name := .Get "name" -}}
+{{- $alt := .Get "alt" | default $name -}}
+{{- $dir := .Get "dir" | default "3.4.0" -}}
+{{- $onlyAfter := eq (.Get "only") "after" -}}
+{{- $mobile := eq (.Get "mobile") "true" -}}
+{{- $base := printf "images/changelog/%s/%s" $dir $name -}}
+<figure class="shot">
+  {{- if .Get "names" }}
+  {{- $alts := split (.Get "alts" | default "") "|" }}
+  <div class="shot-row shot-row-pair">
+    {{- range $i, $n := split (.Get "names") "," }}
+    {{- $n = trim $n " " }}
+    {{- $path := printf "images/changelog/%s/%s-after-desktop.png" $dir $n }}
+    <div class="shot-col">
+      <a href="{{ $path | relURL }}" target="_blank" rel="noopener"><img src="{{ $path | relURL }}" alt="{{ index $alts $i | default $n }}" onload="this.style.maxWidth='min(100%,'+this.naturalWidth/2+'px)'" loading="lazy"></a>
+      {{- with index $alts $i }}
+      <figcaption class="shot-caption">{{ . }}</figcaption>
+      {{- end }}
+    </div>
+    {{- end }}
+  </div>
+  {{- else if $onlyAfter }}
+  <div class="shot-row shot-row-devices">
+    <div class="shot-col shot-col-desktop">
+      {{- if $mobile }}
+      <span class="shot-label">{{ i18n "shotDesktop" }}</span>
+      {{- end }}
+      <a href="{{ printf "%s-after-desktop.png" $base | relURL }}" target="_blank" rel="noopener"><img src="{{ printf "%s-after-desktop.png" $base | relURL }}" alt="{{ $alt }}" onload="this.style.maxWidth='min(100%,'+this.naturalWidth/2+'px)'" loading="lazy"></a>
+    </div>
+    {{- if $mobile }}
+    <div class="shot-col shot-col-mobile">
+      <span class="shot-label">{{ i18n "shotMobile" }}</span>
+      <a href="{{ printf "%s-after-mobile.png" $base | relURL }}" target="_blank" rel="noopener"><img src="{{ printf "%s-after-mobile.png" $base | relURL }}" alt="{{ $alt }} — {{ i18n "shotMobile" }}" width="1170" height="2532" loading="lazy"></a>
+    </div>
+    {{- end }}
+  </div>
+  {{- else }}
+  <div class="shot-row">
+    <div class="shot-col">
+      <span class="shot-label">{{ i18n "shotBefore" }}</span>
+      <a href="{{ printf "%s-before-desktop.png" $base | relURL }}" target="_blank" rel="noopener"><img src="{{ printf "%s-before-desktop.png" $base | relURL }}" alt="{{ $alt }} — {{ i18n "shotBefore" }}" loading="lazy"></a>
+    </div>
+    <div class="shot-col">
+      <span class="shot-label shot-label-after">{{ i18n "shotAfter" }}</span>
+      <a href="{{ printf "%s-after-desktop.png" $base | relURL }}" target="_blank" rel="noopener"><img src="{{ printf "%s-after-desktop.png" $base | relURL }}" alt="{{ $alt }} — {{ i18n "shotAfter" }}" loading="lazy"></a>
+    </div>
+  </div>
+  {{- if $mobile }}
+  <div class="shot-row shot-row-mobile">
+    <div class="shot-col">
+      <span class="shot-label">{{ i18n "shotBefore" }}</span>
+      <a href="{{ printf "%s-before-mobile.png" $base | relURL }}" target="_blank" rel="noopener"><img src="{{ printf "%s-before-mobile.png" $base | relURL }}" alt="{{ $alt }} — {{ i18n "shotBefore" }}, {{ i18n "shotMobile" }}" loading="lazy"></a>
+    </div>
+    <div class="shot-col">
+      <span class="shot-label shot-label-after">{{ i18n "shotAfter" }}</span>
+      <a href="{{ printf "%s-after-mobile.png" $base | relURL }}" target="_blank" rel="noopener"><img src="{{ printf "%s-after-mobile.png" $base | relURL }}" alt="{{ $alt }} — {{ i18n "shotAfter" }}, {{ i18n "shotMobile" }}" loading="lazy"></a>
+    </div>
+  </div>
+  {{- end }}
+  {{- end }}
+  {{- if and $name $alt }}
+  <figcaption class="shot-caption">{{ $alt }}</figcaption>
+  {{- end }}
+</figure>
