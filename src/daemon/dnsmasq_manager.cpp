@@ -146,6 +146,18 @@ void DnsmasqManager::sync(const Config& config,
                           const std::string& reason) {
     KPBR_LOCK_GUARD(sync_mutex_);
     const ResolverIntegrationMode mode = effective_resolver_integration(config);
+    if (dnsmasq_integration_enabled(config)) {
+        // Report the integration as enabled and syncing right away, so the
+        // status neither reads "disabled" before the first sync finishes nor
+        // keeps a stale "in sync" from the previous config while we work.
+        update_status([&](DnsmasqStatus& status) {
+            status.mode = mode;
+            if (status.state == DnsmasqSyncState::Disabled ||
+                status.state == DnsmasqSyncState::Ok) {
+                status.state = DnsmasqSyncState::Applying;
+            }
+        });
+    }
     try {
         if (forwarder_) {
             forwarder_(registry);
@@ -829,6 +841,16 @@ void DnsmasqManager::request_sync(Config config,
                                   const DnsmasqPostFn& post,
                                   bool explicit_apply,
                                   std::string reason) {
+    if (explicit_apply && dnsmasq_integration_enabled(config)) {
+        // Do not keep showing "in sync" while the sync waits for a busy worker.
+        update_status([&](DnsmasqStatus& status) {
+            status.mode = effective_resolver_integration(config);
+            if (status.state == DnsmasqSyncState::Disabled ||
+                status.state == DnsmasqSyncState::Ok) {
+                status.state = DnsmasqSyncState::Applying;
+            }
+        });
+    }
     {
         KPBR_LOCK_GUARD(request_mutex_);
         pending_config_ = std::move(config);
