@@ -124,7 +124,6 @@ export function serverLevel(server: DnsCheckServer): CheckLevel | "skipped" {
       result = worse(result, "error")
       continue
     }
-    if (endpoint.nxdomain_hijack) result = worse(result, "warning")
     for (const item of endpoint.results) {
       result = worse(result, level(item.severity))
     }
@@ -135,7 +134,7 @@ export function serverLevel(server: DnsCheckServer): CheckLevel | "skipped" {
 export type CheckProblem = {
   tag: string
   address: string
-  /** The status that tells what is wrong: `timeout`, `nxdomain`, `hijack`, ... */
+  /** The status that tells what is wrong: `timeout`, `nxdomain`, ... */
   status: string
   domain?: string
   detail?: string
@@ -148,8 +147,6 @@ export type CheckSummary = {
   /** Servers that answer, but look tampered with. */
   warnings: CheckProblem[]
 }
-
-export const HIJACK_STATUS = "nxdomain_hijack"
 
 /** The text of the result alert is built from this. */
 export function summarizeCheck(response: DnsCheckResponse): CheckSummary {
@@ -194,10 +191,19 @@ export function summarizeCheck(response: DnsCheckResponse): CheckSummary {
           detail: item.error,
         }
         if (item.severity === "error") errors.push(problem)
-        else if (item.severity === "warning") warnings.push(problem)
-      }
-      if (endpoint.nxdomain_hijack) {
-        warnings.push({ ...base, status: HIJACK_STATUS })
+        else if (item.severity === "warning") {
+          // The same site reported missing at several addresses of one
+          // server is said once.
+          const told =
+            item.status === "nxdomain" &&
+            warnings.some(
+              (other) =>
+                other.tag === problem.tag &&
+                other.status === "nxdomain" &&
+                other.domain === problem.domain
+            )
+          if (!told) warnings.push(problem)
+        }
       }
     }
   }
@@ -206,4 +212,25 @@ export function summarizeCheck(response: DnsCheckResponse): CheckSummary {
     errors,
     warnings,
   }
+}
+
+type TranslateFn = (key: string, options?: Record<string, unknown>) => string
+
+/** The text for a status or reason code, or the code itself when unknown. */
+export function statusText(
+  code: string,
+  t: TranslateFn,
+  fallback = code
+): string {
+  return t(`pages.dnsServers.check.status.${code}`, { defaultValue: fallback })
+}
+
+export function describeProblem(problem: CheckProblem, t: TranslateFn): string {
+  const where = problem.address
+    ? `${problem.tag} (${problem.address})`
+    : problem.tag
+  const what = statusText(problem.status, t)
+  return problem.domain
+    ? `${where}, ${problem.domain}: ${what}`
+    : `${where}: ${what}`
 }

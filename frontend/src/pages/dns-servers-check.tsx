@@ -1,16 +1,7 @@
-import {
-  CheckCircle2,
-  ChevronDown,
-  CircleAlert,
-  Loader2,
-  ShieldCheck,
-  TriangleAlert,
-} from "lucide-react"
-import { useTranslation } from "react-i18next"
+import { ChevronDown, Loader2, ShieldCheck } from "lucide-react"
+import { Trans, useTranslation } from "react-i18next"
 
-import type { DnsCheckResponse } from "@/api/generated/model/dnsCheckResponse"
 import type { DnsCheckServer } from "@/api/generated/model/dnsCheckServer"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -31,27 +22,12 @@ import {
   PRESET_DOMAINS,
   selectionProblem,
   serverLevel,
-  summarizeCheck,
   type CheckProblem,
   type CheckSelection,
+  describeProblem,
+  statusText,
+  type summarizeCheck,
 } from "@/pages/dns-servers-check-utils"
-
-type TranslateFn = (key: string, options?: Record<string, unknown>) => string
-
-/** The text for a status or reason code, or the code itself when unknown. */
-function statusText(code: string, t: TranslateFn, fallback = code): string {
-  return t(`pages.dnsServers.check.status.${code}`, { defaultValue: fallback })
-}
-
-function describeProblem(problem: CheckProblem, t: TranslateFn): string {
-  const where = problem.address
-    ? `${problem.tag} (${problem.address})`
-    : problem.tag
-  const what = statusText(problem.status, t)
-  return problem.domain
-    ? `${where}, ${problem.domain}: ${what}`
-    : `${where}: ${what}`
-}
 
 export function DnsCheckButton({
   selection,
@@ -163,66 +139,6 @@ export function DnsCheckButton({
   )
 }
 
-export function DnsCheckResultAlert({
-  response,
-  draft,
-}: {
-  response: DnsCheckResponse
-  draft: boolean
-}) {
-  const { t } = useTranslation()
-  const summary = summarizeCheck(response)
-  const variant =
-    summary.level === "error"
-      ? "destructive"
-      : summary.level === "warning"
-        ? "warning"
-        : "default"
-  const Icon =
-    summary.level === "error"
-      ? CircleAlert
-      : summary.level === "warning"
-        ? TriangleAlert
-        : CheckCircle2
-
-  return (
-    <Alert variant={variant}>
-      <Icon />
-      <AlertTitle>
-        {t(`pages.dnsServers.check.result.${summary.level}`)}
-      </AlertTitle>
-      <AlertDescription>
-        {summary.errors.length > 0 ? (
-          <div>
-            <p>{t("pages.dnsServers.check.result.notAnswering")}</p>
-            <ul className="list-disc pl-5">
-              {summary.errors.map((problem, index) => (
-                <li key={`error-${index}`}>{describeProblem(problem, t)}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-        {summary.warnings.length > 0 ? (
-          <div>
-            {summary.errors.length > 0 ? (
-              <p>{t("pages.dnsServers.check.result.alsoSuspicious")}</p>
-            ) : null}
-            <ul className="list-disc pl-5">
-              {summary.warnings.map((problem, index) => (
-                <li key={`warning-${index}`}>{describeProblem(problem, t)}</li>
-              ))}
-            </ul>
-            <p className="mt-1">{t("pages.dnsServers.check.result.advice")}</p>
-          </div>
-        ) : null}
-        {draft ? (
-          <p className="mt-1">{t("pages.dnsServers.check.draftHint")}</p>
-        ) : null}
-      </AlertDescription>
-    </Alert>
-  )
-}
-
 /** The status of one server in the table; a click shows the details. */
 export function DnsCheckBadge({ server }: { server: DnsCheckServer }) {
   const { t } = useTranslation()
@@ -304,16 +220,95 @@ export function DnsCheckBadge({ server }: { server: DnsCheckServer }) {
                     count: Math.round(item.duration_ms),
                   })}
                 </span>
+                {item.status === "nxdomain" ? (
+                  <p className="w-full text-muted-foreground">
+                    <NxdomainText domain={item.domain} />
+                  </p>
+                ) : null}
               </div>
             ))}
-            {endpoint.nxdomain_hijack ? (
-              <p className="text-warning-foreground">
-                {statusText("nxdomain_hijack", t)}
-              </p>
-            ) : null}
           </div>
         ))}
       </PopoverContent>
     </Popover>
+  )
+}
+
+/** The problems found by a check, in its notification. */
+export function DnsCheckResultDetails({
+  summary,
+  draft,
+}: {
+  summary: ReturnType<typeof summarizeCheck>
+  draft: boolean
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <div className="space-y-1">
+      {summary.errors.length > 0 ? (
+        <div>
+          <p>{t("pages.dnsServers.check.result.notAnswering")}</p>
+          <ul className="list-disc pl-5">
+            {summary.errors.map((problem, index) => (
+              <li key={`error-${index}`}>
+                <ProblemText problem={problem} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {summary.warnings.length > 0 ? (
+        <div>
+          {summary.errors.length > 0 ? (
+            <p>{t("pages.dnsServers.check.result.alsoSuspicious")}</p>
+          ) : null}
+          <ul className="list-disc pl-5">
+            {summary.warnings.map((problem, index) => (
+              <li key={`warning-${index}`}>
+                <ProblemText problem={problem} />
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1">{t("pages.dnsServers.check.result.advice")}</p>
+        </div>
+      ) : null}
+      {draft ? <p>{t("pages.dnsServers.check.draftHint")}</p> : null}
+    </div>
+  )
+}
+
+/**
+ * One line of the notification. A well-known site reported as not existing
+ * says what that may mean.
+ */
+function ProblemText({ problem }: { problem: CheckProblem }) {
+  const { t } = useTranslation()
+  if (problem.status === "nxdomain" && problem.domain) {
+    return (
+      <>
+        <strong>{problem.tag}</strong>: <NxdomainText domain={problem.domain} />
+      </>
+    )
+  }
+  return <>{describeProblem(problem, t)}</>
+}
+
+/**
+ * A site of the menu is known to exist; one the user typed may not, so the
+ * text asks the user to judge.
+ */
+function NxdomainText({ domain }: { domain: string }) {
+  const known = (PRESET_DOMAINS as readonly string[]).includes(domain)
+  return (
+    <Trans
+      components={{ b: <strong /> }}
+      i18nKey={
+        known
+          ? "pages.dnsServers.check.nxdomainProblem"
+          : "pages.dnsServers.check.nxdomainCustomProblem"
+      }
+      values={{ domain }}
+    />
   )
 }

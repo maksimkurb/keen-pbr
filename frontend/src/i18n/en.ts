@@ -265,6 +265,12 @@ export const enTranslation = {
       dohUnavailable: "DNS-over-HTTPS servers are not used",
       listNotDownloaded: "List '{{list}}' is not downloaded yet",
       dnsServerFailing: "DNS server '{{tag}}' is not answering",
+      dnsUpstreamMissing: "No main DNS servers are specified",
+      dnsUpstreamMissingDetail:
+        "Domains that match no DNS rule may be resolved through the default DNS servers, such as your ISP's. Specify the main DNS servers.",
+      dohBootstrapMissing: "No bootstrap servers for DoH servers",
+      dohBootstrapMissingDetail:
+        "The DoH servers {{tags}} have no IP address specified, so keen-pbr will try to determine it on its own. Specify the bootstrap DNS servers to look them up.",
       dnsServerFailingFor:
         "{{detail}}. No working server is left for: {{lists}}",
       defaultServers: "main servers",
@@ -1130,6 +1136,14 @@ export const enTranslation = {
       actions: {
         add: "Add DNS server",
       },
+      needsAttention: "Needs attention",
+      roles: {
+        fallback: "Main",
+        fallbackNumbered: "Main #{{position}}",
+        bootstrap: "Bootstrap",
+        bootstrapNumbered: "Bootstrap #{{position}}",
+        bootstrapAuto: "Bootstrap, automatic",
+      },
       empty: {
         title: "No DNS servers yet",
         description: "Add a DNS server to configure upstream resolution.",
@@ -1143,6 +1157,10 @@ export const enTranslation = {
         sites: "Sites to ask the servers about",
         customLabel: "Another site",
         milliseconds: "{{count}} ms",
+        nxdomainProblem:
+          "The DNS server answered that the domain <b>{{domain}} does not exist</b>. This may also mean that the DNS server or the ISP tampers with the answer.",
+        nxdomainCustomProblem:
+          "The DNS server answered that the domain <b>{{domain}} does not exist</b>. If you are sure this domain exists, this may mean that the DNS server or the ISP tampers with the answer.",
         details: "Check details of {{server}}",
         draftHint:
           "The check used the applied settings, not the changes you have not applied yet.",
@@ -1184,7 +1202,6 @@ export const enTranslation = {
           bad_answer: "answered not with a DNS message",
           not_resolved: "address of the server not found",
           network_error: "network error",
-          nxdomain_hijack: "answers with addresses for sites that do not exist",
           doh_not_built: "DNS-over-HTTPS is not available in this build",
           doh_no_certificates: "no CA certificates to verify the server",
           ipv6_disabled: "IPv6 is disabled",
@@ -1241,25 +1258,29 @@ export const enTranslation = {
       fallback: {
         title: "Main DNS servers",
         description:
-          "Queries for domains that no DNS rule matches go to these servers, tried in order. When set, the router's system DNS servers are not used.",
+          "Upstream DNS servers used by default when a domain matches none of the rules below.",
         add: "Add main DNS server",
         placeholderTitle: "No main DNS servers selected",
-        placeholderDescription:
-          "Optional. Leave empty to keep the system DNS servers for domains not matched by any rule.",
         noneDefined: "Add a DNS server first.",
         noneAvailable: "All DNS servers are already selected.",
+        noneSummary: "No servers specified",
+        warning:
+          "No main DNS servers are specified. Domains that match no DNS rule may be resolved through the default DNS servers, such as your ISP's, instead of the ones you trust. Specify the main DNS servers so that all other domains use them.",
       },
       bootstrap: {
         title: "Bootstrap servers",
         description:
-          "keen-pbr uses these servers to find the IP addresses of DoH servers whose URL has a host name rather than an IP. Only plain DNS servers fit. If none is chosen, the first plain server of the list is used.",
+          "IP addresses of the DNS servers used to look up the IP addresses of the DoH upstream servers you specified. Only plain DNS servers fit.",
         add: "Add bootstrap server",
         autoTitle: "Automatic: {{tag}}",
         systemTitle: "The router's system resolver",
+        noneSummary: "No servers specified",
         noPlainHint:
           "Add a plain DNS server, otherwise the address of a DoH server may not be found.",
         noneDefined: "Add a plain DNS server first.",
-        noneAvailable: "All plain DNS servers are already selected.",
+        noneAvailable: "All DNS servers are already selected.",
+        warning:
+          "The DoH servers <bold>{{tags}}</bold> have no IP address specified, so keen-pbr will try to determine it on its own. Specify the bootstrap DNS servers keen-pbr should use to look up these DoH servers.",
       },
     },
     dnsServerUpsert: {

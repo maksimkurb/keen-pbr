@@ -66,7 +66,7 @@ export function RoutingDiagnosticsResult({
 
       <Accordion className="rounded-lg border px-3">
         <AccordionItem>
-          <AccordionTrigger className="py-3 font-medium">
+          <AccordionTrigger className="py-3 font-medium hover:underline">
             {t("overview.routingDiagnostics.ruleDetailsTitle")}
           </AccordionTrigger>
           <AccordionPanel className="pb-3">

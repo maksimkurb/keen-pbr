@@ -141,7 +141,7 @@ describe("summarizeCheck", () => {
   test("is ok when every server answers sensibly", () => {
     const response: DnsCheckResponse = {
       overall: "ok",
-      servers: [server("a", [result({})], { nxdomain_hijack: false })],
+      servers: [server("a", [result({})])],
     }
     const summary = summarizeCheck(response)
     expect(summary.level).toBe("ok")
@@ -171,26 +171,22 @@ describe("summarizeCheck", () => {
     const response: DnsCheckResponse = {
       overall: "warning",
       servers: [
-        server(
-          "a",
-          [
-            result({}),
-            result({
-              domain: "youtube.com",
-              status: "nxdomain",
-              severity: "warning",
-              rcode: 3,
-            }),
-            result({
-              domain: "telegram.org",
-              status: "stub_address",
-              severity: "warning",
-              rcode: 0,
-              addresses: ["0.0.0.0"],
-            }),
-          ],
-          { nxdomain_hijack: true }
-        ),
+        server("a", [
+          result({}),
+          result({
+            domain: "youtube.com",
+            status: "nxdomain",
+            severity: "warning",
+            rcode: 3,
+          }),
+          result({
+            domain: "telegram.org",
+            status: "stub_address",
+            severity: "warning",
+            rcode: 0,
+            addresses: ["0.0.0.0"],
+          }),
+        ]),
       ],
     }
     const summary = summarizeCheck(response)
@@ -199,9 +195,33 @@ describe("summarizeCheck", () => {
     expect(summary.warnings.map((item) => [item.status, item.domain])).toEqual([
       ["nxdomain", "youtube.com"],
       ["stub_address", "telegram.org"],
-      ["nxdomain_hijack", undefined],
     ])
     expect(serverLevel(response.servers[0])).toBe("warning")
+  })
+
+  test("a site reported missing at several addresses of a server is told once", () => {
+    const missing = result({
+      domain: "telegram.org",
+      status: "nxdomain",
+      severity: "warning",
+      rcode: 3,
+    })
+    const quad9: DnsCheckServer = {
+      tag: "quad9",
+      type: "static",
+      endpoints: [
+        { address: "9.9.9.9", status: "ok", results: [missing] },
+        { address: "149.112.112.112", status: "ok", results: [missing] },
+      ],
+    }
+    const summary = summarizeCheck({ overall: "warning", servers: [quad9] })
+    expect(summary.level).toBe("warning")
+    expect(summary.warnings).toHaveLength(1)
+    expect(summary.warnings[0]).toMatchObject({
+      tag: "quad9",
+      status: "nxdomain",
+      domain: "telegram.org",
+    })
   })
 
   test("errors win over warnings; answers with an error code are per domain", () => {

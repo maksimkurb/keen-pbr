@@ -19,14 +19,11 @@ namespace keen_pbr3 {
 // The check of the DNS servers of dns.servers: every server is asked for a few
 // well known domains, and the answers are told apart into "works", "does not
 // answer" and "answers, but looks tampered with" (a blocked domain reported as
-// not existing, an address of a block page, a made-up name that resolves).
+// not existing, an address of a block page).
 
 constexpr std::size_t kDnsCheckMaxDomains = 5;
 // The whole check gives up after this long.
 constexpr std::chrono::milliseconds kDnsCheckDeadline{6000};
-// A name under it never exists; a server that resolves one tampers with
-// NXDOMAIN answers.
-constexpr const char* kDnsCheckCanaryZone = "nxcheck.keen-pbr.fyi";
 
 class DnsCheckRequestError : public std::runtime_error {
 public:
@@ -36,7 +33,8 @@ public:
 struct DnsCheckRequest {
     // Domains known to exist: NXDOMAIN for them is suspicious.
     std::vector<std::string> domains;
-    // Domains of the user: NXDOMAIN and a lack of records just say so.
+    // Domains of the user: a lack of records just says so, NXDOMAIN is still
+    // a warning, as the user may know the domain exists.
     std::vector<std::string> custom_domains;
     // Tags of dns.servers to check; empty: all.
     std::vector<std::string> servers;
@@ -78,17 +76,12 @@ struct DnsCheckResult {
 DnsCheckResult classify_dns_check_answer(const std::string& domain, bool custom,
                                          const DnsProbeResult& probe);
 
-// Whether the reply to the question for a made-up name shows that the server
-// answers with addresses for names that do not exist; nullopt when the server
-// did not answer.
-std::optional<bool> dns_check_nxdomain_hijacked(const DnsProbeResult& probe);
 
 struct DnsCheckEndpoint {
     std::string address;  // "ip", "ip:port", "[ipv6]:port" or the DoH URL
     std::string status{"ok"};  // ok, skipped, unavailable
     std::optional<std::string> reason_code;
     std::optional<std::string> reason;  // for skipped and unavailable
-    std::optional<bool> nxdomain_hijack;
     std::vector<std::string> ips;  // DoH: the fixed addresses it was asked at
     std::vector<DnsCheckResult> results;
 };

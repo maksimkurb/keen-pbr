@@ -21,7 +21,7 @@ function AccordionTrigger({
       <AccordionPrimitive.Trigger
         data-slot="accordion-trigger"
         className={cn(
-          "group flex w-full items-center justify-between gap-3 text-left focus-visible:outline-2 focus-visible:outline-ring",
+          "group flex w-full cursor-pointer items-center justify-between gap-3 text-left focus-visible:outline-2 focus-visible:outline-ring",
           className
         )}
         {...props}

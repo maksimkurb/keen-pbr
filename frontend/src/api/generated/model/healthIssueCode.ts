@@ -30,4 +30,6 @@ export const HealthIssueCode = {
   doh_unavailable: 'doh_unavailable',
   list_not_downloaded: 'list_not_downloaded',
   dns_server_failing: 'dns_server_failing',
+  dns_upstream_missing: 'dns_upstream_missing',
+  doh_bootstrap_missing: 'doh_bootstrap_missing',
 } as const;

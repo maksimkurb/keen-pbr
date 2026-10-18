@@ -14,7 +14,7 @@ export interface DnsCheckRequest {
      */
   domains?: string[];
   /**
-     * Domains of the user; "does not exist" or a lack of records is reported without a warning because the daemon cannot know.
+     * Domains of the user. A lack of records is reported without a warning; "does not exist" is still a warning, as the user may know the domain exists.
 
      * @maxItems 5
      */

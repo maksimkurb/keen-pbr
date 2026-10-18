@@ -2380,8 +2380,9 @@ components:
         custom_domains:
           type: array
           description: >
-            Domains of the user; "does not exist" or a lack of records is
-            reported without a warning because the daemon cannot know.
+            Domains of the user. A lack of records is reported without a
+            warning; "does not exist" is still a warning, as the user may know
+            the domain exists.
           items:
             type: string
           maxItems: 5
@@ -2453,11 +2454,6 @@ components:
         reason:
           type: string
           description: English text for `skipped` and `unavailable`.
-        nxdomain_hijack:
-          type: boolean
-          description: >
-            True when the server resolved a made-up name that does not exist.
-            Absent when it did not answer.
         ips:
           type: array
           description: >
@@ -3665,6 +3661,8 @@ components:
         - doh_unavailable
         - list_not_downloaded
         - dns_server_failing
+        - dns_upstream_missing
+        - doh_bootstrap_missing
 
     HealthIssueDetailCode:
       type: string

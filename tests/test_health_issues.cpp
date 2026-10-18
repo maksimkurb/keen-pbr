@@ -398,3 +398,25 @@ TEST_CASE("several tags behind one DNS server are shown together, a detour is na
     inputs.service_running = false;
     CHECK(collect_health_issues(inputs).issues.empty());
 }
+
+TEST_CASE("missing main DNS servers are a warning") {
+    HealthIssueInputs inputs;
+    inputs.service_running = true;
+    inputs.dns_upstream_missing = true;
+    const auto response = collect_health_issues(inputs);
+    REQUIRE(response.issues.size() == 1);
+    CHECK(response.issues[0].code == api::Code::DNS_UPSTREAM_MISSING);
+    CHECK(response.issues[0].severity == api::Severity::WARNING);
+}
+
+TEST_CASE("DoH servers without bootstrap servers are one warning naming them") {
+    HealthIssueInputs inputs;
+    inputs.service_running = true;
+    inputs.doh_without_bootstrap = {"doh_google", "doh_cf"};
+    const auto response = collect_health_issues(inputs);
+    REQUIRE(response.issues.size() == 1);
+    const auto& issue = response.issues[0];
+    CHECK(issue.code == api::Code::DOH_BOOTSTRAP_MISSING);
+    CHECK(issue.severity == api::Severity::WARNING);
+    CHECK(issue.params.at("tags") == "doh_google, doh_cf");
+}

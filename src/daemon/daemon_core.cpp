@@ -63,6 +63,24 @@ bool config_uses_doh(const Config &config) {
   });
 }
 
+// Tags of the DoH servers with a host name in the URL and no IP addresses of
+// their own: keen-pbr has to look their address up.
+std::vector<std::string> doh_servers_needing_bootstrap(const Config &config) {
+  std::vector<std::string> tags;
+  const auto servers = config.dns.value_or(DnsConfig{}).servers.value_or(std::vector<DnsServer>{});
+  for (const auto &server : servers) {
+    if (server.type.value_or(api::DnsServerType::STATIC) != api::DnsServerType::DOH ||
+        !server.address.has_value() || !server.ips.value_or(std::vector<std::string>{}).empty()) {
+      continue;
+    }
+    try {
+      if (parse_doh_url(*server.address).ip.empty()) tags.push_back(server.tag);
+    } catch (const DnsError &) {  // NOLINT(bugprone-empty-catch): an invalid URL is reported by the config validation
+    }
+  }
+  return tags;
+}
+
 constexpr auto SIGUSR1_DEBOUNCE_DELAY = std::chrono::milliseconds{350};
 constexpr auto INTERFACE_MONITOR_RECONNECT_RETRY_DELAY =
     std::chrono::seconds{5};
@@ -718,6 +736,14 @@ Daemon::health_issues_from(const ServiceHealthState &service,
   inputs.doh_ca_missing = kDohBuiltIn && !doh_ca_bundle_.has_value() &&
                           config_uses_doh(config_store_.active_config());
   inputs.dns_server_failures = dns_server_failures();
+  const Config &active_config = config_store_.active_config();
+  if (effective_resolver_integration(active_config) == ResolverIntegrationMode::DNSMASQ) {
+    const DnsConfig dns = active_config.dns.value_or(DnsConfig{});
+    inputs.dns_upstream_missing = dns.fallback.value_or(std::vector<std::string>{}).empty();
+    if (dns.bootstrap.value_or(std::vector<std::string>{}).empty()) {
+      inputs.doh_without_bootstrap = doh_servers_needing_bootstrap(active_config);
+    }
+  }
   for (auto &list : collect_undownloaded_lists(
            config_store_.active_config(), list_service_.cache_manager(),
            list_service_.refresh_stats())) {

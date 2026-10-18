@@ -270,6 +270,12 @@ export const ruTranslation = {
       dohUnavailable: "DNS-over-HTTPS серверы не используются",
       listNotDownloaded: "Список «{{list}}» ещё не скачан",
       dnsServerFailing: "DNS-сервер «{{tag}}» не отвечает",
+      dnsUpstreamMissing: "Основные DNS-серверы не указаны",
+      dnsUpstreamMissingDetail:
+        "Домены, не подходящие ни под одно DNS-правило, могут разрешаться через DNS-серверы по умолчанию, например провайдера. Укажите основные DNS-серверы.",
+      dohBootstrapMissing: "Не указаны bootstrap-серверы для DoH",
+      dohBootstrapMissingDetail:
+        "У DoH-серверов {{tags}} не указан IP-адрес, поэтому keen-pbr будет пытаться определить его самостоятельно. Укажите bootstrap DNS-серверы, через которые их искать.",
       dnsServerFailingFor:
         "{{detail}}. Не осталось рабочих серверов для: {{lists}}",
       defaultServers: "основные серверы",
@@ -1159,6 +1165,14 @@ export const ruTranslation = {
       actions: {
         add: "Добавить DNS-сервер",
       },
+      needsAttention: "Требует внимания",
+      roles: {
+        fallback: "Основной",
+        fallbackNumbered: "Основной №{{position}}",
+        bootstrap: "Bootstrap",
+        bootstrapNumbered: "Bootstrap №{{position}}",
+        bootstrapAuto: "Bootstrap, автоматически",
+      },
       empty: {
         title: "DNS-серверов пока нет",
         description:
@@ -1173,6 +1187,10 @@ export const ruTranslation = {
         sites: "О каких сайтах спросить серверы",
         customLabel: "Другой сайт",
         milliseconds: "{{count}} мс",
+        nxdomainProblem:
+          "DNS вернул ответ, что домен <b>{{domain}} не существует</b>. Это может также означать, что DNS или оператор подменяет ответ.",
+        nxdomainCustomProblem:
+          "DNS вернул ответ, что домен <b>{{domain}} не существует</b>. Если вы уверены, что этот домен существует, это может означать, что DNS или оператор подменяет ответ.",
         details: "Подробности проверки {{server}}",
         draftHint:
           "Проверка шла по применённым настройкам, а не по изменениям, которые вы ещё не применили.",
@@ -1215,7 +1233,6 @@ export const ruTranslation = {
           bad_answer: "ответил не DNS-сообщением",
           not_resolved: "не удалось найти адрес сервера",
           network_error: "сетевая ошибка",
-          nxdomain_hijack: "отвечает адресами на несуществующие сайты",
           doh_not_built: "в этой сборке нет DNS-over-HTTPS",
           doh_no_certificates: "нет сертификатов, чтобы проверить сервер",
           ipv6_disabled: "IPv6 выключен",
@@ -1273,25 +1290,29 @@ export const ruTranslation = {
       fallback: {
         title: "Основные DNS-серверы",
         description:
-          "Запросы доменов, для которых нет подходящего DNS-правила, идут на эти серверы по порядку. Если список задан, системные DNS-серверы роутера не используются.",
+          "Вышестоящие DNS-серверы, используемые по умолчанию, если домен не подходит ни под одно из правил ниже.",
         add: "Добавить основной DNS-сервер",
         placeholderTitle: "Основные DNS-серверы не выбраны",
-        placeholderDescription:
-          "Необязательно. Если оставить пустым, для доменов без правил используются системные DNS-серверы роутера.",
         noneDefined: "Сначала добавьте DNS-сервер.",
         noneAvailable: "Все DNS-серверы уже выбраны.",
+        noneSummary: "Серверы не указаны",
+        warning:
+          "Основные DNS-серверы не указаны. Домены, не подходящие ни под одно DNS-правило, могут разрешаться через DNS-серверы по умолчанию, например провайдера, а не через те, которым вы доверяете. Укажите основные DNS-серверы, чтобы все остальные домены использовали их.",
       },
       bootstrap: {
         title: "Bootstrap-серверы",
         description:
-          "Через эти серверы keen-pbr узнаёт IP-адреса DoH-серверов, у которых в адресе указано имя, а не IP. Подходят только обычные DNS-серверы. Если не выбрано, используется первый обычный сервер из списка.",
+          "IP-адреса DNS-серверов, используемых для поиска IP-адресов DoH upstream-серверов, которые вы указали. Подходят только обычные DNS-серверы.",
         add: "Добавить bootstrap-сервер",
         autoTitle: "Автоматически: {{tag}}",
         systemTitle: "Системный резолвер роутера",
+        noneSummary: "Серверы не указаны",
         noPlainHint:
           "Добавьте обычный DNS-сервер, иначе адрес DoH-сервера может не найтись.",
         noneDefined: "Сначала добавьте обычный DNS-сервер.",
-        noneAvailable: "Все обычные DNS-серверы уже выбраны.",
+        noneAvailable: "Все DNS-серверы уже выбраны.",
+        warning:
+          "У DoH-серверов <bold>{{tags}}</bold> не указан IP-адрес, поэтому keen-pbr будет пытаться определить его самостоятельно. Укажите bootstrap DNS-серверы, через которые keen-pbr должен искать эти DoH.",
       },
     },
     dnsServerUpsert: {

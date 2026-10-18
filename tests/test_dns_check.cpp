@@ -4,7 +4,6 @@
 #include "../src/dns/dns_client.hpp"
 #include "fake_dns_server.hpp"
 
-#include <regex>
 
 using namespace keen_pbr3;
 
@@ -154,10 +153,10 @@ TEST_CASE("dns check: answers are told apart") {
     auto nxdomain = classify("youtube.com", false, answered(q, 3, {}, DnsUpstreamOutcome::Nxdomain));
     CHECK(nxdomain.status == "nxdomain");
     CHECK(nxdomain.severity == DnsCheckSeverity::Warning);
-    // A domain of the user may well not exist.
+    // A domain of the user may not exist, but the user may know it does.
     auto custom_nx = classify("mine.example", true, answered(q, 3, {}, DnsUpstreamOutcome::Nxdomain));
     CHECK(custom_nx.status == "nxdomain");
-    CHECK(custom_nx.severity == DnsCheckSeverity::Ok);
+    CHECK(custom_nx.severity == DnsCheckSeverity::Warning);
 
     auto nodata = classify("youtube.com", false, answered(q, 0));
     CHECK(nodata.status == "nodata");
@@ -212,14 +211,6 @@ TEST_CASE("dns check: a reply that never came is an error with its reason") {
     CHECK(classify("yandex.ru", false, garbage).status == "bad_answer");
 }
 
-TEST_CASE("dns check: a made-up name that resolves means tampered NXDOMAIN answers") {
-    const Bytes q = query_for("0123456789abcdef.nxcheck.keen-pbr.fyi");
-    CHECK(dns_check_nxdomain_hijacked(answered(q, 3, {}, DnsUpstreamOutcome::Nxdomain)) == std::optional<bool>(false));
-    CHECK(dns_check_nxdomain_hijacked(answered(q, 0)) == std::optional<bool>(false));
-    CHECK(dns_check_nxdomain_hijacked(answered(q, 0, {fake_dns::a_rr("203.0.113.9")})) == std::optional<bool>(true));
-    CHECK_FALSE(dns_check_nxdomain_hijacked(failed(DnsUpstreamOutcome::Timeout)).has_value());
-}
-
 namespace {
 
 // A probe that answers by server address and domain through `script`.
@@ -244,19 +235,14 @@ DnsCheckInput base_input() {
     return input;
 }
 
-bool is_canary(const std::string& name) {
-    return std::regex_match(name, std::regex("[0-9a-f]{16}\\.nxcheck\\.keen-pbr\\.fyi"));
-}
-
 } // namespace
 
-TEST_CASE("dns check: a healthy server is ok and every question is asked once, plus the canary") {
+TEST_CASE("dns check: a healthy server is ok and every question is asked once") {
     auto input = base_input();
     input.servers = {make_server("a", "8.8.8.8")};
     std::vector<std::string> seen;
     const auto report = run_dns_check(input, probe_with(
-        [](const DnsBalancerUpstream&, const std::string& name, const Bytes& q) {
-            if (is_canary(name)) return answered(q, 3, {}, DnsUpstreamOutcome::Nxdomain);
+        [](const DnsBalancerUpstream&, const std::string&, const Bytes& q) {
             return answered(q, 0, {fake_dns::a_rr("93.184.216.34")});
         }, &seen));
     CHECK(report.overall == DnsCheckSeverity::Ok);
@@ -268,68 +254,67 @@ TEST_CASE("dns check: a healthy server is ok and every question is asked once, p
     const auto& endpoint = server.endpoints[0];
     CHECK(endpoint.address == "8.8.8.8");
     CHECK(endpoint.status == "ok");
-    CHECK(endpoint.nxdomain_hijack == std::optional<bool>(false));
     REQUIRE(endpoint.results.size() == 2);
     CHECK(endpoint.results[0].domain == "yandex.ru");
     CHECK(endpoint.results[1].domain == "youtube.com");
-    CHECK(seen.size() == 3);
-    CHECK(is_canary(seen.back()));
+    CHECK(seen == std::vector<std::string>{"yandex.ru", "youtube.com"});
 }
 
 TEST_CASE("dns check: tampering is a warning, silence is an error") {
     auto input = base_input();
     input.servers = {make_server("honest", "1.1.1.1"), make_server("blocking", "9.9.9.9:5353"),
-                     make_server("hijacking", "2.2.2.2"), make_server("dead", "3.3.3.3")};
-    const auto report = run_dns_check(input, probe_with(
-        [](const DnsBalancerUpstream& upstream, const std::string& name, const Bytes& q) {
-            if (upstream.ip == "3.3.3.3") return failed(DnsUpstreamOutcome::Timeout, "no answer in time");
-            if (upstream.ip == "9.9.9.9" && name == "youtube.com") {
-                return answered(q, 3, {}, DnsUpstreamOutcome::Nxdomain);
-            }
-            if (upstream.ip == "2.2.2.2" && is_canary(name)) {
-                return answered(q, 0, {fake_dns::a_rr("203.0.113.9")});
-            }
-            if (is_canary(name)) return answered(q, 3, {}, DnsUpstreamOutcome::Nxdomain);
-            return answered(q, 0, {fake_dns::a_rr("93.184.216.34")});
-        }));
+                     make_server("stub", "2.2.2.2"), make_server("dead", "3.3.3.3")};
+    const Script script = [](const DnsBalancerUpstream& upstream, const std::string& name, const Bytes& q) {
+        if (upstream.ip == "3.3.3.3") return failed(DnsUpstreamOutcome::Timeout, "no answer in time");
+        // A site that exists, reported as not existing: the usual block.
+        if (upstream.ip == "9.9.9.9" && name == "youtube.com") {
+            return answered(q, 3, {}, DnsUpstreamOutcome::Nxdomain);
+        }
+        if (upstream.ip == "2.2.2.2" && name == "youtube.com") {
+            return answered(q, 0, {fake_dns::a_rr("0.0.0.0")});
+        }
+        return answered(q, 0, {fake_dns::a_rr("93.184.216.34")});
+    };
+    const auto report = run_dns_check(input, probe_with(script));
     CHECK(report.overall == DnsCheckSeverity::Error);
     REQUIRE(report.servers.size() == 4);
     CHECK(report.servers[0].endpoints[0].results[1].severity == DnsCheckSeverity::Ok);
     CHECK(report.servers[1].endpoints[0].address == "9.9.9.9:5353");
     CHECK(report.servers[1].endpoints[0].results[1].status == "nxdomain");
-    CHECK(report.servers[2].endpoints[0].nxdomain_hijack == std::optional<bool>(true));
+    CHECK(report.servers[1].endpoints[0].results[1].severity == DnsCheckSeverity::Warning);
+    CHECK(report.servers[2].endpoints[0].results[1].status == "stub_address");
     CHECK(report.servers[3].endpoints[0].results[0].status == "timeout");
-    // The canary got no answer from the dead server: nothing to say about it.
-    CHECK_FALSE(report.servers[3].endpoints[0].nxdomain_hijack.has_value());
 
     // Without the dead server the worst thing is a warning.
     input.servers.pop_back();
-    const auto warning = run_dns_check(input, probe_with(
-        [](const DnsBalancerUpstream& upstream, const std::string& name, const Bytes& q) {
-            if (upstream.ip == "2.2.2.2" && is_canary(name)) {
-                return answered(q, 0, {fake_dns::a_rr("203.0.113.9")});
-            }
-            if (is_canary(name)) return answered(q, 3, {}, DnsUpstreamOutcome::Nxdomain);
-            return answered(q, 0, {fake_dns::a_rr("93.184.216.34")});
-        }));
+    const auto warning = run_dns_check(input, probe_with(script));
     CHECK(warning.overall == DnsCheckSeverity::Warning);
 }
 
-TEST_CASE("dns check: custom domains are judged leniently") {
+TEST_CASE("dns check: a custom domain without records is ok, a missing one is a warning") {
     auto input = base_input();
     input.request.domains = {"yandex.ru"};
     input.request.custom_domains = {"mine.example"};
     input.servers = {make_server("a", "8.8.8.8")};
     const auto report = run_dns_check(input, probe_with(
         [](const DnsBalancerUpstream&, const std::string& name, const Bytes& q) {
-            if (name == "mine.example" || is_canary(name)) {
+            if (name == "mine.example") {
                 return answered(q, 3, {}, DnsUpstreamOutcome::Nxdomain);
             }
             return answered(q, 0, {fake_dns::a_rr("77.88.55.60")});
         }));
-    CHECK(report.overall == DnsCheckSeverity::Ok);
+    CHECK(report.overall == DnsCheckSeverity::Warning);
     CHECK(report.servers[0].endpoints[0].results[1].domain == "mine.example");
     CHECK(report.servers[0].endpoints[0].results[1].status == "nxdomain");
+
+    input.request.custom_domains = {"empty.example"};
+    const auto empty = run_dns_check(input, probe_with(
+        [](const DnsBalancerUpstream&, const std::string& name, const Bytes& q) {
+            if (name == "empty.example") return answered(q, 0);
+            return answered(q, 0, {fake_dns::a_rr("77.88.55.60")});
+        }));
+    CHECK(empty.overall == DnsCheckSeverity::Ok);
+    CHECK(empty.servers[0].endpoints[0].results[1].status == "nodata");
 }
 
 TEST_CASE("dns check: IPv6 servers are skipped while IPv6 is off, DoH is unavailable without support") {
@@ -416,8 +401,7 @@ TEST_CASE("dns check: the report as JSON") {
     input.request.domains = {"yandex.ru"};
     input.servers = {make_server("a", "8.8.8.8", api::DnsServerType::STATIC, "vpn")};
     const auto report = run_dns_check(input, probe_with(
-        [](const DnsBalancerUpstream&, const std::string& name, const Bytes& q) {
-            if (is_canary(name)) return answered(q, 3, {}, DnsUpstreamOutcome::Nxdomain);
+        [](const DnsBalancerUpstream&, const std::string&, const Bytes& q) {
             return answered(q, 0, {fake_dns::a_rr("77.88.55.60")});
         }));
     const auto json = dns_check_report_to_json(report);
@@ -427,7 +411,6 @@ TEST_CASE("dns check: the report as JSON") {
     CHECK(server["detour"] == "vpn");
     const auto& endpoint = server["endpoints"][0];
     CHECK(endpoint["address"] == "8.8.8.8");
-    CHECK(endpoint["nxdomain_hijack"] == false);
     CHECK_FALSE(endpoint.contains("reason"));
     const auto& result = endpoint["results"][0];
     CHECK(result["domain"] == "yandex.ru");

@@ -19,7 +19,7 @@ What changed in each keen-pbr release, and what to do when you upgrade.
   You can choose which plain servers keen-pbr asks for the addresses of DoH servers. A DoH server can have its IP addresses set. See [DNS]({{< relref "/docs/configuration/dns#doh-bootstrap" >}}).
 - **Several DNS servers for a list.**\
   Added the ability to pick several DNS servers for a list. Requests go to them in turn, and if a server does not answer, the next one takes over. In `config.json` the `server` field of a DNS rule is now `servers`, an array of server names; keen-pbr converts old configs automatically. dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS to the keen-pbr built-in DNS proxy on `127.0.0.89`, with ports starting at 52100. You can change the address and the first port in the **Advanced** settings mode: **DNS proxy address** and **First DNS proxy port**. See [DNS]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}).
-- The main DNS servers moved from the **DNS rules** page to the **DNS servers** page. A new DNS rule no longer starts with a server picked: choose one yourself.
+- On the **DNS rules** page the main DNS servers and the bootstrap servers are collapsible sections; a collapsed section shows which servers are in use. When no main servers are chosen or a DoH server needs bootstrap servers, the section shows a ⚠️ icon, and the Overview page and `keen-pbr status` show a warning with a link to the page. The DNS servers table marks which servers are main and bootstrap ones. A new DNS rule no longer starts with a server picked: choose one yourself.
 - **Load balancing across several links.** {{< only openwrt debian >}}\
   A `urltest` or `icmptest` outbound with `strategy: "balance"` spreads connections across links, each with its own weight. A connection stays on the link it started on. See [Multi-WAN Load Balancing]({{< relref "/docs/configuration/multi-wan" >}}).
 - **Automatic gateway detection.**\
@@ -33,7 +33,7 @@ What changed in each keen-pbr release, and what to do when you upgrade.
 - **Prometheus endpoint.**\
   `GET /metrics` reports probe latency, link selection, list updates, balance and interception counters. A Grafana dashboard and alert examples are included. See [REST API]({{< relref "/docs/rest-api#get-metrics" >}}).
 - **Checking the DNS servers.**\
-  The **Check** button on the **DNS servers** page asks all servers about the sites you choose and shows which do not answer and which tamper with answers: they say a site does not exist, answer with a stub address, or answer with addresses for names that do not exist. See [DNS]({{< relref "/docs/configuration/dns#check-dns-servers" >}}).
+  The **Check** button on the **DNS servers** page asks all servers about the sites you choose and shows which do not answer and which tamper with answers: they say a site does not exist, or answer with a stub address. See [DNS]({{< relref "/docs/configuration/dns#check-dns-servers" >}}).
 - **Warning about a DNS server that does not answer.**\
   If 10 requests in a row to a server got no answer or ended with an error, the status page shows a warning. See [Troubleshooting]({{< relref "/docs/troubleshooting#dns-server-not-answering" >}}).
 - **DNS proxy metrics.**\

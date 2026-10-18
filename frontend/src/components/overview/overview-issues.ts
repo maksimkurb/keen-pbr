@@ -22,6 +22,8 @@ export type OverviewHealthySummary = {
 }
 
 const DNS_SERVERS_PATH = "/dns-servers"
+// The main and bootstrap servers are sections of the DNS rules page.
+const DNS_RULES_PATH = "/dns-rules"
 const DEFAULT_SERVERS_ENTRY = "default servers"
 
 const OUTBOUND_ISSUE_CODES = new Set<HealthIssue["code"]>([
@@ -50,6 +52,12 @@ export function mapHealthIssues(
 
 function issueHref(issue: HealthIssue): string | undefined {
   if (issue.code === "dns_server_failing") return DNS_SERVERS_PATH
+  if (
+    issue.code === "dns_upstream_missing" ||
+    issue.code === "doh_bootstrap_missing"
+  ) {
+    return DNS_RULES_PATH
+  }
   if (issue.outbound && OUTBOUND_ISSUE_CODES.has(issue.code)) {
     return `/outbounds/${encodeURIComponent(issue.outbound)}/edit`
   }
@@ -192,6 +200,10 @@ function translateTitle(issue: HealthIssue, t: TranslateFn): string {
       return t("overview.issues.listNotDownloaded", { list: params.list })
     case "dns_server_failing":
       return t("overview.issues.dnsServerFailing", { tag: params.tag })
+    case "dns_upstream_missing":
+      return t("overview.issues.dnsUpstreamMissing")
+    case "doh_bootstrap_missing":
+      return t("overview.issues.dohBootstrapMissing")
   }
   return issue.title
 }
@@ -210,6 +222,14 @@ function translateDetail(
             : entry
         )
         .join(", "),
+    })
+  }
+  if (issue.code === "dns_upstream_missing") {
+    return t("overview.issues.dnsUpstreamMissingDetail")
+  }
+  if (issue.code === "doh_bootstrap_missing") {
+    return t("overview.issues.dohBootstrapMissingDetail", {
+      tags: issue.params.tags,
     })
   }
   switch (issue.detail_code) {

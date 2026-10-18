@@ -3,10 +3,7 @@ import { ArrowRight, Pencil, Plus, Trash2 } from "lucide-react"
 import type { ReactNode } from "react"
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { toast } from "sonner"
 import { useLocation } from "wouter"
-
-import { useQueryClient } from "@tanstack/react-query"
 
 import type { ApiError } from "@/api/client"
 import type { getConfigResponse } from "@/api/generated/keen-api"
@@ -18,7 +15,6 @@ import {
   useConfigMutationPending,
   usePostConfigMutation,
 } from "@/api/mutations"
-import { queryKeys } from "@/api/query-keys"
 import { useGetConfig } from "@/api/queries"
 import { usePostDnsServersCheck } from "@/api/generated/keen-api"
 import { getApiErrorMessage } from "@/lib/api-errors"
@@ -39,33 +35,30 @@ import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { useRowSelection } from "@/hooks/use-row-selection"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { DnsServerLists } from "@/pages/dns-servers-lists"
+import { DnsServerRoleBadges } from "@/pages/dns-servers-lists"
+import { DnsCheckBadge, DnsCheckButton } from "@/pages/dns-servers-check"
 import {
-  DnsCheckBadge,
-  DnsCheckButton,
-  DnsCheckResultAlert,
-} from "@/pages/dns-servers-check"
+  showDnsCheckFailedToast,
+  showDnsCheckToast,
+} from "@/pages/dns-servers-check-toast"
 import {
   buildCheckRequest,
   loadSelection,
   saveSelection,
   type CheckSelection,
 } from "@/pages/dns-servers-check-utils"
-import { getRuleDraft, validateRules } from "@/pages/dns-rules-utils"
 import {
   buildUpdatedConfigForDnsServersDelete,
-  buildUpdatedConfigWithServerList,
   getBootstrapCandidateTags,
   getDnsServerDeleteImpact,
+  getDnsServerRoles,
   type DnsServerDeleteImpact,
 } from "@/pages/dns-servers-utils"
 
 export function DnsServersPage() {
   const { t } = useTranslation()
-  const queryClient = useQueryClient()
   const [, navigate] = useLocation()
   const [deleteRequest, setDeleteRequest] = useState<{
     tags: string[]
@@ -93,13 +86,27 @@ export function DnsServersPage() {
     saveSelection(next)
   }
   const runCheck = () => {
-    checkMutation.mutate({ data: buildCheckRequest(checkSelection) })
+    checkMutation.mutate(
+      { data: buildCheckRequest(checkSelection) },
+      {
+        onSuccess: (response) => {
+          if (response.status === 200) {
+            showDnsCheckToast(
+              response.data,
+              selectConfigIsDraft(configQuery.data)
+            )
+          }
+        },
+        onError: (error) => {
+          showDnsCheckFailedToast(
+            getApiErrorMessage(error as unknown as ApiError | null)
+          )
+        },
+      }
+    )
   }
   const checkResponse =
     checkMutation.data?.status === 200 ? checkMutation.data.data : undefined
-  const checkErrorMessage = checkMutation.isError
-    ? getApiErrorMessage(checkMutation.error as unknown as ApiError | null)
-    : undefined
 
   const config = getConfigData(configQuery.data)
   const visibleDeleteRequest = deleteRequest ?? deletePreview
@@ -111,55 +118,11 @@ export function DnsServersPage() {
     [dnsServers]
   )
 
-  const saveServerList = (key: "fallback" | "bootstrap", tags: string[]) => {
-    if (!config) {
-      return
-    }
-
-    const knownTags = key === "bootstrap" ? bootstrapOptions : serverRowIds
-    if (tags.some((tag) => !knownTags.includes(tag))) {
-      toast.error(
-        t(
-          key === "bootstrap"
-            ? "pages.dnsServers.validation.invalidBootstrap"
-            : "pages.dnsServers.validation.invalidFallback"
-        ),
-        { richColors: true }
-      )
-      return
-    }
-
-    if (key === "fallback") {
-      const draftRules = (config.dns?.rules ?? []).map((rule) =>
-        getRuleDraft(rule)
-      )
-      const listOptions = Object.keys(config.lists ?? {})
-      if (
-        Object.keys(validateRules(draftRules, serverRowIds, listOptions))
-          .length > 0
-      ) {
-        toast.error(t("pages.dnsServers.validation.invalidFallbackChange"), {
-          richColors: true,
-        })
-        return
-      }
-    }
-
-    postConfigMutation.mutate(
-      { data: buildUpdatedConfigWithServerList(config, key, tags) },
-      {
-        onSuccess: async () => {
-          await queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() })
-          toast.success(t("pages.dnsServers.messages.saved"))
-        },
-        onError: (error) => {
-          toast.error(getApiErrorMessage(error as unknown as ApiError), {
-            richColors: true,
-          })
-        },
-      }
-    )
-  }
+  const fallback = config?.dns?.fallback ?? []
+  const bootstrap = config?.dns?.bootstrap ?? []
+  // The automatic bootstrap server is worth showing only when a DoH server
+  // may need it.
+  const hasDoh = dnsServers.some((server) => server.type === DnsServerType.doh)
 
   const deleteServer = (serverTag: string) => {
     if (!config) {
@@ -251,22 +214,6 @@ export function DnsServersPage() {
       />
 
       <ConfigSaveErrorAlert error={postConfigMutation.error} />
-      {checkResponse ? (
-        <DnsCheckResultAlert
-          draft={selectConfigIsDraft(configQuery.data)}
-          response={checkResponse}
-        />
-      ) : null}
-      {checkErrorMessage ? (
-        <Alert variant="destructive">
-          <AlertDescription>
-            {t("pages.dnsServers.check.result.failed", {
-              message: checkErrorMessage,
-            })}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       {configQuery.isLoading ? (
         <TableSkeleton />
       ) : configQuery.isError ? (
@@ -322,8 +269,16 @@ export function DnsServersPage() {
                   t("pages.dnsServers.headers.actions"),
                 ]}
                 rows={dnsServers.map((server) => [
-                  <div className="font-medium" key={`${server.tag}-tag`}>
-                    {server.tag}
+                  <div key={`${server.tag}-tag`}>
+                    <div className="font-medium">{server.tag}</div>
+                    <DnsServerRoleBadges
+                      roles={getDnsServerRoles(
+                        server.tag,
+                        fallback,
+                        bootstrap,
+                        hasDoh ? bootstrapOptions : []
+                      )}
+                    />
                   </div>,
                   <span
                     className="text-sm text-muted-foreground"
@@ -391,15 +346,6 @@ export function DnsServersPage() {
               />
             </div>
           )}
-
-          <DnsServerLists
-            bootstrap={config?.dns?.bootstrap ?? []}
-            bootstrapOptions={bootstrapOptions}
-            fallback={config?.dns?.fallback ?? []}
-            onBootstrapChange={(tags) => saveServerList("bootstrap", tags)}
-            onFallbackChange={(tags) => saveServerList("fallback", tags)}
-            serverTags={serverRowIds}
-          />
         </>
       )}
       <DeleteImpactDialog

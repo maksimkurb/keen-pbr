@@ -543,6 +543,26 @@ api::HealthIssuesResponse collect_health_issues(const HealthIssueInputs& inputs)
         if (!failure.entries.empty()) issue.entries = failure.entries;
         issues.push_back(std::move(issue));
     }
+    if (inputs.dns_upstream_missing) {
+        auto issue = make_issue("dns-upstream", api::Severity::WARNING,
+                                api::Code::DNS_UPSTREAM_MISSING,
+                                "No main DNS servers are specified");
+        issue.detail = "domains that match no DNS rule may be resolved through the default DNS servers";
+        issues.push_back(std::move(issue));
+    }
+    if (!inputs.doh_without_bootstrap.empty()) {
+        std::string tags;
+        for (const auto& tag : inputs.doh_without_bootstrap) {
+            if (!tags.empty()) tags += ", ";
+            tags += tag;
+        }
+        auto issue = make_issue("doh-bootstrap", api::Severity::WARNING,
+                                api::Code::DOH_BOOTSTRAP_MISSING,
+                                "No bootstrap DNS servers for the DoH servers " + tags);
+        issue.params = {{"tags", tags}};
+        issue.detail = "the DoH servers have no IP address, and the bootstrap servers that look it up are not specified";
+        issues.push_back(std::move(issue));
+    }
     return response;
 }
 

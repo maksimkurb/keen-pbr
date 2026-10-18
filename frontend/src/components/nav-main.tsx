@@ -46,7 +46,7 @@ export function NavMain({
                   <span>{item.title}</span>
                 </div>
                 {hasChildren ? (
-                  <SidebarMenuSub className="ml-4 mr-0 pr-1">
+                  <SidebarMenuSub className="mr-0 ml-4 pr-1">
                     {item.items?.map((subItem) => {
                       const navActive = matchesNavHref(location, subItem.url)
 

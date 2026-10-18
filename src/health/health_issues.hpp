@@ -59,6 +59,11 @@ struct HealthIssueInputs {
     std::vector<UndownloadedListInfo> undownloaded_lists;
     // DNS servers of the DNS proxy that stopped answering.
     std::vector<DnsServerFailure> dns_server_failures;
+    // DNS management is on, but dns.fallback names no upstream server.
+    bool dns_upstream_missing{false};
+    // Tags of the DoH servers whose host name has to be looked up while no
+    // bootstrap server is chosen.
+    std::vector<std::string> doh_without_bootstrap;
 };
 
 // Kernel checks (capabilities, iptables extensions, probes) that apply to

@@ -8,7 +8,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <random>
 #include <set>
 
 namespace keen_pbr3 {
@@ -81,19 +80,6 @@ const char* server_type_name(api::DnsServerType type) {
         case api::DnsServerType::STATIC: break;
     }
     return "static";
-}
-
-std::string random_hex16() {
-    std::random_device device;
-    std::mt19937_64 generator((static_cast<std::uint64_t>(device()) << 32) ^ device());
-    static const char digits[] = "0123456789abcdef";
-    std::string text;
-    std::uint64_t value = generator();
-    for (int i = 0; i < 16; ++i) {
-        text.push_back(digits[value & 0xF]);
-        value >>= 4;
-    }
-    return text;
 }
 
 } // namespace
@@ -221,8 +207,10 @@ DnsCheckResult classify_dns_check_answer(const std::string& domain, bool custom,
             }
             break;
         case 3:
+            // The user asks about a domain of theirs to see whether it is
+            // blocked, so NXDOMAIN is worth a look either way.
             result.status = "nxdomain";
-            result.severity = custom ? DnsCheckSeverity::Ok : DnsCheckSeverity::Warning;
+            result.severity = DnsCheckSeverity::Warning;
             break;
         case 2:
             result.status = "servfail";
@@ -241,15 +229,6 @@ DnsCheckResult classify_dns_check_answer(const std::string& domain, bool custom,
     return result;
 }
 
-std::optional<bool> dns_check_nxdomain_hijacked(const DnsProbeResult& probe) {
-    if (!dns_upstream_outcome_answered(probe.outcome)) return std::nullopt;
-    dns_wire::ParsedResponse parsed;
-    if (!dns_wire::parse_response(ByteView(probe.answer.data(), probe.answer.size()), parsed)) {
-        return std::nullopt;
-    }
-    return parsed.rcode == 0 && !parsed.addresses.empty();
-}
-
 DnsCheckSeverity dns_check_overall(const std::vector<DnsCheckServer>& servers) {
     DnsCheckSeverity overall = DnsCheckSeverity::Ok;
     const auto raise = [&](DnsCheckSeverity severity) {
@@ -259,7 +238,6 @@ DnsCheckSeverity dns_check_overall(const std::vector<DnsCheckServer>& servers) {
         if (server.error) raise(DnsCheckSeverity::Error);
         for (const auto& endpoint : server.endpoints) {
             if (endpoint.status == "unavailable") raise(DnsCheckSeverity::Error);
-            if (endpoint.nxdomain_hijack.value_or(false)) raise(DnsCheckSeverity::Warning);
             for (const auto& result : endpoint.results) raise(result.severity);
         }
     }
@@ -287,7 +265,6 @@ nlohmann::json dns_check_report_to_json(const DnsCheckReport& report) {
                                    {"results", std::move(results)}};
             if (endpoint.reason_code) item["reason_code"] = *endpoint.reason_code;
             if (endpoint.reason) item["reason"] = *endpoint.reason;
-            if (endpoint.nxdomain_hijack) item["nxdomain_hijack"] = *endpoint.nxdomain_hijack;
             if (!endpoint.ips.empty()) item["ips"] = endpoint.ips;
             endpoints.push_back(std::move(item));
         }
@@ -363,7 +340,7 @@ DnsCheckReport run_dns_check(const DnsCheckInput& input, const DnsCheckProbeFn& 
     struct Question {
         std::size_t server;
         std::size_t endpoint;
-        std::size_t domain;  // index into `names`; names.size() for the canary
+        std::size_t domain;  // index into `names`
     };
     std::vector<std::string> names;
     std::vector<bool> custom_flags;
@@ -375,7 +352,6 @@ DnsCheckReport run_dns_check(const DnsCheckInput& input, const DnsCheckProbeFn& 
         names.push_back(domain);
         custom_flags.push_back(true);
     }
-    const std::string canary = random_hex16() + "." + kDnsCheckCanaryZone;
 
     std::vector<Question> questions;
     std::vector<DnsProbeRequest> requests;
@@ -385,8 +361,7 @@ DnsCheckReport run_dns_check(const DnsCheckInput& input, const DnsCheckProbeFn& 
                          const DnsBalancerUpstream& upstream) {
         DnsProbeRequest wanted;
         wanted.upstream = upstream;
-        wanted.query = build_dns_query(next_id++, domain < names.size() ? names[domain] : canary,
-                                       kDnsTypeA, kDnsClassIN, true);
+        wanted.query = build_dns_query(next_id++, names[domain], kDnsTypeA, kDnsClassIN, true);
         requests.push_back(std::move(wanted));
         questions.push_back({server, endpoint, domain});
     };
@@ -456,7 +431,7 @@ DnsCheckReport run_dns_check(const DnsCheckInput& input, const DnsCheckProbeFn& 
                                                                 address.ips)
                                      : DnsBalancerUpstream::plain(address.resolved_ip, address.port);
                 if (address.is_doh() && address.ips.empty()) needs_bootstrap = true;
-                for (std::size_t i = 0; i <= names.size(); ++i) {
+                for (std::size_t i = 0; i < names.size(); ++i) {
                     ask(server_index, endpoint_index, i, upstream);
                 }
             }
@@ -489,12 +464,8 @@ DnsCheckReport run_dns_check(const DnsCheckInput& input, const DnsCheckProbeFn& 
             continue;
         }
         if (endpoint.status == "unavailable") continue;
-        if (question.domain == names.size()) {
-            endpoint.nxdomain_hijack = dns_check_nxdomain_hijacked(answer);
-        } else {
-            endpoint.results.push_back(classify_dns_check_answer(
-                names[question.domain], custom_flags[question.domain], answer));
-        }
+        endpoint.results.push_back(classify_dns_check_answer(
+            names[question.domain], custom_flags[question.domain], answer));
     }
     report.overall = dns_check_overall(report.servers);
     return report;

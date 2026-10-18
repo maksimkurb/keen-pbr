@@ -28,20 +28,20 @@ describe("mapHealthIssues", () => {
       },
     ]
     const mapped = mapHealthIssues(issues, t)
-    expect(mapped.map((issue) => [issue.key, issue.tone, issue.detail])).toEqual(
+    expect(
+      mapped.map((issue) => [issue.key, issue.tone, issue.detail])
+    ).toEqual([
       [
-        [
-          "extension:match:multiport",
-          "bad",
-          "overview.issues.xtExtensionRequired",
-        ],
-        [
-          "extension:match:addrtype",
-          "warn",
-          "overview.issues.capabilityFallback",
-        ],
-      ]
-    )
+        "extension:match:multiport",
+        "bad",
+        "overview.issues.xtExtensionRequired",
+      ],
+      [
+        "extension:match:addrtype",
+        "warn",
+        "overview.issues.capabilityFallback",
+      ],
+    ])
     expect(mapped[0].title).toContain('"module":"xt_multiport"')
   })
 
@@ -92,7 +92,12 @@ describe("mapHealthIssues: DNS server not answering", () => {
     key: "dns-server-192.0.2.1:53-",
     severity: "warning",
     code: "dns_server_failing",
-    params: { tag: "dns_a", address: "192.0.2.1:53", reason: "timeout", count: "10" },
+    params: {
+      tag: "dns_a",
+      address: "192.0.2.1:53",
+      reason: "timeout",
+      count: "10",
+    },
     title: "DNS server 'dns_a' is not answering",
     detail: "no answer in time (192.0.2.1:53)",
   }
@@ -100,7 +105,9 @@ describe("mapHealthIssues: DNS server not answering", () => {
   test("links to the DNS servers page and keeps the raw error", () => {
     const [mapped] = mapHealthIssues([issue], t)
     expect(mapped.tone).toBe("warn")
-    expect(mapped.title).toBe('overview.issues.dnsServerFailing {"tag":"dns_a"}')
+    expect(mapped.title).toBe(
+      'overview.issues.dnsServerFailing {"tag":"dns_a"}'
+    )
     expect(mapped.detail).toBe("no answer in time (192.0.2.1:53)")
     expect(mapped.href).toBe("/dns-servers")
   })
@@ -118,6 +125,49 @@ describe("mapHealthIssues: DNS server not answering", () => {
     )
     expect(mapped.tone).toBe("bad")
     expect(mapped.detail).toContain("overview.issues.dnsServerFailingFor")
-    expect(mapped.detail).toContain('"lists":"blocked, overview.issues.defaultServers"')
+    expect(mapped.detail).toContain(
+      '"lists":"blocked, overview.issues.defaultServers"'
+    )
+  })
+})
+
+describe("mapHealthIssues: DNS servers not specified", () => {
+  test("a missing main server list links to the DNS servers page", () => {
+    const [mapped] = mapHealthIssues(
+      [
+        {
+          key: "dns-upstream",
+          severity: "warning",
+          code: "dns_upstream_missing",
+          params: {},
+          title: "No main DNS servers are specified",
+        },
+      ],
+      t
+    )
+    expect(mapped.tone).toBe("warn")
+    expect(mapped.title).toBe("overview.issues.dnsUpstreamMissing")
+    expect(mapped.detail).toBe("overview.issues.dnsUpstreamMissingDetail")
+    expect(mapped.href).toBe("/dns-rules")
+  })
+
+  test("DoH servers without bootstrap servers are named", () => {
+    const [mapped] = mapHealthIssues(
+      [
+        {
+          key: "doh-bootstrap",
+          severity: "warning",
+          code: "doh_bootstrap_missing",
+          params: { tags: "doh_google, doh_cf" },
+          title:
+            "No bootstrap DNS servers for the DoH servers doh_google, doh_cf",
+        },
+      ],
+      t
+    )
+    expect(mapped.tone).toBe("warn")
+    expect(mapped.title).toBe("overview.issues.dohBootstrapMissing")
+    expect(mapped.detail).toContain('"tags":"doh_google, doh_cf"')
+    expect(mapped.href).toBe("/dns-rules")
   })
 })

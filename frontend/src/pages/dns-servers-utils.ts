@@ -87,6 +87,82 @@ export function getBootstrapCandidateTags(servers: DnsServer[]): string[] {
 }
 
 /**
+ * What a server is used for besides DNS rules: a main server or a bootstrap
+ * server, with its place in the list. `position` is left out when the list
+ * has one server; `auto` marks the bootstrap server used when none is chosen.
+ */
+export type DnsServerRole = {
+  kind: "fallback" | "bootstrap"
+  position?: number
+  auto?: boolean
+}
+
+export function getDnsServerRoles(
+  tag: string,
+  fallback: string[],
+  bootstrap: string[],
+  bootstrapOptions: string[]
+): DnsServerRole[] {
+  const roles: DnsServerRole[] = []
+  const inList = (kind: DnsServerRole["kind"], list: string[]) => {
+    const index = list.indexOf(tag)
+    if (index >= 0) {
+      roles.push(list.length > 1 ? { kind, position: index + 1 } : { kind })
+    }
+  }
+  inList("fallback", fallback)
+  if (bootstrap.length > 0) {
+    inList("bootstrap", bootstrap)
+  } else if (bootstrapOptions[0] === tag) {
+    roles.push({ kind: "bootstrap", auto: true })
+  }
+  return roles
+}
+
+/**
+ * DoH servers whose address has to be looked up: the URL names a host and
+ * the server has no IP addresses of its own.
+ */
+export function getDohServersNeedingBootstrap(servers: DnsServer[]): string[] {
+  return servers
+    .filter((server) => {
+      if (server.type !== DnsServerType.doh || (server.ips?.length ?? 0) > 0) {
+        return false
+      }
+      let host: string
+      try {
+        host = new URL(server.address ?? "").hostname
+      } catch {
+        return false
+      }
+      host = host.replace(/^\[|\]$/g, "")
+      return !isValidIpv4(host) && !isLikelyIpv6(host)
+    })
+    .map((server) => server.tag)
+}
+
+/**
+ * The tabs of the DNS servers page that need attention: no main servers
+ * chosen, or DoH servers to look up with no bootstrap servers chosen.
+ */
+export function getDnsServerListWarnings(config: ConfigObject | undefined): {
+  fallback: boolean
+  bootstrap: boolean
+  dohWithoutIps: string[]
+} {
+  const dns = config?.dns
+  const dohWithoutIps =
+    (dns?.bootstrap?.length ?? 0) > 0
+      ? []
+      : getDohServersNeedingBootstrap(dns?.servers ?? [])
+  return {
+    fallback: !dns?.fallback?.length,
+    bootstrap: dohWithoutIps.length > 0,
+    dohWithoutIps,
+  }
+}
+
+/**
  * Sets `dns.fallback` or `dns.bootstrap`. An empty list is left out of the
  * config instead of being written as `[]`.
  */

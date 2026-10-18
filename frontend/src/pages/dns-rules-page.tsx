@@ -35,6 +35,12 @@ import {
   setDnsRuleEnabled,
   validateRules,
 } from "@/pages/dns-rules-utils"
+import { DnsServerListsAccordion } from "@/pages/dns-servers-lists"
+import {
+  buildUpdatedConfigWithServerList,
+  getBootstrapCandidateTags,
+  getDnsServerListWarnings,
+} from "@/pages/dns-servers-utils"
 
 export function DnsRulesPage() {
   const { t } = useTranslation()
@@ -77,6 +83,46 @@ export function DnsRulesPage() {
   const ruleSelection = useRowSelection(ruleRowIds)
 
   const resolverIntegration = effectiveResolverIntegration(loadedConfig)
+
+  const fallback = loadedConfig?.dns?.fallback ?? []
+  const bootstrap = loadedConfig?.dns?.bootstrap ?? []
+  const bootstrapOptions = getBootstrapCandidateTags(
+    loadedConfig?.dns?.servers ?? []
+  )
+  const listWarnings = getDnsServerListWarnings(loadedConfig)
+
+  const saveServerList = (key: "fallback" | "bootstrap", tags: string[]) => {
+    if (!loadedConfig) {
+      return
+    }
+
+    const knownTags = key === "bootstrap" ? bootstrapOptions : serverTags
+    if (tags.some((tag) => !knownTags.includes(tag))) {
+      toast.error(
+        t(
+          key === "bootstrap"
+            ? "pages.dnsServers.validation.invalidBootstrap"
+            : "pages.dnsServers.validation.invalidFallback"
+        ),
+        { richColors: true }
+      )
+      return
+    }
+
+    const draftRules = rules.map((rule) => getRuleDraft(rule))
+    if (
+      Object.keys(validateRules(draftRules, serverTags, listOptions)).length > 0
+    ) {
+      toast.error(t("pages.dnsServers.validation.invalidFallbackChange"), {
+        richColors: true,
+      })
+      return
+    }
+
+    postConfigMutation.mutate({
+      data: buildUpdatedConfigWithServerList(loadedConfig, key, tags),
+    })
+  }
 
   const handleDeleteRule = (index: number) => {
     if (!loadedConfig) {
@@ -244,6 +290,16 @@ export function DnsRulesPage() {
         <DnsManagementDisabled />
       ) : (
         <>
+          <DnsServerListsAccordion
+            bootstrap={bootstrap}
+            bootstrapOptions={bootstrapOptions}
+            dohWithoutIps={listWarnings.dohWithoutIps}
+            fallback={fallback}
+            fallbackWarning={listWarnings.fallback}
+            onBootstrapChange={(tags) => saveServerList("bootstrap", tags)}
+            onFallbackChange={(tags) => saveServerList("fallback", tags)}
+            serverTags={serverTags}
+          />
           {rules.length === 0 ? (
             <ListPlaceholder
               description={t("pages.dnsRules.empty.description")}

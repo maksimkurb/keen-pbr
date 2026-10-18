@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesKli8Un data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesHLv3CM data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -426,7 +426,6 @@ namespace api {
     struct DnsCheckEndpoint {
         std::string address;
         std::optional<std::vector<std::string>> ips;
-        std::optional<bool> nxdomain_hijack;
         std::optional<std::string> reason;
         std::optional<std::string> reason_code;
         std::vector<DnsCheckResultElement> results;
@@ -574,7 +573,7 @@ namespace api {
         CheckStatus status;
     };
 
-    enum class Code : int { DNSMASQ_ERROR, DNSMASQ_RECONCILING, DNS_SERVER_FAILING, DOH_UNAVAILABLE, FIREWALL_CHAIN_MISSING, FIREWALL_PREROUTING_MISSING, FIREWALL_RULES, GROUP_MEMBERS_FAILING, HOST_WARNING, INTERCEPT_LIMITED, INTERCEPT_WARNING, KERNEL_CAPABILITY, KERNEL_PROBE, LIST_NOT_DOWNLOADED, OUTBOUND_DEGRADED, OUTBOUND_UNAVAILABLE, POLICY_RULES, ROUTE_TABLES, ROUTING_CHECK_FAILED, XT_EXTENSION };
+    enum class Code : int { DNSMASQ_ERROR, DNSMASQ_RECONCILING, DNS_SERVER_FAILING, DNS_UPSTREAM_MISSING, DOH_BOOTSTRAP_MISSING, DOH_UNAVAILABLE, FIREWALL_CHAIN_MISSING, FIREWALL_PREROUTING_MISSING, FIREWALL_RULES, GROUP_MEMBERS_FAILING, HOST_WARNING, INTERCEPT_LIMITED, INTERCEPT_WARNING, KERNEL_CAPABILITY, KERNEL_PROBE, LIST_NOT_DOWNLOADED, OUTBOUND_DEGRADED, OUTBOUND_UNAVAILABLE, POLICY_RULES, ROUTE_TABLES, ROUTING_CHECK_FAILED, XT_EXTENSION };
 
     enum class DetailCode : int { CAPABILITY_FALLBACK, CAPABILITY_UNSUPPORTED, DNSMASQ_DEAD, DOH_NO_CERTIFICATES, KERNEL_CHECK_FAILED, XT_EXTENSION_REQUIRED, XT_EXTENSION_UNUSED };
 
@@ -1041,7 +1040,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesKli8Un {
+    struct KeenPbrTypesHLv3CM {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1448,8 +1447,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesKli8Un & x);
-    void to_json(json & j, const KeenPbrTypesKli8Un & x);
+    void from_json(const json & j, KeenPbrTypesHLv3CM & x);
+    void to_json(json & j, const KeenPbrTypesHLv3CM & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -2278,7 +2277,6 @@ namespace api {
     inline void from_json(const json & j, DnsCheckEndpoint& x) {
         x.address = j.at("address").get<std::string>();
         x.ips = get_stack_optional<std::vector<std::string>>(j, "ips");
-        x.nxdomain_hijack = get_stack_optional<bool>(j, "nxdomain_hijack");
         x.reason = get_stack_optional<std::string>(j, "reason");
         x.reason_code = get_stack_optional<std::string>(j, "reason_code");
         x.results = j.at("results").get<std::vector<DnsCheckResultElement>>();
@@ -2289,7 +2287,6 @@ namespace api {
         j = json::object();
         j["address"] = x.address;
         j["ips"] = x.ips;
-        j["nxdomain_hijack"] = x.nxdomain_hijack;
         j["reason"] = x.reason;
         j["reason_code"] = x.reason_code;
         j["results"] = x.results;
@@ -3392,7 +3389,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesKli8Un& x) {
+    inline void from_json(const json & j, KeenPbrTypesHLv3CM& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -3501,7 +3498,7 @@ namespace api {
         x.xt_extension_health = get_stack_optional<XtExtensionHealthElement>(j, "XtExtensionHealth");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesKli8Un & x) {
+    inline void to_json(json & j, const KeenPbrTypesHLv3CM & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -3990,6 +3987,8 @@ namespace api {
             {"dnsmasq_error", Code::DNSMASQ_ERROR},
             {"dnsmasq_reconciling", Code::DNSMASQ_RECONCILING},
             {"dns_server_failing", Code::DNS_SERVER_FAILING},
+            {"dns_upstream_missing", Code::DNS_UPSTREAM_MISSING},
+            {"doh_bootstrap_missing", Code::DOH_BOOTSTRAP_MISSING},
             {"doh_unavailable", Code::DOH_UNAVAILABLE},
             {"firewall_chain_missing", Code::FIREWALL_CHAIN_MISSING},
             {"firewall_prerouting_missing", Code::FIREWALL_PREROUTING_MISSING},
@@ -4020,6 +4019,8 @@ namespace api {
             case Code::DNSMASQ_ERROR: j = "dnsmasq_error"; break;
             case Code::DNSMASQ_RECONCILING: j = "dnsmasq_reconciling"; break;
             case Code::DNS_SERVER_FAILING: j = "dns_server_failing"; break;
+            case Code::DNS_UPSTREAM_MISSING: j = "dns_upstream_missing"; break;
+            case Code::DOH_BOOTSTRAP_MISSING: j = "doh_bootstrap_missing"; break;
             case Code::DOH_UNAVAILABLE: j = "doh_unavailable"; break;
             case Code::FIREWALL_CHAIN_MISSING: j = "firewall_chain_missing"; break;
             case Code::FIREWALL_PREROUTING_MISSING: j = "firewall_prerouting_missing"; break;
