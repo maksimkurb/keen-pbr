@@ -6,44 +6,93 @@ What changed in each keen-pbr release, and what to do when you upgrade.
 
 ### What's new
 
-- **Domain lists work without a resolver setup.**\
-  keen-pbr reads DNS replies passing through the router and the site names in TLS, HTTP and QUIC connections, and fills the sets of your lists itself. If a device looks up the site over plain DNS, the very first connection already takes the right route. If the device uses encrypted DNS, keen-pbr learns the site only from its name at the start of the connection. That first connection breaks, and the browser or app reconnects, this time over the right route. If the kernel lacks a feature, only that part (DNS or connections) is turned off, and the status page says why. See [DNS]({{< relref "/docs/configuration/dns#dns-interception" >}}).
-- **dnsmasq is optional.**\
-  You need it only for {{< term "split DNS" >}} (different DNS servers depending on the domain) or to set DNS servers for the whole network right in keen-pbr. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}). keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and repairs it when it loses the config. New commands: `keen-pbr resolver dnsmasq detect` and `keen-pbr resolver dnsmasq print-config`.
-- **DNS-over-HTTPS.**\
-  Added DNS-over-HTTPS support: add a DNS server of type **DNS-over-HTTPS** and use it in DNS rules and among the main DNS servers. See [DNS]({{< relref "/docs/configuration/dns#dns-over-https" >}}).
-- **Bootstrap servers for DoH.**\
-  You can choose which plain servers keen-pbr asks for the addresses of DoH servers. A DoH server can have its IP addresses set. See [DNS]({{< relref "/docs/configuration/dns#doh-bootstrap" >}}).
-- **Several DNS servers for a list.**\
-  Added the ability to pick several DNS servers for a list. Requests go to them in turn, and if a server does not answer, the next one takes over. In `config.json` the `server` field of a DNS rule is now `servers`, an array of server names; keen-pbr converts old configs automatically. dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS to the keen-pbr built-in DNS proxy on `127.0.0.89`, with ports starting at 52100. You can change the address and the first port in the **Advanced** settings mode: **DNS proxy address** and **First DNS proxy port**. See [DNS]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}).
-- On the **DNS rules** page the main DNS servers and the bootstrap servers are collapsible sections; a collapsed section shows which servers are in use. When no main servers are chosen or a DoH server needs bootstrap servers, the section shows a ⚠️ icon, and the Overview page and `keen-pbr status` show a warning with a link to the page. The DNS servers table marks which servers are main and bootstrap ones. A new DNS rule no longer starts with a server picked: choose one yourself.
+- **Overview.**\
+  The Overview page is more compact: the service state on top, then the outbounds table, the list of problems, DNS interception, DNS rules and counters. The routing test opens in a separate window. The status line has a "What's new?" link that opens this page.
+
+  {{< compare name="dashboard" mobile="true" alt="Dashboard" >}}
+- **Diagnostics.**\
+  All problems are in one list: kernel, routing, outbound and DNS server checks. The header shows at once whether everything is fine and how many problems there are. keen-pbr builds the list itself, so it matches `keen-pbr status`.
+
+  {{< shot name="diagnostics" only="after" alt="Diagnostics" >}}
+- **Health checks.**\
+  keen-pbr warns about missing NAT or strict `rp_filter` on balanced links, foreign fwmarks that overlap `fwmark.mask`, and missing iptables extensions. `keen-pbr status` shows the same issue list as the Web UI.
+- **Warning about a DNS server that does not answer.**\
+  If 10 requests in a row to a server got no answer or ended with an error, the status page shows a warning. See [Troubleshooting]({{< relref "/docs/troubleshooting#dns-server-not-answering" >}}).
+- **Redesigned route check.**\
+  The route check in the Web UI is easier to read: step by step it shows the decision made at each stage of routing: DNS resolution, list matching, rule selection and the firewall check. You can now set packet parameters in the check: protocol, ports, addresses and DSCP. The same parameters can be set in the CLI for the `keen-pbr test-routing` command.
+
+  {{< shot name="route-check" only="after" alt="Route check" >}}
+- **Request log.**\
+  A new section: a live table of current requests and a request log with explained badges and filters.
+
+  {{< shot name="requests-log" only="after" mobile="true" alt="Requests log" >}}
+- **Settings page.**\
+  Empty fields show the default values. Before, saving wrote them into the config and pinned them to you; now only what you changed ends up in the config.
+
+  {{< compare name="settings" mobile="true" alt="Settings" >}}
+- **Domain routing no longer requires dnsmasq.**\
+  keen-pbr reads the DNS replies passing through the router and fills the sets of your lists itself. If a device looks up the site over plain DNS, the very first connection already takes the right route. See [DNS]({{< relref "/docs/configuration/dns#dns-interception" >}}).
+
+  {{< shot name="settings-domain-routing" only="after" alt="Domain-based routing settings" >}}
+- **L7 interception (HTTP Host, SNI, QUIC).**\
+  If the device uses encrypted DNS, keen-pbr learns the site from its name at the start of the TLS, HTTP or QUIC connection. That first connection breaks, and the browser or app reconnects, this time over the right route.
+- **If the kernel lacks a feature.**\
+  Only the affected part of interception (DNS or connections) is turned off, and the status page says why.
+
+  {{< shot name="kernel-checks" only="after" alt="Kernel checks in diagnostics" >}}
+- **The router's own traffic is not processed by default.**\
+  Route rules apply to devices in your network. To include the router, set `iproute.process_router_traffic` to `true`. See [iproute]({{< relref "/docs/configuration/advanced#iproute" >}}).
+- **The outbound editor was updated.**\
+  The editor is easier to read and less cluttered. You choose the outbound type with large cards that briefly explain how each one works. Groups (`urltest` and `icmptest`) are built visually: you can see the priority tiers and which one is in use now, set a weight for each link and see its share of traffic right away. The selection logic is also spelled out in text, for example: "New connections are spread across the working outbounds of tier 1 according to their weights". The kill-switch behavior is chosen with cards too, each saying what happens to the traffic, and rarely needed settings are tucked into collapsible sections.
+
+  {{< compare name="outbound-editor" alt="Outbound editor" >}}
 - **Load balancing across several links.** {{< only openwrt debian >}}\
   A `urltest` or `icmptest` outbound with `strategy: "balance"` spreads connections across links, each with its own weight. A connection stays on the link it started on. See [Multi-WAN Load Balancing]({{< relref "/docs/configuration/multi-wan" >}}).
 - **Automatic gateway detection.**\
   An `interface` outbound can use `"gateway": "auto"`, and the default gateway can now be edited in the Web UI. See [interface]({{< relref "/docs/configuration/outbounds#interface" >}}).
-- **All internet traffic through failover or balancing.** {{< only openwrt debian >}}\
-  The new `default_gateway` route rule condition. See [Route rules]({{< relref "/docs/configuration/route-rules#failover-or-balancing-for-all-internet-traffic" >}}).
-- **New Web UI.**\
-  Compact overview, live table of current requests, request log with explained badges and filters, a diagnostics panel (kernel checks first), redesigned outbound editor, updates over a live stream instead of polling, better mobile layout, and a settings page that shows the daemon's defaults.
-- **Health checks.**\
-  keen-pbr warns about missing NAT or strict `rp_filter` on balanced links, foreign fwmarks that overlap `fwmark.mask`, and missing iptables extensions. `keen-pbr status` shows the same issue list as the Web UI.
-- **Prometheus endpoint.**\
-  `GET /metrics` reports probe latency, link selection, list updates, balance and interception counters. A Grafana dashboard and alert examples are included. See [REST API]({{< relref "/docs/rest-api#get-metrics" >}}).
+
+  {{< shot name="gateway-auto" only="after" alt="Gateway auto in the outbound editor" >}}
+- New lists are downloaded in the background after a configuration is applied, not before. A failed download no longer cancels the apply and shows up in the warnings instead. Lists that failed to download at start are downloaded again the same way.
+- **The routing rule page was updated.**\
+  Instead of one long form with all the fields at once, a rule is now built like a "IF ... AND ... then ..." constructor. You add the conditions one at a time (lists, protocol, ports, addresses, DSCP), each one has a short note on what exactly it checks, and at the bottom you choose the outbound for the matching traffic. You see at once what the rule does and do not have to scroll past fields you do not need.
+
+  {{< compare name="routing-rule-edit" alt="Routing rule page" >}}
+- **Default route setup (for multipath or failover).** {{< only openwrt debian >}}\
+  keen-pbr can now manage the default route for the devices in your network. You can use it for multipath routing and link failover, similar to what mwan3 does. Add a rule with the **IPv4 default gateway** type (`default_gateway`; a separate rule for IPv6) at the end of the route rules and point it at a `urltest` or `icmptest` outbound. With `strategy: "priority"` all internet traffic moves to a backup link when the main one is down, and with `strategy: "balance"` connections are spread across the links by weight. Addresses of your local network still use normal routing. The rule applies to the devices in your network; to apply it to the router's own traffic too, turn on **Process router's own traffic**. Available on OpenWrt and Debian. See [Route rules]({{< relref "/docs/configuration/route-rules#failover-or-balancing-for-all-internet-traffic" >}}) and [Multi-WAN Load Balancing]({{< relref "/docs/configuration/multi-wan" >}}).
+
+  {{< compare name="routing-rules" alt="Routing rules" >}}
+- **DNS-over-HTTPS.**\
+  You can now add a DNS server of type **DNS-over-HTTPS** and use it in DNS rules and among the main DNS servers. See [DNS]({{< relref "/docs/configuration/dns#dns-over-https" >}}).
+
+  {{< shot name="doh-server" only="after" alt="DNS-over-HTTPS server" >}}
+- **Bootstrap servers for DoH.**\
+  A DoH server needs an IP address to connect to. Pick bootstrap servers, and keen-pbr will look up the DoH servers' addresses through them, or set the DoH server's IP addresses yourself. See [DNS]({{< relref "/docs/configuration/dns#doh-bootstrap" >}}).
 - **Checking the DNS servers.**\
-  The **Check** button on the **DNS servers** page asks all servers about the sites you choose and shows which do not answer and which tamper with answers: they say a site does not exist, or answer with a stub address. See [DNS]({{< relref "/docs/configuration/dns#check-dns-servers" >}}).
-- **Warning about a DNS server that does not answer.**\
-  If 10 requests in a row to a server got no answer or ended with an error, the status page shows a warning. See [Troubleshooting]({{< relref "/docs/troubleshooting#dns-server-not-answering" >}}).
-- **DNS proxy metrics.**\
-  `/metrics` shows the queries to the DNS proxy, the answers of the servers by result, the answer time and the servers the proxy is skipping now. The Grafana dashboard has a new DNS proxy section. See [REST API]({{< relref "/docs/rest-api#dns-proxy" >}}).
-- **Packet criteria in `keen-pbr test-routing`.**\
-  The command takes protocol, ports, addresses and DSCP, and runs in the daemon, the same way as the routing test in the Web UI.
-- **The router's own traffic is left alone by default.**\
-  Route rules apply to devices in your network. To include the router, set `iproute.process_router_traffic` to `true`. See [iproute]({{< relref "/docs/configuration/advanced#iproute" >}}).
-- **Local networks rule in the default config.**\
-  It keeps local networks out of tunnels.
-- **The "What's new?" button.**\
-  It opens this page from the Web UI.
-- New lists are downloaded in the background after a configuration is applied, not before. A failed download no longer cancels the apply and shows up in the warnings instead. Lists that failed to download at start are retried the same way.
+  The **Check** button on the **DNS servers** page asks all servers about the sites you choose and shows which do not answer and which tamper with answers: they answer that the domain does not exist (NXDOMAIN), or answer with a stub address. See [DNS]({{< relref "/docs/configuration/dns#check-dns-servers" >}}). Click a result to see the details for each site: the addresses received, the response time and what exactly is wrong. You can change the sites to check: tick the ready-made ones or add your own.
+
+  {{< shot name="dns-servers" only="after" alt="DNS servers check" >}}
+
+  {{< shot names="dns-check-details,dns-check-sites" alts="Check result details|Sites for the DNS servers check" >}}
+- **The DNS rule page was updated.**\
+  It follows the same logic as the routing rule: first you pick the condition (the domain lists), then the DNS servers to send the queries to. With several servers the page tells you that requests go to them in turn.
+
+  {{< compare name="dns-rule-edit" alt="DNS rule page" >}}
+- **Several DNS servers for a list.**\
+  You can pick several DNS servers for a list. Requests go to them in turn, and if a server does not answer, the next one takes over. In `config.json` the `server` field of a DNS rule is now `servers`, an array of server names; keen-pbr converts old configs automatically.\
+  dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS to the keen-pbr built-in DNS proxy on `127.0.0.89`, with ports starting at 52100. You can change the address and the first port in the **Advanced** settings mode: **DNS proxy address** and **First DNS proxy port**. See [DNS]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}).
+- On the **DNS rules** page the main DNS servers and the bootstrap servers are collapsible sections; a collapsed section shows which servers are in use. When no main servers are chosen or a DoH server needs bootstrap servers, the section shows a ⚠️ icon, and the Overview page and `keen-pbr status` show a warning with a link to the page. The DNS servers table marks which servers are main and bootstrap ones. A new DNS rule no longer starts with a server picked: choose one yourself.
+
+  {{< compare name="dns-rules" alt="DNS rules" >}}
+- **dnsmasq is needed only for split DNS.**\
+  You need it only for {{< term "split DNS" >}} (different DNS servers depending on the domain) or to set DNS servers for the whole network right in keen-pbr. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}). keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and restores it when it loses the config. New commands: `keen-pbr resolver dnsmasq detect` and `keen-pbr resolver dnsmasq print-config`.
+- **Web UI on a phone.**\
+  Forms and the rule builder adapt to a narrow screen, the request log is shown as cards, and dialogs slide up from the bottom.
+- **Real-time updates.**\
+  Data is updated over SSE instead of HTTP polling.
+- **Prometheus metrics.**\
+  `GET /metrics` reports probe latency, link selection, list updates, balance and interception counters. It also has DNS proxy metrics: the queries to it, the answers of the servers by result, the answer time and the servers the proxy is skipping now. A Grafana dashboard (with a DNS proxy section) and alert examples are included. See [REST API]({{< relref "/docs/rest-api#get-metrics" >}}) and [DNS proxy metrics]({{< relref "/docs/rest-api#dns-proxy" >}}).
+
+  {{< shot name="grafana" only="after" alt="Grafana dashboard" >}}
 - Removing the package also removes leftover firewall rules and dnsmasq files.
 
 ### Fixes
@@ -54,13 +103,13 @@ What changed in each keen-pbr release, and what to do when you upgrade.
 - Fixed new devices not getting an address over DHCP when a route rule matches all UDP traffic.
 - Fixed the router's own traffic skipping route rules when `inbound_interfaces` is set.
 - When several DNS rules name the same list, the list now uses the servers of every rule. Before, only the first rule's server was used.
-- {{< only keenetic >}} Fixed routing being built from a half-updated route table when routes change one after another during a WAN DHCP renewal.
+- {{< only keenetic >}} Fixed routes being built from a partially updated route table when routes change one after another during a WAN DHCP renewal.
 - Fixed a list cache file being left empty after a power loss.
 - {{< only keenetic >}} Fixed a package upgrade where the old version did not stop in time: it kept running after the install instead of the new one.
 - Fixed the routing test with IPv6 turned off: it used to check the domain's IPv6 addresses too.
 - Fixed the routing test showing one route rule as several blocks.
-- Fixed `keen-pbr status` reporting every `urltest` and `icmptest` rule as an error.
-- The Web UI now keeps `conntrack_on_switch`, `strict_enforcement_action` and the `urltest` probe timeout when saving an outbound.
+- Fixed a false error in `keen-pbr status` on every `urltest` and `icmptest` rule: the command now shows the selected link.
+- Fixed the Web UI losing `conntrack_on_switch`, `strict_enforcement_action` and the `urltest` probe timeout when saving an outbound.
 - Fixed DNS servers with `detour` through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address).
 - {{< only iptables >}} Fixed routing rules that negate several addresses (`!a,b`) on iptables: such a rule used to match all traffic.
 
@@ -87,12 +136,12 @@ opkg flag user dnsmasq-full
 - **Go without dnsmasq.**\
   Turn off **Manage dnsmasq configuration**. Then, in the router's web console (http://my.keenetic.net/a), run `no opkg dns-override` and `system configuration save`, and reboot the router.
 
-After the upgrade, dnsmasq management stays on, as in 3.3.x. If you do not need it, turn off **Manage dnsmasq configuration** in the Web UI (**General** > **Settings** > **Local DNS server management**) and follow the rollback steps: [Keenetic]({{< relref "/docs/getting-started/installation/keenetic#dnsmasq-rollback" >}}), [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt#dnsmasq-rollback" >}}), [Debian]({{< relref "/docs/getting-started/installation/debian#dnsmasq-rollback" >}}). Without it, DNS rules and main DNS servers stop working.
+After the upgrade, dnsmasq management stays on, as in 3.3.x. If you do not need it, turn off **Manage dnsmasq configuration** in the Web UI (**General** > **Settings** > **Local DNS server management**) and follow the rollback steps: [Keenetic]({{< relref "/docs/getting-started/installation/keenetic#dnsmasq-rollback" >}}), [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt#dnsmasq-rollback" >}}), [Debian]({{< relref "/docs/getting-started/installation/debian#dnsmasq-rollback" >}}). Without dnsmasq, DNS rules and main DNS servers stop working.
 
 What to check after the upgrade:
 
 - **Kernel modules.** {{< only keenetic >}}\
-  Domains are now detected by interception. If the **Netfilter Subsystem Kernel Modules** and **Xtables-addons Extension Package for Netfilter** components are not installed yet, install them. Then open the status page in the Web UI and run the DNS check.
+  The IP addresses of domains for filling ipset are now found by intercepting DNS replies, the HTTP Host and the SNI with NFQUEUE and NFLOG. If the **Netfilter Subsystem Kernel Modules** and **Xtables-addons Extension Package for Netfilter** components are not installed yet, install them. Then open the status page in the Web UI and run the DNS check.
 - **iptables only.** {{< only keenetic >}}\
   The Keenetic build always works through iptables. A config with `daemon.firewall_backend: "nftables"` or `strategy: "balance"` fails validation there.
 - **Debian 11 (bullseye) is no longer supported.**
@@ -100,10 +149,10 @@ What to check after the upgrade:
   It used to set how long the addresses of a list's domains are kept. Now it is a minimum: if the {{< term "TTL" >}} in the DNS reply is longer, the address is kept longer, but no more than `intercept.max_ttl_ms`. If `ttl_ms` is not set, the minimum comes from `intercept.min_ttl_ms` (5 minutes by default).
 - **Defaults changed.**
   - `daemon.clear_dynamic_sets_on_apply` is now `false`: domain addresses are kept when a config is applied.
-  - `iproute.process_router_traffic` is `false`: route rules apply to devices in your network, not to the router's own traffic.
-  - `--log-target` is `both` for all commands. The service package files pass `--log-target syslog`.
+  - `iproute.process_router_traffic` is now `false`: route rules apply to devices in your network, not to the router's own traffic.
+  - `--log-target` is `both` for all commands. The init scripts from the package pass `--log-target syslog`.
 - **Fields that no longer work.**\
-  `dns.system_resolver`, `dns.dns_test_server` (use `intercept.dns.marker`) and `daemon.resolver_ready_timeout_seconds`; the log warns if they are set. The old `outbounds`, `candidates` and `weight` fields in `outbound_groups` are replaced by `members`. Old configs keep working: keen-pbr rewrites them to the new format once (comments and key order are not kept).
+  `dns.system_resolver`, `dns.dns_test_server` and `daemon.resolver_ready_timeout_seconds`; the log warns if they are set. Use `intercept.dns.marker` instead of `dns.dns_test_server`. The old `outbounds`, `candidates` and `weight` fields in `outbound_groups` are replaced by `members`. Old configs keep working: keen-pbr rewrites them to the new format once (comments and key order are not kept).
 - **New `version` field.**\
   It holds the keen-pbr version the config was written for. keen-pbr sets it when you save the config in the Web UI. If you edit the file by hand, leave it in place.
 - **DNS check domain.**\
@@ -115,7 +164,7 @@ If your scripts or other programs work with keen-pbr:
 - `keen-pbr generate-resolver-config` accepts `dnsmasq` instead of `dnsmasq-ipset` and `dnsmasq-nftset`.
 - `keen-pbr status` exits with code 1 if any check failed or the problems include an error.
 - `GET /api/dns/test?show=all` (and `show=full`) works only when API authentication is enabled.
-- New endpoints: `GET /metrics`, `GET /api/health/issues`, `GET /api/config/defaults`. `GET /api/status/events` also sends problems, routing state, authentication state and config changes.
+- New API endpoints: `GET /metrics`, `GET /api/health/issues`, `GET /api/config/defaults`. `GET /api/status/events` also sends problems, routing state, authentication state and config changes.
 
 ## 3.3.1 {#v3-3-1}
 
@@ -178,7 +227,7 @@ _15 August 2026. Version 3.2.0 was never released._
   In `/opt/etc/keen-pbr/defaults` you can pick the table in which devices' IPv4 traffic is marked. RAW is not flushed when Keenetic rebuilds its firewall and connections do not break, but it works only for devices with the **Default policy**. {{< term "mangle" >}} suits any policy from **Connection priorities**, but the rules disappear while the firewall is being rebuilt. See [RAW or mangle]({{< relref "/docs/getting-started/installation/keenetic#raw-or-mangle" >}}).
 - Packages for Debian 11 (Bullseye), 12 (Bookworm) and 13 (Trixie).
 - The full package got smaller.
-- The package repository moved from GitHub Pages to a separate paid host, so it is down less often.
+- The package repository moved from GitHub Pages to a separate paid host.
 
 ### Fixes
 
@@ -217,7 +266,7 @@ _25 July 2026_
 - **The `conntrack_on_switch` setting.**\
   Sets what `urltest` does with open connections when the link changes: `preserve` or `delete`.
 - **Strict list checks.**\
-  URL lists are downloaded only over HTTP and HTTPS, redirects included. A local list must be a regular file no larger than the set size. Invalid domains are dropped. If the same list is downloaded several times at once, only one download runs.
+  URL lists are downloaded only over HTTP and HTTPS, redirects included. A local list must be a regular file no larger than the set size. Incorrect domains are dropped. If the same list is downloaded several times at once, only one download runs.
 - **The Web UI updates itself.**\
   Changes in service, outbound and interface state show up right away, with no page refresh. Diagnostics and the DNS check cannot do this yet.
 - On start, stop, restart and config apply you can see which stage the service is in.
@@ -355,7 +404,7 @@ _25 April 2026_
 
 _22 April 2026_
 
-keen-pbr was rewritten from scratch. Version 2.x worked only on Keenetic and Netcraze, version 3 also works on OpenWrt and Debian.
+keen-pbr was rewritten from scratch. Version 2.x worked only on Keenetic and Netcraze, version 3 can also work on OpenWrt and Debian.
 
 - **Web UI and REST API.**\
   The Web UI is easy to use from a phone too.
@@ -435,7 +484,7 @@ _15 January 2025_
 
 - **Fewer writes to flash.**\
   keenetic-pbr does not overwrite files that have not changed. This spares the router's flash memory and USB drive.
-- The `summarize` option was removed: because of a bug it dropped needed addresses from the list.
+- The `summarize` option was removed: because of a bug it removed needed addresses from the list.
 
 ### 1.2.0 {#v1-2-0}
 

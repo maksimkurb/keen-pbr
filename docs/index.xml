@@ -3098,6 +3098,95 @@ Add one &lt;code&gt;default_gateway&lt;/code&gt; rule for IPv4 and one for IPv6 
     </item>
     
     <item>
+      <title>Upgrade from 2.x</title>
+      <link>https://keen-pbr.fyi/docs/getting-started/upgrade-from-2x/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://keen-pbr.fyi/docs/getting-started/upgrade-from-2x/</guid>
+      <description>
+        
+        
+        &lt;p&gt;This guide is for those who already run keen-pbr 2.x on Keenetic / NetCraze. You will replace the repository and the package and move your configuration to the new format. Run all commands over SSH.&lt;/p&gt;
+&lt;h2&gt;1. Make a backup&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;1-make-a-backup&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#1-make-a-backup&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Save your current 2.x configuration. If something goes wrong, you can compare it with the converted result:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;cp /opt/etc/keen-pbr/keen-pbr.conf /opt/etc/keen-pbr/keen-pbr.conf.bak&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;h2&gt;2. Replace the repository&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;2-replace-the-repository&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#2-replace-the-repository&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Open the repository page, select the OS &lt;strong&gt;Keenetic / NetCraze&lt;/strong&gt; on the left and your router architecture. Run the commands it shows, in order, to replace the old keen-pbr 2.x repository with the current one:&lt;/p&gt;
+&lt;a
+  href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=en&#34;
+  class=&#34;not-prose hero-button&#34;
+  
+  target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;&lt;span&gt;keen-pbr repository&lt;/span&gt;&lt;/a&gt;
+&lt;h2&gt;3. Install keen-pbr&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;3-install-keen-pbr&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#3-install-keen-pbr&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;opkg install keen-pbr
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# version without the web UI and API:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# opkg install keen-pbr-headless&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;The new configuration is in &lt;code&gt;/opt/etc/keen-pbr/config.json&lt;/code&gt;.&lt;/p&gt;
+&lt;h2&gt;4. Convert the config to the new format&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;4-convert-the-config-to-the-new-format&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#4-convert-the-config-to-the-new-format&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Open the &lt;a href=&#34;https://keen-pbr.fyi/converter/&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Config Converter&lt;/a&gt;. Then:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Copy the content of &lt;code&gt;/opt/etc/keen-pbr/keen-pbr.conf&lt;/code&gt; into the converter input field on the left.&lt;/li&gt;
+&lt;li&gt;Review the generated config.&lt;/li&gt;
+&lt;li&gt;Replace the content of &lt;code&gt;/opt/etc/keen-pbr/config.json&lt;/code&gt; with the converted output.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
+  &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
+
+  &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Replace the config file only after you have reviewed the converted output.&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;h2&gt;5. Restart keen-pbr&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;5-restart-keen-pbr&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#5-restart-keen-pbr&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr restart
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr status&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;If everything is fine, &lt;code&gt;status&lt;/code&gt; prints &lt;code&gt;alive&lt;/code&gt;. If it says &lt;code&gt;dead&lt;/code&gt;, open &lt;a href=&#34;https://keen-pbr.fyi/docs/troubleshooting/#service-does-not-start&#34;&gt;Service does not start&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Then open &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/quick-start/&#34;&gt;Quick Start&lt;/a&gt;: the &lt;strong&gt;Web UI&lt;/strong&gt; tab helps you check the setup, and the &lt;strong&gt;JSON&lt;/strong&gt; tab is for working with the config file.&lt;/p&gt;
+
+      </description>
+    </item>
+    
+    <item>
       <title>DNS</title>
       <link>https://keen-pbr.fyi/docs/configuration/dns/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
@@ -8400,47 +8489,362 @@ Tailscale runs as a subnet router or exit node.&lt;/p&gt;
 &lt;h2&gt;3.4.0&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;v3-4-0&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#v3-4-0&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;h3&gt;What&amp;rsquo;s new&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;whats-new&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#whats-new&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;Domain lists work without a resolver setup.&lt;/strong&gt;&lt;br&gt;
-keen-pbr reads DNS replies passing through the router and the site names in TLS, HTTP and QUIC connections, and fills the sets of your lists itself. If a device looks up the site over plain DNS, the very first connection already takes the right route. If the device uses encrypted DNS, keen-pbr learns the site only from its name at the start of the connection. That first connection breaks, and the browser or app reconnects, this time over the right route. If the kernel lacks a feature, only that part (DNS or connections) is turned off, and the status page says why. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#dns-interception&#34;&gt;DNS&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;dnsmasq is optional.&lt;/strong&gt;&lt;br&gt;
-You need it only for &lt;abbr title=&#34;A setup where domains from different lists are resolved through different DNS servers.&#34;&gt;split DNS&lt;/abbr&gt; (different DNS servers depending on the domain) or to set DNS servers for the whole network right in keen-pbr. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#do-i-need-dnsmasq&#34;&gt;Do I need dnsmasq?&lt;/a&gt;. keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and repairs it when it loses the config. New commands: &lt;code&gt;keen-pbr resolver dnsmasq detect&lt;/code&gt; and &lt;code&gt;keen-pbr resolver dnsmasq print-config&lt;/code&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;DNS-over-HTTPS.&lt;/strong&gt;&lt;br&gt;
-Added DNS-over-HTTPS support: add a DNS server of type &lt;strong&gt;DNS-over-HTTPS&lt;/strong&gt; and use it in DNS rules and among the main DNS servers. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#dns-over-https&#34;&gt;DNS&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Bootstrap servers for DoH.&lt;/strong&gt;&lt;br&gt;
-You can choose which plain servers keen-pbr asks for the addresses of DoH servers. A DoH server can have its IP addresses set. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#doh-bootstrap&#34;&gt;DNS&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Several DNS servers for a list.&lt;/strong&gt;&lt;br&gt;
-Added the ability to pick several DNS servers for a list. Requests go to them in turn, and if a server does not answer, the next one takes over. In &lt;code&gt;config.json&lt;/code&gt; the &lt;code&gt;server&lt;/code&gt; field of a DNS rule is now &lt;code&gt;servers&lt;/code&gt;, an array of server names; keen-pbr converts old configs automatically. dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS to the keen-pbr built-in DNS proxy on &lt;code&gt;127.0.0.89&lt;/code&gt;, with ports starting at 52100. You can change the address and the first port in the &lt;strong&gt;Advanced&lt;/strong&gt; settings mode: &lt;strong&gt;DNS proxy address&lt;/strong&gt; and &lt;strong&gt;First DNS proxy port&lt;/strong&gt;. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#per-list-dns-servers-dnsmasq&#34;&gt;DNS&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;On the &lt;strong&gt;DNS rules&lt;/strong&gt; page the main DNS servers and the bootstrap servers are collapsible sections; a collapsed section shows which servers are in use. When no main servers are chosen or a DoH server needs bootstrap servers, the section shows a ⚠️ icon, and the Overview page and &lt;code&gt;keen-pbr status&lt;/code&gt; show a warning with a link to the page. The DNS servers table marks which servers are main and bootstrap ones. A new DNS rule no longer starts with a server picked: choose one yourself.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Load balancing across several links.&lt;/strong&gt; &lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Overview.&lt;/strong&gt;&lt;br&gt;
+The Overview page is more compact: the service state on top, then the outbounds table, the list of problems, DNS interception, DNS rules and counters. The routing test opens in a separate window. The status line has a &amp;ldquo;What&amp;rsquo;s new?&amp;rdquo; link that opens this page.&lt;/p&gt;
+&lt;figure class=&#34;compare-figure&#34;&gt;
+    &lt;div class=&#34;compare compare-desktop&#34; style=&#34;--pos: 30%&#34;&gt;
+      &lt;div class=&#34;compare-stage&#34;&gt;
+        &lt;img class=&#34;compare-img compare-before&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/dashboard-before-desktop.png&#34; alt=&#34;Dashboard — Before&#34; width=&#34;2880&#34; height=&#34;1800&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;img class=&#34;compare-img compare-after&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/dashboard-after-desktop.png&#34; alt=&#34;Dashboard — After&#34; width=&#34;2880&#34; height=&#34;1800&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;span class=&#34;compare-label&#34;&gt;Before&lt;/span&gt;
+        &lt;span class=&#34;compare-label compare-label-after&#34;&gt;After&lt;/span&gt;
+        &lt;div class=&#34;compare-divider&#34;&gt;
+          &lt;button type=&#34;button&#34; class=&#34;compare-handle&#34; role=&#34;slider&#34; aria-orientation=&#34;horizontal&#34; aria-valuemin=&#34;0&#34; aria-valuemax=&#34;100&#34; aria-valuenow=&#34;30&#34; aria-label=&#34;Drag to compare before and after&#34;&gt;
+            &lt;svg viewBox=&#34;0 0 24 24&#34; width=&#34;20&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;currentColor&#34; stroke-width=&#34;2.5&#34; stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; aria-hidden=&#34;true&#34;&gt;&lt;path d=&#34;M9 6l-6 6 6 6M15 6l6 6-6 6&#34;/&gt;&lt;/svg&gt;
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&#34;compare compare-mobile&#34; style=&#34;--pos: 30%&#34;&gt;
+      &lt;div class=&#34;compare-stage&#34;&gt;
+        &lt;img class=&#34;compare-img compare-before&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/dashboard-before-mobile.png&#34; alt=&#34;Dashboard — Before, mobile&#34; width=&#34;1170&#34; height=&#34;2532&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;img class=&#34;compare-img compare-after&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/dashboard-after-mobile.png&#34; alt=&#34;Dashboard — After, mobile&#34; width=&#34;1170&#34; height=&#34;2532&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;span class=&#34;compare-label&#34;&gt;Before&lt;/span&gt;
+        &lt;span class=&#34;compare-label compare-label-after&#34;&gt;After&lt;/span&gt;
+        &lt;div class=&#34;compare-divider&#34;&gt;
+          &lt;button type=&#34;button&#34; class=&#34;compare-handle&#34; role=&#34;slider&#34; aria-orientation=&#34;horizontal&#34; aria-valuemin=&#34;0&#34; aria-valuemax=&#34;100&#34; aria-valuenow=&#34;30&#34; aria-label=&#34;Drag to compare before and after&#34;&gt;
+            &lt;svg viewBox=&#34;0 0 24 24&#34; width=&#34;20&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;currentColor&#34; stroke-width=&#34;2.5&#34; stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; aria-hidden=&#34;true&#34;&gt;&lt;path d=&#34;M9 6l-6 6 6 6M15 6l6 6-6 6&#34;/&gt;&lt;/svg&gt;
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;figcaption class=&#34;shot-caption&#34;&gt;Dashboard&lt;/figcaption&gt;
+  &lt;/figure&gt;
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Diagnostics.&lt;/strong&gt;&lt;br&gt;
+All problems are in one list: kernel, routing, outbound and DNS server checks. The header shows at once whether everything is fine and how many problems there are. keen-pbr builds the list itself, so it matches &lt;code&gt;keen-pbr status&lt;/code&gt;.&lt;/p&gt;
+&lt;figure class=&#34;shot&#34;&gt;
+    &lt;div class=&#34;shot-row shot-row-devices&#34;&gt;
+      &lt;div class=&#34;shot-col shot-col-desktop&#34;&gt;
+        &lt;a href=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/diagnostics-after-desktop.png&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/diagnostics-after-desktop.png&#34; alt=&#34;Diagnostics&#34; onload=&#34;this.style.maxWidth=&#39;min(100%,&#39;+this.naturalWidth/2+&#39;px)&#39;&#34; loading=&#34;lazy&#34;&gt;&lt;/a&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;figcaption class=&#34;shot-caption&#34;&gt;Diagnostics&lt;/figcaption&gt;
+  &lt;/figure&gt;
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Health checks.&lt;/strong&gt;&lt;br&gt;
+keen-pbr warns about missing NAT or strict &lt;code&gt;rp_filter&lt;/code&gt; on balanced links, foreign fwmarks that overlap &lt;code&gt;fwmark.mask&lt;/code&gt;, and missing iptables extensions. &lt;code&gt;keen-pbr status&lt;/code&gt; shows the same issue list as the Web UI.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Warning about a DNS server that does not answer.&lt;/strong&gt;&lt;br&gt;
+If 10 requests in a row to a server got no answer or ended with an error, the status page shows a warning. See &lt;a href=&#34;https://keen-pbr.fyi/docs/troubleshooting/#dns-server-not-answering&#34;&gt;Troubleshooting&lt;/a&gt;.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Redesigned route check.&lt;/strong&gt;&lt;br&gt;
+The route check in the Web UI is easier to read: step by step it shows the decision made at each stage of routing: DNS resolution, list matching, rule selection and the firewall check. You can now set packet parameters in the check: protocol, ports, addresses and DSCP. The same parameters can be set in the CLI for the &lt;code&gt;keen-pbr test-routing&lt;/code&gt; command.&lt;/p&gt;
+&lt;figure class=&#34;shot&#34;&gt;
+    &lt;div class=&#34;shot-row shot-row-devices&#34;&gt;
+      &lt;div class=&#34;shot-col shot-col-desktop&#34;&gt;
+        &lt;a href=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/route-check-after-desktop.png&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/route-check-after-desktop.png&#34; alt=&#34;Route check&#34; onload=&#34;this.style.maxWidth=&#39;min(100%,&#39;+this.naturalWidth/2+&#39;px)&#39;&#34; loading=&#34;lazy&#34;&gt;&lt;/a&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;figcaption class=&#34;shot-caption&#34;&gt;Route check&lt;/figcaption&gt;
+  &lt;/figure&gt;
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Request log.&lt;/strong&gt;&lt;br&gt;
+A new section: a live table of current requests and a request log with explained badges and filters.&lt;/p&gt;
+&lt;figure class=&#34;shot&#34;&gt;
+    &lt;div class=&#34;shot-row shot-row-devices&#34;&gt;
+      &lt;div class=&#34;shot-col shot-col-desktop&#34;&gt;
+        &lt;span class=&#34;shot-label&#34;&gt;Desktop version&lt;/span&gt;
+        &lt;a href=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/requests-log-after-desktop.png&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/requests-log-after-desktop.png&#34; alt=&#34;Requests log&#34; onload=&#34;this.style.maxWidth=&#39;min(100%,&#39;+this.naturalWidth/2+&#39;px)&#39;&#34; loading=&#34;lazy&#34;&gt;&lt;/a&gt;
+      &lt;/div&gt;
+      &lt;div class=&#34;shot-col shot-col-mobile&#34;&gt;
+        &lt;span class=&#34;shot-label&#34;&gt;Mobile version&lt;/span&gt;
+        &lt;a href=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/requests-log-after-mobile.png&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/requests-log-after-mobile.png&#34; alt=&#34;Requests log — Mobile version&#34; width=&#34;1170&#34; height=&#34;2532&#34; loading=&#34;lazy&#34;&gt;&lt;/a&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;figcaption class=&#34;shot-caption&#34;&gt;Requests log&lt;/figcaption&gt;
+  &lt;/figure&gt;
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Settings page.&lt;/strong&gt;&lt;br&gt;
+Empty fields show the default values. Before, saving wrote them into the config and pinned them to you; now only what you changed ends up in the config.&lt;/p&gt;
+&lt;figure class=&#34;compare-figure&#34;&gt;
+    &lt;div class=&#34;compare compare-desktop&#34; style=&#34;--pos: 30%&#34;&gt;
+      &lt;div class=&#34;compare-stage&#34;&gt;
+        &lt;img class=&#34;compare-img compare-before&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/settings-before-desktop.png&#34; alt=&#34;Settings — Before&#34; width=&#34;2880&#34; height=&#34;1800&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;img class=&#34;compare-img compare-after&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/settings-after-desktop.png&#34; alt=&#34;Settings — After&#34; width=&#34;2880&#34; height=&#34;1800&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;span class=&#34;compare-label&#34;&gt;Before&lt;/span&gt;
+        &lt;span class=&#34;compare-label compare-label-after&#34;&gt;After&lt;/span&gt;
+        &lt;div class=&#34;compare-divider&#34;&gt;
+          &lt;button type=&#34;button&#34; class=&#34;compare-handle&#34; role=&#34;slider&#34; aria-orientation=&#34;horizontal&#34; aria-valuemin=&#34;0&#34; aria-valuemax=&#34;100&#34; aria-valuenow=&#34;30&#34; aria-label=&#34;Drag to compare before and after&#34;&gt;
+            &lt;svg viewBox=&#34;0 0 24 24&#34; width=&#34;20&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;currentColor&#34; stroke-width=&#34;2.5&#34; stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; aria-hidden=&#34;true&#34;&gt;&lt;path d=&#34;M9 6l-6 6 6 6M15 6l6 6-6 6&#34;/&gt;&lt;/svg&gt;
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&#34;compare compare-mobile&#34; style=&#34;--pos: 30%&#34;&gt;
+      &lt;div class=&#34;compare-stage&#34;&gt;
+        &lt;img class=&#34;compare-img compare-before&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/settings-before-mobile.png&#34; alt=&#34;Settings — Before, mobile&#34; width=&#34;1170&#34; height=&#34;2532&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;img class=&#34;compare-img compare-after&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/settings-after-mobile.png&#34; alt=&#34;Settings — After, mobile&#34; width=&#34;1170&#34; height=&#34;2532&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;span class=&#34;compare-label&#34;&gt;Before&lt;/span&gt;
+        &lt;span class=&#34;compare-label compare-label-after&#34;&gt;After&lt;/span&gt;
+        &lt;div class=&#34;compare-divider&#34;&gt;
+          &lt;button type=&#34;button&#34; class=&#34;compare-handle&#34; role=&#34;slider&#34; aria-orientation=&#34;horizontal&#34; aria-valuemin=&#34;0&#34; aria-valuemax=&#34;100&#34; aria-valuenow=&#34;30&#34; aria-label=&#34;Drag to compare before and after&#34;&gt;
+            &lt;svg viewBox=&#34;0 0 24 24&#34; width=&#34;20&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;currentColor&#34; stroke-width=&#34;2.5&#34; stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; aria-hidden=&#34;true&#34;&gt;&lt;path d=&#34;M9 6l-6 6 6 6M15 6l6 6-6 6&#34;/&gt;&lt;/svg&gt;
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;figcaption class=&#34;shot-caption&#34;&gt;Settings&lt;/figcaption&gt;
+  &lt;/figure&gt;
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Domain routing no longer requires dnsmasq.&lt;/strong&gt;&lt;br&gt;
+keen-pbr reads the DNS replies passing through the router and fills the sets of your lists itself. If a device looks up the site over plain DNS, the very first connection already takes the right route. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#dns-interception&#34;&gt;DNS&lt;/a&gt;.&lt;/p&gt;
+&lt;figure class=&#34;shot&#34;&gt;
+    &lt;div class=&#34;shot-row shot-row-devices&#34;&gt;
+      &lt;div class=&#34;shot-col shot-col-desktop&#34;&gt;
+        &lt;a href=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/settings-domain-routing-after-desktop.png&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/settings-domain-routing-after-desktop.png&#34; alt=&#34;Domain-based routing settings&#34; onload=&#34;this.style.maxWidth=&#39;min(100%,&#39;+this.naturalWidth/2+&#39;px)&#39;&#34; loading=&#34;lazy&#34;&gt;&lt;/a&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;figcaption class=&#34;shot-caption&#34;&gt;Domain-based routing settings&lt;/figcaption&gt;
+  &lt;/figure&gt;
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;L7 interception (HTTP Host, SNI, QUIC).&lt;/strong&gt;&lt;br&gt;
+If the device uses encrypted DNS, keen-pbr learns the site from its name at the start of the TLS, HTTP or QUIC connection. That first connection breaks, and the browser or app reconnects, this time over the right route.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;If the kernel lacks a feature.&lt;/strong&gt;&lt;br&gt;
+Only the affected part of interception (DNS or connections) is turned off, and the status page says why.&lt;/p&gt;
+&lt;figure class=&#34;shot&#34;&gt;
+    &lt;div class=&#34;shot-row shot-row-devices&#34;&gt;
+      &lt;div class=&#34;shot-col shot-col-desktop&#34;&gt;
+        &lt;a href=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/kernel-checks-after-desktop.png&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/kernel-checks-after-desktop.png&#34; alt=&#34;Kernel checks in diagnostics&#34; onload=&#34;this.style.maxWidth=&#39;min(100%,&#39;+this.naturalWidth/2+&#39;px)&#39;&#34; loading=&#34;lazy&#34;&gt;&lt;/a&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;figcaption class=&#34;shot-caption&#34;&gt;Kernel checks in diagnostics&lt;/figcaption&gt;
+  &lt;/figure&gt;
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;The router&amp;rsquo;s own traffic is not processed by default.&lt;/strong&gt;&lt;br&gt;
+Route rules apply to devices in your network. To include the router, set &lt;code&gt;iproute.process_router_traffic&lt;/code&gt; to &lt;code&gt;true&lt;/code&gt;. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/advanced/#iproute&#34;&gt;iproute&lt;/a&gt;.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;The outbound editor was updated.&lt;/strong&gt;&lt;br&gt;
+The editor is easier to read and less cluttered. You choose the outbound type with large cards that briefly explain how each one works. Groups (&lt;code&gt;urltest&lt;/code&gt; and &lt;code&gt;icmptest&lt;/code&gt;) are built visually: you can see the priority tiers and which one is in use now, set a weight for each link and see its share of traffic right away. The selection logic is also spelled out in text, for example: &amp;ldquo;New connections are spread across the working outbounds of tier 1 according to their weights&amp;rdquo;. The kill-switch behavior is chosen with cards too, each saying what happens to the traffic, and rarely needed settings are tucked into collapsible sections.&lt;/p&gt;
+&lt;figure class=&#34;compare-figure&#34;&gt;
+    &lt;div class=&#34;compare compare-desktop&#34; style=&#34;--pos: 30%&#34;&gt;
+      &lt;div class=&#34;compare-stage&#34;&gt;
+        &lt;img class=&#34;compare-img compare-before&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/outbound-editor-before-desktop.png&#34; alt=&#34;Outbound editor — Before&#34; width=&#34;2880&#34; height=&#34;1800&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;img class=&#34;compare-img compare-after&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/outbound-editor-after-desktop.png&#34; alt=&#34;Outbound editor — After&#34; width=&#34;2880&#34; height=&#34;1800&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;span class=&#34;compare-label&#34;&gt;Before&lt;/span&gt;
+        &lt;span class=&#34;compare-label compare-label-after&#34;&gt;After&lt;/span&gt;
+        &lt;div class=&#34;compare-divider&#34;&gt;
+          &lt;button type=&#34;button&#34; class=&#34;compare-handle&#34; role=&#34;slider&#34; aria-orientation=&#34;horizontal&#34; aria-valuemin=&#34;0&#34; aria-valuemax=&#34;100&#34; aria-valuenow=&#34;30&#34; aria-label=&#34;Drag to compare before and after&#34;&gt;
+            &lt;svg viewBox=&#34;0 0 24 24&#34; width=&#34;20&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;currentColor&#34; stroke-width=&#34;2.5&#34; stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; aria-hidden=&#34;true&#34;&gt;&lt;path d=&#34;M9 6l-6 6 6 6M15 6l6 6-6 6&#34;/&gt;&lt;/svg&gt;
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;figcaption class=&#34;shot-caption&#34;&gt;Outbound editor&lt;/figcaption&gt;
+  &lt;/figure&gt;
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Load balancing across several links.&lt;/strong&gt; &lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
 &lt;br&gt;
-A &lt;code&gt;urltest&lt;/code&gt; or &lt;code&gt;icmptest&lt;/code&gt; outbound with &lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt; spreads connections across links, each with its own weight. A connection stays on the link it started on. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/multi-wan/&#34;&gt;Multi-WAN Load Balancing&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Automatic gateway detection.&lt;/strong&gt;&lt;br&gt;
-An &lt;code&gt;interface&lt;/code&gt; outbound can use &lt;code&gt;&amp;quot;gateway&amp;quot;: &amp;quot;auto&amp;quot;&lt;/code&gt;, and the default gateway can now be edited in the Web UI. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/outbounds/#interface&#34;&gt;interface&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;All internet traffic through failover or balancing.&lt;/strong&gt; &lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
+A &lt;code&gt;urltest&lt;/code&gt; or &lt;code&gt;icmptest&lt;/code&gt; outbound with &lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt; spreads connections across links, each with its own weight. A connection stays on the link it started on. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/multi-wan/&#34;&gt;Multi-WAN Load Balancing&lt;/a&gt;.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Automatic gateway detection.&lt;/strong&gt;&lt;br&gt;
+An &lt;code&gt;interface&lt;/code&gt; outbound can use &lt;code&gt;&amp;quot;gateway&amp;quot;: &amp;quot;auto&amp;quot;&lt;/code&gt;, and the default gateway can now be edited in the Web UI. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/outbounds/#interface&#34;&gt;interface&lt;/a&gt;.&lt;/p&gt;
+&lt;figure class=&#34;shot&#34;&gt;
+    &lt;div class=&#34;shot-row shot-row-devices&#34;&gt;
+      &lt;div class=&#34;shot-col shot-col-desktop&#34;&gt;
+        &lt;a href=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/gateway-auto-after-desktop.png&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/gateway-auto-after-desktop.png&#34; alt=&#34;Gateway auto in the outbound editor&#34; onload=&#34;this.style.maxWidth=&#39;min(100%,&#39;+this.naturalWidth/2+&#39;px)&#39;&#34; loading=&#34;lazy&#34;&gt;&lt;/a&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;figcaption class=&#34;shot-caption&#34;&gt;Gateway auto in the outbound editor&lt;/figcaption&gt;
+  &lt;/figure&gt;
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;New lists are downloaded in the background after a configuration is applied, not before. A failed download no longer cancels the apply and shows up in the warnings instead. Lists that failed to download at start are downloaded again the same way.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;The routing rule page was updated.&lt;/strong&gt;&lt;br&gt;
+Instead of one long form with all the fields at once, a rule is now built like a &amp;ldquo;IF &amp;hellip; AND &amp;hellip; then &amp;hellip;&amp;rdquo; constructor. You add the conditions one at a time (lists, protocol, ports, addresses, DSCP), each one has a short note on what exactly it checks, and at the bottom you choose the outbound for the matching traffic. You see at once what the rule does and do not have to scroll past fields you do not need.&lt;/p&gt;
+&lt;figure class=&#34;compare-figure&#34;&gt;
+    &lt;div class=&#34;compare compare-desktop&#34; style=&#34;--pos: 30%&#34;&gt;
+      &lt;div class=&#34;compare-stage&#34;&gt;
+        &lt;img class=&#34;compare-img compare-before&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/routing-rule-edit-before-desktop.png&#34; alt=&#34;Routing rule page — Before&#34; width=&#34;2880&#34; height=&#34;1800&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;img class=&#34;compare-img compare-after&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/routing-rule-edit-after-desktop.png&#34; alt=&#34;Routing rule page — After&#34; width=&#34;2880&#34; height=&#34;1800&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;span class=&#34;compare-label&#34;&gt;Before&lt;/span&gt;
+        &lt;span class=&#34;compare-label compare-label-after&#34;&gt;After&lt;/span&gt;
+        &lt;div class=&#34;compare-divider&#34;&gt;
+          &lt;button type=&#34;button&#34; class=&#34;compare-handle&#34; role=&#34;slider&#34; aria-orientation=&#34;horizontal&#34; aria-valuemin=&#34;0&#34; aria-valuemax=&#34;100&#34; aria-valuenow=&#34;30&#34; aria-label=&#34;Drag to compare before and after&#34;&gt;
+            &lt;svg viewBox=&#34;0 0 24 24&#34; width=&#34;20&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;currentColor&#34; stroke-width=&#34;2.5&#34; stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; aria-hidden=&#34;true&#34;&gt;&lt;path d=&#34;M9 6l-6 6 6 6M15 6l6 6-6 6&#34;/&gt;&lt;/svg&gt;
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;figcaption class=&#34;shot-caption&#34;&gt;Routing rule page&lt;/figcaption&gt;
+  &lt;/figure&gt;
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Default route setup (for multipath or failover).&lt;/strong&gt; &lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
 &lt;br&gt;
-The new &lt;code&gt;default_gateway&lt;/code&gt; route rule condition. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/route-rules/#failover-or-balancing-for-all-internet-traffic&#34;&gt;Route rules&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;New Web UI.&lt;/strong&gt;&lt;br&gt;
-Compact overview, live table of current requests, request log with explained badges and filters, a diagnostics panel (kernel checks first), redesigned outbound editor, updates over a live stream instead of polling, better mobile layout, and a settings page that shows the daemon&amp;rsquo;s defaults.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Health checks.&lt;/strong&gt;&lt;br&gt;
-keen-pbr warns about missing NAT or strict &lt;code&gt;rp_filter&lt;/code&gt; on balanced links, foreign fwmarks that overlap &lt;code&gt;fwmark.mask&lt;/code&gt;, and missing iptables extensions. &lt;code&gt;keen-pbr status&lt;/code&gt; shows the same issue list as the Web UI.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Prometheus endpoint.&lt;/strong&gt;&lt;br&gt;
-&lt;code&gt;GET /metrics&lt;/code&gt; reports probe latency, link selection, list updates, balance and interception counters. A Grafana dashboard and alert examples are included. See &lt;a href=&#34;https://keen-pbr.fyi/docs/rest-api/#get-metrics&#34;&gt;REST API&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Checking the DNS servers.&lt;/strong&gt;&lt;br&gt;
-The &lt;strong&gt;Check&lt;/strong&gt; button on the &lt;strong&gt;DNS servers&lt;/strong&gt; page asks all servers about the sites you choose and shows which do not answer and which tamper with answers: they say a site does not exist, or answer with a stub address. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#check-dns-servers&#34;&gt;DNS&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Warning about a DNS server that does not answer.&lt;/strong&gt;&lt;br&gt;
-If 10 requests in a row to a server got no answer or ended with an error, the status page shows a warning. See &lt;a href=&#34;https://keen-pbr.fyi/docs/troubleshooting/#dns-server-not-answering&#34;&gt;Troubleshooting&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;DNS proxy metrics.&lt;/strong&gt;&lt;br&gt;
-&lt;code&gt;/metrics&lt;/code&gt; shows the queries to the DNS proxy, the answers of the servers by result, the answer time and the servers the proxy is skipping now. The Grafana dashboard has a new DNS proxy section. See &lt;a href=&#34;https://keen-pbr.fyi/docs/rest-api/#dns-proxy&#34;&gt;REST API&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Packet criteria in &lt;code&gt;keen-pbr test-routing&lt;/code&gt;.&lt;/strong&gt;&lt;br&gt;
-The command takes protocol, ports, addresses and DSCP, and runs in the daemon, the same way as the routing test in the Web UI.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;The router&amp;rsquo;s own traffic is left alone by default.&lt;/strong&gt;&lt;br&gt;
-Route rules apply to devices in your network. To include the router, set &lt;code&gt;iproute.process_router_traffic&lt;/code&gt; to &lt;code&gt;true&lt;/code&gt;. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/advanced/#iproute&#34;&gt;iproute&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Local networks rule in the default config.&lt;/strong&gt;&lt;br&gt;
-It keeps local networks out of tunnels.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;The &amp;ldquo;What&amp;rsquo;s new?&amp;rdquo; button.&lt;/strong&gt;&lt;br&gt;
-It opens this page from the Web UI.&lt;/li&gt;
-&lt;li&gt;New lists are downloaded in the background after a configuration is applied, not before. A failed download no longer cancels the apply and shows up in the warnings instead. Lists that failed to download at start are retried the same way.&lt;/li&gt;
-&lt;li&gt;Removing the package also removes leftover firewall rules and dnsmasq files.&lt;/li&gt;
+keen-pbr can now manage the default route for the devices in your network. You can use it for multipath routing and link failover, similar to what mwan3 does. Add a rule with the &lt;strong&gt;IPv4 default gateway&lt;/strong&gt; type (&lt;code&gt;default_gateway&lt;/code&gt;; a separate rule for IPv6) at the end of the route rules and point it at a &lt;code&gt;urltest&lt;/code&gt; or &lt;code&gt;icmptest&lt;/code&gt; outbound. With &lt;code&gt;strategy: &amp;quot;priority&amp;quot;&lt;/code&gt; all internet traffic moves to a backup link when the main one is down, and with &lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt; connections are spread across the links by weight. Addresses of your local network still use normal routing. The rule applies to the devices in your network; to apply it to the router&amp;rsquo;s own traffic too, turn on &lt;strong&gt;Process router&amp;rsquo;s own traffic&lt;/strong&gt;. Available on OpenWrt and Debian. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/route-rules/#failover-or-balancing-for-all-internet-traffic&#34;&gt;Route rules&lt;/a&gt; and &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/multi-wan/&#34;&gt;Multi-WAN Load Balancing&lt;/a&gt;.&lt;/p&gt;
+&lt;figure class=&#34;compare-figure&#34;&gt;
+    &lt;div class=&#34;compare compare-desktop&#34; style=&#34;--pos: 30%&#34;&gt;
+      &lt;div class=&#34;compare-stage&#34;&gt;
+        &lt;img class=&#34;compare-img compare-before&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/routing-rules-before-desktop.png&#34; alt=&#34;Routing rules — Before&#34; width=&#34;2880&#34; height=&#34;1800&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;img class=&#34;compare-img compare-after&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/routing-rules-after-desktop.png&#34; alt=&#34;Routing rules — After&#34; width=&#34;2880&#34; height=&#34;1800&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;span class=&#34;compare-label&#34;&gt;Before&lt;/span&gt;
+        &lt;span class=&#34;compare-label compare-label-after&#34;&gt;After&lt;/span&gt;
+        &lt;div class=&#34;compare-divider&#34;&gt;
+          &lt;button type=&#34;button&#34; class=&#34;compare-handle&#34; role=&#34;slider&#34; aria-orientation=&#34;horizontal&#34; aria-valuemin=&#34;0&#34; aria-valuemax=&#34;100&#34; aria-valuenow=&#34;30&#34; aria-label=&#34;Drag to compare before and after&#34;&gt;
+            &lt;svg viewBox=&#34;0 0 24 24&#34; width=&#34;20&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;currentColor&#34; stroke-width=&#34;2.5&#34; stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; aria-hidden=&#34;true&#34;&gt;&lt;path d=&#34;M9 6l-6 6 6 6M15 6l6 6-6 6&#34;/&gt;&lt;/svg&gt;
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;figcaption class=&#34;shot-caption&#34;&gt;Routing rules&lt;/figcaption&gt;
+  &lt;/figure&gt;
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;DNS-over-HTTPS.&lt;/strong&gt;&lt;br&gt;
+You can now add a DNS server of type &lt;strong&gt;DNS-over-HTTPS&lt;/strong&gt; and use it in DNS rules and among the main DNS servers. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#dns-over-https&#34;&gt;DNS&lt;/a&gt;.&lt;/p&gt;
+&lt;figure class=&#34;shot&#34;&gt;
+    &lt;div class=&#34;shot-row shot-row-devices&#34;&gt;
+      &lt;div class=&#34;shot-col shot-col-desktop&#34;&gt;
+        &lt;a href=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/doh-server-after-desktop.png&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/doh-server-after-desktop.png&#34; alt=&#34;DNS-over-HTTPS server&#34; onload=&#34;this.style.maxWidth=&#39;min(100%,&#39;+this.naturalWidth/2+&#39;px)&#39;&#34; loading=&#34;lazy&#34;&gt;&lt;/a&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;figcaption class=&#34;shot-caption&#34;&gt;DNS-over-HTTPS server&lt;/figcaption&gt;
+  &lt;/figure&gt;
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Bootstrap servers for DoH.&lt;/strong&gt;&lt;br&gt;
+A DoH server needs an IP address to connect to. Pick bootstrap servers, and keen-pbr will look up the DoH servers&amp;rsquo; addresses through them, or set the DoH server&amp;rsquo;s IP addresses yourself. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#doh-bootstrap&#34;&gt;DNS&lt;/a&gt;.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Checking the DNS servers.&lt;/strong&gt;&lt;br&gt;
+The &lt;strong&gt;Check&lt;/strong&gt; button on the &lt;strong&gt;DNS servers&lt;/strong&gt; page asks all servers about the sites you choose and shows which do not answer and which tamper with answers: they answer that the domain does not exist (NXDOMAIN), or answer with a stub address. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#check-dns-servers&#34;&gt;DNS&lt;/a&gt;. Click a result to see the details for each site: the addresses received, the response time and what exactly is wrong. You can change the sites to check: tick the ready-made ones or add your own.&lt;/p&gt;
+&lt;figure class=&#34;shot&#34;&gt;
+    &lt;div class=&#34;shot-row shot-row-devices&#34;&gt;
+      &lt;div class=&#34;shot-col shot-col-desktop&#34;&gt;
+        &lt;a href=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/dns-servers-after-desktop.png&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/dns-servers-after-desktop.png&#34; alt=&#34;DNS servers check&#34; onload=&#34;this.style.maxWidth=&#39;min(100%,&#39;+this.naturalWidth/2+&#39;px)&#39;&#34; loading=&#34;lazy&#34;&gt;&lt;/a&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;figcaption class=&#34;shot-caption&#34;&gt;DNS servers check&lt;/figcaption&gt;
+  &lt;/figure&gt;
+
+&lt;figure class=&#34;shot&#34;&gt;
+    &lt;div class=&#34;shot-row shot-row-pair&#34;&gt;
+      &lt;div class=&#34;shot-col&#34;&gt;
+        &lt;a href=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/dns-check-details-after-desktop.png&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/dns-check-details-after-desktop.png&#34; alt=&#34;Check result details&#34; onload=&#34;this.style.maxWidth=&#39;min(100%,&#39;+this.naturalWidth/2+&#39;px)&#39;&#34; loading=&#34;lazy&#34;&gt;&lt;/a&gt;
+        &lt;figcaption class=&#34;shot-caption&#34;&gt;Check result details&lt;/figcaption&gt;
+      &lt;/div&gt;
+      &lt;div class=&#34;shot-col&#34;&gt;
+        &lt;a href=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/dns-check-sites-after-desktop.png&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/dns-check-sites-after-desktop.png&#34; alt=&#34;Sites for the DNS servers check&#34; onload=&#34;this.style.maxWidth=&#39;min(100%,&#39;+this.naturalWidth/2+&#39;px)&#39;&#34; loading=&#34;lazy&#34;&gt;&lt;/a&gt;
+        &lt;figcaption class=&#34;shot-caption&#34;&gt;Sites for the DNS servers check&lt;/figcaption&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/figure&gt;
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;The DNS rule page was updated.&lt;/strong&gt;&lt;br&gt;
+It follows the same logic as the routing rule: first you pick the condition (the domain lists), then the DNS servers to send the queries to. With several servers the page tells you that requests go to them in turn.&lt;/p&gt;
+&lt;figure class=&#34;compare-figure&#34;&gt;
+    &lt;div class=&#34;compare compare-desktop&#34; style=&#34;--pos: 30%&#34;&gt;
+      &lt;div class=&#34;compare-stage&#34;&gt;
+        &lt;img class=&#34;compare-img compare-before&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/dns-rule-edit-before-desktop.png&#34; alt=&#34;DNS rule page — Before&#34; width=&#34;2880&#34; height=&#34;1800&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;img class=&#34;compare-img compare-after&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/dns-rule-edit-after-desktop.png&#34; alt=&#34;DNS rule page — After&#34; width=&#34;2880&#34; height=&#34;1800&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;span class=&#34;compare-label&#34;&gt;Before&lt;/span&gt;
+        &lt;span class=&#34;compare-label compare-label-after&#34;&gt;After&lt;/span&gt;
+        &lt;div class=&#34;compare-divider&#34;&gt;
+          &lt;button type=&#34;button&#34; class=&#34;compare-handle&#34; role=&#34;slider&#34; aria-orientation=&#34;horizontal&#34; aria-valuemin=&#34;0&#34; aria-valuemax=&#34;100&#34; aria-valuenow=&#34;30&#34; aria-label=&#34;Drag to compare before and after&#34;&gt;
+            &lt;svg viewBox=&#34;0 0 24 24&#34; width=&#34;20&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;currentColor&#34; stroke-width=&#34;2.5&#34; stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; aria-hidden=&#34;true&#34;&gt;&lt;path d=&#34;M9 6l-6 6 6 6M15 6l6 6-6 6&#34;/&gt;&lt;/svg&gt;
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;figcaption class=&#34;shot-caption&#34;&gt;DNS rule page&lt;/figcaption&gt;
+  &lt;/figure&gt;
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Several DNS servers for a list.&lt;/strong&gt;&lt;br&gt;
+You can pick several DNS servers for a list. Requests go to them in turn, and if a server does not answer, the next one takes over. In &lt;code&gt;config.json&lt;/code&gt; the &lt;code&gt;server&lt;/code&gt; field of a DNS rule is now &lt;code&gt;servers&lt;/code&gt;, an array of server names; keen-pbr converts old configs automatically.&lt;br&gt;
+dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS to the keen-pbr built-in DNS proxy on &lt;code&gt;127.0.0.89&lt;/code&gt;, with ports starting at 52100. You can change the address and the first port in the &lt;strong&gt;Advanced&lt;/strong&gt; settings mode: &lt;strong&gt;DNS proxy address&lt;/strong&gt; and &lt;strong&gt;First DNS proxy port&lt;/strong&gt;. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#per-list-dns-servers-dnsmasq&#34;&gt;DNS&lt;/a&gt;.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;On the &lt;strong&gt;DNS rules&lt;/strong&gt; page the main DNS servers and the bootstrap servers are collapsible sections; a collapsed section shows which servers are in use. When no main servers are chosen or a DoH server needs bootstrap servers, the section shows a ⚠️ icon, and the Overview page and &lt;code&gt;keen-pbr status&lt;/code&gt; show a warning with a link to the page. The DNS servers table marks which servers are main and bootstrap ones. A new DNS rule no longer starts with a server picked: choose one yourself.&lt;/p&gt;
+&lt;figure class=&#34;compare-figure&#34;&gt;
+    &lt;div class=&#34;compare compare-desktop&#34; style=&#34;--pos: 30%&#34;&gt;
+      &lt;div class=&#34;compare-stage&#34;&gt;
+        &lt;img class=&#34;compare-img compare-before&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/dns-rules-before-desktop.png&#34; alt=&#34;DNS rules — Before&#34; width=&#34;2880&#34; height=&#34;1800&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;img class=&#34;compare-img compare-after&#34; src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/dns-rules-after-desktop.png&#34; alt=&#34;DNS rules — After&#34; width=&#34;2880&#34; height=&#34;1800&#34; loading=&#34;lazy&#34; decoding=&#34;async&#34; draggable=&#34;false&#34;&gt;
+        &lt;span class=&#34;compare-label&#34;&gt;Before&lt;/span&gt;
+        &lt;span class=&#34;compare-label compare-label-after&#34;&gt;After&lt;/span&gt;
+        &lt;div class=&#34;compare-divider&#34;&gt;
+          &lt;button type=&#34;button&#34; class=&#34;compare-handle&#34; role=&#34;slider&#34; aria-orientation=&#34;horizontal&#34; aria-valuemin=&#34;0&#34; aria-valuemax=&#34;100&#34; aria-valuenow=&#34;30&#34; aria-label=&#34;Drag to compare before and after&#34;&gt;
+            &lt;svg viewBox=&#34;0 0 24 24&#34; width=&#34;20&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;currentColor&#34; stroke-width=&#34;2.5&#34; stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; aria-hidden=&#34;true&#34;&gt;&lt;path d=&#34;M9 6l-6 6 6 6M15 6l6 6-6 6&#34;/&gt;&lt;/svg&gt;
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;figcaption class=&#34;shot-caption&#34;&gt;DNS rules&lt;/figcaption&gt;
+  &lt;/figure&gt;
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;dnsmasq is needed only for split DNS.&lt;/strong&gt;&lt;br&gt;
+You need it only for &lt;abbr title=&#34;A setup where domains from different lists are resolved through different DNS servers.&#34;&gt;split DNS&lt;/abbr&gt; (different DNS servers depending on the domain) or to set DNS servers for the whole network right in keen-pbr. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#do-i-need-dnsmasq&#34;&gt;Do I need dnsmasq?&lt;/a&gt;. keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and restores it when it loses the config. New commands: &lt;code&gt;keen-pbr resolver dnsmasq detect&lt;/code&gt; and &lt;code&gt;keen-pbr resolver dnsmasq print-config&lt;/code&gt;.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Web UI on a phone.&lt;/strong&gt;&lt;br&gt;
+Forms and the rule builder adapt to a narrow screen, the request log is shown as cards, and dialogs slide up from the bottom.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Real-time updates.&lt;/strong&gt;&lt;br&gt;
+Data is updated over SSE instead of HTTP polling.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Prometheus metrics.&lt;/strong&gt;&lt;br&gt;
+&lt;code&gt;GET /metrics&lt;/code&gt; reports probe latency, link selection, list updates, balance and interception counters. It also has DNS proxy metrics: the queries to it, the answers of the servers by result, the answer time and the servers the proxy is skipping now. A Grafana dashboard (with a DNS proxy section) and alert examples are included. See &lt;a href=&#34;https://keen-pbr.fyi/docs/rest-api/#get-metrics&#34;&gt;REST API&lt;/a&gt; and &lt;a href=&#34;https://keen-pbr.fyi/docs/rest-api/#dns-proxy&#34;&gt;DNS proxy metrics&lt;/a&gt;.&lt;/p&gt;
+&lt;figure class=&#34;shot&#34;&gt;
+    &lt;div class=&#34;shot-row shot-row-devices&#34;&gt;
+      &lt;div class=&#34;shot-col shot-col-desktop&#34;&gt;
+        &lt;a href=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/grafana-after-desktop.png&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://keen-pbr.fyi/images/changelog/3.4.0/grafana-after-desktop.png&#34; alt=&#34;Grafana dashboard&#34; onload=&#34;this.style.maxWidth=&#39;min(100%,&#39;+this.naturalWidth/2+&#39;px)&#39;&#34; loading=&#34;lazy&#34;&gt;&lt;/a&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;figcaption class=&#34;shot-caption&#34;&gt;Grafana dashboard&lt;/figcaption&gt;
+  &lt;/figure&gt;
+
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Removing the package also removes leftover firewall rules and dnsmasq files.&lt;/p&gt;
+&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3&gt;Fixes&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;fixes&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#fixes&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
@@ -8451,14 +8855,14 @@ It opens this page from the Web UI.&lt;/li&gt;
 &lt;li&gt;Fixed the router&amp;rsquo;s own traffic skipping route rules when &lt;code&gt;inbound_interfaces&lt;/code&gt; is set.&lt;/li&gt;
 &lt;li&gt;When several DNS rules name the same list, the list now uses the servers of every rule. Before, only the first rule&amp;rsquo;s server was used.&lt;/li&gt;
 &lt;li&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;
- Fixed routing being built from a half-updated route table when routes change one after another during a WAN DHCP renewal.&lt;/li&gt;
+ Fixed routes being built from a partially updated route table when routes change one after another during a WAN DHCP renewal.&lt;/li&gt;
 &lt;li&gt;Fixed a list cache file being left empty after a power loss.&lt;/li&gt;
 &lt;li&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;
  Fixed a package upgrade where the old version did not stop in time: it kept running after the install instead of the new one.&lt;/li&gt;
 &lt;li&gt;Fixed the routing test with IPv6 turned off: it used to check the domain&amp;rsquo;s IPv6 addresses too.&lt;/li&gt;
 &lt;li&gt;Fixed the routing test showing one route rule as several blocks.&lt;/li&gt;
-&lt;li&gt;Fixed &lt;code&gt;keen-pbr status&lt;/code&gt; reporting every &lt;code&gt;urltest&lt;/code&gt; and &lt;code&gt;icmptest&lt;/code&gt; rule as an error.&lt;/li&gt;
-&lt;li&gt;The Web UI now keeps &lt;code&gt;conntrack_on_switch&lt;/code&gt;, &lt;code&gt;strict_enforcement_action&lt;/code&gt; and the &lt;code&gt;urltest&lt;/code&gt; probe timeout when saving an outbound.&lt;/li&gt;
+&lt;li&gt;Fixed a false error in &lt;code&gt;keen-pbr status&lt;/code&gt; on every &lt;code&gt;urltest&lt;/code&gt; and &lt;code&gt;icmptest&lt;/code&gt; rule: the command now shows the selected link.&lt;/li&gt;
+&lt;li&gt;Fixed the Web UI losing &lt;code&gt;conntrack_on_switch&lt;/code&gt;, &lt;code&gt;strict_enforcement_action&lt;/code&gt; and the &lt;code&gt;urltest&lt;/code&gt; probe timeout when saving an outbound.&lt;/li&gt;
 &lt;li&gt;Fixed DNS servers with &lt;code&gt;detour&lt;/code&gt; through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address).&lt;/li&gt;
 &lt;li&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for iptables&#34;&gt;&lt;span class=&#34;only-badge only-badge--iptables&#34;&gt;iptables&lt;/span&gt;&lt;/span&gt;
  Fixed routing rules that negate several addresses (&lt;code&gt;!a,b&lt;/code&gt;) on iptables: such a rule used to match all traffic.&lt;/li&gt;
@@ -8506,12 +8910,12 @@ Install it again with &lt;code&gt;opkg install dnsmasq-full&lt;/code&gt;.&lt;/li
 &lt;li&gt;&lt;strong&gt;Go without dnsmasq.&lt;/strong&gt;&lt;br&gt;
 Turn off &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt;. Then, in the router&amp;rsquo;s web console (&lt;a href=&#34;http://my.keenetic.net/a&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net/a&lt;/a&gt;), run &lt;code&gt;no opkg dns-override&lt;/code&gt; and &lt;code&gt;system configuration save&lt;/code&gt;, and reboot the router.&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;After the upgrade, dnsmasq management stays on, as in 3.3.x. If you do not need it, turn off &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt; in the Web UI (&lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;Local DNS server management&lt;/strong&gt;) and follow the rollback steps: &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/keenetic/#dnsmasq-rollback&#34;&gt;Keenetic&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/openwrt/#dnsmasq-rollback&#34;&gt;OpenWrt&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/debian/#dnsmasq-rollback&#34;&gt;Debian&lt;/a&gt;. Without it, DNS rules and main DNS servers stop working.&lt;/p&gt;
+&lt;p&gt;After the upgrade, dnsmasq management stays on, as in 3.3.x. If you do not need it, turn off &lt;strong&gt;Manage dnsmasq configuration&lt;/strong&gt; in the Web UI (&lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;Local DNS server management&lt;/strong&gt;) and follow the rollback steps: &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/keenetic/#dnsmasq-rollback&#34;&gt;Keenetic&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/openwrt/#dnsmasq-rollback&#34;&gt;OpenWrt&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/debian/#dnsmasq-rollback&#34;&gt;Debian&lt;/a&gt;. Without dnsmasq, DNS rules and main DNS servers stop working.&lt;/p&gt;
 &lt;p&gt;What to check after the upgrade:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Kernel modules.&lt;/strong&gt; &lt;span class=&#34;only-badges&#34; title=&#34;Only for Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;
 &lt;br&gt;
-Domains are now detected by interception. If the &lt;strong&gt;Netfilter Subsystem Kernel Modules&lt;/strong&gt; and &lt;strong&gt;Xtables-addons Extension Package for Netfilter&lt;/strong&gt; components are not installed yet, install them. Then open the status page in the Web UI and run the DNS check.&lt;/li&gt;
+The IP addresses of domains for filling ipset are now found by intercepting DNS replies, the HTTP Host and the SNI with NFQUEUE and NFLOG. If the &lt;strong&gt;Netfilter Subsystem Kernel Modules&lt;/strong&gt; and &lt;strong&gt;Xtables-addons Extension Package for Netfilter&lt;/strong&gt; components are not installed yet, install them. Then open the status page in the Web UI and run the DNS check.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;iptables only.&lt;/strong&gt; &lt;span class=&#34;only-badges&#34; title=&#34;Only for Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;
 &lt;br&gt;
 The Keenetic build always works through iptables. A config with &lt;code&gt;daemon.firewall_backend: &amp;quot;nftables&amp;quot;&lt;/code&gt; or &lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt; fails validation there.&lt;/li&gt;
@@ -8521,12 +8925,12 @@ It used to set how long the addresses of a list&amp;rsquo;s domains are kept. No
 &lt;li&gt;&lt;strong&gt;Defaults changed.&lt;/strong&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;daemon.clear_dynamic_sets_on_apply&lt;/code&gt; is now &lt;code&gt;false&lt;/code&gt;: domain addresses are kept when a config is applied.&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;iproute.process_router_traffic&lt;/code&gt; is &lt;code&gt;false&lt;/code&gt;: route rules apply to devices in your network, not to the router&amp;rsquo;s own traffic.&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;--log-target&lt;/code&gt; is &lt;code&gt;both&lt;/code&gt; for all commands. The service package files pass &lt;code&gt;--log-target syslog&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;iproute.process_router_traffic&lt;/code&gt; is now &lt;code&gt;false&lt;/code&gt;: route rules apply to devices in your network, not to the router&amp;rsquo;s own traffic.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;--log-target&lt;/code&gt; is &lt;code&gt;both&lt;/code&gt; for all commands. The init scripts from the package pass &lt;code&gt;--log-target syslog&lt;/code&gt;.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Fields that no longer work.&lt;/strong&gt;&lt;br&gt;
-&lt;code&gt;dns.system_resolver&lt;/code&gt;, &lt;code&gt;dns.dns_test_server&lt;/code&gt; (use &lt;code&gt;intercept.dns.marker&lt;/code&gt;) and &lt;code&gt;daemon.resolver_ready_timeout_seconds&lt;/code&gt;; the log warns if they are set. The old &lt;code&gt;outbounds&lt;/code&gt;, &lt;code&gt;candidates&lt;/code&gt; and &lt;code&gt;weight&lt;/code&gt; fields in &lt;code&gt;outbound_groups&lt;/code&gt; are replaced by &lt;code&gt;members&lt;/code&gt;. Old configs keep working: keen-pbr rewrites them to the new format once (comments and key order are not kept).&lt;/li&gt;
+&lt;code&gt;dns.system_resolver&lt;/code&gt;, &lt;code&gt;dns.dns_test_server&lt;/code&gt; and &lt;code&gt;daemon.resolver_ready_timeout_seconds&lt;/code&gt;; the log warns if they are set. Use &lt;code&gt;intercept.dns.marker&lt;/code&gt; instead of &lt;code&gt;dns.dns_test_server&lt;/code&gt;. The old &lt;code&gt;outbounds&lt;/code&gt;, &lt;code&gt;candidates&lt;/code&gt; and &lt;code&gt;weight&lt;/code&gt; fields in &lt;code&gt;outbound_groups&lt;/code&gt; are replaced by &lt;code&gt;members&lt;/code&gt;. Old configs keep working: keen-pbr rewrites them to the new format once (comments and key order are not kept).&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;New &lt;code&gt;version&lt;/code&gt; field.&lt;/strong&gt;&lt;br&gt;
 It holds the keen-pbr version the config was written for. keen-pbr sets it when you save the config in the Web UI. If you edit the file by hand, leave it in place.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;DNS check domain.&lt;/strong&gt;&lt;br&gt;
@@ -8538,7 +8942,7 @@ For a manual check, run &lt;code&gt;nslookup check.keen-pbr.fyi&lt;/code&gt; ins
 &lt;li&gt;&lt;code&gt;keen-pbr generate-resolver-config&lt;/code&gt; accepts &lt;code&gt;dnsmasq&lt;/code&gt; instead of &lt;code&gt;dnsmasq-ipset&lt;/code&gt; and &lt;code&gt;dnsmasq-nftset&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;keen-pbr status&lt;/code&gt; exits with code 1 if any check failed or the problems include an error.&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;GET /api/dns/test?show=all&lt;/code&gt; (and &lt;code&gt;show=full&lt;/code&gt;) works only when API authentication is enabled.&lt;/li&gt;
-&lt;li&gt;New endpoints: &lt;code&gt;GET /metrics&lt;/code&gt;, &lt;code&gt;GET /api/health/issues&lt;/code&gt;, &lt;code&gt;GET /api/config/defaults&lt;/code&gt;. &lt;code&gt;GET /api/status/events&lt;/code&gt; also sends problems, routing state, authentication state and config changes.&lt;/li&gt;
+&lt;li&gt;New API endpoints: &lt;code&gt;GET /metrics&lt;/code&gt;, &lt;code&gt;GET /api/health/issues&lt;/code&gt;, &lt;code&gt;GET /api/config/defaults&lt;/code&gt;. &lt;code&gt;GET /api/status/events&lt;/code&gt; also sends problems, routing state, authentication state and config changes.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2&gt;3.3.1&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;v3-3-1&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#v3-3-1&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;em&gt;25 August 2026&lt;/em&gt;&lt;/p&gt;
@@ -8598,7 +9002,7 @@ Checks links with a ping (&lt;abbr title=&#34;Service protocol for network diagn
 In &lt;code&gt;/opt/etc/keen-pbr/defaults&lt;/code&gt; you can pick the table in which devices&amp;rsquo; IPv4 traffic is marked. RAW is not flushed when Keenetic rebuilds its firewall and connections do not break, but it works only for devices with the &lt;strong&gt;Default policy&lt;/strong&gt;. &lt;abbr title=&#34;The iptables table for changing packet metadata, such as setting a fwmark, before routing.&#34;&gt;mangle&lt;/abbr&gt; suits any policy from &lt;strong&gt;Connection priorities&lt;/strong&gt;, but the rules disappear while the firewall is being rebuilt. See &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/keenetic/#raw-or-mangle&#34;&gt;RAW or mangle&lt;/a&gt;.&lt;/li&gt;
 &lt;li&gt;Packages for Debian 11 (Bullseye), 12 (Bookworm) and 13 (Trixie).&lt;/li&gt;
 &lt;li&gt;The full package got smaller.&lt;/li&gt;
-&lt;li&gt;The package repository moved from GitHub Pages to a separate paid host, so it is down less often.&lt;/li&gt;
+&lt;li&gt;The package repository moved from GitHub Pages to a separate paid host.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3&gt;Fixes&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;fixes-3&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#fixes-3&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
@@ -8636,7 +9040,7 @@ Route by the &lt;abbr title=&#34;A 6-bit field in the IP header used to mark tra
 &lt;li&gt;&lt;strong&gt;The &lt;code&gt;conntrack_on_switch&lt;/code&gt; setting.&lt;/strong&gt;&lt;br&gt;
 Sets what &lt;code&gt;urltest&lt;/code&gt; does with open connections when the link changes: &lt;code&gt;preserve&lt;/code&gt; or &lt;code&gt;delete&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Strict list checks.&lt;/strong&gt;&lt;br&gt;
-URL lists are downloaded only over HTTP and HTTPS, redirects included. A local list must be a regular file no larger than the set size. Invalid domains are dropped. If the same list is downloaded several times at once, only one download runs.&lt;/li&gt;
+URL lists are downloaded only over HTTP and HTTPS, redirects included. A local list must be a regular file no larger than the set size. Incorrect domains are dropped. If the same list is downloaded several times at once, only one download runs.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;The Web UI updates itself.&lt;/strong&gt;&lt;br&gt;
 Changes in service, outbound and interface state show up right away, with no page refresh. Diagnostics and the DNS check cannot do this yet.&lt;/li&gt;
 &lt;li&gt;On start, stop, restart and config apply you can see which stage the service is in.&lt;/li&gt;
@@ -8776,7 +9180,7 @@ The firewall integration was redone: on newer OpenWrt versions the &lt;code&gt;/
 &lt;/ul&gt;
 &lt;h2&gt;3.0.0 (beta)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;v3-0-0&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#v3-0-0&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;em&gt;22 April 2026&lt;/em&gt;&lt;/p&gt;
-&lt;p&gt;keen-pbr was rewritten from scratch. Version 2.x worked only on Keenetic and Netcraze, version 3 also works on OpenWrt and Debian.&lt;/p&gt;
+&lt;p&gt;keen-pbr was rewritten from scratch. Version 2.x worked only on Keenetic and Netcraze, version 3 can also work on OpenWrt and Debian.&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Web UI and REST API.&lt;/strong&gt;&lt;br&gt;
 The Web UI is easy to use from a phone too.&lt;/li&gt;
@@ -8845,7 +9249,7 @@ Lists are set in the &lt;code&gt;[[list]]&lt;/code&gt; section, and one list can
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Fewer writes to flash.&lt;/strong&gt;&lt;br&gt;
 keenetic-pbr does not overwrite files that have not changed. This spares the router&amp;rsquo;s flash memory and USB drive.&lt;/li&gt;
-&lt;li&gt;The &lt;code&gt;summarize&lt;/code&gt; option was removed: because of a bug it dropped needed addresses from the list.&lt;/li&gt;
+&lt;li&gt;The &lt;code&gt;summarize&lt;/code&gt; option was removed: because of a bug it removed needed addresses from the list.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3&gt;1.2.0&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;v1-2-0&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#v1-2-0&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;&lt;em&gt;8 January 2025&lt;/em&gt;&lt;/p&gt;
@@ -8870,95 +9274,6 @@ The &lt;code&gt;interface&lt;/code&gt; option was replaced by &lt;code&gt;interf
 &lt;ul&gt;
 &lt;li&gt;First release. Follow-up builds fixed the &lt;code&gt;download&lt;/code&gt; command messages for local lists, the default dnsmasq config, and the installer, which no longer replaces an existing &lt;code&gt;dnsmasq.conf&lt;/code&gt;.&lt;/li&gt;
 &lt;/ul&gt;
-
-      </description>
-    </item>
-    
-    <item>
-      <title>Upgrade from 2.x</title>
-      <link>https://keen-pbr.fyi/docs/getting-started/upgrade-from-2x/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      
-      <guid>https://keen-pbr.fyi/docs/getting-started/upgrade-from-2x/</guid>
-      <description>
-        
-        
-        &lt;p&gt;This guide is for those who already run keen-pbr 2.x on Keenetic / NetCraze. You will replace the repository and the package and move your configuration to the new format. Run all commands over SSH.&lt;/p&gt;
-&lt;h2&gt;1. Make a backup&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;1-make-a-backup&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#1-make-a-backup&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Save your current 2.x configuration. If something goes wrong, you can compare it with the converted result:&lt;/p&gt;
-&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;cp /opt/etc/keen-pbr/keen-pbr.conf /opt/etc/keen-pbr/keen-pbr.conf.bak&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Copy code&#34;
-    aria-label=&#34;Copy code&#34;
-    data-copied-label=&#34;Copied!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
-&lt;h2&gt;2. Replace the repository&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;2-replace-the-repository&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#2-replace-the-repository&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Open the repository page, select the OS &lt;strong&gt;Keenetic / NetCraze&lt;/strong&gt; on the left and your router architecture. Run the commands it shows, in order, to replace the old keen-pbr 2.x repository with the current one:&lt;/p&gt;
-&lt;a
-  href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=en&#34;
-  class=&#34;not-prose hero-button&#34;
-  
-  target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;&lt;span&gt;keen-pbr repository&lt;/span&gt;&lt;/a&gt;
-&lt;h2&gt;3. Install keen-pbr&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;3-install-keen-pbr&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#3-install-keen-pbr&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;opkg install keen-pbr
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# version without the web UI and API:&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# opkg install keen-pbr-headless&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Copy code&#34;
-    aria-label=&#34;Copy code&#34;
-    data-copied-label=&#34;Copied!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
-&lt;p&gt;The new configuration is in &lt;code&gt;/opt/etc/keen-pbr/config.json&lt;/code&gt;.&lt;/p&gt;
-&lt;h2&gt;4. Convert the config to the new format&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;4-convert-the-config-to-the-new-format&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#4-convert-the-config-to-the-new-format&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Open the &lt;a href=&#34;https://keen-pbr.fyi/converter/&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Config Converter&lt;/a&gt;. Then:&lt;/p&gt;
-&lt;ol&gt;
-&lt;li&gt;Copy the content of &lt;code&gt;/opt/etc/keen-pbr/keen-pbr.conf&lt;/code&gt; into the converter input field on the left.&lt;/li&gt;
-&lt;li&gt;Review the generated config.&lt;/li&gt;
-&lt;li&gt;Replace the content of &lt;code&gt;/opt/etc/keen-pbr/config.json&lt;/code&gt; with the converted output.&lt;/li&gt;
-&lt;/ol&gt;
-&lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
-  &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
-  &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Replace the config file only after you have reviewed the converted output.&lt;/div&gt;
-  &lt;/div&gt;
-&lt;/div&gt;
-
-&lt;h2&gt;5. Restart keen-pbr&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;5-restart-keen-pbr&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#5-restart-keen-pbr&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr restart
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr status&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Copy code&#34;
-    aria-label=&#34;Copy code&#34;
-    data-copied-label=&#34;Copied!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
-&lt;p&gt;If everything is fine, &lt;code&gt;status&lt;/code&gt; prints &lt;code&gt;alive&lt;/code&gt;. If it says &lt;code&gt;dead&lt;/code&gt;, open &lt;a href=&#34;https://keen-pbr.fyi/docs/troubleshooting/#service-does-not-start&#34;&gt;Service does not start&lt;/a&gt;.&lt;/p&gt;
-&lt;p&gt;Then open &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/quick-start/&#34;&gt;Quick Start&lt;/a&gt;: the &lt;strong&gt;Web UI&lt;/strong&gt; tab helps you check the setup, and the &lt;strong&gt;JSON&lt;/strong&gt; tab is for working with the config file.&lt;/p&gt;
 
       </description>
     </item>

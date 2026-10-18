@@ -14,6 +14,18 @@
                 href="https://keen-pbr.fyi/ru/docs/developer/build-from-source/"
                 />
   </url><url>
+    <loc>https://keen-pbr.fyi/docs/</loc>
+    <xhtml:link
+                rel="alternate"
+                hreflang="en-us"
+                href="https://keen-pbr.fyi/docs/"
+                />
+    <xhtml:link
+                rel="alternate"
+                hreflang="ru"
+                href="https://keen-pbr.fyi/ru/docs/"
+                />
+  </url><url>
     <loc>https://keen-pbr.fyi/docs/getting-started/</loc>
     <xhtml:link
                 rel="alternate"
@@ -36,6 +48,18 @@
                 rel="alternate"
                 hreflang="ru"
                 href="https://keen-pbr.fyi/ru/docs/getting-started/installation/"
+                />
+  </url><url>
+    <loc>https://keen-pbr.fyi/</loc>
+    <xhtml:link
+                rel="alternate"
+                hreflang="en-us"
+                href="https://keen-pbr.fyi/"
+                />
+    <xhtml:link
+                rel="alternate"
+                hreflang="ru"
+                href="https://keen-pbr.fyi/ru/"
                 />
   </url><url>
     <loc>https://keen-pbr.fyi/docs/getting-started/installation/keenetic/</loc>
@@ -144,6 +168,18 @@
                 rel="alternate"
                 hreflang="ru"
                 href="https://keen-pbr.fyi/ru/docs/configuration/route-rules/"
+                />
+  </url><url>
+    <loc>https://keen-pbr.fyi/docs/getting-started/upgrade-from-2x/</loc>
+    <xhtml:link
+                rel="alternate"
+                hreflang="en-us"
+                href="https://keen-pbr.fyi/docs/getting-started/upgrade-from-2x/"
+                />
+    <xhtml:link
+                rel="alternate"
+                hreflang="ru"
+                href="https://keen-pbr.fyi/ru/docs/getting-started/upgrade-from-2x/"
                 />
   </url><url>
     <loc>https://keen-pbr.fyi/docs/configuration/dns/</loc>
@@ -302,30 +338,6 @@
                 href="https://keen-pbr.fyi/ru/categories/"
                 />
   </url><url>
-    <loc>https://keen-pbr.fyi/docs/</loc>
-    <xhtml:link
-                rel="alternate"
-                hreflang="en-us"
-                href="https://keen-pbr.fyi/docs/"
-                />
-    <xhtml:link
-                rel="alternate"
-                hreflang="ru"
-                href="https://keen-pbr.fyi/ru/docs/"
-                />
-  </url><url>
-    <loc>https://keen-pbr.fyi/</loc>
-    <xhtml:link
-                rel="alternate"
-                hreflang="en-us"
-                href="https://keen-pbr.fyi/"
-                />
-    <xhtml:link
-                rel="alternate"
-                hreflang="ru"
-                href="https://keen-pbr.fyi/ru/"
-                />
-  </url><url>
     <loc>https://keen-pbr.fyi/tags/</loc>
     <xhtml:link
                 rel="alternate"
@@ -336,18 +348,6 @@
                 rel="alternate"
                 hreflang="ru"
                 href="https://keen-pbr.fyi/ru/tags/"
-                />
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/getting-started/upgrade-from-2x/</loc>
-    <xhtml:link
-                rel="alternate"
-                hreflang="en-us"
-                href="https://keen-pbr.fyi/docs/getting-started/upgrade-from-2x/"
-                />
-    <xhtml:link
-                rel="alternate"
-                hreflang="ru"
-                href="https://keen-pbr.fyi/ru/docs/getting-started/upgrade-from-2x/"
                 />
   </url>
 </urlset>
