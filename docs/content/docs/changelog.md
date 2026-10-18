@@ -125,11 +125,12 @@ keen-pbr 3.3.x depended on `dnsmasq`, so apt marked it as automatically installe
 sudo apt-mark manual dnsmasq
 ```
 
-**Before the upgrade.** {{< only openwrt keenetic >}}\
-keen-pbr 3.3.x installed `dnsmasq-full` as a dependency, and opkg may remove it during the upgrade. If you need dnsmasq, first run over SSH:
+**Before the upgrade.** {{< only keenetic >}}\
+keen-pbr 3.3.x installed `dnsmasq-full` as a dependency, and opkg may remove it during the upgrade. If you need dnsmasq, first clear its "installed automatically" mark. Run over SSH:
 
 ```bash {filename="bash"}
-opkg flag user dnsmasq-full
+cp /opt/lib/opkg/status /opt/lib/opkg/status.bak
+sed -i '/^Package: dnsmasq-full$/,/^$/{/^Auto-Installed:/d}' /opt/lib/opkg/status
 ```
 
 {{< only keenetic >}} If the package is already gone and you turned on `opkg dns-override`, devices in your network are left without DNS: the router still hands their queries to dnsmasq, which is gone. The keen-pbr Web UI offers two ways out:

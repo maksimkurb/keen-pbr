@@ -125,11 +125,12 @@ keen-pbr 3.3.x зависел от `dnsmasq`, поэтому apt пометил 
 sudo apt-mark manual dnsmasq
 ```
 
-**Перед обновлением.** {{< only openwrt keenetic >}}\
-keen-pbr 3.3.x ставил `dnsmasq-full` как зависимость, и при обновлении opkg может его удалить. Если dnsmasq вам нужен, сначала выполните по SSH:
+**Перед обновлением.** {{< only keenetic >}}\
+keen-pbr 3.3.x ставил `dnsmasq-full` как зависимость, и при обновлении opkg может его удалить. Если dnsmasq вам нужен, сначала снимите с него пометку «установлен автоматически». Выполните по SSH:
 
 ```bash {filename="bash"}
-opkg flag user dnsmasq-full
+cp /opt/lib/opkg/status /opt/lib/opkg/status.bak
+sed -i '/^Package: dnsmasq-full$/,/^$/{/^Auto-Installed:/d}' /opt/lib/opkg/status
 ```
 
 {{< only keenetic >}} Если пакет уже удалён и вы включали `opkg dns-override`, устройства в сети останутся без DNS: роутер по-прежнему отдаёт их запросы dnsmasq, а его уже нет. Веб-интерфейс keen-pbr предложит два варианта:
