@@ -31,9 +31,25 @@ struct DohClientOptions {
     std::size_t max_in_flight{32};
 };
 
+// Why a transfer gave no DNS message.
+enum class DohFailure : std::uint8_t {
+    None,
+    Timeout,
+    ConnectionRefused,
+    Unreachable,
+    ConnectionClosed,
+    TlsError,
+    HttpError,   // an HTTP status other than 200
+    BadAnswer,   // 200, but not a DNS message (or too big)
+    NotResolved, // the host name could not be resolved
+    Other,
+};
+
 struct DohResult {
     bool ok{false};                 // HTTP 200 with a DNS message
     std::string error;              // when !ok
+    DohFailure failure{DohFailure::None};  // when !ok
+    long http_status{0};            // the HTTP status when the server answered
     bool connection_problem{false}; // could not connect/resolve/handshake: re-resolve the host
     const std::uint8_t* body{nullptr};  // valid during the callback only
     std::size_t body_len{0};

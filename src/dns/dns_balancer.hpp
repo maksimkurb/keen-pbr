@@ -2,8 +2,10 @@
 
 #include "../config/config_defaults.hpp"
 
+#include <array>
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -31,6 +33,10 @@ struct DnsBalancerUpstream {
     // connection carries ("" for none).
     std::string url;
     std::string detour;
+    // The tags of the dns.servers entries behind this address, comma-joined;
+    // only for labels. It is not part of the identity of the upstream: not
+    // compared by operator== and not in the key of a set of upstreams.
+    std::string name;
 
     static DnsBalancerUpstream plain(std::string ip, std::uint16_t port = 53) {
         DnsBalancerUpstream upstream;
@@ -52,6 +58,7 @@ struct DnsBalancerGroup {
     std::vector<DnsBalancerUpstream> upstreams;  // in the order they are tried
 };
 
+// `name` is left out on purpose, see the field.
 inline bool operator==(const DnsBalancerUpstream& a, const DnsBalancerUpstream& b) {
     return a.kind == b.kind && a.ip == b.ip && a.port == b.port && a.url == b.url &&
            a.detour == b.detour;
@@ -97,6 +104,82 @@ struct DnsBalancerOptions {
     std::chrono::milliseconds tcp_idle{10000};
     // Tests only: also accept http:// DoH URLs.
     bool allow_plain_http{false};
+    // Called from the forwarder thread when the set of upstreams that keep
+    // failing (see kDnsFailingStreak) changes. Must not block and must not
+    // call back into the DnsBalancer.
+    std::function<void()> on_health_change;
+};
+
+// What one attempt to get an answer from an upstream came to.
+enum class DnsUpstreamOutcome : std::uint8_t {
+    Ok,                // NOERROR (with or without records)
+    Nxdomain,
+    Servfail,
+    Refused,
+    OtherRcode,
+    Timeout,
+    ConnectionRefused, // including ICMP port unreachable on UDP
+    Unreachable,       // no route, or the firewall refused to send
+    ConnectionClosed,  // the TCP/TLS connection ended before the answer
+    TlsError,
+    HttpError,         // DoH: an HTTP status other than 200
+    BadAnswer,         // not a DNS message, truncated, too big
+    NotResolved,       // DoH: the host name has no address
+    NetworkError,      // anything else
+};
+constexpr std::size_t kDnsUpstreamOutcomeCount = 14;
+
+const char* dns_upstream_outcome_name(DnsUpstreamOutcome outcome);
+
+// A DNS message came back (whatever its rcode).
+inline bool dns_upstream_outcome_answered(DnsUpstreamOutcome outcome) {
+    return outcome <= DnsUpstreamOutcome::OtherRcode;
+}
+// Counts towards an upstream "not answering": no DNS message, SERVFAIL or
+// REFUSED. Any other answer (NXDOMAIN included) ends such a streak.
+inline bool dns_upstream_outcome_failed(DnsUpstreamOutcome outcome) {
+    return !dns_upstream_outcome_answered(outcome) || outcome == DnsUpstreamOutcome::Servfail ||
+           outcome == DnsUpstreamOutcome::Refused;
+}
+
+// This many failed attempts in a row make an upstream "failing".
+constexpr std::uint32_t kDnsFailingStreak = 10;
+
+// Upper bounds of the answer time histogram (milliseconds); the counts have
+// one more bucket for everything slower.
+constexpr std::array<std::uint32_t, 10> kDnsLatencyBoundsMs{5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000};
+
+struct DnsUpstreamStats {
+    DnsBalancerUpstream upstream;
+    bool usable{true};   // false: never tried (no DoH support, no mark for the detour)
+    bool up{true};       // false: skipped at the moment after a failure
+    std::array<std::uint64_t, kDnsUpstreamOutcomeCount> results{};
+    // Time to the answer of the attempts that got one; not cumulative.
+    std::array<std::uint64_t, kDnsLatencyBoundsMs.size() + 1> latency_buckets{};
+    std::uint64_t latency_sum_us{0};
+    // Failed attempts in a row, shared by every group the upstream is in.
+    std::uint32_t consecutive_failures{0};
+    DnsUpstreamOutcome last_failure{DnsUpstreamOutcome::Ok};
+    std::string last_error;  // text of the last failure
+};
+
+struct DnsListenerStats {
+    std::uint16_t port{0};
+    std::uint64_t queries_udp{0};
+    std::uint64_t queries_tcp{0};
+    std::uint64_t dropped_overload_udp{0};
+    std::uint64_t dropped_overload_tcp{0};
+    std::uint64_t dropped_malformed_udp{0};
+    std::uint64_t dropped_malformed_tcp{0};
+    std::uint64_t responses_upstream{0};  // an upstream's answer went to the client
+    std::uint64_t responses_servfail{0};  // no upstream answered: the forwarder's SERVFAIL
+    std::vector<DnsUpstreamStats> upstreams;
+};
+
+struct DnsBalancerStats {
+    std::vector<DnsListenerStats> listeners;
+    std::uint32_t inflight_udp{0};
+    std::uint32_t inflight_tcp{0};
 };
 
 // A small forwarding DNS server for the lists that use several upstreams or a
@@ -122,6 +205,11 @@ public:
 
     // The set applied last.
     std::vector<DnsBalancerGroup> groups() const;
+
+    // A snapshot of the counters, taken by the forwarder thread (the counters
+    // belong to it). Waits for it at most 500 ms, then returns the previous
+    // snapshot. Thread-safe.
+    DnsBalancerStats stats();
 
     // Closes every listener and joins the thread. Idempotent.
     void stop();

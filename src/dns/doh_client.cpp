@@ -44,6 +44,35 @@ bool connection_problem_code(CURLcode code) {
     }
 }
 
+// What went wrong with a transfer that curl could not finish; `os_error` is
+// the errno of a failed connect.
+DohFailure failure_for_code(CURLcode code, long os_error, bool too_big) {
+    switch (code) {
+        case CURLE_OPERATION_TIMEDOUT:
+            return DohFailure::Timeout;
+        case CURLE_COULDNT_CONNECT:
+            return os_error == ECONNREFUSED ? DohFailure::ConnectionRefused
+                                            : DohFailure::Unreachable;
+        case CURLE_COULDNT_RESOLVE_HOST:
+            return DohFailure::NotResolved;
+        case CURLE_SSL_CONNECT_ERROR:
+        case CURLE_PEER_FAILED_VERIFICATION:
+        case CURLE_SSL_CERTPROBLEM:
+        case CURLE_SSL_CIPHER:
+        case CURLE_SSL_CACERT_BADFILE:
+        case CURLE_SSL_ISSUER_ERROR:
+            return DohFailure::TlsError;
+        case CURLE_GOT_NOTHING:
+        case CURLE_RECV_ERROR:
+        case CURLE_SEND_ERROR:
+            return DohFailure::ConnectionClosed;
+        case CURLE_WRITE_ERROR:
+            return too_big ? DohFailure::BadAnswer : DohFailure::Other;
+        default:
+            return DohFailure::Other;
+    }
+}
+
 std::string pin_entry(const std::string& host, std::uint16_t port,
                       const std::vector<std::string>& ips) {
     std::string entry = host + ":" + std::to_string(port) + ":";
@@ -316,10 +345,13 @@ struct DohClient::Impl {
             if (item.code == CURLE_OK) {
                 long status = 0;
                 curl_easy_getinfo(transfer.easy, CURLINFO_RESPONSE_CODE, &status);
+                result.http_status = status;
                 if (status != 200) {
                     result.error = "HTTP status " + std::to_string(status);
+                    result.failure = DohFailure::HttpError;
                 } else if (transfer.response.size() < kDnsHeaderLen) {
                     result.error = "answer is not a DNS message";
+                    result.failure = DohFailure::BadAnswer;
                 } else {
                     result.ok = true;
                     result.body = transfer.response.data();
@@ -328,6 +360,9 @@ struct DohClient::Impl {
             } else {
                 result.error = transfer.error[0] != '\0' ? transfer.error : curl_easy_strerror(item.code);
                 result.connection_problem = connection_problem_code(item.code);
+                long os_error = 0;
+                curl_easy_getinfo(transfer.easy, CURLINFO_OS_ERRNO, &os_error);
+                result.failure = failure_for_code(item.code, os_error, transfer.too_big);
             }
             done_fn(context, transfer.user, result);
             transfer.releasing = false;

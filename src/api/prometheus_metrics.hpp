@@ -2,6 +2,7 @@
 
 #include "../config/config.hpp"
 #include "../daemon/list_refresh_stats.hpp"
+#include "../dns/dns_balancer.hpp"
 #include "../firewall/firewall_counters.hpp"
 #include "../daemon/runtime_state_store.hpp"
 #include "../intercept/intercept_processor.hpp"
@@ -35,6 +36,7 @@ std::string prometheus_metrics(const InterceptCounters* counters,
                                const OutboundRuntimeSnapshot& outbounds,
                                const Config& config,
                                const DaemonMetrics& daemon,
+                               const DnsBalancerStats& dns_proxy,
                                const std::string& firewall_backend);
 
 } // namespace keen_pbr3

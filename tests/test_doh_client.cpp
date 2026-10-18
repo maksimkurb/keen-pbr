@@ -449,6 +449,51 @@ TEST_CASE("doh forwarder: https to a server that does not speak TLS fails the qu
     CHECK(rcode_of(ask_udp(port, make_query(5), 6000)) == 2);
 }
 
+TEST_CASE("doh forwarder stats: DoH failures are told apart") {
+    CurlRuntime curl;
+    struct Case {
+        FakeDohServer::Mode mode;
+        DnsUpstreamOutcome outcome;
+    };
+    for (const auto& item : {Case{FakeDohServer::Mode::Error500, DnsUpstreamOutcome::HttpError},
+                             Case{FakeDohServer::Mode::ShortBody, DnsUpstreamOutcome::BadAnswer},
+                             Case{FakeDohServer::Mode::Silent, DnsUpstreamOutcome::Timeout},
+                             Case{FakeDohServer::Mode::Servfail, DnsUpstreamOutcome::Servfail}}) {
+        CAPTURE(dns_upstream_outcome_name(item.outcome));
+        FakeDohServer doh(item.mode);
+        DnsBalancer balancer(doh_options());
+        const auto port = free_udp_port();
+        balancer.configure({doh_group(port, {DnsBalancerUpstream::doh(doh.url())})}, doh_settings());
+        CHECK(rcode_of(ask_udp(port, make_query(1), 4000)) == 2);
+
+        const auto stats = balancer.stats();
+        REQUIRE(stats.listeners.size() == 1);
+        REQUIRE(stats.listeners[0].upstreams.size() == 1);
+        const auto& upstream = stats.listeners[0].upstreams[0];
+        CHECK(upstream.upstream.kind == DnsBalancerUpstreamKind::Doh);
+        CHECK(upstream.results[static_cast<std::size_t>(item.outcome)] == 1);
+        CHECK(upstream.consecutive_failures == 1);
+        CHECK(upstream.last_failure == item.outcome);
+    }
+}
+
+TEST_CASE("doh forwarder stats: answers are counted with their time") {
+    CurlRuntime curl;
+    FakeDohServer doh;
+    DnsBalancer balancer(doh_options());
+    const auto port = free_udp_port();
+    balancer.configure({doh_group(port, {DnsBalancerUpstream::doh(doh.url())})}, doh_settings());
+    for (std::uint16_t id = 1; id <= 3; ++id) REQUIRE(ask_udp(port, make_query(id)).size() > 12);
+    REQUIRE(ask_tcp(port, make_query(9)).size() > 12);
+
+    const auto& upstream = balancer.stats().listeners.at(0).upstreams.at(0);
+    CHECK(upstream.results[static_cast<std::size_t>(DnsUpstreamOutcome::Ok)] == 4);
+    std::uint64_t timed = 0;
+    for (const auto count : upstream.latency_buckets) timed += count;
+    CHECK(timed == 4);
+    CHECK(upstream.consecutive_failures == 0);
+}
+
 TEST_CASE("doh bootstrap: looks the host up on a worker thread") {
     std::mutex mutex;
     std::vector<std::string> asked;

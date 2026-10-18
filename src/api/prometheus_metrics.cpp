@@ -55,29 +55,146 @@ std::string label(const char* key, const std::string& value) {
 double seconds_from_us(uint64_t us) { return static_cast<double>(us) / 1000000.0; }
 
 // Histogram series without HELP/TYPE so several label sets share one family.
-// `le` uses the shortest decimal so that le="0.025" matches in PromQL.
+// `bounds` are the upper bounds in seconds; `buckets` has one more entry than
+// `bounds` (the last one counts everything above) and holds per-bucket, not
+// cumulative, counts. `le` uses the shortest decimal so that le="0.025"
+// matches in PromQL.
 void histogram_series(std::ostringstream& out, const char* name, const std::string& labels,
-                      const WriteLatencyCounters& source) {
-    const auto& bounds = WriteLatencyCounters::kPrometheusBoundsUs;
+                      const std::vector<double>& bounds, const std::vector<uint64_t>& buckets,
+                      double sum_seconds) {
     const std::string prefix = labels.empty() ? std::string{} : labels + ',';
     uint64_t cumulative = 0;
-    for (std::size_t i = 0; i < WriteLatencyCounters::kPrometheusBuckets; ++i) {
-        cumulative += source.prometheus_buckets[i].load(std::memory_order_relaxed);
+    for (std::size_t i = 0; i < buckets.size(); ++i) {
+        cumulative += buckets[i];
         out << name << "_bucket{" << prefix << "le=\"";
         if (i < bounds.size()) {
-            out << seconds_from_us(bounds[i]);
+            out << bounds[i];
         } else {
             out << "+Inf";
         }
         out << "\"} " << cumulative << '\n';
     }
-    sample(out, (std::string(name) + "_sum").c_str(), labels,
-           seconds_from_us(source.sum_us.load(std::memory_order_relaxed)));
+    sample(out, (std::string(name) + "_sum").c_str(), labels, sum_seconds);
     sample(out, (std::string(name) + "_count").c_str(), labels, cumulative);
+}
+
+void histogram_series(std::ostringstream& out, const char* name, const std::string& labels,
+                      const WriteLatencyCounters& source) {
+    const auto& bounds = WriteLatencyCounters::kPrometheusBoundsUs;
+    std::vector<double> bounds_s;
+    for (const auto bound : bounds) bounds_s.push_back(seconds_from_us(bound));
+    std::vector<uint64_t> buckets;
+    for (std::size_t i = 0; i < WriteLatencyCounters::kPrometheusBuckets; ++i) {
+        buckets.push_back(source.prometheus_buckets[i].load(std::memory_order_relaxed));
+    }
+    histogram_series(out, name, labels, bounds_s, buckets,
+                     seconds_from_us(source.sum_us.load(std::memory_order_relaxed)));
 }
 
 uint64_t load(const std::atomic<uint64_t>& value) {
     return value.load(std::memory_order_relaxed);
+}
+
+// "ip:port" ("[ip]:port" for IPv6) of a plain upstream, the URL of a DoH one.
+std::string upstream_address(const DnsBalancerUpstream& upstream) {
+    if (upstream.kind == DnsBalancerUpstreamKind::Doh) return upstream.url;
+    const bool v6 = upstream.ip.find(':') != std::string::npos;
+    return (v6 ? "[" + upstream.ip + "]" : upstream.ip) + ':' + std::to_string(upstream.port);
+}
+
+void dns_proxy_metrics(std::ostringstream& out, const DnsBalancerStats& proxy) {
+    if (proxy.listeners.empty()) return;
+    const auto port_label = [](const DnsListenerStats& listener) {
+        return label("proxy_port", std::to_string(listener.port));
+    };
+    const auto each = [&](const char* name, const char* type, const char* help, const auto& body) {
+        header(out, name, type, help);
+        for (const auto& listener : proxy.listeners) body(listener);
+    };
+
+    each("keen_pbr_dns_proxy_queries_total", "counter",
+         "Queries received by the DNS proxy, including the ones it dropped.",
+         [&](const DnsListenerStats& l) {
+             sample(out, "keen_pbr_dns_proxy_queries_total", port_label(l) + ",transport=\"udp\"",
+                    l.queries_udp);
+             sample(out, "keen_pbr_dns_proxy_queries_total", port_label(l) + ",transport=\"tcp\"",
+                    l.queries_tcp);
+         });
+    each("keen_pbr_dns_proxy_dropped_total", "counter",
+         "Queries the DNS proxy did not serve: no free slot (overload) or not a DNS query (malformed).",
+         [&](const DnsListenerStats& l) {
+             const auto base = port_label(l);
+             sample(out, "keen_pbr_dns_proxy_dropped_total",
+                    base + ",transport=\"udp\",reason=\"overload\"", l.dropped_overload_udp);
+             sample(out, "keen_pbr_dns_proxy_dropped_total",
+                    base + ",transport=\"udp\",reason=\"malformed\"", l.dropped_malformed_udp);
+             sample(out, "keen_pbr_dns_proxy_dropped_total",
+                    base + ",transport=\"tcp\",reason=\"overload\"", l.dropped_overload_tcp);
+             sample(out, "keen_pbr_dns_proxy_dropped_total",
+                    base + ",transport=\"tcp\",reason=\"malformed\"", l.dropped_malformed_tcp);
+         });
+    each("keen_pbr_dns_proxy_responses_total", "counter",
+         "Answers the DNS proxy sent: relayed from a server (upstream) or its own SERVFAIL "
+         "because no server answered (proxy_servfail).",
+         [&](const DnsListenerStats& l) {
+             sample(out, "keen_pbr_dns_proxy_responses_total",
+                    port_label(l) + ",source=\"upstream\"", l.responses_upstream);
+             sample(out, "keen_pbr_dns_proxy_responses_total",
+                    port_label(l) + ",source=\"proxy_servfail\"", l.responses_servfail);
+         });
+
+    const auto upstream_labels = [&](const DnsListenerStats& l, const DnsUpstreamStats& u) {
+        return port_label(l) + ',' + label("server", u.upstream.name) + ',' +
+               label("upstream", upstream_address(u.upstream)) + ",type=\"" +
+               (u.upstream.kind == DnsBalancerUpstreamKind::Doh ? "doh" : "dns") + "\"," +
+               label("detour", u.upstream.detour);
+    };
+    const auto each_upstream = [&](const char* name, const char* type, const char* help,
+                                   const auto& body) {
+        header(out, name, type, help);
+        for (const auto& listener : proxy.listeners) {
+            for (const auto& upstream : listener.upstreams) body(listener, upstream);
+        }
+    };
+    each_upstream("keen_pbr_dns_proxy_upstream_requests_total", "counter",
+                  "Attempts to get an answer from a DNS server by the proxy, by result.",
+                  [&](const DnsListenerStats& l, const DnsUpstreamStats& u) {
+                      const auto base = upstream_labels(l, u);
+                      for (std::size_t i = 0; i < kDnsUpstreamOutcomeCount; ++i) {
+                          sample(out, "keen_pbr_dns_proxy_upstream_requests_total",
+                                 base + ",result=\"" +
+                                     dns_upstream_outcome_name(static_cast<DnsUpstreamOutcome>(i)) +
+                                     '"',
+                                 u.results[i]);
+                      }
+                  });
+    std::vector<double> bounds_s;
+    for (const auto bound : kDnsLatencyBoundsMs) bounds_s.push_back(static_cast<double>(bound) / 1000.0);
+    each_upstream("keen_pbr_dns_proxy_upstream_response_duration_seconds", "histogram",
+                  "Time a DNS server took to answer the proxy; attempts without an answer are not counted.",
+                  [&](const DnsListenerStats& l, const DnsUpstreamStats& u) {
+                      histogram_series(out, "keen_pbr_dns_proxy_upstream_response_duration_seconds",
+                                       upstream_labels(l, u), bounds_s,
+                                       std::vector<uint64_t>(u.latency_buckets.begin(),
+                                                             u.latency_buckets.end()),
+                                       seconds_from_us(u.latency_sum_us));
+                  });
+    each_upstream("keen_pbr_dns_proxy_upstream_up", "gauge",
+                  "0 while the proxy skips a DNS server after a failure (or cannot use it), 1 otherwise.",
+                  [&](const DnsListenerStats& l, const DnsUpstreamStats& u) {
+                      sample(out, "keen_pbr_dns_proxy_upstream_up", upstream_labels(l, u),
+                             u.up ? 1 : 0);
+                  });
+    each_upstream("keen_pbr_dns_proxy_upstream_consecutive_failures", "gauge",
+                  "Failed attempts in a row to a DNS server (no answer, SERVFAIL or REFUSED); "
+                  "reset by any other answer.",
+                  [&](const DnsListenerStats& l, const DnsUpstreamStats& u) {
+                      sample(out, "keen_pbr_dns_proxy_upstream_consecutive_failures",
+                             upstream_labels(l, u), u.consecutive_failures);
+                  });
+    header(out, "keen_pbr_dns_proxy_inflight", "gauge", "Queries the DNS proxy is working on now.");
+    sample(out, "keen_pbr_dns_proxy_inflight", "transport=\"udp\"", proxy.inflight_udp);
+    sample(out, "keen_pbr_dns_proxy_inflight", "transport=\"tcp\"", proxy.inflight_tcp);
 }
 
 struct ProbeSample {
@@ -94,6 +211,7 @@ std::string prometheus_metrics(const InterceptCounters* counters,
                                const OutboundRuntimeSnapshot& outbounds,
                                const Config& config,
                                const DaemonMetrics& daemon,
+                               const DnsBalancerStats& dns_proxy,
                                const std::string& firewall_backend) {
     std::ostringstream out;
     out << std::setprecision(12);
@@ -260,6 +378,8 @@ std::string prometheus_metrics(const InterceptCounters* counters,
             sample(out, "keen_pbr_skip_marked_packets_total", label("family", family), packets);
         }
     }
+
+    dns_proxy_metrics(out, dns_proxy);
 
     // Probes.
     std::vector<ProbeSample> probes;

@@ -20,6 +20,8 @@
 #include <cstring>
 #include <map>
 #include <mutex>
+#include <set>
+#include <string_view>
 #include <thread>
 
 namespace keen_pbr3 {
@@ -127,8 +129,58 @@ bool is_servfail(const std::uint8_t* msg) {
     return (msg[3] & 0x0F) == 2;
 }
 
+DnsUpstreamOutcome outcome_for_rcode(const std::uint8_t* msg) {
+    switch (msg[3] & 0x0F) {
+        case 0: return DnsUpstreamOutcome::Ok;
+        case 2: return DnsUpstreamOutcome::Servfail;
+        case 3: return DnsUpstreamOutcome::Nxdomain;
+        case 5: return DnsUpstreamOutcome::Refused;
+        default: return DnsUpstreamOutcome::OtherRcode;
+    }
+}
+
+DnsUpstreamOutcome outcome_for_errno(int error) {
+    switch (error) {
+        case ECONNREFUSED: return DnsUpstreamOutcome::ConnectionRefused;
+        case EHOSTUNREACH:
+        case ENETUNREACH:
+        case EHOSTDOWN:
+        case EPERM:
+        case EACCES: return DnsUpstreamOutcome::Unreachable;
+        case ECONNRESET:
+        case EPIPE: return DnsUpstreamOutcome::ConnectionClosed;
+        case ETIMEDOUT: return DnsUpstreamOutcome::Timeout;
+        default: return DnsUpstreamOutcome::NetworkError;
+    }
+}
+
+// Who an upstream is, for the failure streak: the same server in several
+// groups is one.
+std::string upstream_identity(const DnsBalancerUpstream& spec) {
+    return spec.kind == DnsBalancerUpstreamKind::Doh
+               ? "d|" + spec.url + "|" + spec.detour
+               : "p|" + spec.ip + "|" + std::to_string(spec.port);
+}
+
+// What an upstream was asked and answered, since it was configured.
+struct UpstreamCounters {
+    std::array<std::uint64_t, kDnsUpstreamOutcomeCount> results{};
+    std::array<std::uint64_t, kDnsLatencyBoundsMs.size() + 1> latency_buckets{};
+    std::uint64_t latency_sum_us{0};
+};
+
+// Consecutive failures of one upstream identity.
+struct Streak {
+    std::uint32_t count{0};
+    DnsUpstreamOutcome last{DnsUpstreamOutcome::Ok};
+    std::string error;
+    bool failing() const { return count >= kDnsFailingStreak; }
+};
+
 struct Upstream {
     DnsBalancerUpstream spec;
+    std::string identity;
+    UpstreamCounters counters;
     sockaddr_storage addr{};       // plain
     socklen_t addr_len{0};
     std::size_t doh_endpoint{kNoTransfer};  // DoH: endpoint of the DoH client
@@ -145,6 +197,7 @@ struct Listener {
     int tcp_fd{-1};
     std::vector<Upstream> upstreams;
     std::uint32_t next{0};
+    DnsListenerStats stats;  // the counters of the listener (upstreams excluded)
 };
 
 // One in-flight UDP query: an upstream socket of its own and the query bytes.
@@ -160,6 +213,7 @@ struct UdpSlot {
     std::uint32_t tried{0};
     std::size_t current{0};
     bool ignore_dead{false};
+    Clock::time_point attempt_start{};
     Clock::time_point deadline{};
 };
 
@@ -182,10 +236,31 @@ struct TcpSession {
     std::uint32_t tried{0};
     std::size_t current{0};
     bool ignore_dead{false};
+    Clock::time_point attempt_start{};
     Clock::time_point deadline{};
 };
 
 } // namespace
+
+const char* dns_upstream_outcome_name(DnsUpstreamOutcome outcome) {
+    switch (outcome) {
+        case DnsUpstreamOutcome::Ok: return "ok";
+        case DnsUpstreamOutcome::Nxdomain: return "nxdomain";
+        case DnsUpstreamOutcome::Servfail: return "servfail";
+        case DnsUpstreamOutcome::Refused: return "refused";
+        case DnsUpstreamOutcome::OtherRcode: return "other_rcode";
+        case DnsUpstreamOutcome::Timeout: return "timeout";
+        case DnsUpstreamOutcome::ConnectionRefused: return "connection_refused";
+        case DnsUpstreamOutcome::Unreachable: return "unreachable";
+        case DnsUpstreamOutcome::ConnectionClosed: return "connection_closed";
+        case DnsUpstreamOutcome::TlsError: return "tls_error";
+        case DnsUpstreamOutcome::HttpError: return "http_error";
+        case DnsUpstreamOutcome::BadAnswer: return "bad_answer";
+        case DnsUpstreamOutcome::NotResolved: return "not_resolved";
+        case DnsUpstreamOutcome::NetworkError: return "network_error";
+    }
+    return "network_error";
+}
 
 struct DnsBalancer::Impl {
     explicit Impl(DnsBalancerOptions opts)
@@ -206,6 +281,11 @@ struct DnsBalancer::Impl {
     std::uint64_t applied_generation{0};
     std::thread thread;
     bool stopping{false};
+    // stats(): the loop thread answers the request with the highest number.
+    std::condition_variable stats_cv;
+    std::uint64_t stats_requested{0};
+    std::uint64_t stats_served{0};
+    DnsBalancerStats last_stats;
 
     // Loop side: touched by the thread only (and by stop() after join).
     int epoll_fd{-1};
@@ -215,6 +295,8 @@ struct DnsBalancer::Impl {
     std::vector<TcpSession> tcp_sessions;
     std::array<std::uint8_t, kUdpAnswerMax> udp_answer{};
     DnsBalancerSettings settings;  // the applied ones, loop side
+    std::map<std::string, Streak> streaks;  // by upstream identity
+    std::set<std::string> failing_reported;  // the failing identities the callback last heard of
 #ifdef WITH_DOH
     std::unique_ptr<DohClient> doh;
     std::unique_ptr<DohBootstrap> bootstrap;
@@ -275,8 +357,11 @@ struct DnsBalancer::Impl {
         doh_hosts.clear();
         bootstrap_asked.clear();
 #endif
+        streaks.clear();
+        failing_reported.clear();
         {
             std::lock_guard<std::mutex> lock(mutex);
+            last_stats = {};
             applied.clear();
             applied_settings = {};
             applied_generation = requested_generation;
@@ -310,6 +395,18 @@ struct DnsBalancer::Impl {
         wake();
         applied_cv.wait(lock, [&] { return applied_generation >= generation; });
         return failed;
+    }
+
+    DnsBalancerStats stats() {
+        std::unique_lock<std::mutex> lock(mutex);
+        if (!thread.joinable()) {
+            return last_stats;
+        }
+        const std::uint64_t request = ++stats_requested;
+        wake();
+        stats_cv.wait_for(lock, std::chrono::milliseconds(500),
+                          [&] { return stats_served >= request; });
+        return last_stats;
     }
 
     // --- loop thread --------------------------------------------------------
@@ -356,6 +453,7 @@ struct DnsBalancer::Impl {
                 }
                 apply_pending();
                 apply_bootstrap_results();
+                serve_stats();
             } else if (should_stop()) {
                 break;
             }
@@ -469,6 +567,7 @@ struct DnsBalancer::Impl {
             }
             set_upstreams(listeners[slot], group);
         }
+        forget_unused_streaks();
         {
             std::lock_guard<std::mutex> lock(mutex);
             applied = groups;
@@ -477,6 +576,7 @@ struct DnsBalancer::Impl {
             applied_generation = generation;
         }
         applied_cv.notify_all();
+        notify_health_if_changed();
     }
 
     void set_upstreams(Listener& listener, const DnsBalancerGroup& group) {
@@ -485,6 +585,7 @@ struct DnsBalancer::Impl {
         for (const auto& spec : group.upstreams) {
             Upstream upstream;
             upstream.spec = spec;
+            upstream.identity = upstream_identity(spec);
             if (upstream.is_doh()) {
                 if (!prepare_doh_upstream(upstream)) {
                     upstream.usable = false;
@@ -496,6 +597,7 @@ struct DnsBalancer::Impl {
             for (const auto& old : listener.upstreams) {
                 if (old.spec == upstream.spec) {
                     upstream.dead_until = old.dead_until;
+                    upstream.counters = old.counters;
                 }
             }
             fresh.push_back(std::move(upstream));
@@ -660,18 +762,22 @@ struct DnsBalancer::Impl {
             UdpSlot& slot = udp_slots[index];
             slot.doh = kNoTransfer;
             Listener& listener = listeners[slot.listener];
-            if (!doh_usable_answer(result, kUdpAnswerMax, slot.listener, slot.current)) {
+            if (!doh_usable_answer(result, kUdpAnswerMax, slot.listener, slot.current,
+                                   slot.attempt_start, now)) {
                 udp_attempt(slot, now);
                 return;
             }
             std::memcpy(udp_answer.data(), result.body, result.body_len);
             udp_answer[0] = slot.query[0];
             udp_answer[1] = slot.query[1];
+            record(listener, slot.current, outcome_for_rcode(udp_answer.data()), slot.attempt_start,
+                   now);
             if (is_servfail(udp_answer.data()) && slot.tried < listener.upstreams.size()) {
                 udp_attempt(slot, now);
                 return;
             }
             mark_alive(listener, slot.current);
+            ++listener.stats.responses_upstream;
             [[maybe_unused]] const ssize_t sent =
                 ::sendto(listener.udp_fd, udp_answer.data(), result.body_len, MSG_NOSIGNAL,
                          reinterpret_cast<const sockaddr*>(&slot.client), sizeof(slot.client));
@@ -681,7 +787,8 @@ struct DnsBalancer::Impl {
             TcpSession& session = tcp_sessions[index];
             session.doh = kNoTransfer;
             Listener& listener = listeners[session.listener];
-            if (!doh_usable_answer(result, kTcpAnswerMax, session.listener, session.current)) {
+            if (!doh_usable_answer(result, kTcpAnswerMax, session.listener, session.current,
+                                   session.attempt_start, now)) {
                 tcp_attempt(index, now);
                 return;
             }
@@ -691,23 +798,28 @@ struct DnsBalancer::Impl {
             session.answer[2] = session.query[2];
             session.answer[3] = session.query[3];
             session.answer_len = 2 + result.body_len;
+            record(listener, session.current, outcome_for_rcode(session.answer.data() + 2),
+                   session.attempt_start, now);
             if (is_servfail(session.answer.data() + 2) && session.tried < listener.upstreams.size()) {
                 tcp_attempt(index, now);
                 return;
             }
             mark_alive(listener, session.current);
+            ++listener.stats.responses_upstream;
             tcp_begin_write(index);
         }
     }
 
     // False (and the upstream marked dead) when the DoH attempt gave no answer.
     bool doh_usable_answer(const DohResult& result, std::size_t limit, std::size_t listener_index,
-                           std::size_t upstream_index) {
+                           std::size_t upstream_index, Clock::time_point started,
+                           Clock::time_point now) {
         Listener& listener = listeners[listener_index];
-        const auto now = Clock::now();
         if (result.ok && result.body_len <= limit && (result.body[2] & 0x80) != 0) {
             return true;
         }
+        record(listener, upstream_index, outcome_for_doh(result), started, now,
+               result.ok ? "unusable answer" : result.error);
         if (upstream_index < listener.upstreams.size()) {
             const Upstream& upstream = listener.upstreams[upstream_index];
             Logger::instance().verbose("DNS forwarder: DoH {} failed: {}", upstream.spec.url,
@@ -719,7 +831,39 @@ struct DnsBalancer::Impl {
         mark_dead(listener, upstream_index, now);
         return false;
     }
+
+    static DnsUpstreamOutcome outcome_for_doh(const DohResult& result) {
+        if (result.ok) {
+            return DnsUpstreamOutcome::BadAnswer;
+        }
+        switch (result.failure) {
+            case DohFailure::Timeout: return DnsUpstreamOutcome::Timeout;
+            case DohFailure::ConnectionRefused: return DnsUpstreamOutcome::ConnectionRefused;
+            case DohFailure::Unreachable: return DnsUpstreamOutcome::Unreachable;
+            case DohFailure::ConnectionClosed: return DnsUpstreamOutcome::ConnectionClosed;
+            case DohFailure::TlsError: return DnsUpstreamOutcome::TlsError;
+            case DohFailure::HttpError: return DnsUpstreamOutcome::HttpError;
+            case DohFailure::BadAnswer: return DnsUpstreamOutcome::BadAnswer;
+            case DohFailure::NotResolved: return DnsUpstreamOutcome::NotResolved;
+            case DohFailure::None:
+            case DohFailure::Other: break;
+        }
+        return DnsUpstreamOutcome::NetworkError;
+    }
 #endif
+
+    // A DoH query could not be started on upstream `index`: count it when the
+    // reason is that the host of the URL has no address (not a busy client).
+    void record_doh_not_sent([[maybe_unused]] Listener& listener, [[maybe_unused]] std::size_t index,
+                             [[maybe_unused]] Clock::time_point now) {
+#ifdef WITH_DOH
+        if (index < listener.upstreams.size() && doh &&
+            !doh->endpoint_ready(listener.upstreams[index].doh_endpoint)) {
+            record(listener, index, DnsUpstreamOutcome::NotResolved, now, now,
+                   "the host name of the server is not resolved");
+        }
+#endif
+    }
 
     bool open_listener(std::size_t index, std::uint16_t port) {
         sockaddr_in addr{};
@@ -807,6 +951,130 @@ struct DnsBalancer::Impl {
         }
     }
 
+    // --- statistics -----------------------------------------------------------
+
+    // One attempt to get an answer from upstream `index` ended with `outcome`.
+    void record(Listener& listener, std::size_t index, DnsUpstreamOutcome outcome,
+                Clock::time_point started, Clock::time_point now, std::string_view error = {}) {
+        if (index >= listener.upstreams.size()) {
+            return;
+        }
+        Upstream& upstream = listener.upstreams[index];
+        UpstreamCounters& counters = upstream.counters;
+        ++counters.results[static_cast<std::size_t>(outcome)];
+        if (dns_upstream_outcome_answered(outcome)) {
+            const auto elapsed =
+                std::chrono::duration_cast<std::chrono::microseconds>(now - started);
+            const auto micros = static_cast<std::uint64_t>(std::max<std::int64_t>(elapsed.count(), 0));
+            counters.latency_sum_us += micros;
+            std::size_t bucket = 0;
+            while (bucket < kDnsLatencyBoundsMs.size() &&
+                   micros > std::uint64_t{kDnsLatencyBoundsMs[bucket]} * 1000U) {
+                ++bucket;
+            }
+            ++counters.latency_buckets[bucket];
+        }
+        Streak& streak = streaks[upstream.identity];
+        const bool was_failing = streak.failing();
+        if (dns_upstream_outcome_failed(outcome)) {
+            ++streak.count;
+            streak.last = outcome;
+            streak.error.assign(error.empty() ? std::string_view(dns_upstream_outcome_name(outcome))
+                                              : error);
+        } else {
+            streak.count = 0;
+        }
+        if (streak.failing() != was_failing) {
+            notify_health_if_changed();
+        }
+    }
+
+    // The identities that keep failing: some group has them in use.
+    std::set<std::string> failing_identities() const {
+        std::set<std::string> failing;
+        for (const auto& [identity, streak] : streaks) {
+            if (streak.failing()) failing.insert(identity);
+        }
+        return failing;
+    }
+
+    void notify_health_if_changed() {
+        auto failing = failing_identities();
+        if (failing == failing_reported) {
+            return;
+        }
+        failing_reported = std::move(failing);
+        if (options.on_health_change) {
+            options.on_health_change();
+        }
+    }
+
+    // Drops the streaks of upstreams that are gone or can no longer be tried.
+    void forget_unused_streaks() {
+        std::set<std::string> in_use;
+        for (const auto& listener : listeners) {
+            if (!listener.used) continue;
+            for (const auto& upstream : listener.upstreams) {
+                if (upstream.usable) in_use.insert(upstream.identity);
+            }
+        }
+        for (auto it = streaks.begin(); it != streaks.end();) {
+            it = in_use.count(it->first) == 0 ? streaks.erase(it) : std::next(it);
+        }
+    }
+
+    // Answers the stats() requests made so far.
+    void serve_stats() {
+        std::uint64_t target = 0;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            if (stats_served >= stats_requested) {
+                return;
+            }
+            target = stats_requested;
+        }
+        DnsBalancerStats snapshot = build_stats(Clock::now());
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            last_stats = std::move(snapshot);
+            stats_served = target;
+        }
+        stats_cv.notify_all();
+    }
+
+    DnsBalancerStats build_stats(Clock::time_point now) const {
+        DnsBalancerStats snapshot;
+        for (const auto& listener : listeners) {
+            if (!listener.used) continue;
+            DnsListenerStats item = listener.stats;
+            item.port = listener.port;
+            for (const auto& upstream : listener.upstreams) {
+                DnsUpstreamStats stat;
+                stat.upstream = upstream.spec;
+                stat.usable = upstream.usable;
+                stat.up = upstream.usable && upstream.dead_until <= now;
+                stat.results = upstream.counters.results;
+                stat.latency_buckets = upstream.counters.latency_buckets;
+                stat.latency_sum_us = upstream.counters.latency_sum_us;
+                const auto streak = streaks.find(upstream.identity);
+                if (streak != streaks.end()) {
+                    stat.consecutive_failures = streak->second.count;
+                    stat.last_failure = streak->second.last;
+                    stat.last_error = streak->second.error;
+                }
+                item.upstreams.push_back(std::move(stat));
+            }
+            snapshot.listeners.push_back(std::move(item));
+        }
+        for (const auto& slot : udp_slots) {
+            if (slot.used) ++snapshot.inflight_udp;
+        }
+        for (const auto& session : tcp_sessions) {
+            if (session.used) ++snapshot.inflight_tcp;
+        }
+        return snapshot;
+    }
+
     // --- UDP --------------------------------------------------------------------
 
     void release_udp(UdpSlot& slot) {
@@ -828,7 +1096,9 @@ struct DnsBalancer::Impl {
                 return;  // EAGAIN or a transient error
             }
             const auto len = static_cast<std::size_t>(n);
+            ++listener.stats.queries_udp;
             if (len < kDnsHeaderLen || len > kUdpQueryMax || (buf[2] & 0x80) != 0) {
+                ++listener.stats.dropped_malformed_udp;
                 continue;  // not a query we can forward
             }
             UdpSlot* slot = nullptr;
@@ -839,6 +1109,7 @@ struct DnsBalancer::Impl {
                 }
             }
             if (slot == nullptr) {
+                ++listener.stats.dropped_overload_udp;
                 continue;  // overloaded: the client retries
             }
             slot->used = true;
@@ -867,10 +1138,12 @@ struct DnsBalancer::Impl {
                 const std::size_t transfer = doh_send(upstream, slot.query.data(), slot.len,
                                                       make_tag(Kind::UdpUp, slot_index));
                 if (transfer == kNoTransfer) {
+                    record_doh_not_sent(listener, chosen, now);
                     continue;  // its host is not resolved yet, or no transfer is free
                 }
                 slot.doh = transfer;
                 slot.current = chosen;
+                slot.attempt_start = now;
                 slot.deadline = now + options.doh_attempt_timeout;
                 return;
             }
@@ -882,12 +1155,15 @@ struct DnsBalancer::Impl {
             const sockaddr_storage& target = upstream.addr;
             if (::connect(fd, reinterpret_cast<const sockaddr*>(&target), upstream.addr_len) != 0 ||
                 ::send(fd, slot.query.data(), slot.len, MSG_NOSIGNAL) != slot.len) {
+                const int error = errno;
                 ::close(fd);
                 mark_dead(listener, chosen, now);
+                record(listener, chosen, outcome_for_errno(error), now, now, std::strerror(error));
                 continue;
             }
             slot.up_fd = fd;
             slot.current = chosen;
+            slot.attempt_start = now;
             slot.deadline = now + options.udp_attempt_timeout;
             epoll_add(fd, EPOLLIN, Kind::UdpUp, static_cast<std::size_t>(&slot - udp_slots.data()));
             return;
@@ -899,6 +1175,7 @@ struct DnsBalancer::Impl {
         Listener& listener = listeners[slot.listener];
         const std::size_t len = build_servfail(slot.query.data(), slot.len, udp_answer.data());
         if (len != 0) {
+            ++listener.stats.responses_servfail;
             [[maybe_unused]] const ssize_t n =
                 ::sendto(listener.udp_fd, udp_answer.data(), len, MSG_NOSIGNAL,
                          reinterpret_cast<const sockaddr*>(&slot.client), sizeof(slot.client));
@@ -914,7 +1191,10 @@ struct DnsBalancer::Impl {
         const ssize_t n = ::recv(slot.up_fd, udp_answer.data(), udp_answer.size(), 0);
         if (n < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) return;
+            const int error = errno;
             mark_dead(listener, slot.current, now);  // e.g. connection refused
+            record(listener, slot.current, outcome_for_errno(error), slot.attempt_start, now,
+                   std::strerror(error));
             udp_attempt(slot, now);
             return;
         }
@@ -923,11 +1203,13 @@ struct DnsBalancer::Impl {
             (udp_answer[2] & 0x80) == 0) {
             return;  // not the answer to this query; keep waiting
         }
+        record(listener, slot.current, outcome_for_rcode(udp_answer.data()), slot.attempt_start, now);
         if (is_servfail(udp_answer.data()) && slot.tried < listener.upstreams.size()) {
             udp_attempt(slot, now);
             return;
         }
         mark_alive(listener, slot.current);
+        ++listener.stats.responses_upstream;
         [[maybe_unused]] const ssize_t sent =
             ::sendto(listener.udp_fd, udp_answer.data(), len, MSG_NOSIGNAL,
                      reinterpret_cast<const sockaddr*>(&slot.client), sizeof(slot.client));
@@ -960,6 +1242,8 @@ struct DnsBalancer::Impl {
                 }
             }
             if (found == tcp_sessions.size()) {
+                ++listener.stats.queries_tcp;
+                ++listener.stats.dropped_overload_tcp;
                 ::close(fd);  // overloaded: the client retries
                 continue;
             }
@@ -1020,6 +1304,8 @@ struct DnsBalancer::Impl {
             }
             const std::size_t message = read_be16(session.query.data());
             if (message < kDnsHeaderLen || message > kTcpQueryMax) {
+                ++listeners[session.listener].stats.queries_tcp;
+                ++listeners[session.listener].stats.dropped_malformed_tcp;
                 release_tcp(index);
                 return;
             }
@@ -1028,6 +1314,7 @@ struct DnsBalancer::Impl {
             }
         }
         Listener& listener = listeners[session.listener];
+        ++listener.stats.queries_tcp;
         const auto now = Clock::now();
         session.start = listener.next++;
         session.tried = 0;
@@ -1047,6 +1334,7 @@ struct DnsBalancer::Impl {
         session.answer[0] = static_cast<std::uint8_t>(len >> 8);
         session.answer[1] = static_cast<std::uint8_t>(len & 0xFF);
         session.answer_len = 2 + len;
+        ++listeners[session.listener].stats.responses_servfail;
         tcp_begin_write(index);
     }
 
@@ -1063,10 +1351,12 @@ struct DnsBalancer::Impl {
                 const std::size_t transfer = doh_send(upstream, session.query.data() + 2, message,
                                                       make_tag(Kind::TcpUp, index));
                 if (transfer == kNoTransfer) {
+                    record_doh_not_sent(listener, chosen, now);
                     continue;  // its host is not resolved yet, or no transfer is free
                 }
                 session.doh = transfer;
                 session.current = chosen;
+                session.attempt_start = now;
                 session.state = TcpState::ReadAnswer;
                 session.answer_got = 0;
                 session.answer_len = 0;
@@ -1081,12 +1371,15 @@ struct DnsBalancer::Impl {
             const sockaddr_storage& target = upstream.addr;
             const int rc = ::connect(fd, reinterpret_cast<const sockaddr*>(&target), upstream.addr_len);
             if (rc != 0 && errno != EINPROGRESS) {
+                const int error = errno;
                 ::close(fd);
                 mark_dead(listener, chosen, now);
+                record(listener, chosen, outcome_for_errno(error), now, now, std::strerror(error));
                 continue;
             }
             session.up_fd = fd;
             session.current = chosen;
+            session.attempt_start = now;
             session.state = TcpState::Connect;
             session.answer_got = 0;
             session.answer_len = 0;
@@ -1097,9 +1390,12 @@ struct DnsBalancer::Impl {
         tcp_servfail(index);
     }
 
-    void tcp_fail_attempt(std::size_t index, Clock::time_point now) {
+    void tcp_fail_attempt(std::size_t index, Clock::time_point now, DnsUpstreamOutcome outcome,
+                          std::string_view error = {}) {
         TcpSession& session = tcp_sessions[index];
-        mark_dead(listeners[session.listener], session.current, now);
+        Listener& listener = listeners[session.listener];
+        mark_dead(listener, session.current, now);
+        record(listener, session.current, outcome, session.attempt_start, now, error);
         tcp_attempt(index, now);
     }
 
@@ -1113,13 +1409,16 @@ struct DnsBalancer::Impl {
             socklen_t error_len = sizeof(error);
             ::getsockopt(session.up_fd, SOL_SOCKET, SO_ERROR, &error, &error_len);
             if (error != 0 || (flags & (EPOLLERR | EPOLLHUP)) != 0) {
-                tcp_fail_attempt(index, now);
+                tcp_fail_attempt(index, now,
+                                 error != 0 ? outcome_for_errno(error) : DnsUpstreamOutcome::NetworkError,
+                                 error != 0 ? std::strerror(error) : "connection failed");
                 return;
             }
             const std::size_t total = 2 + read_be16(session.query.data());
             if (::send(session.up_fd, session.query.data(), total, MSG_NOSIGNAL) !=
                 static_cast<ssize_t>(total)) {
-                tcp_fail_attempt(index, now);
+                const int send_error = errno;
+                tcp_fail_attempt(index, now, outcome_for_errno(send_error), std::strerror(send_error));
                 return;
             }
             session.state = TcpState::ReadAnswer;
@@ -1134,8 +1433,14 @@ struct DnsBalancer::Impl {
                                          ? 2 - session.answer_got
                                          : session.answer_len - session.answer_got;
             const ssize_t n = ::read(session.up_fd, session.answer.data() + session.answer_got, want);
-            if (n == 0 || (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)) {
-                tcp_fail_attempt(index, now);
+            if (n == 0) {
+                tcp_fail_attempt(index, now, DnsUpstreamOutcome::ConnectionClosed,
+                                 "connection closed before the answer");
+                return;
+            }
+            if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+                const int read_error = errno;
+                tcp_fail_attempt(index, now, outcome_for_errno(read_error), std::strerror(read_error));
                 return;
             }
             if (n < 0) {
@@ -1145,7 +1450,8 @@ struct DnsBalancer::Impl {
             if (session.answer_got >= 2 && session.answer_len == 0) {
                 const std::size_t message = read_be16(session.answer.data());
                 if (message < kDnsHeaderLen || message > kTcpAnswerMax) {
-                    tcp_fail_attempt(index, now);
+                    tcp_fail_attempt(index, now, DnsUpstreamOutcome::BadAnswer,
+                                     "answer of an unexpected size");
                     return;
                 }
                 session.answer_len = 2 + message;
@@ -1156,14 +1462,17 @@ struct DnsBalancer::Impl {
         }
         Listener& listener = listeners[session.listener];
         if (session.answer[2] != session.query[2] || session.answer[3] != session.query[3]) {
-            tcp_fail_attempt(index, now);
+            tcp_fail_attempt(index, now, DnsUpstreamOutcome::BadAnswer, "answer to another query");
             return;
         }
+        record(listener, session.current, outcome_for_rcode(session.answer.data() + 2),
+               session.attempt_start, now);
         if (is_servfail(session.answer.data() + 2) && session.tried < listener.upstreams.size()) {
             tcp_attempt(index, now);
             return;
         }
         mark_alive(listener, session.current);
+        ++listener.stats.responses_upstream;
         close_fd(session.up_fd);
         tcp_begin_write(index);
     }
@@ -1202,7 +1511,10 @@ struct DnsBalancer::Impl {
     void expire(Clock::time_point now) {
         for (auto& slot : udp_slots) {
             if (slot.used && slot.deadline <= now) {
-                mark_dead(listeners[slot.listener], slot.current, now);
+                Listener& listener = listeners[slot.listener];
+                mark_dead(listener, slot.current, now);
+                record(listener, slot.current, DnsUpstreamOutcome::Timeout, slot.attempt_start, now,
+                       "no answer in time");
                 udp_attempt(slot, now);
             }
         }
@@ -1210,7 +1522,7 @@ struct DnsBalancer::Impl {
             TcpSession& session = tcp_sessions[i];
             if (!session.used || session.deadline > now) continue;
             if (session.state == TcpState::Connect || session.state == TcpState::ReadAnswer) {
-                tcp_fail_attempt(i, now);
+                tcp_fail_attempt(i, now, DnsUpstreamOutcome::Timeout, "no answer in time");
             } else {
                 release_tcp(i);
             }
@@ -1233,6 +1545,10 @@ std::vector<std::uint16_t> DnsBalancer::configure(const std::vector<DnsBalancerG
 std::vector<DnsBalancerGroup> DnsBalancer::groups() const {
     std::lock_guard<std::mutex> lock(impl_->mutex);
     return impl_->applied;
+}
+
+DnsBalancerStats DnsBalancer::stats() {
+    return impl_->stats();
 }
 
 void DnsBalancer::stop() {

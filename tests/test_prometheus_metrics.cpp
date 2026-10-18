@@ -62,7 +62,7 @@ struct Fixture {
     }
 
     std::string render() const {
-        return prometheus_metrics(&counters, netlink, runtime, outbounds, config, daemon, "nftables");
+        return prometheus_metrics(&counters, netlink, runtime, outbounds, config, daemon, {}, "nftables");
     }
 };
 
@@ -98,7 +98,7 @@ TEST_CASE("Prometheus exports build, process and labelled error counters") {
 
 TEST_CASE("Prometheus errors are emitted as zeros without intercept counters") {
     OutboundRuntimeSnapshot none;
-    const auto text = prometheus_metrics(nullptr, {}, {}, none, Config{}, {}, "iptables");
+    const auto text = prometheus_metrics(nullptr, {}, {}, none, Config{}, {}, {}, "iptables");
     for (const char* subsystem : {"firewall_apply", "netlink", "set_write", "conntrack",
                                   "dns_parse", "dns_tcp_partial", "dns_late_write"}) {
         CHECK(has(text, std::string("keen_pbr_errors_total{subsystem=\"") + subsystem + "\"} 0\n"));
@@ -353,6 +353,80 @@ TEST_CASE("Prometheus exports balance classification and skip_marked counters") 
     CHECK(count_of(text, "# TYPE keen_pbr_skip_marked_packets_total counter") == 1);
     CHECK(has(text, "keen_pbr_skip_marked_packets_total{family=\"ipv4\"} 905\n"));
     CHECK(has(text, "keen_pbr_skip_marked_packets_total{family=\"ipv6\"} 12\n"));
+}
+
+TEST_CASE("Prometheus exports the DNS proxy families with cumulative buckets") {
+    Fixture f;
+    DnsBalancerStats proxy;
+    proxy.inflight_udp = 2;
+    proxy.inflight_tcp = 1;
+    DnsListenerStats listener;
+    listener.port = 52100;
+    listener.queries_udp = 10;
+    listener.queries_tcp = 3;
+    listener.dropped_overload_udp = 4;
+    listener.dropped_malformed_tcp = 5;
+    listener.responses_upstream = 7;
+    listener.responses_servfail = 2;
+    DnsUpstreamStats plain;
+    plain.upstream = DnsBalancerUpstream::plain("192.0.2.1", 5353);
+    plain.upstream.name = "dns_a,dns_b";
+    plain.results[static_cast<std::size_t>(DnsUpstreamOutcome::Ok)] = 6;
+    plain.results[static_cast<std::size_t>(DnsUpstreamOutcome::Timeout)] = 2;
+    plain.latency_buckets[1] = 4;   // 5..10 ms
+    plain.latency_buckets[3] = 1;   // 25..50 ms
+    plain.latency_buckets[10] = 1;  // slower than 5 s
+    plain.latency_sum_us = 6500000;
+    plain.up = false;
+    plain.consecutive_failures = 3;
+    DnsUpstreamStats doh;
+    doh.upstream = DnsBalancerUpstream::doh("https://dns.example/dns-query", "vpn");
+    doh.upstream.name = "doh_main";
+    listener.upstreams = {plain, doh};
+    proxy.listeners = {listener};
+
+    const auto text = prometheus_metrics(&f.counters, f.netlink, f.runtime, f.outbounds, f.config,
+                                         f.daemon, proxy, "nftables");
+
+    const std::string plain_labels =
+        "proxy_port=\"52100\",server=\"dns_a,dns_b\",upstream=\"192.0.2.1:5353\",type=\"dns\",detour=\"\"";
+    CHECK(has(text, "# TYPE keen_pbr_dns_proxy_queries_total counter"));
+    CHECK(has(text, "keen_pbr_dns_proxy_queries_total{proxy_port=\"52100\",transport=\"udp\"} 10\n"));
+    CHECK(has(text, "keen_pbr_dns_proxy_queries_total{proxy_port=\"52100\",transport=\"tcp\"} 3\n"));
+    CHECK(has(text, "keen_pbr_dns_proxy_dropped_total{proxy_port=\"52100\",transport=\"udp\",reason=\"overload\"} 4\n"));
+    CHECK(has(text, "keen_pbr_dns_proxy_dropped_total{proxy_port=\"52100\",transport=\"tcp\",reason=\"malformed\"} 5\n"));
+    CHECK(has(text, "keen_pbr_dns_proxy_responses_total{proxy_port=\"52100\",source=\"upstream\"} 7\n"));
+    CHECK(has(text, "keen_pbr_dns_proxy_responses_total{proxy_port=\"52100\",source=\"proxy_servfail\"} 2\n"));
+    CHECK(has(text, "# TYPE keen_pbr_dns_proxy_upstream_requests_total counter"));
+    CHECK(has(text, "keen_pbr_dns_proxy_upstream_requests_total{" + plain_labels + ",result=\"ok\"} 6\n"));
+    CHECK(has(text, "keen_pbr_dns_proxy_upstream_requests_total{" + plain_labels + ",result=\"timeout\"} 2\n"));
+    CHECK(has(text, "keen_pbr_dns_proxy_upstream_requests_total{" + plain_labels +
+                        ",result=\"nxdomain\"} 0\n"));
+    CHECK(has(text, "keen_pbr_dns_proxy_upstream_requests_total{proxy_port=\"52100\",server=\"doh_main\","
+                    "upstream=\"https://dns.example/dns-query\",type=\"doh\",detour=\"vpn\",result=\"ok\"} 0\n"));
+
+    CHECK(count_of(text, "# TYPE keen_pbr_dns_proxy_upstream_response_duration_seconds histogram") == 1);
+    const std::string histogram = "keen_pbr_dns_proxy_upstream_response_duration_seconds";
+    CHECK(has(text, histogram + "_bucket{" + plain_labels + ",le=\"0.005\"} 0\n"));
+    CHECK(has(text, histogram + "_bucket{" + plain_labels + ",le=\"0.01\"} 4\n"));
+    CHECK(has(text, histogram + "_bucket{" + plain_labels + ",le=\"0.05\"} 5\n"));
+    CHECK(has(text, histogram + "_bucket{" + plain_labels + ",le=\"5\"} 5\n"));
+    CHECK(has(text, histogram + "_bucket{" + plain_labels + ",le=\"+Inf\"} 6\n"));
+    CHECK(has(text, histogram + "_sum{" + plain_labels + "} 6.5\n"));
+    CHECK(has(text, histogram + "_count{" + plain_labels + "} 6\n"));
+
+    CHECK(has(text, "keen_pbr_dns_proxy_upstream_up{" + plain_labels + "} 0\n"));
+    CHECK(has(text, "keen_pbr_dns_proxy_upstream_consecutive_failures{" + plain_labels + "} 3\n"));
+    CHECK(has(text, "keen_pbr_dns_proxy_inflight{transport=\"udp\"} 2\n"));
+    CHECK(has(text, "keen_pbr_dns_proxy_inflight{transport=\"tcp\"} 1\n"));
+    // The existing histogram keeps its shape.
+    CHECK(has(text, "keen_pbr_dns_hold_duration_seconds_bucket{le=\"+Inf\"} 0\n"));
+}
+
+TEST_CASE("Prometheus leaves the DNS proxy families out while no proxy runs") {
+    Fixture f;
+    const auto text = f.render();
+    CHECK_FALSE(has(text, "keen_pbr_dns_proxy_"));
 }
 
 } // namespace keen_pbr3

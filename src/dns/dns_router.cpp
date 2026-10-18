@@ -18,6 +18,7 @@ std::string upstream_label(const DnsServerConfig& server) {
     return server.is_doh() ? server.doh_url : dnsmasq_server_address(server);
 }
 
+// Identifies a set of upstreams; their `name` is a label and not part of it.
 std::string group_key(const std::vector<DnsBalancerUpstream>& upstreams) {
     std::string key;
     for (const auto& upstream : upstreams) {
@@ -187,6 +188,19 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
         }
     }
 
+    // The tags of the servers behind every address, for the labels of the
+    // forwarder statistics.
+    std::map<std::string, std::string> upstream_names;
+    for (const auto& [tag, servers] : servers_) {
+        for (const DnsServerConfig& server : servers) {
+            std::string& names = upstream_names[group_key({balancer_upstream(server)})];
+            const std::string wanted = "," + names + ",";
+            if (wanted.find("," + tag + ",") == std::string::npos) {
+                names += names.empty() ? tag : "," + tag;
+            }
+        }
+    }
+
     // One listener per distinct set of upstreams; the port follows the sorted
     // sets, so the same config always gives the same ports.
     std::map<std::string, std::vector<DnsBalancerUpstream>> distinct;
@@ -207,6 +221,9 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
         DnsBalancerGroup group;
         group.port = static_cast<std::uint16_t>(port_start + groups_.size());
         group.upstreams = upstreams;
+        for (auto& upstream : group.upstreams) {
+            upstream.name = upstream_names[group_key({upstream})];
+        }
         key_address[key] = proxy_address_ + "#" + std::to_string(group.port);
         groups_.push_back(std::move(group));
     }

@@ -730,7 +730,7 @@ void Daemon::setup_api() {
         return prometheus_metrics(
             intercept_counters_.get(),
             netlink_.metrics_snapshot(), control, outbound,
-            config_store_.active_config(), daemon,
+            config_store_.active_config(), daemon, dns_balancer_.stats(),
             firewall_ && firewall_->backend() == FirewallBackend::nftables ? "nftables" : "iptables");
     };
     api_ctx_->compute_test_routing_with_criteria_fn = compute_test_routing_with_criteria;
