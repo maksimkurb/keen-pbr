@@ -1,5 +1,6 @@
-import type { ComponentProps } from "react"
+import type { ComponentProps, CSSProperties } from "react"
 import { DrawerPreview as DrawerPrimitive } from "@base-ui/react/drawer"
+import { useKeyboardInset } from "@/hooks/use-keyboard-inset"
 import { cn } from "@/lib/utils"
 
 const Drawer = DrawerPrimitive.Root
@@ -17,6 +18,7 @@ function DrawerContent({
   container?: ComponentProps<typeof DrawerPrimitive.Portal>["container"]
   insetClassName?: string
 }) {
+  const keyboardInset = useKeyboardInset()
   return (
     <DrawerPrimitive.Portal container={container}>
       <DrawerPrimitive.Backdrop
@@ -26,12 +28,16 @@ function DrawerContent({
         )}
       />
       <DrawerPrimitive.Viewport
-        className={cn("fixed inset-0 z-50 flex items-end", insetClassName)}
+        className={cn(
+          "fixed inset-0 bottom-(--keyboard-inset) z-50 flex items-end",
+          insetClassName
+        )}
+        style={{ "--keyboard-inset": `${keyboardInset}px` } as CSSProperties}
       >
         <DrawerPrimitive.Popup
           data-slot="drawer-content"
           className={cn(
-            "flex max-h-[85dvh] w-full [transform:translateY(var(--drawer-swipe-movement-y,0px))] flex-col rounded-t-2xl bg-background shadow-lg transition-transform duration-250 ease-out outline-none data-ending-style:[transform:translateY(100%)] data-starting-style:[transform:translateY(100%)] data-swiping:transition-none motion-reduce:transition-none",
+            "relative flex max-h-[calc((100dvh-var(--keyboard-inset))*0.85)] w-full after:absolute after:inset-x-0 after:top-full after:h-dvh after:bg-inherit [transform:translateY(var(--drawer-swipe-movement-y,0px))] flex-col rounded-t-2xl bg-background shadow-lg transition-transform duration-250 ease-out outline-none data-ending-style:[transform:translateY(100%)] data-starting-style:[transform:translateY(100%)] data-swiping:transition-none motion-reduce:transition-none",
             className
           )}
           {...props}
