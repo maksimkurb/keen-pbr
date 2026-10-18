@@ -151,7 +151,7 @@ export function RoutingRuleConditionBuilder({
   )
 }
 
-function FlowRow({
+export function FlowRow({
   step,
   label,
   children,

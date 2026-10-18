@@ -1,4 +1,5 @@
 import { toast } from "sonner"
+import { ArrowRight } from "lucide-react"
 import { Trans, useTranslation } from "react-i18next"
 import { Redirect, useLocation } from "wouter"
 
@@ -11,9 +12,11 @@ import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import { useGetConfig } from "@/api/queries"
 import { selectConfig } from "@/api/selectors"
+import { FlowRow } from "@/components/routing-rules/routing-rule-condition-builder"
 import {
   Field,
   FieldContent,
+  FieldDescription,
   FieldGroup,
   FieldHint,
   FieldLabel,
@@ -210,7 +213,8 @@ function DnsRuleForm({
         )
       }
     >
-      <form className="space-y-6" onSubmit={form.onSubmit(save)}>
+      <form className="min-w-0 space-y-6" onSubmit={form.onSubmit(save)}>
+        <ServerValidationAlert errors={form.unmappedErrors()} />
         <FieldGroup>
           <Field>
             <FieldContent>
@@ -231,62 +235,106 @@ function DnsRuleForm({
               </div>
             </FieldContent>
           </Field>
+        </FieldGroup>
 
-          <Field invalid={Boolean(serverError)}>
-            <FieldLabel>{t("pages.dnsRuleUpsert.fields.serverTag")}</FieldLabel>
-            <FieldContent>
-              <MultiSelectList
-                name="servers"
-                onChange={(servers) => form.setValue("servers", servers)}
-                options={serverTags}
-                error={serverError}
-                placeholderDescription={t(
-                  "pages.dnsRuleUpsert.fields.serversPlaceholderDescription"
-                )}
-                placeholderTitle={t(
-                  "pages.dnsRuleUpsert.fields.noServersSelected"
-                )}
-                value={values.servers}
-              />
-              <FieldHint
-                description={
-                  serverTags.length === 0
-                    ? t("pages.dnsRuleUpsert.fields.noServers")
-                    : values.servers.length >= 2
-                      ? t("pages.dnsRuleUpsert.fields.serversRoundRobinHint")
-                      : undefined
-                }
-              />
-            </FieldContent>
-          </Field>
+        <div className="min-w-0 space-y-4">
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold">
+              {t("pages.dnsRuleUpsert.builder.title")}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {t("pages.dnsRuleUpsert.builder.description")}
+            </p>
+          </div>
+          <div data-slot="condition-flow" className="min-w-0">
+            <FlowRow label={t("pages.dnsRuleUpsert.builder.if")}>
+              <div
+                data-condition="list"
+                className="min-w-0 rounded-xl border bg-card p-3 sm:p-4 [&_[data-slot=field-content]]:min-w-0"
+              >
+                <Field className="gap-2" invalid={Boolean(form.errorFor("list"))}>
+                  <FieldLabel id="dns-list-label">
+                    {t("pages.dnsRuleUpsert.fields.listNames")}
+                  </FieldLabel>
+                  <FieldContent>
+                    <FieldDescription>
+                      {t("pages.dnsRuleUpsert.builder.listDescription")}
+                    </FieldDescription>
+                    <MultiSelectList
+                      ariaLabelledBy="dns-list-label"
+                      compact
+                      error={form.errorFor("list")}
+                      name="list"
+                      onChange={(newLists) => form.setValue("list", newLists)}
+                      options={listOptions}
+                      placeholderDescription={t(
+                        "pages.dnsRuleUpsert.fields.listPlaceholderDescription"
+                      )}
+                      placeholderTitle={t(
+                        "pages.dnsRuleUpsert.fields.noListsSelected"
+                      )}
+                      usageSubtitle={listUsageSubtitle}
+                      value={values.list}
+                    />
+                    <FieldHint
+                      description={
+                        listOptions.length === 0
+                          ? t("pages.dnsRuleUpsert.fields.noLists")
+                          : undefined
+                      }
+                    />
+                  </FieldContent>
+                </Field>
+              </div>
+            </FlowRow>
+            <FlowRow
+              label={t("pages.dnsRuleUpsert.builder.then")}
+              last
+              step={<ArrowRight aria-hidden="true" className="size-4" />}
+            >
+              <div
+                data-slot="dns-server-action"
+                className="min-w-0 rounded-xl border bg-primary/5 p-3 sm:p-4 [&_[data-slot=field-content]]:min-w-0"
+              >
+                <Field invalid={Boolean(serverError)}>
+                  <FieldLabel id="dns-servers-label">
+                    {t("pages.dnsRuleUpsert.builder.sendTo")}
+                  </FieldLabel>
+                  <FieldContent>
+                    <MultiSelectList
+                      ariaLabelledBy="dns-servers-label"
+                      compact
+                      error={serverError}
+                      name="servers"
+                      onChange={(servers) => form.setValue("servers", servers)}
+                      options={serverTags}
+                      placeholderDescription={t(
+                        "pages.dnsRuleUpsert.fields.serversPlaceholderDescription"
+                      )}
+                      placeholderTitle={t(
+                        "pages.dnsRuleUpsert.fields.noServersSelected"
+                      )}
+                      value={values.servers}
+                    />
+                    <FieldHint
+                      description={
+                        serverTags.length === 0
+                          ? t("pages.dnsRuleUpsert.fields.noServers")
+                          : values.servers.length >= 2
+                            ? t(
+                                "pages.dnsRuleUpsert.fields.serversRoundRobinHint"
+                              )
+                            : undefined
+                      }
+                    />
+                  </FieldContent>
+                </Field>
+              </div>
+            </FlowRow>
+          </div>
+        </div>
 
-          <Field invalid={Boolean(form.errorFor("list"))}>
-            <FieldLabel>{t("pages.dnsRuleUpsert.fields.listNames")}</FieldLabel>
-            <FieldContent>
-              <MultiSelectList
-                name="list"
-                onChange={(newLists) => form.setValue("list", newLists)}
-                options={listOptions}
-                error={form.errorFor("list")}
-                placeholderDescription={t(
-                  "pages.dnsRuleUpsert.fields.listPlaceholderDescription"
-                )}
-                placeholderTitle={t(
-                  "pages.dnsRuleUpsert.fields.noListsSelected"
-                )}
-                usageSubtitle={listUsageSubtitle}
-                value={values.list}
-              />
-              <FieldHint
-                description={
-                  listOptions.length === 0
-                    ? t("pages.dnsRuleUpsert.fields.noLists")
-                    : undefined
-                }
-              />
-            </FieldContent>
-          </Field>
-
+        <FieldGroup>
           <Field>
             <FieldContent>
               <div className="flex items-center space-x-3">
@@ -313,9 +361,7 @@ function DnsRuleForm({
           </Field>
         </FieldGroup>
 
-        <ServerValidationAlert errors={form.unmappedErrors()} />
-
-        <div className="flex justify-end gap-3">
+        <div className="flex flex-wrap justify-end gap-3">
           <Button
             onClick={() => navigate("/dns-rules")}
             size="xl"

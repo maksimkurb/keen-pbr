@@ -1833,6 +1833,14 @@ export const enTranslation = {
       description:
         "This rule defines which DNS servers to use for domains in a specific list.",
       cardDescription: "Set the list names and DNS servers for this rule.",
+      builder: {
+        title: "Condition",
+        description: "The rule applies to the domains of the selected lists.",
+        listDescription: "The domain is in one of the selected lists",
+        if: "IF",
+        then: "then",
+        sendTo: "Send DNS queries to",
+      },
       messages: { saved: "DNS rule staged. Apply new config to persist it." },
       validation: {
         notFound: "The requested DNS rule was not found.",
