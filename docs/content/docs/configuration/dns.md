@@ -113,7 +113,7 @@ A server name (`tag`) must be unique: lowercase Latin letters, digits and `_`, s
 | `type` | string | no | Server type (**DNS type**):<ul><li>`static` (**Plaintext DNS**, default)</li><li>`doh` (**DNS-over-HTTPS**)</li><li>{{< only keenetic >}} `keenetic` (**Keenetic DNS**)</li></ul> |
 | `address` | string | for `static` and `doh` | `static`: IP address of the DNS server, with optional port, for example `"10.8.0.1"`, `"10.8.0.1:5353"`, `"2001:4860:4860::8888"`, or `"[2001:4860:4860::8888]:5353"`. `doh`: the server URL starting with `https://`, for example `"https://dns.google/dns-query"` (**URL**) |
 | `detour` | string | no | Outbound the router itself uses to send queries to this server (**Make requests via Outbound**) |
-| `ips` | array of string | no | Only for `doh`: IP addresses of the server, without a port (**Server IP addresses**). When set, keen-pbr connects only to these addresses. The server certificate is still checked against the name in `address`. See [Finding the address of a DoH server](#doh-bootstrap) |
+| `ips` | array of string | no | Only for `doh`: IP addresses of the server, without a port (**Server IP addresses**). When set, keen-pbr connects only to these addresses. The server certificate is still checked against the name in `address`. See [Bootstrap servers](#doh-bootstrap) |
 
 `detour` is useful when a DNS server must be reached through a specific connection, usually the same VPN. It does not affect queries that devices in your network send directly to the same address: route them with a normal route rule.
 
@@ -157,7 +157,7 @@ DNS-over-HTTPS (DoH) sends requests to the server over an encrypted HTTPS connec
 - **Make requests via Outbound** works as for other servers: keen-pbr connects to the DoH server through the chosen outbound.
 - The router must have CA certificates installed to check the server (Keenetic: the `ca-certificates` package in Entware; OpenWrt: `ca-bundle`; Debian: `ca-certificates`). If it has none, the status page shows the problem "DNS-over-HTTPS servers are not used".
 
-### Finding the address of a DoH server {#doh-bootstrap}
+### Bootstrap servers {#doh-bootstrap}
 
 When the URL of a DoH server has a host name (`dns.google`) and not an IP address, keen-pbr first asks a plain DNS server for the address of that name. These servers are called bootstrap servers.
 
