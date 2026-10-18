@@ -8885,12 +8885,13 @@ keen-pbr 3.3.x depended on &lt;code&gt;dnsmasq&lt;/code&gt;, so apt marked it as
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;&lt;strong&gt;Before the upgrade.&lt;/strong&gt; &lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;
+&lt;p&gt;&lt;strong&gt;Before the upgrade.&lt;/strong&gt; &lt;span class=&#34;only-badges&#34; title=&#34;Only for Keenetic/NetCraze&#34;&gt;&lt;span class=&#34;only-badge only-badge--keenetic&#34;&gt;Keenetic/NetCraze&lt;/span&gt;&lt;/span&gt;
 &lt;br&gt;
-keen-pbr 3.3.x installed &lt;code&gt;dnsmasq-full&lt;/code&gt; as a dependency, and opkg may remove it during the upgrade. If you need dnsmasq, first run over SSH:&lt;/p&gt;
+keen-pbr 3.3.x installed &lt;code&gt;dnsmasq-full&lt;/code&gt; as a dependency, and opkg may remove it during the upgrade. If you need dnsmasq, first clear its &amp;ldquo;installed automatically&amp;rdquo; mark. Run over SSH:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;opkg flag user dnsmasq-full&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;cp /opt/lib/opkg/status /opt/lib/opkg/status.bak
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;sed -i &lt;span class=&#34;s1&#34;&gt;&amp;#39;/^Package: dnsmasq-full$/,/^$/{/^Auto-Installed:/d}&amp;#39;&lt;/span&gt; /opt/lib/opkg/status&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;

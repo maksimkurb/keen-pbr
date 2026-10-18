@@ -495,7 +495,7 @@ Data is updated over SSE instead of HTTP polling.
 Prometheus metrics.
 GET /metrics reports probe latency, link selection, list updates, balance and interception counters. It also has DNS proxy metrics: the queries to it, the answers of the servers by result, the answer time and the servers the proxy is skipping now. A Grafana dashboard (with a DNS proxy section) and alert examples are included. See REST API and DNS proxy metrics.
 Grafana dashboard Removing the package also removes leftover firewall rules and dnsmasq files.">
-	<meta itemprop="wordCount" content="4940">
+	<meta itemprop="wordCount" content="4949">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Changelog">
 	<meta name="twitter:description" content="What changed in each keen-pbr release, and what to do when you upgrade.
@@ -2161,12 +2161,13 @@ keen-pbr 3.3.x depended on <code>dnsmasq</code>, so apt marked it as automatical
   </button>
 </div>
 </div>
-<p><strong>Before the upgrade.</strong> <span class="only-badges" title="Only for OpenWrt, Keenetic/NetCraze"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+<p><strong>Before the upgrade.</strong> <span class="only-badges" title="Only for Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
 <br>
-keen-pbr 3.3.x installed <code>dnsmasq-full</code> as a dependency, and opkg may remove it during the upgrade. If you need dnsmasq, first run over SSH:</p>
+keen-pbr 3.3.x installed <code>dnsmasq-full</code> as a dependency, and opkg may remove it during the upgrade. If you need dnsmasq, first clear its &ldquo;installed automatically&rdquo; mark. Run over SSH:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opkg flag user dnsmasq-full</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">cp /opt/lib/opkg/status /opt/lib/opkg/status.bak
+</span></span><span class="line"><span class="cl">sed -i <span class="s1">&#39;/^Package: dnsmasq-full$/,/^$/{/^Auto-Installed:/d}&#39;</span> /opt/lib/opkg/status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"

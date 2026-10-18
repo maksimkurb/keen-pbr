@@ -495,7 +495,7 @@ DoH-серверу нужен IP-адрес, чтобы к нему подклю
 Метрики для Prometheus.
 GET /metrics отдаёт задержку проб, выбранный канал, обновления списков, счётчики балансировки и перехвата. Есть и метрики DNS-прокси: запросы к нему, ответы серверов по результатам, время ответа и серверы, которые прокси сейчас пропускает. Для Grafana есть дашборд (с разделом DNS proxy) и примеры алертов. См. REST API и метрики DNS-прокси.
 Дашборд Grafana При удалении пакета убираются оставшиеся правила firewall и файлы dnsmasq.">
-	<meta itemprop="wordCount" content="4128">
+	<meta itemprop="wordCount" content="4138">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Список изменений">
 	<meta name="twitter:description" content="Что изменилось в каждой версии keen-pbr и что делать при обновлении.
@@ -2161,12 +2161,13 @@ keen-pbr 3.3.x зависел от <code>dnsmasq</code>, поэтому apt по
   </button>
 </div>
 </div>
-<p><strong>Перед обновлением.</strong> <span class="only-badges" title="Только для OpenWrt, Keenetic/NetCraze"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
+<p><strong>Перед обновлением.</strong> <span class="only-badges" title="Только для Keenetic/NetCraze"><span class="only-badge only-badge--keenetic">Keenetic/NetCraze</span></span>
 <br>
-keen-pbr 3.3.x ставил <code>dnsmasq-full</code> как зависимость, и при обновлении opkg может его удалить. Если dnsmasq вам нужен, сначала выполните по SSH:</p>
+keen-pbr 3.3.x ставил <code>dnsmasq-full</code> как зависимость, и при обновлении opkg может его удалить. Если dnsmasq вам нужен, сначала снимите с него пометку «установлен автоматически». Выполните по SSH:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opkg flag user dnsmasq-full</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">cp /opt/lib/opkg/status /opt/lib/opkg/status.bak
+</span></span><span class="line"><span class="cl">sed -i <span class="s1">&#39;/^Package: dnsmasq-full$/,/^$/{/^Auto-Installed:/d}&#39;</span> /opt/lib/opkg/status</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
