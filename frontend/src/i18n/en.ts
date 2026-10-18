@@ -1954,7 +1954,7 @@ export const enTranslation = {
         refreshFailedMore: "+{{count}} more",
       },
       lastUpdated: "Last updated: {{value}}",
-      neverUpdated: "Never updated",
+      notDownloaded: "Not downloaded yet",
       noStats: "-",
       source: {
         url: "URL",

@@ -21,10 +21,25 @@ export type OverviewHealthySummary = {
   detail: string
 }
 
+const GENERAL_PATH = "/general"
 const DNS_SERVERS_PATH = "/dns-servers"
 // The main and bootstrap servers are sections of the DNS rules page.
 const DNS_RULES_PATH = "/dns-rules"
 const DEFAULT_SERVERS_ENTRY = "default servers"
+
+// Anchors of the interception settings on the general settings page.
+const INTERCEPT_ENABLED_ANCHOR = "intercept-enabled"
+const INTERCEPT_DNS_ANCHOR = "intercept-dns-enabled"
+const INTERCEPT_L7_ANCHOR = "intercept-l7-enabled"
+
+// The interception setting that needs each kernel feature or iptables extension.
+const INTERCEPT_FEATURE_ANCHORS: Record<string, string> = {
+  nfqueue: INTERCEPT_DNS_ANCHOR,
+  NFQUEUE: INTERCEPT_DNS_ANCHOR,
+  nflog: INTERCEPT_L7_ANCHOR,
+  NFLOG: INTERCEPT_L7_ANCHOR,
+  connbytes: INTERCEPT_L7_ANCHOR,
+}
 
 const OUTBOUND_ISSUE_CODES = new Set<HealthIssue["code"]>([
   "outbound_unavailable",
@@ -52,6 +67,21 @@ export function mapHealthIssues(
 
 function issueHref(issue: HealthIssue): string | undefined {
   if (issue.code === "dns_server_failing") return DNS_SERVERS_PATH
+  if (issue.code === "doh_unavailable") return DNS_SERVERS_PATH
+  if (issue.code === "intercept_limited") {
+    return `${GENERAL_PATH}#${INTERCEPT_ENABLED_ANCHOR}`
+  }
+  if (issue.code === "kernel_capability" || issue.code === "xt_extension") {
+    const feature =
+      issue.code === "kernel_capability"
+        ? issue.params.feature
+        : issue.params.name
+    const anchor = feature ? INTERCEPT_FEATURE_ANCHORS[feature] : undefined
+    return anchor ? `${GENERAL_PATH}#${anchor}` : undefined
+  }
+  if (issue.code === "list_not_downloaded" && issue.params.list) {
+    return `/lists/${encodeURIComponent(issue.params.list)}/edit`
+  }
   if (
     issue.code === "dns_upstream_missing" ||
     issue.code === "doh_bootstrap_missing"

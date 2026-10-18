@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   ArrowRight,
@@ -403,13 +404,15 @@ export function ListsPage() {
                   {list.locationLabel}
                 </div>
                 {list.canRefresh ? (
-                  <div className="hidden text-sm text-muted-foreground md:block md:text-xs">
-                    {t("pages.lists.lastUpdated", {
-                      value: formatLastUpdatedLabel(
-                        list.lastUpdated,
-                        t("pages.lists.neverUpdated")
-                      ),
-                    })}
+                  <div
+                    className={cn(
+                      "hidden text-sm md:block md:text-xs",
+                      list.lastUpdated
+                        ? "text-muted-foreground"
+                        : "text-destructive"
+                    )}
+                  >
+                    {formatLastUpdatedText(list.lastUpdated, t)}
                   </div>
                 ) : null}
               </div>,
@@ -810,6 +813,18 @@ function getListSourceLabel(draft: ListDraft, t: (key: string) => string) {
 function formatLastUpdatedLabel(value: string | undefined, fallback: string) {
   if (!value) {
     return fallback
+function formatLastUpdatedText(
+  value: string | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string
+) {
+  if (!value) {
+    return t("pages.lists.notDownloaded")
+  }
+  return t("pages.lists.lastUpdated", {
+    value: formatLastUpdatedLabel(value, ""),
+  })
+}
+
   }
 
   const parsedDate = new Date(value)
@@ -849,13 +864,13 @@ function ListSource({
       ) : null}
       {list.draft.file ? <StartEllipsis text={list.draft.file} /> : null}
       {list.canRefresh ? (
-        <div className="text-xs text-muted-foreground">
-          {t("pages.lists.lastUpdated", {
-            value: formatLastUpdatedLabel(
-              list.lastUpdated,
-              t("pages.lists.neverUpdated")
-            ),
-          })}
+        <div
+          className={cn(
+            "text-xs",
+            list.lastUpdated ? "text-muted-foreground" : "text-destructive"
+          )}
+        >
+          {formatLastUpdatedText(list.lastUpdated, t)}
         </div>
       ) : null}
     </div>

@@ -84,6 +84,7 @@ describe("mapHealthIssues", () => {
       'overview.issues.listNotDownloaded {"list":"blocked"}'
     )
     expect(issue.detail).toBe("HTTP 404 (https://example.com/l.txt)")
+    expect(issue.href).toBe("/lists/blocked/edit")
   })
 })
 
@@ -169,5 +170,43 @@ describe("mapHealthIssues: DNS servers not specified", () => {
     expect(mapped.title).toBe("overview.issues.dohBootstrapMissing")
     expect(mapped.detail).toContain('"tags":"doh_google, doh_cf"')
     expect(mapped.href).toBe("/dns-rules")
+  })
+})
+
+describe("mapHealthIssues: links to settings", () => {
+  const base: HealthIssue = {
+    key: "k",
+    severity: "warning",
+    code: "kernel_capability",
+    params: {},
+    title: "x",
+  }
+  const hrefOf = (issue: Partial<HealthIssue>) =>
+    mapHealthIssues([{ ...base, ...issue } as HealthIssue], t)[0].href
+
+  test("kernel features and extensions open their interception setting", () => {
+    expect(hrefOf({ params: { feature: "nfqueue" } })).toBe(
+      "/general#intercept-dns-enabled"
+    )
+    expect(hrefOf({ params: { feature: "nflog" } })).toBe(
+      "/general#intercept-l7-enabled"
+    )
+    expect(hrefOf({ code: "xt_extension", params: { name: "NFQUEUE" } })).toBe(
+      "/general#intercept-dns-enabled"
+    )
+    expect(hrefOf({ code: "intercept_limited" })).toBe(
+      "/general#intercept-enabled"
+    )
+  })
+
+  test("features unrelated to interception have no link", () => {
+    expect(hrefOf({ params: { feature: "addrtype" } })).toBeUndefined()
+    expect(
+      hrefOf({ code: "xt_extension", params: { name: "set" } })
+    ).toBeUndefined()
+  })
+
+  test("DoH unavailable opens the DNS servers page", () => {
+    expect(hrefOf({ code: "doh_unavailable" })).toBe("/dns-servers")
   })
 })

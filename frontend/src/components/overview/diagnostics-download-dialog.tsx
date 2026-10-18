@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 
 import type {
   ConfigObject,
+  HealthIssuesResponse,
   HealthResponse,
   RoutingHealthResponse,
   RuntimeOutboundsResponse,
@@ -22,6 +23,7 @@ export function DiagnosticsDownloadDialog({
   routingHealth,
   runtimeOutbounds,
   dnsCheckStatus,
+  healthIssues,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -30,6 +32,7 @@ export function DiagnosticsDownloadDialog({
   routingHealth?: RoutingHealthResponse
   runtimeOutbounds?: RuntimeOutboundsResponse
   dnsCheckStatus: DnsCheckStatus
+  healthIssues?: HealthIssuesResponse
 }) {
   const { t } = useTranslation()
   const [hideListsContent, setHideListsContent] = useState(false)
@@ -53,6 +56,11 @@ export function DiagnosticsDownloadDialog({
       service_health: serviceHealth ?? null,
       routing_health: routingHealth ?? null,
       outbounds_status: runtimeOutbounds ?? null,
+      health_issues: healthIssues
+        ? hideListsContent
+          ? redactIssueUrls(healthIssues)
+          : healthIssues
+        : null,
       dnscheck_status: {
         status: dnsCheckStatus,
       },
@@ -60,6 +68,7 @@ export function DiagnosticsDownloadDialog({
   }, [
     config,
     dnsCheckStatus,
+    healthIssues,
     hideListsContent,
     routingHealth,
     runtimeOutbounds,
@@ -106,6 +115,25 @@ export function DiagnosticsDownloadDialog({
       </div>
     </ResponsiveDialog>
   )
+}
+
+function redactIssueUrls(
+  response: HealthIssuesResponse
+): HealthIssuesResponse {
+  return {
+    ...response,
+    issues: response.issues.map((issue) => {
+      const url = issue.params?.url
+      if (!url) {
+        return issue
+      }
+      return {
+        ...issue,
+        detail: issue.detail?.split(url).join("<redacted>"),
+        params: { ...issue.params, url: "<redacted>" },
+      }
+    }),
+  }
 }
 
 function redactConfigLists(config: ConfigObject): ConfigObject {

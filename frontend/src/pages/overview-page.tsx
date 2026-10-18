@@ -302,6 +302,7 @@ export function OverviewPage() {
       <DiagnosticsDownloadDialog
         config={loadedConfig}
         dnsCheckStatus={dnsCheckStatus}
+        healthIssues={healthIssues}
         onOpenChange={setIsDiagnosticsDialogOpen}
         open={isDiagnosticsDialogOpen}
         routingHealth={routingHealth}

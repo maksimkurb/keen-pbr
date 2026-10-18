@@ -2008,7 +2008,7 @@ export const ruTranslation = {
         refreshFailedMore: "ещё {{count}}",
       },
       lastUpdated: "Последнее обновление: {{value}}",
-      neverUpdated: "Ещё не обновлялся",
+      notDownloaded: "Ещё не скачан",
       noStats: "-",
       source: {
         url: "URL",
