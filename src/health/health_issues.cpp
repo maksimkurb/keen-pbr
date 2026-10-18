@@ -333,6 +333,61 @@ void collect_outbound_issues(const std::vector<api::RuntimeOutboundStateElement>
 
 } // namespace
 
+std::vector<DnsServerFailure> collect_dns_server_failures(const DnsBalancerStats& stats,
+                                                          const DnsProxyUsers& users) {
+    const auto identity = [](const DnsBalancerUpstream& upstream) {
+        return upstream.kind == DnsBalancerUpstreamKind::Doh
+                   ? "d|" + upstream.url + "|" + upstream.detour
+                   : "p|" + upstream.ip + "|" + std::to_string(upstream.port);
+    };
+    const auto failing = [](const DnsUpstreamStats& upstream) {
+        return upstream.usable && upstream.consecutive_failures >= kDnsFailingStreak;
+    };
+    std::vector<DnsServerFailure> failures;
+    std::map<std::string, std::size_t> index;
+    for (const auto& listener : stats.listeners) {
+        bool any_usable = false;
+        bool all_failing = true;
+        for (const auto& upstream : listener.upstreams) {
+            if (!upstream.usable) continue;
+            any_usable = true;
+            all_failing = all_failing && failing(upstream);
+        }
+        const bool group_down = any_usable && all_failing;
+        const auto user_list = users.find(listener.port);
+        for (const auto& upstream : listener.upstreams) {
+            if (!failing(upstream)) continue;
+            const std::string key = identity(upstream.upstream);
+            auto found = index.find(key);
+            if (found == index.end()) {
+                DnsServerFailure failure;
+                failure.tag = upstream.upstream.name;
+                failure.address = upstream.upstream.kind == DnsBalancerUpstreamKind::Doh
+                                      ? upstream.upstream.url
+                                      : upstream.upstream.ip + ':' +
+                                            std::to_string(upstream.upstream.port);
+                failure.detour = upstream.upstream.detour;
+                failure.reason = dns_upstream_outcome_name(upstream.last_failure);
+                failure.error = upstream.last_error;
+                failure.count = upstream.consecutive_failures;
+                found = index.emplace(key, failures.size()).first;
+                failures.push_back(std::move(failure));
+            }
+            DnsServerFailure& failure = failures[found->second];
+            if (!group_down) continue;
+            failure.group_down = true;
+            if (user_list == users.end()) continue;
+            for (const auto& entry : user_list->second) {
+                if (std::find(failure.entries.begin(), failure.entries.end(), entry) ==
+                    failure.entries.end()) {
+                    failure.entries.push_back(entry);
+                }
+            }
+        }
+    }
+    return failures;
+}
+
 std::vector<api::KernelCheckElement> collect_kernel_checks(
     const api::InterceptHealthClass& intercept, bool requested_dns, bool requested_l7) {
     std::vector<api::KernelCheckElement> checks;
@@ -460,6 +515,31 @@ api::HealthIssuesResponse collect_health_issues(const HealthIssueInputs& inputs)
         std::string detail = list.error + " (" + list.url;
         if (list.detour) detail += ", via " + *list.detour;
         issue.detail = detail + ")";
+        issues.push_back(std::move(issue));
+    }
+    for (const auto& failure : inputs.dns_server_failures) {
+        const std::string name = failure.tag.empty() ? failure.address : failure.tag;
+        std::string display = name;
+        for (std::size_t at = display.find(','); at != std::string::npos; at = display.find(',', at)) {
+            display.replace(at, 1, ", ");
+            at += 2;
+        }
+        auto issue = make_issue("dns-server-" + failure.address + "-" + failure.detour,
+                                failure.group_down ? api::Severity::ERROR : api::Severity::WARNING,
+                                api::Code::DNS_SERVER_FAILING,
+                                "DNS server '" + display + "' is not answering");
+        issue.params = {{"tag", display},
+                        {"address", failure.address},
+                        {"reason", failure.reason},
+                        {"count", std::to_string(failure.count)}};
+        if (!failure.detour.empty()) {
+            issue.params["outbound"] = failure.detour;
+            issue.outbound = failure.detour;
+        }
+        std::string detail = failure.error + " (" + failure.address;
+        if (!failure.detour.empty()) detail += ", via " + failure.detour;
+        issue.detail = detail + ")";
+        if (!failure.entries.empty()) issue.entries = failure.entries;
         issues.push_back(std::move(issue));
     }
     return response;

@@ -54,6 +54,8 @@ public:
 
     // The forwarder listeners the targets above point at, with their ports.
     const std::vector<DnsBalancerGroup>& balancer_groups() const { return groups_; }
+    // Who resolves through each forwarder port.
+    const DnsProxyUsers& balancer_users() const { return users_; }
     // Set when there are more distinct server sets than listener ports.
     const std::string& balancer_error() const { return balancer_error_; }
 
@@ -68,6 +70,7 @@ private:
     std::map<std::string, DnsTargets> list_targets_;
     DnsTargets fallback_;
     std::vector<DnsBalancerGroup> groups_;
+    DnsProxyUsers users_;
     std::string proxy_address_;
     std::string balancer_error_;
     std::optional<DnsBalancerUpstream> bootstrap_;

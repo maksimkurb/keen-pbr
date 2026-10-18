@@ -269,6 +269,10 @@ export const ruTranslation = {
       groupMembersFailing: "{{tag}}: неисправных участников: {{count}}",
       dohUnavailable: "DNS-over-HTTPS серверы не используются",
       listNotDownloaded: "Список «{{list}}» ещё не скачан",
+      dnsServerFailing: "DNS-сервер «{{tag}}» не отвечает",
+      dnsServerFailingFor:
+        "{{detail}}. Не осталось рабочих серверов для: {{lists}}",
+      defaultServers: "серверы по умолчанию",
       dohNoCertificates:
         "На роутере нет сертификатов центров сертификации, чтобы проверить серверы. Установите пакет ca-certificates.",
       hostWarning: {

@@ -86,3 +86,38 @@ describe("mapHealthIssues", () => {
     expect(issue.detail).toBe("HTTP 404 (https://example.com/l.txt)")
   })
 })
+
+describe("mapHealthIssues: DNS server not answering", () => {
+  const issue: HealthIssue = {
+    key: "dns-server-192.0.2.1:53-",
+    severity: "warning",
+    code: "dns_server_failing",
+    params: { tag: "dns_a", address: "192.0.2.1:53", reason: "timeout", count: "10" },
+    title: "DNS server 'dns_a' is not answering",
+    detail: "no answer in time (192.0.2.1:53)",
+  }
+
+  test("links to the DNS servers page and keeps the raw error", () => {
+    const [mapped] = mapHealthIssues([issue], t)
+    expect(mapped.tone).toBe("warn")
+    expect(mapped.title).toBe('overview.issues.dnsServerFailing {"tag":"dns_a"}')
+    expect(mapped.detail).toBe("no answer in time (192.0.2.1:53)")
+    expect(mapped.href).toBe("/dns-servers")
+  })
+
+  test("names the lists left without a working server", () => {
+    const [mapped] = mapHealthIssues(
+      [
+        {
+          ...issue,
+          severity: "error",
+          entries: ["blocked", "default servers"],
+        },
+      ],
+      t
+    )
+    expect(mapped.tone).toBe("bad")
+    expect(mapped.detail).toContain("overview.issues.dnsServerFailingFor")
+    expect(mapped.detail).toContain('"lists":"blocked, overview.issues.defaultServers"')
+  })
+})

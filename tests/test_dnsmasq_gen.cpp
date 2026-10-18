@@ -627,6 +627,30 @@ TEST_CASE("dnsmasq gen: lists with the same servers share a forwarder, others ge
     CHECK(again.balancer_groups() == registry.balancer_groups());
 }
 
+TEST_CASE("dnsmasq gen: forwarder upstreams carry the tags behind them, ports know who uses them") {
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{make_server("a", "8.8.8.8"), make_server("a2", "8.8.8.8"),
+                                         make_server("b", "1.1.1.1"),
+                                         make_doh_server("g", "https://dns.google/dns-query")};
+    cfg.rules = std::vector<DnsRule>{make_multi_rule("l1", {"a", "b"}), make_multi_rule("l2", {"a", "b"}),
+                                     make_multi_rule("l3", {"a2", "b"})};
+    cfg.fallback = std::vector<std::string>{"b", "g"};
+    const DnsServerRegistry registry(cfg);
+    // l1, l2 and l3 name the same addresses: one forwarder; the DoH default server has its own.
+    REQUIRE(registry.balancer_groups().size() == 2);
+    // The groups follow the sorted keys, so the DoH one comes first.
+    const auto& first = registry.balancer_groups()[1];
+    REQUIRE(first.upstreams.size() == 2);
+    CHECK(first.upstreams[0].name == "a,a2");
+    CHECK(first.upstreams[1].name == "b");
+    // The names are labels only: the same address without them is the same upstream.
+    CHECK(first.upstreams[0] == DnsBalancerUpstream::plain("8.8.8.8"));
+    CHECK(registry.balancer_groups()[0].upstreams[0].name == "g");
+    CHECK(registry.balancer_users().at(first.port) == std::vector<std::string>{"l1", "l2", "l3"});
+    CHECK(registry.balancer_users().at(registry.balancer_groups()[0].port) ==
+          std::vector<std::string>{kDnsDefaultServersEntry});
+}
+
 TEST_CASE("dnsmasq gen: default servers stay separate rows, DoH ones get a forwarder each") {
     DnsConfig cfg;
     cfg.servers = std::vector<DnsServer>{make_server("a", "8.8.8.8"), make_server("b", "1.1.1.1"),

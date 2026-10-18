@@ -264,6 +264,10 @@ export const enTranslation = {
       groupMembersFailing: "{{tag}}: failing members: {{count}}",
       dohUnavailable: "DNS-over-HTTPS servers are not used",
       listNotDownloaded: "List '{{list}}' is not downloaded yet",
+      dnsServerFailing: "DNS server '{{tag}}' is not answering",
+      dnsServerFailingFor:
+        "{{detail}}. No working server is left for: {{lists}}",
+      defaultServers: "default servers",
       dohNoCertificates:
         "The router has no CA certificates to check the servers with. Install the ca-certificates package.",
       hostWarning: {

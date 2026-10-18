@@ -3448,6 +3448,7 @@ components:
         - group_members_failing
         - doh_unavailable
         - list_not_downloaded
+        - dns_server_failing
 
     HealthIssueDetailCode:
       type: string

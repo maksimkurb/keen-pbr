@@ -717,6 +717,7 @@ Daemon::health_issues_from(const ServiceHealthState &service,
   inputs.outbounds = &outbounds.outbounds;
   inputs.doh_ca_missing = kDohBuiltIn && !doh_ca_bundle_.has_value() &&
                           config_uses_doh(config_store_.active_config());
+  inputs.dns_server_failures = dns_server_failures();
   for (auto &list : collect_undownloaded_lists(
            config_store_.active_config(), list_service_.cache_manager(),
            list_service_.refresh_stats())) {
@@ -725,6 +726,33 @@ Daemon::health_issues_from(const ServiceHealthState &service,
         std::move(list.error)});
   }
   return collect_health_issues(inputs);
+}
+
+std::vector<DnsServerFailure> Daemon::dns_server_failures() {
+  DnsProxyUsers users;
+  {
+    KPBR_LOCK_GUARD(dns_proxy_users_mutex_);
+    users = dns_proxy_users_;
+  }
+  return collect_dns_server_failures(dns_balancer_.stats(), users);
+}
+
+DnsBalancerOptions Daemon::make_dns_balancer_options() {
+  DnsBalancerOptions options;
+  // Called on the forwarder thread, which a status rebuild waits for: hand the
+  // refresh to a worker.
+  options.on_health_change = [this] {
+#ifdef WITH_API
+    if (dns_health_refresh_queued_.exchange(true)) return;
+    if (!blocking_executor_.try_post("dns-health", [this] {
+          dns_health_refresh_queued_.store(false);
+          if (status_stream_) status_stream_->reconcile(StatusUpdate::Issues);
+        })) {
+      dns_health_refresh_queued_.store(false);
+    }
+#endif
+  };
+  return options;
 }
 
 DnsmasqManagerDeps Daemon::make_dnsmasq_deps() {
@@ -751,6 +779,10 @@ void Daemon::configure_dns_forwarder(const DnsServerRegistry &registry) {
       const auto mark = marks.find(internal_detour_mark_key(upstream.detour));
       if (mark != marks.end()) settings.detour_marks[upstream.detour] = mark->second;
     }
+  }
+  {
+    KPBR_LOCK_GUARD(dns_proxy_users_mutex_);
+    dns_proxy_users_ = registry.balancer_users();
   }
   const std::vector<std::uint16_t> failed =
       dns_balancer_.configure(registry.balancer_groups(), settings);

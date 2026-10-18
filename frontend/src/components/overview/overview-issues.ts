@@ -21,6 +21,9 @@ export type OverviewHealthySummary = {
   detail: string
 }
 
+const DNS_SERVERS_PATH = "/dns-servers"
+const DEFAULT_SERVERS_ENTRY = "default servers"
+
 const OUTBOUND_ISSUE_CODES = new Set<HealthIssue["code"]>([
   "outbound_unavailable",
   "outbound_degraded",
@@ -41,11 +44,16 @@ export function mapHealthIssues(
     tone: issue.severity === "error" ? "bad" : "warn",
     title: translateTitle(issue, t),
     detail: translateDetail(issue, t),
-    href:
-      issue.outbound && OUTBOUND_ISSUE_CODES.has(issue.code)
-        ? `/outbounds/${encodeURIComponent(issue.outbound)}/edit`
-        : undefined,
+    href: issueHref(issue),
   }))
+}
+
+function issueHref(issue: HealthIssue): string | undefined {
+  if (issue.code === "dns_server_failing") return DNS_SERVERS_PATH
+  if (issue.outbound && OUTBOUND_ISSUE_CODES.has(issue.code)) {
+    return `/outbounds/${encodeURIComponent(issue.outbound)}/edit`
+  }
+  return undefined
 }
 
 /** ok and skipped need no attention; not_run is unknown and stays visible. */
@@ -182,6 +190,8 @@ function translateTitle(issue: HealthIssue, t: TranslateFn): string {
       return t("overview.issues.dohUnavailable")
     case "list_not_downloaded":
       return t("overview.issues.listNotDownloaded", { list: params.list })
+    case "dns_server_failing":
+      return t("overview.issues.dnsServerFailing", { tag: params.tag })
   }
   return issue.title
 }
@@ -190,6 +200,18 @@ function translateDetail(
   issue: HealthIssue,
   t: TranslateFn
 ): string | undefined {
+  if (issue.code === "dns_server_failing" && issue.entries?.length) {
+    return t("overview.issues.dnsServerFailingFor", {
+      detail: issue.detail ?? "",
+      lists: issue.entries
+        .map((entry) =>
+          entry === DEFAULT_SERVERS_ENTRY
+            ? t("overview.issues.defaultServers")
+            : entry
+        )
+        .join(", "),
+    })
+  }
   switch (issue.detail_code) {
     case "capability_unsupported":
       return t("overview.issues.capabilityUnsupported")

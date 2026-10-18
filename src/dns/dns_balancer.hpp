@@ -58,6 +58,11 @@ struct DnsBalancerGroup {
     std::vector<DnsBalancerUpstream> upstreams;  // in the order they are tried
 };
 
+// What the groups resolve for, by port: the names of the lists, or this entry
+// for the default servers.
+constexpr const char* kDnsDefaultServersEntry = "default servers";
+using DnsProxyUsers = std::map<std::uint16_t, std::vector<std::string>>;
+
 // `name` is left out on purpose, see the field.
 inline bool operator==(const DnsBalancerUpstream& a, const DnsBalancerUpstream& b) {
     return a.kind == b.kind && a.ip == b.ip && a.port == b.port && a.url == b.url &&

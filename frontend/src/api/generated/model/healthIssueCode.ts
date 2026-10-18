@@ -29,4 +29,5 @@ export const HealthIssueCode = {
   group_members_failing: 'group_members_failing',
   doh_unavailable: 'doh_unavailable',
   list_not_downloaded: 'list_not_downloaded',
+  dns_server_failing: 'dns_server_failing',
 } as const;

@@ -1,8 +1,11 @@
 #pragma once
 
 #include "../api/generated/api_types.hpp"
+#include "../dns/dns_balancer.hpp"
 #include "routing_health.hpp"
 
+#include <cstdint>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -16,6 +19,27 @@ struct UndownloadedListInfo {
     std::optional<std::string> detour;
     std::string error;
 };
+
+// A DNS server of the DNS proxy that failed its last kDnsFailingStreak
+// attempts in a row.
+struct DnsServerFailure {
+    std::string tag;      // tags of the dns.servers entries, comma-joined
+    std::string address;  // "ip:port" or the DoH URL
+    std::string detour;   // outbound tag, empty for none
+    std::string reason;   // result of the last failed attempt, e.g. "timeout"
+    std::string error;    // its text
+    std::uint32_t count{0};  // failed attempts in a row
+    // Set when every server of a group the server is in fails; `entries` are
+    // then the lists (or the default servers) that group answers for.
+    bool group_down{false};
+    std::vector<std::string> entries;
+};
+
+// The servers of `stats` that keep failing, each once however many groups it
+// is in. Servers that are not usable (no DoH support, no routing mark) are
+// left out: they have warnings of their own.
+std::vector<DnsServerFailure> collect_dns_server_failures(const DnsBalancerStats& stats,
+                                                          const DnsProxyUsers& users);
 
 // Inputs of the overview health verdict. Null pointers mean "not available".
 struct HealthIssueInputs {
@@ -34,6 +58,8 @@ struct HealthIssueInputs {
     bool doh_ca_missing{false};
     // Lists with a url that are not downloaded yet and failed last time.
     std::vector<UndownloadedListInfo> undownloaded_lists;
+    // DNS servers of the DNS proxy that stopped answering.
+    std::vector<DnsServerFailure> dns_server_failures;
 };
 
 // Kernel checks (capabilities, iptables extensions, probes) that apply to

@@ -6,6 +6,7 @@
 #include "../dns/doh_support.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_counters.hpp"
+#include "../health/health_issues.hpp"
 #include "../health/host_health_warnings.hpp"
 #include "../health/routing_health.hpp"
 #include "../health/service_health.hpp"
@@ -341,6 +342,10 @@ private:
   // Deps of dnsmasq_manager_: lets its sync configure dns_balancer_.
   DnsmasqManagerDeps make_dnsmasq_deps();
   void configure_dns_forwarder(const DnsServerRegistry &registry);
+  // Options of dns_balancer_: its health callback refreshes the status stream.
+  DnsBalancerOptions make_dns_balancer_options();
+  // Servers of the DNS proxy that stopped answering, with who they answer for.
+  std::vector<DnsServerFailure> dns_server_failures();
   void schedule_dnsmasq_sync(std::string reason = "lists updated",
                              bool explicit_apply = false);
   // Starts the repeating dnsmasq TXT check (replacing a previous one) /
@@ -523,7 +528,13 @@ IcmpTester icmp_tester_;
   std::optional<CaBundle> doh_ca_bundle_{kDohBuiltIn ? detect_ca_bundle() : std::nullopt};
   // Forwarder for the lists with several DNS servers or a DoH one; the dnsmasq
   // sync configures it.  Declared before dnsmasq_manager_, whose deps point at it.
-  DnsBalancer dns_balancer_;
+  DnsBalancer dns_balancer_{make_dns_balancer_options()};
+  // Who resolves through each port of dns_balancer_; set when the dnsmasq sync
+  // configures it.
+  mutable TracedMutex dns_proxy_users_mutex_;
+  DnsProxyUsers dns_proxy_users_ GUARDED_BY(dns_proxy_users_mutex_);
+  // A status stream refresh for dns_balancer_ is already queued.
+  std::atomic<bool> dns_health_refresh_queued_{false};
   // Declared before the executor: queued sync jobs reference it, so the
   // executor must be torn down first.
   DnsmasqManager dnsmasq_manager_;

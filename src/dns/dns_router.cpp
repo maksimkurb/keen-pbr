@@ -211,6 +211,7 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
         if (plan.forwarded) distinct.emplace(plan.key, plan.upstreams);
     }
     std::map<std::string, std::string> key_address;
+    std::map<std::string, std::uint16_t> key_port;
     for (const auto& [key, upstreams] : distinct) {
         if (groups_.size() >= kDnsBalancerMaxGroups) {
             balancer_error_ = "too many different DNS server sets: at most " +
@@ -225,6 +226,7 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
             upstream.name = upstream_names[group_key({upstream})];
         }
         key_address[key] = proxy_address_ + "#" + std::to_string(group.port);
+        key_port[key] = group.port;
         groups_.push_back(std::move(group));
     }
 
@@ -239,12 +241,16 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
             }
         }
         list_targets_.emplace(list_name, std::move(targets));
+        if (plan.forwarded && key_port.count(plan.key) != 0) {
+            users_[key_port[plan.key]].push_back(list_name);
+        }
     }
     for (const auto& plan : fallback_plans) {
         if (plan.forwarded) {
             const auto address = key_address.find(plan.key);
             if (address != key_address.end()) {
                 add_target(fallback_, address->second, forwarder_note(address->second, plan.members));
+                add_unique(users_[key_port[plan.key]], kDnsDefaultServersEntry);
             }
         } else {
             for (std::size_t i = 0; i < plan.direct.addresses.size(); ++i) {

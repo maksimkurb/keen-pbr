@@ -280,3 +280,121 @@ TEST_CASE("an undownloaded list is a warning with its name, url, detour and erro
     inputs.undownloaded_lists.clear();
     CHECK(collect_health_issues(inputs).issues.empty());
 }
+
+namespace {
+
+DnsUpstreamStats dns_upstream(const std::string& ip, const std::string& name,
+                              std::uint32_t failures, bool usable = true) {
+    DnsUpstreamStats stats;
+    stats.upstream = DnsBalancerUpstream::plain(ip);
+    stats.upstream.name = name;
+    stats.usable = usable;
+    stats.consecutive_failures = failures;
+    stats.last_failure = DnsUpstreamOutcome::Timeout;
+    stats.last_error = "no answer in time";
+    return stats;
+}
+
+DnsListenerStats dns_listener(std::uint16_t port, std::vector<DnsUpstreamStats> upstreams) {
+    DnsListenerStats listener;
+    listener.port = port;
+    listener.upstreams = std::move(upstreams);
+    return listener;
+}
+
+} // namespace
+
+TEST_CASE("a DNS server that failed ten times in a row is a warning") {
+    DnsBalancerStats stats;
+    stats.listeners.push_back(dns_listener(
+        52100, {dns_upstream("192.0.2.1", "dns_a", kDnsFailingStreak),
+                dns_upstream("192.0.2.2", "dns_b", kDnsFailingStreak - 1)}));
+    const auto failures = collect_dns_server_failures(stats, {{52100, {"blocked"}}});
+    REQUIRE(failures.size() == 1);
+    CHECK(failures[0].tag == "dns_a");
+    CHECK(failures[0].reason == "timeout");
+    CHECK_FALSE(failures[0].group_down);
+    CHECK(failures[0].entries.empty());
+
+    HealthIssueInputs inputs;
+    inputs.service_running = true;
+    inputs.dns_server_failures = failures;
+    const auto response = collect_health_issues(inputs);
+    REQUIRE(response.issues.size() == 1);
+    const auto& issue = response.issues[0];
+    CHECK(issue.code == api::Code::DNS_SERVER_FAILING);
+    CHECK(issue.severity == api::Severity::WARNING);
+    CHECK(issue.title == "DNS server 'dns_a' is not answering");
+    CHECK(issue.params.at("tag") == "dns_a");
+    CHECK(issue.params.at("address") == "192.0.2.1:53");
+    CHECK(issue.params.at("reason") == "timeout");
+    CHECK(issue.params.at("count") == "10");
+    CHECK_FALSE(issue.entries.has_value());
+    REQUIRE(issue.detail.has_value());
+    CHECK(issue.detail->find("no answer in time") != std::string::npos);
+}
+
+TEST_CASE("when every server of a group fails the issue is an error naming the lists") {
+    DnsBalancerStats stats;
+    stats.listeners.push_back(dns_listener(
+        52100, {dns_upstream("192.0.2.1", "dns_a", 12), dns_upstream("192.0.2.2", "dns_b", 10)}));
+    // A server in two groups is reported once; the second group still has a working one.
+    stats.listeners.push_back(
+        dns_listener(52101, {dns_upstream("192.0.2.1", "dns_a", 12), dns_upstream("192.0.2.3", "dns_c", 0)}));
+    const DnsProxyUsers users{{52100, {"blocked", "video"}}, {52101, {kDnsDefaultServersEntry}}};
+    const auto failures = collect_dns_server_failures(stats, users);
+    REQUIRE(failures.size() == 2);
+    for (const auto& failure : failures) {
+        CHECK(failure.group_down);
+        CHECK(failure.entries == std::vector<std::string>{"blocked", "video"});
+    }
+
+    HealthIssueInputs inputs;
+    inputs.service_running = true;
+    inputs.dns_server_failures = failures;
+    const auto response = collect_health_issues(inputs);
+    REQUIRE(response.issues.size() == 2);
+    for (const auto& issue : response.issues) {
+        CHECK(issue.severity == api::Severity::ERROR);
+        REQUIRE(issue.entries.has_value());
+        CHECK(*issue.entries == std::vector<std::string>{"blocked", "video"});
+    }
+}
+
+TEST_CASE("DNS servers that cannot be used are not reported as failing") {
+    DnsBalancerStats stats;
+    stats.listeners.push_back(dns_listener(
+        52100, {dns_upstream("192.0.2.1", "dns_a", 20, false), dns_upstream("192.0.2.2", "dns_b", 20)}));
+    const auto failures = collect_dns_server_failures(stats, {});
+    REQUIRE(failures.size() == 1);
+    CHECK(failures[0].tag == "dns_b");
+    // The unusable one does not count when deciding that the whole group is down.
+    CHECK(failures[0].group_down);
+
+    DnsBalancerStats only_unusable;
+    only_unusable.listeners.push_back(dns_listener(52100, {dns_upstream("192.0.2.1", "dns_a", 20, false)}));
+    CHECK(collect_dns_server_failures(only_unusable, {}).empty());
+}
+
+TEST_CASE("several tags behind one DNS server are shown together, a detour is named") {
+    DnsServerFailure failure;
+    failure.tag = "dns_a,dns_b";
+    failure.address = "192.0.2.1:53";
+    failure.detour = "vpn";
+    failure.reason = "connection_refused";
+    failure.error = "Connection refused";
+    failure.count = 11;
+    HealthIssueInputs inputs;
+    inputs.service_running = true;
+    inputs.dns_server_failures = {failure};
+    const auto response = collect_health_issues(inputs);
+    REQUIRE(response.issues.size() == 1);
+    const auto& issue = response.issues[0];
+    CHECK(issue.title == "DNS server 'dns_a, dns_b' is not answering");
+    CHECK(issue.outbound == std::optional<std::string>("vpn"));
+    CHECK(issue.params.at("outbound") == "vpn");
+    CHECK(issue.detail->find("via vpn") != std::string::npos);
+
+    inputs.service_running = false;
+    CHECK(collect_health_issues(inputs).issues.empty());
+}
