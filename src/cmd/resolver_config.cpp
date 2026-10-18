@@ -30,6 +30,26 @@ std::string join(const std::vector<std::string>& items) {
     return out;
 }
 
+// ":5380 -> [DoH] url via vpn, [DNS] 1.1.1.1; :5381 -> ..." for the syslog.
+std::string describe_dns_proxies(const std::vector<DnsBalancerGroup>& groups) {
+    std::string out;
+    for (const auto& group : groups) {
+        std::vector<std::string> upstreams;
+        for (const auto& upstream : group.upstreams) {
+            if (upstream.kind == DnsBalancerUpstreamKind::Doh) {
+                upstreams.push_back("[DoH] " + upstream.url +
+                                    (upstream.detour.empty() ? "" : " via " + upstream.detour));
+            } else {
+                upstreams.push_back("[DNS] " + upstream.ip +
+                                    (upstream.port == 53 ? "" : "#" + std::to_string(upstream.port)));
+            }
+        }
+        if (!out.empty()) out += "; ";
+        out += ":" + std::to_string(group.port) + " -> " + join(upstreams);
+    }
+    return out;
+}
+
 void write_stamp(std::ostream& out, const std::string& hash) {
     write_dnsmasq_config_stamp(
         out, {hash, boottime_now_ms(), unix_timestamp_now_seconds()});
@@ -113,10 +133,17 @@ int run_generate_resolver_config(const std::string& resolver_type,
                  "config {}, list cache {}",
                  static_cast<long>(::getpid()), static_cast<long>(::getppid()),
                  parent_name, config_path, cache_dir);
+        if (registry.balancer_groups().empty()) {
+            log.info("generate-resolver-config: no dns proxies");
+        } else {
+            log.info("generate-resolver-config: dns proxies on {}: {}", kDnsBalancerAddress,
+                     describe_dns_proxies(registry.balancer_groups()));
+        }
         DnsmasqGenStats stats;
         const std::string hash = generator.generate(out, &stats);
-        // Runs as dnsmasq's conf-script: these lines (syslog there) are the
-        // only trace of what dnsmasq was given.
+        // Runs as dnsmasq's conf-script: the log goes to syslog there.  What
+        // each server= row points at is in the config comments, so only the
+        // proxies, problems and a summary are logged.
         if (stats.fallback.empty()) {
             // No default upstream of our own: dnsmasq also gets the servers of
             // dnsmasq-fallback.conf (appended after the hashed part).
@@ -124,9 +151,6 @@ int run_generate_resolver_config(const std::string& resolver_type,
             const std::size_t servers = write_dnsmasq_fallback_servers(out, fallback_path);
             log.info("generate-resolver-config: no default upstreams; {} server(s) from {}",
                      servers, fallback_path);
-        } else {
-            log.info("generate-resolver-config: default upstreams (no-resolv): {}",
-                     join(stats.fallback));
         }
         for (const auto& list : stats.lists) {
             if (!list.skipped.empty()) {
@@ -134,11 +158,6 @@ int run_generate_resolver_config(const std::string& resolver_type,
                          list.skipped);
                 continue;
             }
-            log.info("generate-resolver-config: list '{}' -> {} ({}): {} domains{}",
-                     list.name, join(list.servers),
-                     list.upstreams.empty() ? std::string("no upstream")
-                                            : join(list.upstreams),
-                     list.domains, list.allow_rebind ? ", rebind allowed" : "");
             if (list.url_pending) {
                 log.warn("generate-resolver-config: list '{}': its URL source is "
                          "not downloaded yet, its domains are missing from this "
