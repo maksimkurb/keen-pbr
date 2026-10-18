@@ -27,6 +27,9 @@ struct DnsTargets {
     std::vector<std::string> addresses;
     // The servers behind them: "ip", "ip#port" or the DoH URL.
     std::vector<std::string> upstreams;
+    // One per address: which servers answer there, for the comment above
+    // the `server=` rows.
+    std::vector<std::string> notes;
 };
 
 class DnsServerRegistry {

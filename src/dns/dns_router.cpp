@@ -35,6 +35,34 @@ void add_unique(std::vector<std::string>& values, std::string value) {
     }
 }
 
+// "[DoH] url" or "[DNS] address", with " via outbound" for a detour.
+std::string describe_server(const DnsServerConfig& server) {
+    std::string text = (server.is_doh() ? "[DoH] " : "[DNS] ") + upstream_label(server);
+    if (server.detour.has_value() && !server.detour->empty()) text += " via " + *server.detour;
+    return text;
+}
+
+// "dns proxy :5380 -> [DoH] url, [DNS] address" for a forwarder listener.
+std::string forwarder_note(const std::string& address, const std::vector<std::string>& members) {
+    const auto hash = address.find('#');
+    std::string text = "dns proxy :" + (hash == std::string::npos ? address : address.substr(hash + 1)) +
+                       " ->";
+    for (std::size_t i = 0; i < members.size(); ++i) {
+        text += i == 0 ? " " : ", ";
+        text += members[i];
+    }
+    return text;
+}
+
+void add_target(DnsTargets& targets, const std::string& address, std::string note) {
+    if (std::find(targets.addresses.begin(), targets.addresses.end(), address) !=
+        targets.addresses.end()) {
+        return;
+    }
+    targets.addresses.push_back(address);
+    targets.notes.push_back(std::move(note));
+}
+
 } // namespace
 
 std::string dnsmasq_server_address(const DnsServerConfig& server) {
@@ -100,6 +128,7 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config) {
     struct Plan {
         std::vector<DnsBalancerUpstream> upstreams;  // forwarder upstreams
         DnsTargets direct;                           // used when !forwarded
+        std::vector<std::string> members;            // describe_server() of each
         bool forwarded{false};
         std::string key;
     };
@@ -118,8 +147,9 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config) {
                     plan.upstreams.end()) {
                     plan.upstreams.push_back(upstream);
                 }
-                add_unique(plan.direct.addresses, upstream_label(server));
+                add_target(plan.direct, upstream_label(server), "direct -> " + describe_server(server));
                 add_unique(plan.direct.upstreams, upstream_label(server));
+                add_unique(plan.members, describe_server(server));
             }
         }
         uses_doh_ = uses_doh_ || any_doh;
@@ -146,8 +176,9 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config) {
                 plan.forwarded = true;
                 plan.key = group_key(plan.upstreams);
             }
-            plan.direct.addresses = {upstream_label(server)};
+            add_target(plan.direct, upstream_label(server), "direct -> " + describe_server(server));
             plan.direct.upstreams = {upstream_label(server)};
+            plan.members = {describe_server(server)};
             fallback_plans.push_back(std::move(plan));
         }
     }
@@ -181,16 +212,23 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config) {
         if (plan.forwarded) {
             const auto address = key_address.find(plan.key);
             targets.addresses.clear();
-            if (address != key_address.end()) targets.addresses.push_back(address->second);
+            targets.notes.clear();
+            if (address != key_address.end()) {
+                add_target(targets, address->second, forwarder_note(address->second, plan.members));
+            }
         }
         list_targets_.emplace(list_name, std::move(targets));
     }
     for (const auto& plan : fallback_plans) {
         if (plan.forwarded) {
             const auto address = key_address.find(plan.key);
-            if (address != key_address.end()) add_unique(fallback_.addresses, address->second);
+            if (address != key_address.end()) {
+                add_target(fallback_, address->second, forwarder_note(address->second, plan.members));
+            }
         } else {
-            for (const auto& address : plan.direct.addresses) add_unique(fallback_.addresses, address);
+            for (std::size_t i = 0; i < plan.direct.addresses.size(); ++i) {
+                add_target(fallback_, plan.direct.addresses[i], plan.direct.notes[i]);
+            }
         }
         for (const auto& upstream : plan.direct.upstreams) add_unique(fallback_.upstreams, upstream);
     }

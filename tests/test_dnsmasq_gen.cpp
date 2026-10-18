@@ -663,3 +663,33 @@ TEST_CASE("dnsmasq gen: more server sets than forwarder ports is an error") {
     CHECK_FALSE(registry.balancer_error().empty());
     CHECK_THROWS_AS(run_generate(cfg, {}), DnsError);
 }
+
+TEST_CASE("dnsmasq gen: a comment above the server= rows says which servers answer there") {
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{make_server("a", "8.8.8.8"),
+                                         make_doh_server("g", "https://dns.google/dns-query", "vpn"),
+                                         make_doh_server("h", "https://cloudflare-dns.com/dns-query")};
+    cfg.fallback = std::vector<std::string>{"a", "g"};
+    cfg.rules = std::vector<DnsRule>{make_multi_rule("l1", {"g", "h"}),
+                                     make_multi_rule("l2", {"a"})};
+    const auto gen = run_generate(cfg, {{"l1", make_list_cfg({"one.example"})},
+                                        {"l2", make_list_cfg({"two.example"})}});
+    const DnsServerRegistry registry(cfg);
+    const auto& fallback = registry.fallback_targets().addresses;
+    REQUIRE(fallback.size() == 2);
+    const auto& l1 = registry.list_targets("l1").addresses;
+    REQUIRE(l1.size() == 1);
+
+    const std::string port1 = fallback[1].substr(fallback[1].find('#') + 1);
+    const std::string port2 = l1[0].substr(l1[0].find('#') + 1);
+    CHECK(gen.output.find("no-resolv\n# direct -> [DNS] 8.8.8.8\nserver=8.8.8.8\n"
+                          "# dns proxy :" + port1 +
+                          " -> [DoH] https://dns.google/dns-query via vpn\nserver=" + fallback[1] +
+                          "\n") != std::string::npos);
+    CHECK(gen.output.find("# List: l1\n\n# dns proxy :" + port2 +
+                          " -> [DoH] https://dns.google/dns-query via vpn, "
+                          "[DoH] https://cloudflare-dns.com/dns-query\nserver=/one.example/" + l1[0] +
+                          "\n") != std::string::npos);
+    CHECK(gen.output.find("# List: l2\n\n# direct -> [DNS] 8.8.8.8\nserver=/two.example/8.8.8.8\n") !=
+          std::string::npos);
+}

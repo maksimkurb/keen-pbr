@@ -89,8 +89,11 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
     // local forwarder.
     const auto fallback_tags = dns_config_.fallback.value_or(std::vector<std::string>{});
     if (!fallback_tags.empty()) {
+        const DnsTargets& fallback = dns_registry_.fallback_targets();
         out << "no-resolv\n";
-        for (const auto& address : dns_registry_.fallback_targets().addresses) {
+        for (std::size_t i = 0; i < fallback.addresses.size(); ++i) {
+            const std::string& address = fallback.addresses[i];
+            if (i < fallback.notes.size()) out << "# " << fallback.notes[i] << "\n";
             out << "server=" << address << "\n";
             local_stats.fallback.push_back(address);
         }
@@ -214,7 +217,8 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
             }
 
             if (!wrote_list_header) {
-                out << "# List: " << list_name << "\n";
+                out << "# List: " << list_name << "\n\n";
+                for (const std::string& note : targets.notes) out << "# " << note << "\n";
                 wrote_list_header = true;
             }
             ++list_domains;
