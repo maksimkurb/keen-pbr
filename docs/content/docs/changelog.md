@@ -29,6 +29,12 @@ What changed in each keen-pbr release, and what to do when you upgrade.
   keen-pbr warns about missing NAT or strict `rp_filter` on balanced links, foreign fwmarks that overlap `fwmark.mask`, and missing iptables extensions. `keen-pbr status` shows the same issue list as the Web UI.
 - **Prometheus endpoint.**\
   `GET /metrics` reports probe latency, link selection, list updates, balance and interception counters. A Grafana dashboard and alert examples are included. See [REST API]({{< relref "/docs/rest-api#get-metrics" >}}).
+- **Checking the DNS servers.**\
+  The **Check** button on the **DNS servers** page asks all servers about the sites you choose and shows which do not answer and which tamper with answers: they say a site does not exist, answer with a stub address, or answer with addresses for names that do not exist. See [DNS]({{< relref "/docs/configuration/dns#check-dns-servers" >}}).
+- **Warning about a DNS server that does not answer.**\
+  If 10 requests in a row to a server got no answer or ended with an error, the status page shows a warning. See [Troubleshooting]({{< relref "/docs/troubleshooting#dns-server-not-answering" >}}).
+- **DNS proxy metrics.**\
+  `/metrics` shows the queries to the DNS proxy, the answers of the servers by result, the answer time and the servers the proxy is skipping now. The Grafana dashboard has a new DNS proxy section. See [REST API]({{< relref "/docs/rest-api#dns-proxy" >}}).
 - **Packet criteria in `keen-pbr test-routing`.**\
   The command takes protocol, ports, addresses and DSCP, and runs in the daemon, the same way as the routing test in the Web UI.
 - **The router's own traffic is left alone by default.**\
