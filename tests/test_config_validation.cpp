@@ -2418,6 +2418,8 @@ TEST_CASE("migration: the servers step follows the config version") {
     CHECK(upgraded_config_text(with_version("3.3.1", legacy)).has_value());
     // Stamped 3.4.0 by a prerelease build that still wrote `server`: converted.
     CHECK(upgraded_config_text(with_version("3.4.0", legacy)).has_value());
+    const auto prerelease = parse_config(with_version("3.4.0", legacy));
+    CHECK(prerelease.dns->rules->at(0).servers == std::vector<std::string>{"a"});
     // Written after 3.4.0: already in the current format.
     CHECK_FALSE(upgraded_config_text(with_version("3.4.1", legacy)).has_value());
     const std::string next_major = std::to_string(KEEN_PBR3_VERSION_MAJOR + 1) + ".0.0";
