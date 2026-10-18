@@ -247,7 +247,7 @@ histogram_quantile(0.99, sum by (le)
 sum by (subsystem) (increase(keen_pbr_errors_total[1h])) > 0
 ```
 
-### DNS proxy
+### DNS proxy {#dns-proxy}
 
 Metrics of the built-in DNS proxy, where dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS. When the proxy is not used, these metrics are not published. Labels:
 

@@ -247,7 +247,7 @@ histogram_quantile(0.99, sum by (le)
 sum by (subsystem) (increase(keen_pbr_errors_total[1h])) > 0
 ```
 
-### DNS-прокси
+### DNS-прокси {#dns-proxy}
 
 Метрики встроенного DNS-прокси, куда dnsmasq отправляет запросы к доменам списков с несколькими серверами или с DNS-over-HTTPS. Если прокси не используется, метрики не публикуются. Метки:
 
