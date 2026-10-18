@@ -17,7 +17,7 @@ A `urltest` or `icmptest` outbound with `"strategy": "balance"` picks one of its
 You need to set up {{< term "NAT" >}} on every provider and `rp_filter` on the system (see below).
 
 {{< callout type="info" >}}
-{{< only iptables >}} Links are picked at random with the configured probability, so over a small number of connections the shares are only approximate. The `iptables` backend needs the `xt_statistic` kernel module, and the `default_gateway` route rule field works only with `nftables`. You normally do not need to change `firewall_backend`: keen-pbr picks the backend that fits the system.
+{{< only iptables >}} Links are picked at random with the configured probability, so over a small number of connections the shares are only approximate. The `iptables` backend needs the `xt_statistic` kernel module. You normally do not need to change `firewall_backend`: keen-pbr picks the backend that fits the system.
 {{< /callout >}}
 
 ## Example

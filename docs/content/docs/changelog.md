@@ -24,7 +24,7 @@ What changed in each keen-pbr release, and what to do when you upgrade.
   A `urltest` or `icmptest` outbound with `strategy: "balance"` spreads connections across links, each with its own weight. A connection stays on the link it started on. See [Multi-WAN Load Balancing]({{< relref "/docs/configuration/multi-wan" >}}).
 - **Automatic gateway detection.**\
   An `interface` outbound can use `"gateway": "auto"`, and the default gateway can now be edited in the Web UI. See [interface]({{< relref "/docs/configuration/outbounds#interface" >}}).
-- **All internet traffic through failover or balancing.** {{< only nftables >}}\
+- **All internet traffic through failover or balancing.** {{< only openwrt debian >}}\
   The new `default_gateway` route rule condition. See [Route rules]({{< relref "/docs/configuration/route-rules#failover-or-balancing-for-all-internet-traffic" >}}).
 - **New Web UI.**\
   Compact overview, live table of current requests, request log with explained badges and filters, a diagnostics panel (kernel checks first), redesigned outbound editor, updates over a live stream instead of polling, better mobile layout, and a settings page that shows the daemon's defaults.
@@ -65,6 +65,7 @@ What changed in each keen-pbr release, and what to do when you upgrade.
 - Fixed `keen-pbr status` reporting every `urltest` and `icmptest` rule as an error.
 - The Web UI now keeps `conntrack_on_switch`, `strict_enforcement_action` and the `urltest` probe timeout when saving an outbound.
 - Fixed DNS servers with `detour` through a tunnel: queries entered the tunnel with the ISP address and got no answer. They now use the tunnel address (for servers with an IPv4 address).
+- {{< only iptables >}} Fixed routing rules that negate several addresses (`!a,b`) on iptables: such a rule used to match all traffic.
 
 ### Breaking Changes {#upgrading-from-33x}
 
