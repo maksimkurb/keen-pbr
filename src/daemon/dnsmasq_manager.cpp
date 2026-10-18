@@ -85,6 +85,7 @@ DnsmasqManager::DnsmasqManager(std::string hook_path,
     preflight_fn_ = deps.preflight ? std::move(deps.preflight)
         : DnsmasqPreflightFn([](const DnsmasqInstance& i) { return run_dnsmasq_preflight(i); });
     forwarder_ = std::move(deps.forwarder);
+    status_changed_ = std::move(deps.status_changed);
     if (!timing_.sleep) {
         timing_.sleep = [](std::chrono::milliseconds d) { std::this_thread::sleep_for(d); };
     }
@@ -118,8 +119,17 @@ DnsmasqStatus DnsmasqManager::status() const {
 }
 
 void DnsmasqManager::update_status(const std::function<void(DnsmasqStatus&)>& update) {
-    KPBR_LOCK_GUARD(status_mutex_);
-    update(status_);
+    bool changed = false;
+    {
+        KPBR_LOCK_GUARD(status_mutex_);
+        const auto mode = status_.mode;
+        const auto state = status_.state;
+        update(status_);
+        changed = status_.mode != mode || status_.state != state;
+    }
+    if (changed && status_changed_) {
+        status_changed_();
+    }
 }
 
 std::string DnsmasqManager::run_hook(const std::vector<std::string>& args) {

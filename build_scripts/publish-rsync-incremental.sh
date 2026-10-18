@@ -54,23 +54,40 @@ remote_leaf="$release_dir/$PLATFORM/$VERSION/$ARCH"
 install -d -m 700 "$HOME/.ssh"
 printf '%s\n' "$RSYNC_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_rsync"
 chmod 600 "$HOME/.ssh/id_rsync"
-ssh_options=(-i "$HOME/.ssh/id_rsync" -p "$RSYNC_PORT" -o BatchMode=yes -o StrictHostKeyChecking=accept-new)
+ssh_options=(-i "$HOME/.ssh/id_rsync" -p "$RSYNC_PORT" -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
 ssh_target="${RSYNC_USERNAME}@${RSYNC_HOST}"
 if [[ "$RSYNC_HOST" == *:* ]]; then
     rsync_target="${RSYNC_USERNAME}@[${RSYNC_HOST}]"
 else
     rsync_target="$ssh_target"
 fi
-rsync_ssh="ssh -i $HOME/.ssh/id_rsync -p $RSYNC_PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+rsync_ssh="ssh -i $HOME/.ssh/id_rsync -p $RSYNC_PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
 
-if ! ssh "${ssh_options[@]}" "$ssh_target" "test -f '$release_dir/index.html'"; then
+# ssh exits with 255 on connection failures; any other status is the remote command's own.
+ssh_retry() {
+    local attempt status=0
+    for attempt in 1 2 3; do
+        ssh "${ssh_options[@]}" "$ssh_target" "$@" && return 0 || status=$?
+        (( status == 255 )) || return "$status"
+        echo "SSH connection failed (attempt $attempt/3)" >&2
+        (( attempt == 3 )) || sleep $((attempt * 10))
+    done
+    return "$status"
+}
+
+status=0
+ssh_retry "test -f '$release_dir/index.html'" || status=$?
+if (( status == 255 )); then
+    echo "Cannot reach $ssh_target to check the release bootstrap" >&2
+    exit 1
+elif (( status != 0 )); then
     echo "Remote release bootstrap is missing: $release_dir/index.html" >&2
     echo "Publisher source SHA: $source_sha; generation: $build_number" >&2
     echo "Bootstrap and package jobs must checkout the same source commit." >&2
     exit 1
 fi
 
-ssh "${ssh_options[@]}" "$ssh_target" "mkdir -p -- '$remote_leaf'"
+ssh_retry "mkdir -p -- '$remote_leaf'"
 rsync -a --delete --delay-updates -e "$rsync_ssh" "$local_leaf/" "$rsync_target:$remote_leaf/"
 
 if [[ "$PLATFORM" == "keenetic" ]]; then

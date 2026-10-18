@@ -786,6 +786,11 @@ DnsmasqManagerDeps Daemon::make_dnsmasq_deps() {
   deps.forwarder = [this](const DnsServerRegistry &registry) {
     configure_dns_forwarder(registry);
   };
+#ifdef WITH_API
+  deps.status_changed = [this] {
+    if (status_stream_) status_stream_->reconcile(StatusUpdate::Service);
+  };
+#endif
   return deps;
 }
 

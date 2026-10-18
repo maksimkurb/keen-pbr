@@ -123,6 +123,10 @@ struct DnsmasqManagerDeps {
     // points at the forwarder listeners it names (an empty registry when
     // dnsmasq management is off).  Default: nobody listens.
     std::function<void(const DnsServerRegistry&)> forwarder;
+    // Told after status() changed its mode or sync state, outside the status
+    // lock and possibly from the worker thread (the status stream pushes it).
+    // Default: nobody listens.
+    std::function<void()> status_changed;
 };
 
 struct DnsmasqTiming {
@@ -265,6 +269,7 @@ private:
     DnsmasqCapabilityFn capability_fn_;
     DnsmasqPreflightFn preflight_fn_;
     std::function<void(const DnsServerRegistry&)> forwarder_;
+    std::function<void()> status_changed_;
     DnsmasqTiming timing_;
     std::atomic<bool> check_armed_{false};
 
