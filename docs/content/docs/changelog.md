@@ -68,13 +68,15 @@ What changed in each keen-pbr release, and what to do when you upgrade.
 
 ### Breaking Changes {#upgrading-from-33x}
 
-{{< only debian >}} **Before the upgrade.** keen-pbr 3.3.x depended on `dnsmasq`, so apt marked it as automatically installed, and `apt autoremove` may remove it. If you need dnsmasq, first run:
+**Before the upgrade.** {{< only debian >}}\
+keen-pbr 3.3.x depended on `dnsmasq`, so apt marked it as automatically installed, and `apt autoremove` may remove it. If you need dnsmasq, first run:
 
 ```bash {filename="bash"}
 sudo apt-mark manual dnsmasq
 ```
 
-{{< only openwrt keenetic >}} **Before the upgrade.** keen-pbr 3.3.x installed `dnsmasq-full` as a dependency, and opkg may remove it during the upgrade. If you need dnsmasq, first run over SSH:
+**Before the upgrade.** {{< only openwrt keenetic >}}\
+keen-pbr 3.3.x installed `dnsmasq-full` as a dependency, and opkg may remove it during the upgrade. If you need dnsmasq, first run over SSH:
 
 ```bash {filename="bash"}
 opkg flag user dnsmasq-full

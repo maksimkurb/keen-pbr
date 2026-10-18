@@ -218,7 +218,7 @@ Each link in a group:
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `outbound` | string | yes | Tag of an `interface` or `table` outbound. You do not need a tier that blocks traffic: when no link works, traffic is blocked anyway |
-| `weight` | integer 1-100 | no (default: `1`) | Link weight; in the Web UI, **Weight**. {{< only openwrt debian >}} Used only with `strategy: "balance"`: the higher the weight, the more new connections the link gets. Links with weights 7 and 3 get 70% and 30% of new connections while both work. If one link is down, its share is split among the others. Connections that are already open are not moved |
+| `weight` | integer 1-100 | no (default: `1`) | {{< only openwrt debian >}} Link weight; in the Web UI, **Weight**. Used only with `strategy: "balance"`: the higher the weight, the more new connections the link gets. Links with weights 7 and 3 get 70% and 30% of new connections while both work. If one link is down, its share is split among the others. Connections that are already open are not moved |
 
 ```json { filename="config.json" }
 "outbound_groups": [

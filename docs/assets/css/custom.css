@@ -175,3 +175,24 @@ html.dark .only-badge--keenetic {
   background: #0097dc;
   color: #fff;
 }
+
+/* `only` page front matter: line under the page title */
+.page-only {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  margin: -0.5rem 0 1.5rem;
+}
+
+.only-badges--large {
+  gap: 0.35rem;
+  vertical-align: baseline;
+}
+
+.only-badges--large .only-badge {
+  padding: 0.15rem 0.6rem;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  line-height: 1.5rem;
+}

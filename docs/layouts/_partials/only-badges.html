@@ -1,0 +1,29 @@
+{{- /*
+Renders the platform / firewall badges shared by the `only` shortcode and the
+`only` page front matter.
+
+@param {slice} keys Keys: keenetic, openwrt, debian, iptables, nftables.
+@param {bool} [large] Larger variant for page headers.
+@param {string} [where] Position used in error messages.
+*/ -}}
+{{- $labels := dict
+  "keenetic" "Keenetic/NetCraze"
+  "openwrt" "OpenWrt"
+  "debian" "Debian"
+  "iptables" "iptables"
+  "nftables" "nftables"
+-}}
+{{- $names := slice -}}
+{{- range .keys -}}
+  {{- $label := index $labels (lower .) -}}
+  {{- if not $label -}}
+    {{- errorf "only: unknown key %q in %v" . $.where -}}
+  {{- end -}}
+  {{- $names = $names | append $label -}}
+{{- end -}}
+<span class="only-badges{{ if .large }} only-badges--large{{ end }}" title="{{ i18n "onlyFor" }} {{ delimit $names ", " }}">
+  {{- range .keys -}}
+    {{- $key := lower . -}}
+    <span class="only-badge only-badge--{{ $key }}">{{ index $labels $key }}</span>
+  {{- end -}}
+</span>

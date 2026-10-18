@@ -68,13 +68,15 @@ weight: 8
 
 ### Ломающие изменения (Breaking changes) {#upgrading-from-33x}
 
-{{< only debian >}} **Перед обновлением.** keen-pbr 3.3.x зависел от `dnsmasq`, поэтому apt пометил его как установленный автоматически, и `apt autoremove` может его удалить. Если dnsmasq вам нужен, сначала выполните:
+**Перед обновлением.** {{< only debian >}}\
+keen-pbr 3.3.x зависел от `dnsmasq`, поэтому apt пометил его как установленный автоматически, и `apt autoremove` может его удалить. Если dnsmasq вам нужен, сначала выполните:
 
 ```bash {filename="bash"}
 sudo apt-mark manual dnsmasq
 ```
 
-{{< only openwrt keenetic >}} **Перед обновлением.** keen-pbr 3.3.x ставил `dnsmasq-full` как зависимость, и при обновлении opkg может его удалить. Если dnsmasq вам нужен, сначала выполните по SSH:
+**Перед обновлением.** {{< only openwrt keenetic >}}\
+keen-pbr 3.3.x ставил `dnsmasq-full` как зависимость, и при обновлении opkg может его удалить. Если dnsmasq вам нужен, сначала выполните по SSH:
 
 ```bash {filename="bash"}
 opkg flag user dnsmasq-full

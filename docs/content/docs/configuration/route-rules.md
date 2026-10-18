@@ -110,7 +110,7 @@ In the rule form in the Web UI you can add these conditions: **Lists**, **Protoc
 | `dest_port` | string | no | Only these destination ports (**Destination port**) |
 | `src_addr` | string | no | Only these source addresses: the devices or subnets the traffic comes from (**Source addresses**) |
 | `dest_addr` | string | no | Only these destination addresses (**Destination addresses**) |
-| `default_gateway` | `"ipv4"` or `"ipv6"` | no | All internet traffic that would otherwise go through the router's main gateway (except local network addresses). In the Web UI: **Rule type** > **IPv4 default gateway** / **IPv6 default gateway**. {{< only nftables >}} Put these rules last |
+| `default_gateway` | `"ipv4"` or `"ipv6"` | no | {{< only nftables >}} All internet traffic that would otherwise go through the router's main gateway (except local network addresses). In the Web UI: **Rule type** > **IPv4 default gateway** / **IPv6 default gateway**. Put these rules last |
 
 ## Failover or balancing for all internet traffic {#failover-or-balancing-for-all-internet-traffic}
 
