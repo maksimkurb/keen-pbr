@@ -26,6 +26,7 @@ export type DataTableSelection = {
   disabled?: boolean
   isSelecting?: boolean
   onStartSelecting?: () => void
+  setBarSlot?: (element: HTMLElement | null) => void
   onToggle: (rowId: string) => void
   onToggleAll: (checked: boolean) => void
   selectAllLabel?: string
@@ -79,6 +80,9 @@ export function DataTable({
   const narrowColumnSet = new Set(
     hasSelection ? narrowColumns.map((index) => index + 1) : narrowColumns
   )
+  const barActive = Boolean(
+    hasSelection && selection!.isSelecting && selection!.setBarSlot
+  )
   const visibleRowIds = hasSelection
     ? selection!.rowIds.filter((rowId) => rowId.length > 0)
     : []
@@ -89,21 +93,21 @@ export function DataTable({
   function headClass(headerIndex: number) {
     if (hasSelection && headerIndex === 0) {
       return compact
-        ? "h-8 w-px px-1.5 font-semibold whitespace-nowrap"
-        : "w-px px-2 font-semibold whitespace-nowrap"
+        ? "h-8 w-px px-1.5 text-sm font-medium whitespace-nowrap"
+        : "h-10 w-px px-2 text-sm font-medium whitespace-nowrap"
     }
 
     return headerIndex === lastColumnIndex
       ? compact
-        ? "h-8 w-px text-right font-semibold"
-        : "w-px text-right font-semibold"
+        ? "h-8 w-px text-right text-sm font-medium"
+        : "h-10 w-px text-right text-sm font-medium"
       : narrowColumnSet.has(headerIndex)
         ? compact
-          ? "h-8 w-px font-semibold whitespace-nowrap"
-          : "w-px font-semibold whitespace-nowrap"
+          ? "h-8 w-px text-sm font-medium whitespace-nowrap"
+          : "h-10 w-px text-sm font-medium whitespace-nowrap"
         : compact
-          ? "h-8 font-semibold"
-          : "font-semibold"
+          ? "h-8 text-sm font-medium"
+          : "h-10 text-sm font-medium"
   }
 
   function cellClass(cellIndex: number) {
@@ -294,38 +298,52 @@ export function DataTable({
         </div>
       ) : null}
       <div
-        className={`max-w-full overflow-x-auto rounded-md border ${mobileCards ? "hidden md:block" : ""}`}
+        className={`max-w-full overflow-x-auto rounded-xl border ${mobileCards ? "hidden md:block" : ""}`}
       >
         <Table className={compact ? "w-full text-sm" : "w-full text-base"}>
           {headersWithSelection && (
-            <TableHeader className="bg-muted/50">
+            <TableHeader>
               <TableRow>
-                {headersWithSelection.map((header, headerIndex) => (
-                  <TableHead
-                    className={headClass(headerIndex)}
-                    key={`${header}-${headerIndex}`}
-                  >
-                    {hasSelection && headerIndex === 0 ? (
-                      <div className="flex justify-center">
-                        <Checkbox
-                          aria-label={
-                            selection!.selectAllLabel ??
-                            "Select all visible rows"
-                          }
-                          checked={allVisibleSelected}
-                          disabled={
-                            selection!.disabled || visibleRowIds.length === 0
-                          }
-                          onCheckedChange={(checked) => {
-                            selection!.onToggleAll(checked === true)
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      header
-                    )}
-                  </TableHead>
-                ))}
+                {headersWithSelection.map((header, headerIndex) => {
+                  if (barActive && headerIndex > 0) {
+                    return headerIndex === 1 ? (
+                      <TableHead
+                        className="p-0 px-2"
+                        colSpan={headersWithSelection.length - 1}
+                        key="bulk-actions"
+                      >
+                        <div className="flex" ref={selection!.setBarSlot} />
+                      </TableHead>
+                    ) : null
+                  }
+
+                  return (
+                    <TableHead
+                      className={headClass(headerIndex)}
+                      key={`${header}-${headerIndex}`}
+                    >
+                      {hasSelection && headerIndex === 0 ? (
+                        <div className="flex justify-center">
+                          <Checkbox
+                            aria-label={
+                              selection!.selectAllLabel ??
+                              "Select all visible rows"
+                            }
+                            checked={allVisibleSelected}
+                            disabled={
+                              selection!.disabled || visibleRowIds.length === 0
+                            }
+                            onCheckedChange={(checked) => {
+                              selection!.onToggleAll(checked === true)
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        header
+                      )}
+                    </TableHead>
+                  )
+                })}
               </TableRow>
             </TableHeader>
           )}

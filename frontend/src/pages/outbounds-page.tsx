@@ -219,27 +219,26 @@ export function OutboundsPage() {
         />
       ) : (
         <div className="space-y-3">
-          {outboundSelection.isSelecting ? (
-            <BulkSelectionToolbar
-              selection={outboundSelection}
+          <BulkSelectionToolbar
+            active={outboundSelection.isSelecting}
+            selection={outboundSelection}
+            disabled={configMutationPending}
+            countLabel={t("pages.outbounds.bulk.selected", {
+              count: outboundSelection.selectedCount,
+            })}
+          >
+            <Button
               disabled={configMutationPending}
-              countLabel={t("pages.outbounds.bulk.selected", {
+              onClick={handleBulkDelete}
+              size="sm"
+              variant="destructive"
+            >
+              <Trash2 className="mr-1 h-4 w-4" />
+              {t("pages.outbounds.bulk.delete", {
                 count: outboundSelection.selectedCount,
               })}
-            >
-              <Button
-                disabled={configMutationPending}
-                onClick={handleBulkDelete}
-                size="sm"
-                variant="destructive"
-              >
-                <Trash2 className="mr-1 h-4 w-4" />
-                {t("pages.outbounds.bulk.delete", {
-                  count: outboundSelection.selectedCount,
-                })}
-              </Button>
-            </BulkSelectionToolbar>
-          ) : null}
+            </Button>
+          </BulkSelectionToolbar>
           <DataTable
             mobileCards={{ titleColumns: [0, 1], bodyColumns: [3, 2] }}
             headers={[
@@ -251,7 +250,10 @@ export function OutboundsPage() {
             ]}
             rows={outboundItems.map((outbound) => [
               outbound.runtimeState?.status === "healthy" ? (
-                <span key={`${outbound.id}-tag`} className="truncate font-medium">
+                <span
+                  key={`${outbound.id}-tag`}
+                  className="truncate font-medium"
+                >
                   {outbound.tag}
                 </span>
               ) : (
@@ -302,6 +304,7 @@ export function OutboundsPage() {
             selection={{
               isSelecting: outboundSelection.isSelecting,
               onStartSelecting: outboundSelection.startSelecting,
+              setBarSlot: outboundSelection.setBarSlot,
               rowIds: outboundRowIds,
               selectedIds: outboundSelection.selectedIds,
               disabled: configMutationPending,

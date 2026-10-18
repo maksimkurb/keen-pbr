@@ -38,6 +38,8 @@ export function selectVisibleIds(rowIds: Iterable<string>, selected: boolean) {
 
 export function useRowSelection(rowIds: string[]) {
   const [selectionMode, setSelectionMode] = useState(false)
+  // Header cell of the table where the bulk actions are rendered on desktop.
+  const [barSlot, setBarSlot] = useState<HTMLElement | null>(null)
   const [selectedIdsRaw, setSelectedIdsRaw] = useState<Set<string>>(
     () => new Set()
   )
@@ -47,6 +49,8 @@ export function useRowSelection(rowIds: string[]) {
   )
 
   return {
+    barSlot,
+    setBarSlot,
     selectedIds,
     isSelecting: selectionMode || selectedIds.size > 0,
     startSelecting: () => setSelectionMode(true),

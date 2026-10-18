@@ -328,46 +328,45 @@ export function ListsPage() {
         />
       ) : (
         <div className="space-y-3">
-          {listSelection.isSelecting ? (
-            <BulkSelectionToolbar
-              selection={listSelection}
-              disabled={configMutationPending}
-              countLabel={t("pages.lists.bulk.selected", {
-                count: listSelection.selectedCount,
-              })}
-            >
-              {hasRefreshableLists ? (
-                <Button
-                  disabled={
-                    refreshDisabled || selectedRefreshableLists.length === 0
-                  }
-                  onClick={() => void handleBulkRefreshSelected()}
-                  size="sm"
-                  variant="outline"
-                >
-                  <RefreshCw
-                    className={`mr-1 h-4 w-4 ${
-                      bulkRefreshRunning ? "animate-spin" : ""
-                    }`}
-                  />
-                  {t("pages.lists.bulk.refreshSelected", {
-                    count: selectedRefreshableLists.length,
-                  })}
-                </Button>
-              ) : null}
+          <BulkSelectionToolbar
+            active={listSelection.isSelecting}
+            selection={listSelection}
+            disabled={configMutationPending}
+            countLabel={t("pages.lists.bulk.selected", {
+              count: listSelection.selectedCount,
+            })}
+          >
+            {hasRefreshableLists ? (
               <Button
-                disabled={configMutationPending}
-                onClick={handleBulkDelete}
+                disabled={
+                  refreshDisabled || selectedRefreshableLists.length === 0
+                }
+                onClick={() => void handleBulkRefreshSelected()}
                 size="sm"
-                variant="destructive"
+                variant="outline"
               >
-                <Trash2 className="mr-1 h-4 w-4" />
-                {t("pages.lists.bulk.deleteSelected", {
-                  count: listSelection.selectedCount,
+                <RefreshCw
+                  className={`mr-1 h-4 w-4 ${
+                    bulkRefreshRunning ? "animate-spin" : ""
+                  }`}
+                />
+                {t("pages.lists.bulk.refreshSelected", {
+                  count: selectedRefreshableLists.length,
                 })}
               </Button>
-            </BulkSelectionToolbar>
-          ) : null}
+            ) : null}
+            <Button
+              disabled={configMutationPending}
+              onClick={handleBulkDelete}
+              size="sm"
+              variant="destructive"
+            >
+              <Trash2 className="mr-1 h-4 w-4" />
+              {t("pages.lists.bulk.deleteSelected", {
+                count: listSelection.selectedCount,
+              })}
+            </Button>
+          </BulkSelectionToolbar>
           <DataTable
             mobileCards={{
               titleColumns: [0, 1],
@@ -486,6 +485,7 @@ export function ListsPage() {
             selection={{
               isSelecting: listSelection.isSelecting,
               onStartSelecting: listSelection.startSelecting,
+              setBarSlot: listSelection.setBarSlot,
               rowIds: listRowIds,
               selectedIds: listSelection.selectedIds,
               disabled: configMutationPending,
@@ -675,7 +675,10 @@ function getDnsRuleDetails(
         ? formatListValue(rule.list, t)
         : formatTransition(rule.list, afterLists, t)
     ),
-    formatDetail(t("pages.dnsRules.headers.serverTag"), rule.servers.join(", ")),
+    formatDetail(
+      t("pages.dnsRules.headers.serverTag"),
+      rule.servers.join(", ")
+    ),
   ]
 }
 
@@ -810,9 +813,6 @@ function getListSourceLabel(draft: ListDraft, t: (key: string) => string) {
   return sources.map((source) => t(`pages.lists.source.${source}`)).join(", ")
 }
 
-function formatLastUpdatedLabel(value: string | undefined, fallback: string) {
-  if (!value) {
-    return fallback
 function formatLastUpdatedText(
   value: string | undefined,
   t: (key: string, options?: Record<string, unknown>) => string
@@ -825,6 +825,9 @@ function formatLastUpdatedText(
   })
 }
 
+function formatLastUpdatedLabel(value: string | undefined, fallback: string) {
+  if (!value) {
+    return fallback
   }
 
   const parsedDate = new Date(value)

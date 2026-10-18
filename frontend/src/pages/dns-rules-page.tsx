@@ -287,7 +287,7 @@ export function DnsRulesPage() {
       ) : resolverIntegration !== "dnsmasq" ? (
         <DnsManagementDisabled />
       ) : (
-        <>
+        <div className="space-y-3">
           <DnsServerListsAccordion
             bootstrap={bootstrap}
             bootstrapOptions={bootstrapOptions}
@@ -305,47 +305,46 @@ export function DnsRulesPage() {
             />
           ) : (
             <div className="space-y-3">
-              {ruleSelection.isSelecting ? (
-                <BulkSelectionToolbar
-                  selection={ruleSelection}
+              <BulkSelectionToolbar
+                active={ruleSelection.isSelecting}
+                selection={ruleSelection}
+                disabled={configMutationPending}
+                countLabel={t("pages.dnsRules.bulk.selected", {
+                  count: ruleSelection.selectedCount,
+                })}
+              >
+                <Button
                   disabled={configMutationPending}
-                  countLabel={t("pages.dnsRules.bulk.selected", {
+                  onClick={() => handleBulkSetEnabled(true)}
+                  size="sm"
+                  variant="outline"
+                >
+                  {t("pages.dnsRules.bulk.enable", {
                     count: ruleSelection.selectedCount,
                   })}
+                </Button>
+                <Button
+                  disabled={configMutationPending}
+                  onClick={() => handleBulkSetEnabled(false)}
+                  size="sm"
+                  variant="outline"
                 >
-                  <Button
-                    disabled={configMutationPending}
-                    onClick={() => handleBulkSetEnabled(true)}
-                    size="sm"
-                    variant="outline"
-                  >
-                    {t("pages.dnsRules.bulk.enable", {
-                      count: ruleSelection.selectedCount,
-                    })}
-                  </Button>
-                  <Button
-                    disabled={configMutationPending}
-                    onClick={() => handleBulkSetEnabled(false)}
-                    size="sm"
-                    variant="outline"
-                  >
-                    {t("pages.dnsRules.bulk.disable", {
-                      count: ruleSelection.selectedCount,
-                    })}
-                  </Button>
-                  <Button
-                    disabled={configMutationPending}
-                    onClick={handleBulkDeleteRules}
-                    size="sm"
-                    variant="destructive"
-                  >
-                    <Trash2 className="mr-1 h-4 w-4" />
-                    {t("pages.dnsRules.bulk.delete", {
-                      count: ruleSelection.selectedCount,
-                    })}
-                  </Button>
-                </BulkSelectionToolbar>
-              ) : null}
+                  {t("pages.dnsRules.bulk.disable", {
+                    count: ruleSelection.selectedCount,
+                  })}
+                </Button>
+                <Button
+                  disabled={configMutationPending}
+                  onClick={handleBulkDeleteRules}
+                  size="sm"
+                  variant="destructive"
+                >
+                  <Trash2 className="mr-1 h-4 w-4" />
+                  {t("pages.dnsRules.bulk.delete", {
+                    count: ruleSelection.selectedCount,
+                  })}
+                </Button>
+              </BulkSelectionToolbar>
               <DataTable
                 mobileCards={{
                   titleColumns: [0, 2],
@@ -427,6 +426,7 @@ export function DnsRulesPage() {
                 selection={{
                   isSelecting: ruleSelection.isSelecting,
                   onStartSelecting: ruleSelection.startSelecting,
+                  setBarSlot: ruleSelection.setBarSlot,
                   rowIds: ruleRowIds,
                   selectedIds: ruleSelection.selectedIds,
                   disabled: configMutationPending,
@@ -441,7 +441,7 @@ export function DnsRulesPage() {
               />
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   )

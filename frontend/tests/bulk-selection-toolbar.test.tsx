@@ -14,6 +14,8 @@ function renderToolbar(count: number) {
       <BulkSelectionToolbar
         countLabel={`Selected: ${count}`}
         selection={{
+          barSlot: null,
+          setBarSlot: () => {},
           selectedIds: new Set(count ? ["row"] : []),
           selectedCount: count,
           totalCount: 15,
@@ -35,24 +37,41 @@ function renderToolbar(count: number) {
   )
 }
 
-test("bulk toolbar remains present with disabled actions at zero selection", () => {
+test("mobile bar disables the actions menu at zero selection", () => {
   const html = renderToolbar(0)
   expect(html).toContain('data-testid="bulk-selection-toolbar"')
   expect(html).toContain("fixed inset-x-0 top-0")
-  expect(html).toContain("md:static")
+  expect(html).toContain("md:hidden")
   expect(html).toContain("flex-nowrap")
   expect(html).toContain('aria-label="common.selection.selectAll"')
   expect(html).toContain('aria-label="common.cancel"')
-  expect(html).toContain("contents md:block")
-  expect(html).toMatch(/<button[^>]* disabled=""[^>]*>Delete<\/button>/)
-  expect(html).toContain("common.cancel")
-  expect(html).toContain("common.selection.selectAll")
-  expect(html).toContain("common.rowActions")
+  expect(html).toContain('aria-label="common.rowActions"')
 })
 
-test("selection enables actions while preserving per-action disabled state", () => {
-  const html = renderToolbar(1)
-  expect(html).not.toMatch(/<button[^>]* disabled=""[^>]*>Delete<\/button>/)
-  expect(html).toMatch(/<button[^>]* disabled=""[^>]*>Refresh<\/button>/)
-  expect(html).toContain("hidden flex-wrap gap-2 md:flex")
+test("mobile bar is not rendered while inactive", () => {
+  const html = renderToStaticMarkup(
+    <I18nextProvider i18n={i18n}>
+      <BulkSelectionToolbar
+        active={false}
+        countLabel="Selected: 0"
+        selection={{
+          barSlot: null,
+          setBarSlot: () => {},
+          selectedIds: new Set(),
+          selectedCount: 0,
+          totalCount: 15,
+          hasSelection: false,
+          isSelecting: false,
+          allVisibleSelected: false,
+          startSelecting: () => {},
+          toggleOne: () => {},
+          setAllVisible: () => {},
+          clear: () => {},
+        }}
+      >
+        <Button onClick={() => {}}>Delete</Button>
+      </BulkSelectionToolbar>
+    </I18nextProvider>
+  )
+  expect(html).toBe("")
 })

@@ -98,9 +98,9 @@ export function RoutingDiagnosticsResult({
                     <span>{t("overview.routingDiagnostics.showAllRules")}</span>
                   </label>
 
-                  <div className="overflow-x-auto rounded-md border">
+                  <div className="overflow-x-auto rounded-xl border">
                     <Table className="min-w-[720px]">
-                      <TableHeader className="bg-muted/40">
+                      <TableHeader>
                         <TableRow>
                           <TableHead className="min-w-48 font-semibold">
                             <div>

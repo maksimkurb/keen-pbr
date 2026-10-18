@@ -359,7 +359,7 @@ function RequestsLog() {
         total={totalEvents}
       />
       <div
-        className="min-h-0 flex-1 overflow-auto rounded-md border"
+        className="min-h-0 flex-1 overflow-auto rounded-xl border"
         onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
         ref={viewportRef}
       >
@@ -398,7 +398,7 @@ function RequestsLog() {
               ))}
               <col />
             </colgroup>
-            <TableHeader className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
+            <TableHeader className="sticky top-0 z-10">
               <TableRow className="h-8 hover:bg-transparent">
                 {columns.map(({ key }) => {
                   const label = t(`requestsLog.columns.${key}`)

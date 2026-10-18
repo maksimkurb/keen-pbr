@@ -238,27 +238,26 @@ export function DnsServersPage() {
             />
           ) : (
             <div className="space-y-3">
-              {serverSelection.isSelecting ? (
-                <BulkSelectionToolbar
-                  selection={serverSelection}
+              <BulkSelectionToolbar
+                active={serverSelection.isSelecting}
+                selection={serverSelection}
+                disabled={configMutationPending}
+                countLabel={t("pages.dnsServers.bulk.selected", {
+                  count: serverSelection.selectedCount,
+                })}
+              >
+                <Button
                   disabled={configMutationPending}
-                  countLabel={t("pages.dnsServers.bulk.selected", {
+                  onClick={deleteServersBulk}
+                  size="sm"
+                  variant="destructive"
+                >
+                  <Trash2 className="mr-1 h-4 w-4" />
+                  {t("pages.dnsServers.bulk.delete", {
                     count: serverSelection.selectedCount,
                   })}
-                >
-                  <Button
-                    disabled={configMutationPending}
-                    onClick={deleteServersBulk}
-                    size="sm"
-                    variant="destructive"
-                  >
-                    <Trash2 className="mr-1 h-4 w-4" />
-                    {t("pages.dnsServers.bulk.delete", {
-                      count: serverSelection.selectedCount,
-                    })}
-                  </Button>
-                </BulkSelectionToolbar>
-              ) : null}
+                </Button>
+              </BulkSelectionToolbar>
               <DataTable
                 mobileCards={{
                   titleColumns: [0],
@@ -339,6 +338,7 @@ export function DnsServersPage() {
                 selection={{
                   isSelecting: serverSelection.isSelecting,
                   onStartSelecting: serverSelection.startSelecting,
+                  setBarSlot: serverSelection.setBarSlot,
                   rowIds: serverRowIds,
                   selectedIds: serverSelection.selectedIds,
                   disabled: configMutationPending,

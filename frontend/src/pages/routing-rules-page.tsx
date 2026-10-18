@@ -346,47 +346,46 @@ export function RoutingRulesPage() {
         />
       ) : (
         <div className="space-y-3">
-          {ruleSelection.isSelecting ? (
-            <BulkSelectionToolbar
-              selection={ruleSelection}
+          <BulkSelectionToolbar
+            active={ruleSelection.isSelecting}
+            selection={ruleSelection}
+            disabled={configMutationPending}
+            countLabel={t("pages.routingRules.bulk.selected", {
+              count: ruleSelection.selectedCount,
+            })}
+          >
+            <Button
               disabled={configMutationPending}
-              countLabel={t("pages.routingRules.bulk.selected", {
+              onClick={() => handleBulkSetEnabled(true)}
+              size="sm"
+              variant="outline"
+            >
+              {t("pages.routingRules.bulk.enable", {
                 count: ruleSelection.selectedCount,
               })}
+            </Button>
+            <Button
+              disabled={configMutationPending}
+              onClick={() => handleBulkSetEnabled(false)}
+              size="sm"
+              variant="outline"
             >
-              <Button
-                disabled={configMutationPending}
-                onClick={() => handleBulkSetEnabled(true)}
-                size="sm"
-                variant="outline"
-              >
-                {t("pages.routingRules.bulk.enable", {
-                  count: ruleSelection.selectedCount,
-                })}
-              </Button>
-              <Button
-                disabled={configMutationPending}
-                onClick={() => handleBulkSetEnabled(false)}
-                size="sm"
-                variant="outline"
-              >
-                {t("pages.routingRules.bulk.disable", {
-                  count: ruleSelection.selectedCount,
-                })}
-              </Button>
-              <Button
-                disabled={configMutationPending}
-                onClick={handleBulkDelete}
-                size="sm"
-                variant="destructive"
-              >
-                <Trash2 className="mr-1 h-4 w-4" />
-                {t("pages.routingRules.bulk.delete", {
-                  count: ruleSelection.selectedCount,
-                })}
-              </Button>
-            </BulkSelectionToolbar>
-          ) : null}
+              {t("pages.routingRules.bulk.disable", {
+                count: ruleSelection.selectedCount,
+              })}
+            </Button>
+            <Button
+              disabled={configMutationPending}
+              onClick={handleBulkDelete}
+              size="sm"
+              variant="destructive"
+            >
+              <Trash2 className="mr-1 h-4 w-4" />
+              {t("pages.routingRules.bulk.delete", {
+                count: ruleSelection.selectedCount,
+              })}
+            </Button>
+          </BulkSelectionToolbar>
           <DataTable
             mobileCards={{ titleColumns: [0, 1], bodyColumns: [3, 2] }}
             headers={[
@@ -502,6 +501,7 @@ export function RoutingRulesPage() {
             selection={{
               isSelecting: ruleSelection.isSelecting,
               onStartSelecting: ruleSelection.startSelecting,
+              setBarSlot: ruleSelection.setBarSlot,
               rowIds: ruleRowIds,
               selectedIds: ruleSelection.selectedIds,
               disabled: configMutationPending,
