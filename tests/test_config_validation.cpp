@@ -210,7 +210,7 @@ TEST_CASE("test-group balance and default gateway rules are parsed") {
     CHECK(cfg.route->rules->at(0).default_gateway == api::DefaultGateway::IPV4);
 }
 
-TEST_CASE("default gateway rejects the iptables backend while balance is accepted") {
+TEST_CASE("default gateway and balance are accepted on the iptables backend except on Keenetic") {
     const auto issues = validate_issues(R"({
       "daemon":{"firewall_backend":"iptables"},
       "outbounds":[
@@ -220,11 +220,23 @@ TEST_CASE("default gateway rejects the iptables backend while balance is accepte
       ],
       "route":{"rules":[{"default_gateway":"ipv4","outbound":"auto"}]}
     })");
-    REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "route.rules[0].default_gateway");
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+    bool has_gateway_error = false;
+    for (const auto& issue : issues) {
+        if (issue.path == "route.rules[0].default_gateway") {
+            has_gateway_error = true;
+            CHECK(issue.message == "default_gateway is not available on Keenetic");
+        }
+    }
+    CHECK(has_gateway_error);
+#else
+    for (const auto& issue : issues) {
+        CHECK(issue.path != "route.rules[0].default_gateway");
+    }
+#endif
 }
 
-TEST_CASE("auto backend resolves to iptables, accepts balance and rejects default_gateway") {
+TEST_CASE("auto backend resolving to iptables accepts balance and default_gateway") {
     SystemInfoTestGuard sys_guard;
     set_detected_firewall_backend_for_tests(FirewallBackend::iptables);
     const auto issues = validate_issues(R"({
@@ -240,13 +252,14 @@ TEST_CASE("auto backend resolves to iptables, accepts balance and rejects defaul
     bool has_gateway_error = false;
     for (const auto& issue : issues) {
         if (issue.path == "outbounds[1].strategy") has_balance_error = true;
-        if (issue.path == "route.rules[0].default_gateway" &&
-            issue.message.find("auto-detected: iptables") != std::string::npos) {
-            has_gateway_error = true;
-        }
+        if (issue.path == "route.rules[0].default_gateway") has_gateway_error = true;
     }
     CHECK_FALSE(has_balance_error);
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
     CHECK(has_gateway_error);
+#else
+    CHECK_FALSE(has_gateway_error);
+#endif
     reset_detected_firewall_backend_for_tests();
 }
 
@@ -352,11 +365,9 @@ TEST_CASE("raw PREROUTING flags never conflict with balance on nftables") {
 TEST_CASE("auto backend fallback identifies unavailable detection") {
     SystemInfoTestGuard sys_guard;
     set_host_tools_for_tests(HostTools{});
-    const auto issues = validate_issues(R"({
-      "daemon":{"firewall_backend":"auto"},
-      "outbounds":[{"type":"interface","tag":"wan","interface":"wan"}],
-      "route":{"rules":[{"default_gateway":"ipv4","outbound":"wan"}]}
-    })");
+    const auto issues = validate_issues(
+        balance_config_json(R"("daemon":{"firewall_backend":"auto"},)"),
+        ConfigValidationContext{RawPreroutingMode{true, false}});
     REQUIRE(issues.size() == 1);
     CHECK(issues[0].message.find("detection unavailable") != std::string::npos);
     reset_kernel_capabilities_for_tests();
@@ -386,25 +397,35 @@ TEST_CASE("auto backend resolves to nftables and accepts balance") {
 TEST_CASE("resolver generation skips runtime backend checks") {
     SystemInfoTestGuard sys_guard;
     set_detected_firewall_backend_for_tests(FirewallBackend::iptables);
+    // Balancing cannot work with classification in the raw table: a runtime
+    // check that resolver generation does not make.
     const auto config = parse_config(R"({
       "daemon":{"firewall_backend":"auto"},
-      "outbounds":[{"type":"interface","tag":"wan","interface":"wan"}],
+      "outbounds":[
+        {"type":"interface","tag":"wan","interface":"wan"},
+        {"type":"urltest","tag":"auto","url":"http://example.test",
+         "strategy":"balance","outbound_groups":[{"outbounds":["wan"]}]}
+      ],
       "lists":{"domains":{"domains":["example.com"]}},
       "dns":{
         "resolver_integration":"dnsmasq",
         "servers":[{"tag":"up","address":"1.1.1.1"}],
         "rules":[{"list":["domains"],"servers":["up"]}]
       },
-      "route":{"rules":[{"default_gateway":"ipv4","outbound":"wan"}]}
+      "route":{"rules":[{"outbound":"wan","dscp":10}]}
     })");
+    const ConfigValidationContext raw{RawPreroutingMode{true, false}};
 
-    CHECK_THROWS_AS(validate_config(config), ConfigValidationError);
-    CHECK_NOTHROW(validate_config(config, ConfigValidationMode::ResolverGeneration));
+    CHECK_THROWS_AS(validate_config(config, ConfigValidationMode::Runtime, raw),
+                    ConfigValidationError);
+    CHECK_NOTHROW(
+        validate_config(config, ConfigValidationMode::ResolverGeneration, raw));
 
     auto invalid_dns = config;
     invalid_dns.dns->rules->at(0).servers = {"missing"};
-    CHECK_THROWS_AS(validate_config(invalid_dns, ConfigValidationMode::ResolverGeneration),
-                    ConfigValidationError);
+    CHECK_THROWS_AS(
+        validate_config(invalid_dns, ConfigValidationMode::ResolverGeneration, raw),
+        ConfigValidationError);
 
     reset_detected_firewall_backend_for_tests();
 }

@@ -341,9 +341,14 @@ protected:
 // Return the stable config/CLI label for a concrete backend.
 const char *firewall_backend_name(FirewallBackend backend);
 
-// Check if the firewall backend supports default_gateway rules.
-inline bool firewall_backend_supports_default_gateway(FirewallBackend backend) {
-    return backend == FirewallBackend::nftables;
+// default_gateway rules work on both backends.  Keenetic is the exception: its
+// firmware manages the routing tables itself.
+inline constexpr bool firewall_supports_default_gateway() {
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+  return false;
+#else
+  return true;
+#endif
 }
 
 // Factory function to create the appropriate firewall backend.

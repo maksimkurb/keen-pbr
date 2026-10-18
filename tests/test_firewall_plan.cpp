@@ -359,12 +359,14 @@ TEST_CASE("backend validation accepts nftables-only constructs on nftables") {
   balanced.action = BalanceAction{0x100U, {{0x200U, true, true}}};
   plan.rules.push_back(balanced);
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
   auto gateway = rule("route.mark", "gateway", FirewallRuleStage::route_classification,
                       1);
   gateway.family = FirewallFamily::ipv4;
   gateway.criteria.default_gateway = DefaultGatewayFamily::Ipv4;
   gateway.action = MarkAction{0x100U, 0xFFFFFFFFU};
   plan.rules.push_back(gateway);
+#endif
 
   CHECK_NOTHROW(
       validate_firewall_plan_backend(plan, FirewallBackend::nftables));
@@ -379,6 +381,7 @@ TEST_CASE("backend validation rejects unsupported construct with stable detail")
   CHECK_NOTHROW(
       validate_firewall_plan_backend(balance_plan, FirewallBackend::iptables));
 
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
   FirewallPlan gateway_plan;
   auto gateway = rule("route.mark", "gateway", FirewallRuleStage::route_classification,
                       0);
@@ -387,7 +390,18 @@ TEST_CASE("backend validation rejects unsupported construct with stable detail")
   gateway_plan.rules.push_back(std::move(gateway));
   CHECK_THROWS_WITH(
       validate_firewall_plan_backend(gateway_plan, FirewallBackend::iptables),
-      "unsupported firewall construct: module_id=route.mark, instance_id=gateway, backend=iptables, construct=default_gateway (requires nftables)");
+      "default_gateway is not available on Keenetic");
+#else
+  FirewallPlan gateway_plan;
+  auto gateway = rule("route.mark", "gateway", FirewallRuleStage::route_classification,
+                      0);
+  gateway.family = FirewallFamily::ipv4;
+  gateway.criteria.default_gateway = DefaultGatewayFamily::Ipv4;
+  gateway.action = MarkAction{0x100U, 0xFFFFFFFFU};
+  gateway_plan.rules.push_back(std::move(gateway));
+  CHECK_NOTHROW(
+      validate_firewall_plan_backend(gateway_plan, FirewallBackend::iptables));
+#endif
 }
 
 } // namespace keen_pbr3

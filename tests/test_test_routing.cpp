@@ -388,6 +388,34 @@ TEST_CASE("compute_test_routing evaluates source CIDR and negation") {
     std::filesystem::remove_all(temp_dir);
 }
 
+TEST_CASE("compute_test_routing negated address list means none of the addresses") {
+    // The firewall lowers the same rule to one rule on an ipset (iptables) or
+    // `!= {a, b}` (nftables): a destination in either address does not match.
+    ScopedIpv6Capabilities ipv6_capabilities;
+    const auto temp_dir = make_temp_dir();
+    CacheManager cache(temp_dir / "cache");
+    cache.ensure_dir();
+
+    Config config = build_test_config();
+    RouteRule rule;
+    rule.outbound = "local";
+    rule.dest_addr = "!8.8.8.0/24,1.1.1.0/24";
+    RouteConfig route;
+    route.rules = std::vector<RouteRule>{rule};
+    config.route = route;
+
+    TestRoutingCriteria packet;
+    packet.proto = "tcp";
+    for (const char* inside : {"8.8.8.8", "1.1.1.1"}) {
+        const auto result = compute_test_routing(config, cache, inside, packet);
+        CHECK(result.entries.front().expected_outbound != "local");
+    }
+    const auto outside = compute_test_routing(config, cache, "9.9.9.9", packet);
+    CHECK(outside.entries.front().expected_outbound == "local");
+
+    std::filesystem::remove_all(temp_dir);
+}
+
 TEST_CASE("compute_test_routing treats an omitted DSCP as zero") {
     ScopedIpv6Capabilities ipv6_capabilities;
     const auto temp_dir = make_temp_dir();

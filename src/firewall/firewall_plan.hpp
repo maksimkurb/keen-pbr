@@ -20,6 +20,11 @@ struct FirewallSetDeclaration {
   std::string name;
   FirewallFamily family{FirewallFamily::ipv4};
   uint32_t timeout{0};
+  // iptables only: a small set keen-pbr fills itself (the default_gateway
+  // bypass list, a negated address list), declared with its expected entries so
+  // apply creates it and health can compare it.  List sets leave both unset.
+  bool internal{false};
+  std::vector<std::string> entries;
 };
 
 struct FirewallPlan {

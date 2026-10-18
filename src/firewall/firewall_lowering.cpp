@@ -152,17 +152,22 @@ std::vector<FirewallPhysicalClassifier> materialize_firewall_classifiers(
     const auto protocols = materialization_protocols(rule.criteria, backend);
     // iptables gets one rule per address; a positive list that covers the
     // whole family (`0.0.0.0/0`, or its halves) constrains nothing, so it
-    // stays whole and canonicalization drops it from the single rule.
+    // stays whole and canonicalization drops it from the single rule.  A
+    // negated list of several addresses cannot be split (the rules would be
+    // OR'ed and match everything): it stays whole and lowers to one rule on an
+    // ipset.
     const bool src_whole = !rule.criteria.negate_src_addr &&
                            cidrs_cover_address_family(src);
     const bool dst_whole = !rule.criteria.negate_dst_addr &&
                            cidrs_cover_address_family(dst);
+    const bool src_split = backend == FirewallBackend::iptables && !src_whole &&
+                           !(rule.criteria.negate_src_addr && src.size() > 1U);
+    const bool dst_split = backend == FirewallBackend::iptables && !dst_whole &&
+                           !(rule.criteria.negate_dst_addr && dst.size() > 1U);
     const std::size_t src_count =
-        backend == FirewallBackend::iptables && !src_whole
-            ? std::max<std::size_t>(1U, src.size()) : 1U;
+        src_split ? std::max<std::size_t>(1U, src.size()) : 1U;
     const std::size_t dst_count =
-        backend == FirewallBackend::iptables && !dst_whole
-            ? std::max<std::size_t>(1U, dst.size()) : 1U;
+        dst_split ? std::max<std::size_t>(1U, dst.size()) : 1U;
     for (const auto proto : protocols) {
       for (std::size_t src_index = 0; src_index < src_count; ++src_index) {
         for (std::size_t dst_index = 0; dst_index < dst_count; ++dst_index) {
@@ -174,13 +179,11 @@ std::vector<FirewallPhysicalClassifier> materialize_firewall_classifiers(
           physical.criteria.proto = proto;
           if (!rule.criteria.src_addr.empty()) {
             physical.criteria.src_addr =
-                backend == FirewallBackend::iptables && !src_whole
-                    ? std::vector<std::string>{src[src_index]} : src;
+                src_split ? std::vector<std::string>{src[src_index]} : src;
           }
           if (!rule.criteria.dst_addr.empty()) {
             physical.criteria.dst_addr =
-                backend == FirewallBackend::iptables && !dst_whole
-                    ? std::vector<std::string>{dst[dst_index]} : dst;
+                dst_split ? std::vector<std::string>{dst[dst_index]} : dst;
           }
 
           result.push_back(physical);
@@ -222,6 +225,34 @@ PhysicalChainId iptables_physical_chain_id(const std::string &name,
   id.family = family;
   id.name = name;
   return id;
+}
+
+std::string default_gateway_bypass_set_name(FirewallFamily family) {
+  return family == FirewallFamily::ipv6 ? "kpbr6g_bypass" : "kpbr4g_bypass";
+}
+
+bool address_list_needs_set(bool negate, const std::vector<std::string> &cidrs) {
+  return negate && cidrs.size() > 1U && !cidrs_cover_address_family(cidrs);
+}
+
+std::string negated_address_set_name(FirewallFamily family,
+                                     std::vector<std::string> cidrs) {
+  std::sort(cidrs.begin(), cidrs.end());
+  cidrs.erase(std::unique(cidrs.begin(), cidrs.end()), cidrs.end());
+  // FNV-1a 64 over the sorted list, 48 bits kept: the name is the content, so
+  // the same list in several rules is one set and a changed list a new name.
+  uint64_t hash = 14695981039346656037ULL;
+  for (const auto &cidr : cidrs) {
+    for (const unsigned char ch : cidr) {
+      hash = (hash ^ ch) * 1099511628211ULL;
+    }
+    hash = (hash ^ 0x2cU) * 1099511628211ULL;
+  }
+  char buffer[32];
+  std::snprintf(buffer, sizeof(buffer), "%s_%012llx",
+                family == FirewallFamily::ipv6 ? "kpbr6n" : "kpbr4n",
+                static_cast<unsigned long long>(hash & 0xFFFFFFFFFFFFULL));
+  return buffer;
 }
 
 std::string nft_setter_chain_name(uint32_t mark) {
@@ -686,13 +717,29 @@ void lower_iptables_classifier(const FirewallRuleInstance &rule,
   if (criteria.dst_set_name.has_value()) {
     base.push_back(SetMatch{*criteria.dst_set_name, PhysicalDir::dst, false});
   }
+  // iptables cannot negate an address list in one rule: a negated list of
+  // several addresses becomes a negated match on an ipset.
+  const auto address_match = [&](PhysicalDir dir, bool negate,
+                                 const std::vector<std::string> &cidrs)
+      -> PhysicalMatch {
+    if (address_list_needs_set(negate, cidrs)) {
+      return SetMatch{negated_address_set_name(target.family, cidrs), dir, true};
+    }
+    return AddrMatch{dir, negate, cidrs};
+  };
   if (!criteria.src_addr.empty()) {
-    base.push_back(AddrMatch{PhysicalDir::src, criteria.negate_src_addr,
-                             criteria.src_addr});
+    base.push_back(address_match(PhysicalDir::src, criteria.negate_src_addr,
+                                 criteria.src_addr));
   }
   if (!criteria.dst_addr.empty()) {
-    base.push_back(AddrMatch{PhysicalDir::dst, criteria.negate_dst_addr,
-                             criteria.dst_addr});
+    base.push_back(address_match(PhysicalDir::dst, criteria.negate_dst_addr,
+                                 criteria.dst_addr));
+  }
+  if (criteria.default_gateway != DefaultGatewayFamily::None) {
+    // Everything except the bypass list.  The set is refreshed in place when
+    // interfaces or routes change, so the rule itself stays the same.
+    base.push_back(SetMatch{default_gateway_bypass_set_name(target.family),
+                            PhysicalDir::dst, true});
   }
   if (criteria.dscp.has_value()) {
     base.push_back(DscpMatch{*criteria.dscp});
@@ -902,13 +949,49 @@ void lower_iptables_intercept(const FirewallRuleInstance &rule,
   }
 }
 
+} // namespace
+
+std::vector<DerivedAddressSet>
+iptables_derived_address_sets(const FirewallPlan &plan,
+                              const FirewallLoweringContext &context) {
+  std::vector<DerivedAddressSet> result;
+  std::set<std::string> seen;
+  const auto add = [&](std::string name, FirewallFamily family,
+                       const std::vector<std::string> &cidrs) {
+    if (seen.insert(name).second) {
+      result.push_back({std::move(name), family, cidrs});
+    }
+  };
+  const ClassifierExpander expander(plan, context);
+  for (const auto &rule : plan.rules) {
+    if (!is_classifier_action(rule.action)) continue;
+    for (const auto &classifier : expander.expand(rule)) {
+      const auto &criteria = classifier.criteria;
+      if (criteria.default_gateway != DefaultGatewayFamily::None) {
+        add(default_gateway_bypass_set_name(classifier.family),
+            classifier.family, criteria.default_gateway_bypass);
+      }
+      if (address_list_needs_set(criteria.negate_src_addr, criteria.src_addr)) {
+        add(negated_address_set_name(classifier.family, criteria.src_addr),
+            classifier.family, criteria.src_addr);
+      }
+      if (address_list_needs_set(criteria.negate_dst_addr, criteria.dst_addr)) {
+        add(negated_address_set_name(classifier.family, criteria.dst_addr),
+            classifier.family, criteria.dst_addr);
+      }
+    }
+  }
+  return result;
+}
+
+namespace {
+
 PhysicalRuleset lower_iptables(const FirewallPlan &plan,
                                const FirewallLoweringContext &context) {
   for (const auto &rule : plan.rules) {
     if (rule.criteria.default_gateway != DefaultGatewayFamily::None &&
-        !firewall_backend_supports_default_gateway(FirewallBackend::iptables)) {
-      throw FirewallError(
-          "default_gateway requires the nftables firewall backend");
+        !firewall_supports_default_gateway()) {
+      throw FirewallError("default_gateway is not available on Keenetic");
     }
   }
 

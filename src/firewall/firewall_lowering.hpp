@@ -118,6 +118,34 @@ PhysicalChainId nft_physical_chain_id(PhysicalChainRole role,
 std::string nft_setter_chain_name(uint32_t mark);
 
 // ---------------------------------------------------------------------------
+// iptables address sets derived from the plan.  iptables cannot express "none
+// of these addresses" in one rule, so the default_gateway bypass list and a
+// negated list of several addresses become a negated match on a hash:net set.
+// Names: kpbr4g_bypass / kpbr6g_bypass (one per family, contents follow the
+// interfaces and routes) and kpbr4n_<12 hex> / kpbr6n_<12 hex> (named after
+// their contents, so never changed); the backend creates and refreshes them.
+// ---------------------------------------------------------------------------
+
+struct DerivedAddressSet {
+  std::string name;
+  FirewallFamily family{FirewallFamily::ipv4};
+  std::vector<std::string> cidrs;
+};
+
+// kpbr4g_bypass / kpbr6g_bypass: destinations a default_gateway rule skips.
+std::string default_gateway_bypass_set_name(FirewallFamily family);
+// True when the list must be matched through a set (negated, 2+ addresses,
+// not covering the whole family).
+bool address_list_needs_set(bool negate, const std::vector<std::string> &cidrs);
+// kpbr4n_<hash of the sorted list>.
+std::string negated_address_set_name(FirewallFamily family,
+                                     std::vector<std::string> cidrs);
+// Every such set the lowered plan references, with its contents.
+std::vector<DerivedAddressSet>
+iptables_derived_address_sets(const FirewallPlan &plan,
+                              const FirewallLoweringContext &context);
+
+// ---------------------------------------------------------------------------
 // Classifier expansion (family / protocol / address / gateway companion).
 // Lowering builds on it.
 // ---------------------------------------------------------------------------

@@ -166,9 +166,11 @@ private:
   // Strict grammar of the static-set names keen-pbr owns.  Stable:
   // kpbr4_<tag>/kpbr6_<tag>; Temp: kpbr4t_<tag>/kpbr6t_<tag> (refresh
   // staging); Legacy: kpbr4s_/kpbr4S_/kpbr6s_/kpbr6S_<tag> (retired A/B
-  // generations).  <tag> is a list name (lowercase letters, digits, `_`,
-  // starting with a letter, at most 24 characters).
-  enum class OwnedSetKind { None, Stable, Temp, Legacy };
+  // generations); Internal: kpbr4g_*/kpbr6g_* (default_gateway bypass) and
+  // kpbr4n_*/kpbr6n_* (negated address lists), including their `_new` refresh
+  // staging.  <tag> is a list name (lowercase letters, digits, `_`, starting
+  // with a letter, at most 24 characters).
+  enum class OwnedSetKind { None, Stable, Temp, Legacy, Internal };
   static OwnedSetKind classify_owned_static_set(const std::string &name);
   // Staging name of a stable static set; nullopt for any other name.
   static std::optional<std::string> temp_set_name(const std::string &stable);
@@ -182,7 +184,8 @@ private:
   // Destroys owned static sets in `live` that the new rules no longer
   // reference (everything but the stable names in `keep`).
   void destroy_unreferenced_static_sets(const std::set<std::string> &live,
-                                        const std::set<std::string> &keep);
+                                        const std::set<std::string> &keep,
+                                        bool internal_only = false);
   static bool dynamic_set_schema_compatible(const std::string &saved_sets,
                                             const PendingSet &expected);
   std::optional<std::string>

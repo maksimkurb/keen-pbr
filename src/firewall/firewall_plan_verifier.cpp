@@ -2,7 +2,12 @@
 
 #include "../util/format_compat.hpp"
 
+#include <arpa/inet.h>
+
 #include <algorithm>
+#include <cstring>
+#include <set>
+#include <sstream>
 #include <cstddef>
 #include <optional>
 #include <string>
@@ -636,6 +641,125 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
         }
     }
     return report.finish();
+}
+
+namespace {
+
+// An entry as `ipset save` prints it: host bits cleared, /32 and /128 dropped,
+// IPv6 in the compressed form.  Unparseable text is kept as written.
+std::string normalize_ipset_entry(const std::string& entry) {
+    const auto slash = entry.find('/');
+    const std::string address = entry.substr(0, slash);
+    int prefix = -1;
+    if (slash != std::string::npos) {
+        try {
+            prefix = std::stoi(entry.substr(slash + 1));
+        } catch (...) {
+            return entry;
+        }
+    }
+    unsigned char bytes[16] = {0};
+    const bool v6 = address.find(':') != std::string::npos;
+    if (inet_pton(v6 ? AF_INET6 : AF_INET, address.c_str(), bytes) != 1) {
+        return entry;
+    }
+    const int bits = v6 ? 128 : 32;
+    if (prefix < 0 || prefix > bits) prefix = bits;
+    for (int bit = prefix; bit < bits; ++bit) {
+        bytes[bit / 8] &= static_cast<unsigned char>(~(0x80U >> (bit % 8)));
+    }
+    char text[INET6_ADDRSTRLEN] = {0};
+    inet_ntop(v6 ? AF_INET6 : AF_INET, bytes, text, sizeof(text));
+    std::string result = text;
+    if (prefix != bits) result += "/" + std::to_string(prefix);
+    return result;
+}
+
+std::string summarize_entries(const char* what, const std::vector<std::string>& entries) {
+    constexpr std::size_t kShown = 5;
+    std::string result;
+    for (std::size_t i = 0; i < entries.size() && i < kShown; ++i) {
+        if (!result.empty()) result += ", ";
+        result += std::string(what) + " " + entries[i];
+    }
+    if (entries.size() > kShown) {
+        result += keen_pbr3::format(" and {} more {}", entries.size() - kShown, what);
+    }
+    return result;
+}
+
+} // namespace
+
+std::vector<FirewallRuleCheck> verify_internal_ipsets(
+    const FirewallPlan& plan, bool ipv6, const CommandRunner& runner) {
+    std::vector<FirewallRuleCheck> checks;
+    for (const auto& declaration : plan.sets) {
+        if (!declaration.internal ||
+            (declaration.family == FirewallFamily::ipv6 && !ipv6)) {
+            continue;
+        }
+        FirewallRuleCheck check;
+        // Reported as "ipset kpbr4g_bypass: missing 192.168.1.0/24".
+        check.set_name = "ipset " + declaration.name;
+        check.action = "ipset";
+        const auto result = runner({"ipset", "save", declaration.name});
+        if (result.exit_code != 0 || result.truncated) {
+            check.status = CheckStatus::missing;
+            check.detail = "missing";
+            checks.push_back(std::move(check));
+            continue;
+        }
+
+        const std::string want_family =
+            declaration.family == FirewallFamily::ipv6 ? "inet6" : "inet";
+        bool type_ok = false;
+        std::set<std::string> actual;
+        std::istringstream lines(result.stdout_output);
+        std::string line;
+        while (std::getline(lines, line)) {
+            std::istringstream tokens(line);
+            std::string verb, name, value;
+            tokens >> verb >> name >> value;
+            if (name != declaration.name) continue;
+            if (verb == "create") {
+                std::string word, family;
+                while (tokens >> word) {
+                    if (word == "family") tokens >> family;
+                }
+                type_ok = value == "hash:net" && family == want_family;
+            } else if (verb == "add") {
+                actual.insert(normalize_ipset_entry(value));
+            }
+        }
+        if (!type_ok) {
+            check.status = CheckStatus::mismatch;
+            check.detail = "not a hash:net set of family " + want_family;
+            checks.push_back(std::move(check));
+            continue;
+        }
+
+        std::set<std::string> expected;
+        for (const auto& entry : declaration.entries) {
+            expected.insert(normalize_ipset_entry(entry));
+        }
+        std::vector<std::string> missing;
+        std::vector<std::string> extra;
+        std::set_difference(expected.begin(), expected.end(), actual.begin(),
+                            actual.end(), std::back_inserter(missing));
+        std::set_difference(actual.begin(), actual.end(), expected.begin(),
+                            expected.end(), std::back_inserter(extra));
+        if (missing.empty() && extra.empty()) {
+            check.status = CheckStatus::ok;
+            check.detail = "ok";
+        } else {
+            check.status = CheckStatus::mismatch;
+            check.detail = summarize_entries("missing", missing);
+            if (!missing.empty() && !extra.empty()) check.detail += ", ";
+            check.detail += summarize_entries("unexpected", extra);
+        }
+        checks.push_back(std::move(check));
+    }
+    return checks;
 }
 
 } // namespace keen_pbr3

@@ -1161,4 +1161,68 @@ TEST_CASE("verifier: catch-all destinations are not drift on either backend") {
 }
 #endif
 
+TEST_CASE("internal ipsets: existence, type and entries are compared") {
+  FirewallPlan plan;
+  FirewallSetDeclaration bypass;
+  bypass.name = "kpbr4g_bypass";
+  bypass.family = FirewallFamily::ipv4;
+  bypass.internal = true;
+  bypass.entries = {"10.0.0.0/8", "192.168.1.5/24", "203.0.113.7/32"};
+  plan.sets.push_back(bypass);
+  FirewallSetDeclaration list_set;  // list sets are not checked
+  list_set.name = "kpbr4_remote";
+  plan.sets.push_back(list_set);
+  FirewallSetDeclaration v6 = bypass;
+  v6.name = "kpbr6g_bypass";
+  v6.family = FirewallFamily::ipv6;
+  v6.entries = {"fe80::/10"};
+  plan.sets.push_back(v6);
+
+  const auto runner_for = [](std::string output, int code = 0) {
+    return CommandRunner([output, code](const std::vector<std::string>& args) {
+      CommandResult result;
+      result.exit_code = args.size() == 3 && args[1] == "save" ? code : 1;
+      result.stdout_output = output;
+      return result;
+    });
+  };
+  const std::string good =
+      "create kpbr4g_bypass hash:net family inet hashsize 1024 maxelem 65536\n"
+      "add kpbr4g_bypass 10.0.0.0/8\n"
+      "add kpbr4g_bypass 192.168.1.0/24\n"
+      "add kpbr4g_bypass 203.0.113.7\n";
+
+  SUBCASE("equal contents are fine; IPv6 sets are skipped when IPv6 is off") {
+    const auto checks = verify_internal_ipsets(plan, false, runner_for(good));
+    REQUIRE(checks.size() == 1);
+    CHECK(checks[0].status == CheckStatus::ok);
+  }
+  SUBCASE("a missing set") {
+    const auto checks =
+        verify_internal_ipsets(plan, false, runner_for("", 1));
+    REQUIRE(checks.size() == 1);
+    CHECK(checks[0].status == CheckStatus::missing);
+    CHECK(checks[0].set_name == "ipset kpbr4g_bypass");
+  }
+  SUBCASE("missing and unexpected entries are named") {
+    const auto checks = verify_internal_ipsets(
+        plan, false,
+        runner_for("create kpbr4g_bypass hash:net family inet\n"
+                   "add kpbr4g_bypass 10.0.0.0/8\n"
+                   "add kpbr4g_bypass 198.51.100.0/24\n"));
+    REQUIRE(checks.size() == 1);
+    CHECK(checks[0].status == CheckStatus::mismatch);
+    CHECK(checks[0].detail.find("missing 192.168.1.0/24") != std::string::npos);
+    CHECK(checks[0].detail.find("unexpected 198.51.100.0/24") !=
+          std::string::npos);
+  }
+  SUBCASE("the wrong family or type") {
+    const auto checks = verify_internal_ipsets(
+        plan, false,
+        runner_for("create kpbr4g_bypass hash:ip family inet\n"));
+    REQUIRE(checks.size() == 1);
+    CHECK(checks[0].status == CheckStatus::mismatch);
+  }
+}
+
 } // namespace keen_pbr3

@@ -33,4 +33,12 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
     const FirewallPlan& plan, const PhysicalRuleset& expected,
     const FirewallSnapshot& snapshot);
 
+// iptables: compares the small internal address sets of the plan (the
+// default_gateway bypass list, negated address lists) with the kernel: set
+// exists, hash:net of the right family, entries equal to the expected ones.
+// List sets are not checked (they are big).  One check per set; IPv6 sets are
+// skipped unless `ipv6`.
+std::vector<FirewallRuleCheck> verify_internal_ipsets(
+    const FirewallPlan& plan, bool ipv6, const CommandRunner& runner);
+
 } // namespace keen_pbr3

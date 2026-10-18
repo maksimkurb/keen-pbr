@@ -645,6 +645,41 @@ TEST_CASE("runtime captures OUTPUT default-gateway bypass criteria") {
                   criteria.default_gateway_bypass.end(), "default") ==
         criteria.default_gateway_bypass.end());
 }
+
+TEST_CASE("iptables plan declares the internal address sets with their entries") {
+  const Config config = parse_config(R"({
+    "daemon": {"firewall_backend":"iptables","ipv6_enabled":false},
+    "outbounds": [{"type":"table","tag":"wan","table":100}],
+    "route": {"rules": [
+      {"default_gateway":"ipv4","outbound":"wan"},
+      {"dest_addr":"!8.8.8.0/24,1.1.1.0/24","outbound":"wan"}
+    ]}
+  })");
+  RecordingFirewall firewall;
+  firewall.backend_type = FirewallBackend::iptables;
+  CacheManager cache("/tmp/keen-pbr-firewall-runtime-internal-sets-test-cache");
+  const std::vector<DumpedRoute> main_routes = {
+      {"192.0.2.0/24", 254, {}, {}, false, false, AF_INET}};
+
+  const auto active = apply_runtime_firewall(
+      config, {{"wan", 0x100U}}, cache, firewall,
+      FirewallApplyMode::PreserveSets, nullptr, false, main_routes, {});
+
+  std::size_t internal = 0;
+  for (const auto &set : active.plan.sets) {
+    if (!set.internal) continue;
+    ++internal;
+    if (set.name == "kpbr4g_bypass") {
+      CHECK(std::find(set.entries.begin(), set.entries.end(), "192.0.2.0/24") !=
+            set.entries.end());
+    } else {
+      CHECK(set.name.rfind("kpbr4n_", 0) == 0);
+      CHECK(set.entries.size() == 2);
+    }
+  }
+  CHECK(internal == 2);
+  CHECK(active.result.has_physical_set("kpbr4g_bypass"));
+}
 #endif
 
 #ifndef KEEN_PBR_PLATFORM_KEENETIC
@@ -738,6 +773,8 @@ TEST_CASE("runtime passes balance fallback and candidates to the firewall") {
 }
 #endif
 
+// default_gateway is unsupported only on Keenetic; the plan is rejected there.
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("mixed nftables-only plan fails before backend mutation") {
   const Config config = parse_config(R"({
     "daemon": {"ipv6_enabled": false},
@@ -768,6 +805,7 @@ TEST_CASE("mixed nftables-only plan fails before backend mutation") {
   CHECK(firewall.fwmark_mask() == 0xFFFFFFFFU);
   CHECK_FALSE(firewall.clear_dynamic_sets_on_apply());
 }
+#endif
 
 TEST_CASE("RulesOnly validates deferred list-backed actions before preparation") {
   const Config config = parse_config(R"({
@@ -793,6 +831,8 @@ TEST_CASE("RulesOnly validates deferred list-backed actions before preparation")
   CHECK(firewall.calls.empty());
 }
 
+// default_gateway is unsupported only on Keenetic; the plan is rejected there.
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("RulesOnly rejects list-backed default gateway with an empty active plan") {
   const Config previous_config = empty_inline_list_config();
   const Config config = parse_config(R"({
@@ -821,6 +861,7 @@ TEST_CASE("RulesOnly rejects list-backed default gateway with an empty active pl
   CHECK(firewall.calls.empty());
   CHECK(firewall.prepared_modes.empty());
 }
+#endif
 
 TEST_CASE("runtime emits DNS detours as OUTPUT TCP/UDP rules") {
   const Config config = parse_config(R"({
@@ -1293,6 +1334,8 @@ TEST_CASE("successful apply returns consistent plan, result and rule states") {
   CHECK(active.result.has_physical_set("kpbr4_remote"));
 }
 
+// default_gateway is unsupported only on Keenetic; the plan is rejected there.
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("preparation failure keeps the previous active firewall") {
   // A list-backed default gateway cannot be planned for iptables from an empty
   // active plan; planning fails before the backend is touched.
@@ -1323,6 +1366,7 @@ TEST_CASE("preparation failure keeps the previous active firewall") {
   CHECK(firewall.calls.empty());
   CHECK(state.active_firewall() == before);
 }
+#endif
 
 TEST_CASE("RulesOnly with a matching previous result stays RulesOnly") {
   const Config config = valid_inline_list_config();

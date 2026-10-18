@@ -1737,6 +1737,13 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
             add_issue(issues, "daemon.firewall_backend",
                       "Keenetic supports only the iptables firewall backend");
         }
+        // NDM manages the routing tables itself and is not raced here.
+        for (size_t i = 0; i < route_rules.size(); ++i) {
+            if (route_rules[i].default_gateway.has_value()) {
+                add_issue(issues, json_index_path("route.rules", i) + ".default_gateway",
+                          "default_gateway is not available on Keenetic");
+            }
+        }
 #endif
 
         if (effective_backend == FirewallBackend::iptables) {
@@ -1765,12 +1772,6 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
 
             for (size_t i = 0; i < route_rules.size(); ++i) {
                 const auto& rule = route_rules[i];
-                if (rule.default_gateway.has_value() &&
-                    !firewall_backend_supports_default_gateway(effective_backend)) {
-                    add_issue(issues, json_index_path("route.rules", i) + ".default_gateway",
-                              "default_gateway requires the nftables firewall backend" +
-                                  backend_note);
-                }
                 if (!route_rule_uses_unsupported_iptables_multiport_combo(rule)) {
                     continue;
                 }

@@ -1,5 +1,6 @@
 #include "firewall_runtime.hpp"
 #include "firewall_physical.hpp"
+#include "firewall_lowering.hpp"
 #include "firewall_rule_modules.hpp"
 
 #include "../config/config_defaults.hpp"
@@ -258,6 +259,22 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
   }
 
   registrar.finish();
+  if (inputs.backend == FirewallBackend::iptables) {
+    // iptables cannot negate an address list in one rule: the default_gateway
+    // bypass list and negated address lists are small sets of their own.
+    FirewallLoweringContext lowering;
+    lowering.backend = inputs.backend;
+    lowering.ipv6_enabled = inputs.ipv6_enabled;
+    lowering.fwmark_mask = inputs.fwmark_mask;
+    for (auto& derived : iptables_derived_address_sets(plan, lowering)) {
+      FirewallSetDeclaration declaration;
+      declaration.name = std::move(derived.name);
+      declaration.family = derived.family;
+      declaration.internal = true;
+      declaration.entries = std::move(derived.cidrs);
+      plan.sets.push_back(std::move(declaration));
+    }
+  }
   return plan;
 }
 
@@ -346,7 +363,9 @@ ActiveFirewall apply_runtime_firewall(
     // sets still exist in the kernel.
     if (mode == FirewallApplyMode::RulesOnly && previous_active != nullptr) {
       for (const auto& declaration : plan.sets) {
-        if (!previous_active->result.has_physical_set(
+        // Internal address sets are rebuilt by every apply.
+        if (!declaration.internal &&
+            !previous_active->result.has_physical_set(
                 firewall.physical_set_name(declaration.name))) {
           throw FirewallRulesOnlyError(
               "active firewall plan does not contain set " + declaration.name);

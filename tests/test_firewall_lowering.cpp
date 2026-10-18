@@ -269,7 +269,8 @@ TEST_CASE("lowering iptables: mark, drop and pass shapes") {
     CHECK(std::get<SetMarkStmt>(gen_a(wide, Fam::ipv4).rules[0].statements[0])
               .mask == (kMask | 0x1000001u));
   }
-  SUBCASE("default gateway is nft only") {
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+  SUBCASE("default gateway is not available on Keenetic") {
     FirewallRuleCriteria gateway;
     gateway.default_gateway = DefaultGatewayFamily::Ipv4;
     CHECK_THROWS_AS(lower_firewall_plan(
@@ -277,7 +278,167 @@ TEST_CASE("lowering iptables: mark, drop and pass shapes") {
                         ipt_context()),
                     FirewallError);
   }
+#endif
 }
+
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
+TEST_CASE("lowering iptables: default_gateway matches everything outside the bypass set") {
+  FirewallRuleCriteria gateway;
+  gateway.default_gateway = DefaultGatewayFamily::Ipv4;
+  gateway.default_gateway_bypass = {"192.168.0.0/16", "10.0.0.0/8"};
+  const auto plan = plan_of({mark_rule("g", Fam::ipv4, gateway)});
+  const auto set = lower_firewall_plan(plan, ipt_context());
+
+  const PhysicalMatch bypass =
+      SetMatch{"kpbr4g_bypass", PhysicalDir::dst, true};
+  for (const auto *chain : {&gen_a(set, Fam::ipv4), &out_chain(set, Fam::ipv4)}) {
+    REQUIRE(chain->rules.size() >= 1);
+    CHECK(has_match(chain->rules[0], bypass));
+    CHECK(find_match<AddrMatch>(chain->rules[0]) == nullptr);
+  }
+  // The IPv6 chains stay empty: the rule is IPv4 only.
+  CHECK(gen_a(set, Fam::ipv6).rules.empty());
+  CHECK(render_iptables_rule(gen_a(set, Fam::ipv4).rules[0], "KeenPbrTable") ==
+        "-A KeenPbrTable -m set ! --match-set kpbr4g_bypass dst -m comment "
+        "--comment kpbr:v1:route.mark:g -j MARK --set-xmark "
+        "0x10000/0xff0000\n");
+
+  SUBCASE("the backend gets the bypass list as a derived set") {
+    const auto sets = iptables_derived_address_sets(plan, ipt_context());
+    REQUIRE(sets.size() == 1);
+    CHECK(sets[0].name == "kpbr4g_bypass");
+    CHECK(sets[0].family == Fam::ipv4);
+    CHECK(sets[0].cidrs ==
+          std::vector<std::string>{"192.168.0.0/16", "10.0.0.0/8"});
+  }
+  SUBCASE("a changed bypass list changes the set, not the rules") {
+    auto changed = plan;
+    changed.rules[0].criteria.default_gateway_bypass = {"172.16.0.0/12"};
+    const auto other = lower_firewall_plan(changed, ipt_context());
+    CHECK(other == set);
+    CHECK(iptables_derived_address_sets(changed, ipt_context())[0].cidrs ==
+          std::vector<std::string>{"172.16.0.0/12"});
+  }
+  SUBCASE("an empty bypass list keeps the rule shape") {
+    auto empty = plan;
+    empty.rules[0].criteria.default_gateway_bypass.clear();
+    CHECK(lower_firewall_plan(empty, ipt_context()) == set);
+  }
+  SUBCASE("it round-trips through iptables-save") {
+    std::string text = "*mangle\n";
+    const auto &rules = gen_a(set, Fam::ipv4).rules;
+    for (const auto &rule : rules) {
+      text += render_iptables_rule(rule, "KeenPbrTable");
+    }
+    const auto parsed = parse_iptables_save(text, Fam::ipv4);
+    const PhysicalChain *chain = nullptr;
+    for (const auto &candidate : parsed.chains) {
+      if (candidate.id.name == "KeenPbrTable") chain = &candidate;
+    }
+    REQUIRE(chain != nullptr);
+    REQUIRE(chain->rules.size() == rules.size());
+    for (std::size_t i = 0; i < rules.size(); ++i) {
+      CHECK(chain->rules[i] == rules[i]);
+    }
+  }
+}
+
+TEST_CASE("lowering iptables: default_gateway for IPv6, with balance and several inbound interfaces") {
+  FirewallRuleCriteria gateway;
+  gateway.default_gateway = DefaultGatewayFamily::Ipv6;
+  gateway.default_gateway_bypass = {"fe80::/10"};
+  auto plan = prefilter_plan(true, {"br0", "br1"});
+  plan.rules.push_back(make_rule(
+      "route.balance", "g", Fam::ipv6, gateway,
+      BalanceAction{0, {{kMark1, false, true, 1}, {kMark2, false, true, 1}}}));
+  const auto set = lower_firewall_plan(plan, ipt_context());
+  const auto &rules = gen_a(set, Fam::ipv6).rules;
+  std::size_t gateway_rules = 0;
+  for (const auto &rule : rules) {
+    if (has_match(rule, SetMatch{"kpbr6g_bypass", PhysicalDir::dst, true})) {
+      ++gateway_rules;
+    }
+  }
+  // Two cascade steps (the first picks with a probability).
+  CHECK(gateway_rules >= 2);
+}
+
+TEST_CASE("lowering iptables: a negated list of several addresses is one rule on a set") {
+  FirewallRuleCriteria criteria;
+  criteria.dst_addr = {"8.8.8.0/24", "1.1.1.0/24"};
+  criteria.negate_dst_addr = true;
+  const auto plan = plan_of({mark_rule("n", Fam::ipv4, criteria)});
+  const auto set = lower_firewall_plan(plan, ipt_context());
+  const auto &rules = gen_a(set, Fam::ipv4).rules;
+  REQUIRE(rules.size() == 2);  // the mark rule and its RETURN companion
+  const auto *match = find_match<SetMatch>(rules[0]);
+  REQUIRE(match != nullptr);
+  CHECK(match->negate);
+  CHECK(match->dir == PhysicalDir::dst);
+  CHECK(match->name.rfind("kpbr4n_", 0) == 0);
+  CHECK(find_match<AddrMatch>(rules[0]) == nullptr);
+
+  const auto sets = iptables_derived_address_sets(plan, ipt_context());
+  REQUIRE(sets.size() == 1);
+  CHECK(sets[0].name == match->name);
+
+  SUBCASE("the set name does not depend on the order of the addresses") {
+    auto reversed = criteria;
+    reversed.dst_addr = {"1.1.1.0/24", "8.8.8.0/24"};
+    CHECK(negated_address_set_name(Fam::ipv4, reversed.dst_addr) == match->name);
+    CHECK(negated_address_set_name(Fam::ipv6, reversed.dst_addr) != match->name);
+    CHECK(negated_address_set_name(Fam::ipv4, {"1.1.1.0/24"}) != match->name);
+  }
+  SUBCASE("a negated source list works the same way") {
+    FirewallRuleCriteria src;
+    src.src_addr = {"192.168.1.0/24", "10.0.0.0/8"};
+    src.negate_src_addr = true;
+    const auto lowered = lower_firewall_plan(
+        plan_of({mark_rule("s", Fam::ipv4, src)}), ipt_context());
+    const auto *source = find_match<SetMatch>(gen_a(lowered, Fam::ipv4).rules[0]);
+    REQUIRE(source != nullptr);
+    CHECK(source->dir == PhysicalDir::src);
+    CHECK(source->negate);
+  }
+  SUBCASE("one negated address stays a plain ! -d match") {
+    FirewallRuleCriteria single;
+    single.dst_addr = {"8.8.8.0/24"};
+    single.negate_dst_addr = true;
+    const auto lowered = lower_firewall_plan(
+        plan_of({mark_rule("one", Fam::ipv4, single)}), ipt_context());
+    CHECK(has_match(gen_a(lowered, Fam::ipv4).rules[0],
+                    AddrMatch{PhysicalDir::dst, true, {"8.8.8.0/24"}}));
+    CHECK(iptables_derived_address_sets(
+              plan_of({mark_rule("one", Fam::ipv4, single)}), ipt_context())
+              .empty());
+  }
+  SUBCASE("a positive list is still one rule per address") {
+    FirewallRuleCriteria positive;
+    positive.dst_addr = {"8.8.8.0/24", "1.1.1.0/24"};
+    const auto lowered = lower_firewall_plan(
+        plan_of({mark_rule("p", Fam::ipv4, positive)}), ipt_context());
+    CHECK(gen_a(lowered, Fam::ipv4).rules.size() == 4);
+  }
+  SUBCASE("it round-trips through iptables-save") {
+    std::string text = "*mangle\n";
+    for (const auto &rule : rules) {
+      text += render_iptables_rule(rule, "KeenPbrTable");
+    }
+    CHECK(text.find("-m set ! --match-set " + match->name + " dst") !=
+          std::string::npos);
+    const auto parsed = parse_iptables_save(text, Fam::ipv4);
+    const PhysicalChain *chain = nullptr;
+    for (const auto &candidate : parsed.chains) {
+      if (candidate.id.name == "KeenPbrTable") chain = &candidate;
+    }
+    REQUIRE(chain != nullptr);
+    REQUIRE(chain->rules.size() == rules.size());
+    for (std::size_t i = 0; i < rules.size(); ++i) {
+      CHECK(chain->rules[i] == rules[i]);
+    }
+  }
+}
+#endif
 
 TEST_CASE("lowering iptables: prefilters") {
   SUBCASE("mangle chain: restore pair, dnat, skip marked, single inbound") {

@@ -104,13 +104,22 @@ RoutingHealthReport build_routing_health_report(
                     "active firewall has no expected ruleset");
             }
             const PhysicalRuleset& expected = *active->result.expected_ruleset;
+            const bool uses_ipv6 = firewall_expected_uses_ipv6(expected);
+            std::vector<FirewallRuleCheck> ipset_checks;
+            if (firewall_backend == FirewallBackend::iptables) {
+                // The small internal address sets; list sets are big and are
+                // left alone.
+                ipset_checks =
+                    verify_internal_ipsets(active->plan, uses_ipv6, runner);
+            }
             auto inspector = create_firewall_snapshot_inspector(
                 firewall_backend, raw_prerouting, std::move(runner));
-            const auto snapshot =
-                inspector->inspect(firewall_expected_uses_ipv6(expected));
+            const auto snapshot = inspector->inspect(uses_ipv6);
             report.firewall_chain = firewall_chain_from_snapshot(snapshot);
             report.firewall_rules =
                 verify_firewall_plan(active->plan, expected, snapshot);
+            report.firewall_rules.insert(report.firewall_rules.end(),
+                                         ipset_checks.begin(), ipset_checks.end());
         }
 
         // 2. Create routing verifier

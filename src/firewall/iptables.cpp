@@ -341,6 +341,19 @@ IptablesFirewall::classify_owned_static_set(const std::string &name) {
       (name[4] != '4' && name[4] != '6')) {
     return OwnedSetKind::None;
   }
+  // "kpbr" <4|6> <g | n> "_" <tag>: internal address sets (and their `_new`
+  // staging).
+  if ((name[5] == 'g' || name[5] == 'n') && name[6] == '_') {
+    const std::size_t length = name.size() - 7;
+    if (length == 0 || length > 24) return OwnedSetKind::None;
+    for (std::size_t i = 7; i < name.size(); ++i) {
+      const char c = name[i];
+      if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) {
+        return OwnedSetKind::None;
+      }
+    }
+    return OwnedSetKind::Internal;
+  }
   OwnedSetKind kind;
   switch (name[5]) {
   case '_': kind = OwnedSetKind::Stable; break;
@@ -369,7 +382,14 @@ IptablesFirewall::classify_owned_static_set(const std::string &name) {
 
 std::optional<std::string>
 IptablesFirewall::temp_set_name(const std::string &stable) {
-  if (classify_owned_static_set(stable) != OwnedSetKind::Stable) {
+  const OwnedSetKind kind = classify_owned_static_set(stable);
+  if (kind == OwnedSetKind::Internal) {
+    // The staging name is itself internal, so a leftover is swept as an
+    // orphan.
+    return stable.size() + 4 > 31 ? std::nullopt
+                                  : std::optional<std::string>{stable + "_new"};
+  }
+  if (kind != OwnedSetKind::Stable) {
     return std::nullopt;
   }
   std::string temp = stable;
@@ -419,11 +439,14 @@ bool IptablesFirewall::destroy_set_best_effort(const std::string &name) {
 }
 
 void IptablesFirewall::destroy_unreferenced_static_sets(
-    const std::set<std::string> &live, const std::set<std::string> &keep) {
+    const std::set<std::string> &live, const std::set<std::string> &keep,
+    bool internal_only) {
   for (const auto &name : live) {
     const OwnedSetKind kind = classify_owned_static_set(name);
     if (kind == OwnedSetKind::None ||
-        (kind == OwnedSetKind::Stable && keep.count(name) != 0)) {
+        (internal_only && kind != OwnedSetKind::Internal) ||
+        ((kind == OwnedSetKind::Stable || kind == OwnedSetKind::Internal) &&
+         keep.count(name) != 0)) {
       continue;
     }
     Logger::instance().verbose("iptables apply: destroying unreferenced ipset {}",
@@ -518,6 +541,10 @@ void IptablesFirewall::preflight_reused_set_schemas(
 
   for (const auto &set : pending_sets_) {
     if (set.family_str == "inet6" && !effective_ipv6) {
+      continue;
+    }
+    // Derived address sets are rebuilt by every apply, RulesOnly included.
+    if (classify_owned_static_set(set.name) == OwnedSetKind::Internal) {
       continue;
     }
     if (live_names->find(set.name) == live_names->end()) {
@@ -1555,8 +1582,20 @@ void IptablesFirewall::compile_plan(const FirewallPlan& plan,
     create_ipset(physical_set_name(declaration.name), family,
                  declaration.timeout);
   }
-  pending_ruleset_ =
-      lower_firewall_plan(plan, lowering_context(plan.fwmark_mask));
+  // Address sets the rules match through (default_gateway bypass list,
+  // negated address lists).  Their contents come from the plan itself, so
+  // they are rebuilt on every apply, in RulesOnly too.
+  const auto context = lowering_context(plan.fwmark_mask);
+  for (const auto& derived : iptables_derived_address_sets(plan, context)) {
+    create_ipset(derived.name,
+                 derived.family == FirewallFamily::ipv6 ? AF_INET6 : AF_INET);
+    auto& elements = pending_elements_[derived.name];
+    elements.str("");
+    for (const auto& cidr : derived.cidrs) {
+      elements << "add " << derived.name << ' ' << cidr << " -exist\n";
+    }
+  }
+  pending_ruleset_ = lower_firewall_plan(plan, context);
   require_xt_extensions(routing_xt_extensions_used(pending_ruleset_));
 #ifndef KEEN_PBR_PLATFORM_KEENETIC
   // Defensive second line (the config gate rejects first): balancing needs
@@ -1613,9 +1652,12 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
   // PreserveSets.
   if (mode == FirewallApplyMode::RulesOnly) {
     preflight_reused_set_schemas(effective_ipv6);
-    if (!pending_elements_.empty()) {
-      throw FirewallRulesOnlyError(
-          "RulesOnly received buffered set elements; refusing to modify sets");
+    for (const auto &entry : pending_elements_) {
+      if (classify_owned_static_set(entry.first) != OwnedSetKind::Internal) {
+        throw FirewallRulesOnlyError(
+            "RulesOnly received buffered set elements; refusing to modify "
+            "sets");
+      }
     }
   } else if (mode != FirewallApplyMode::Destructive) {
     preflight_dynamic_set_schemas(effective_ipv6);
@@ -1645,8 +1687,7 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
   // before the rules are touched.  Destructive already destroyed every static
   // set, so nothing exists there.
   std::set<std::string> live_names;
-  if (mode != FirewallApplyMode::Destructive &&
-      mode != FirewallApplyMode::RulesOnly) {
+  if (mode != FirewallApplyMode::Destructive) {
     auto names = list_live_ipset_names();
     if (!names.has_value()) {
       throw FirewallError("failed to inspect live ipsets");
@@ -1654,7 +1695,14 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
     live_names = std::move(*names);
   }
   std::set<std::string> kept_static_sets;
-  if (mode != FirewallApplyMode::RulesOnly) {
+  {
+    // RulesOnly leaves the list sets alone and refreshes only the derived
+    // address sets.
+    const bool rules_only = mode == FirewallApplyMode::RulesOnly;
+    const auto touched = [rules_only](const std::string &name) {
+      return !rules_only ||
+             classify_owned_static_set(name) == OwnedSetKind::Internal;
+    };
     struct Refresh {
       std::string final_name;
       std::string temp_name;
@@ -1664,6 +1712,9 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
     std::string ipset_script;
     std::set<std::string> disabled_ipv6_sets;
     for (const auto &ps : pending_sets_) {
+      if (!touched(ps.name)) {
+        continue;
+      }
       if (ps.family_str == "inet6" && !effective_ipv6) {
         disabled_ipv6_sets.insert(ps.name);
         // Not managed this time, but not retired either.
@@ -1698,7 +1749,8 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
       ipset_script += keen_pbr3::format("flush {}\n", target.name);
     }
     for (auto &[set_name, buf] : pending_elements_) {
-      if (disabled_ipv6_sets.find(set_name) != disabled_ipv6_sets.end()) {
+      if (disabled_ipv6_sets.find(set_name) != disabled_ipv6_sets.end() ||
+          !touched(set_name)) {
         continue;
       }
       const std::string elements = buf.str();
@@ -1819,9 +1871,12 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
   // Phase 3: the new rules are live; destroy the owned static sets they no
   // longer reference (removed lists, retired A/B generation sets).  An "in
   // use" set is reported and left for the next apply.
-  if (mode != FirewallApplyMode::Destructive &&
-      mode != FirewallApplyMode::RulesOnly) {
-    destroy_unreferenced_static_sets(live_names, kept_static_sets);
+  if (mode != FirewallApplyMode::Destructive) {
+    // RulesOnly leaves the list sets alone but still sweeps the orphans among
+    // the internal address sets (old hashes, interrupted refreshes).
+    destroy_unreferenced_static_sets(
+        live_names, kept_static_sets,
+        /*internal_only=*/mode == FirewallApplyMode::RulesOnly);
   }
 
   // Clear pending buffers
@@ -2031,7 +2086,8 @@ void IptablesFirewall::cleanup_saved_sets(std::set<std::string> &live,
         name.rfind("kpbr4_", 0) == 0 || name.rfind("kpbr6_", 0) == 0 ||
         name.rfind("kpbr4t_", 0) == 0 || name.rfind("kpbr6t_", 0) == 0 ||
         name.rfind("kpbr4s_", 0) == 0 || name.rfind("kpbr6s_", 0) == 0 ||
-        name.rfind("kpbr4S_", 0) == 0 || name.rfind("kpbr6S_", 0) == 0;
+        name.rfind("kpbr4S_", 0) == 0 || name.rfind("kpbr6S_", 0) == 0 ||
+        classify_owned_static_set(name) == OwnedSetKind::Internal;
     if (!managed_static && !dynamic) {
       continue;
     }

@@ -208,8 +208,8 @@ void validate_firewall_plan_backend(const FirewallPlan& plan,
 
   for (const auto& rule : plan.rules) {
     if (rule.criteria.default_gateway != DefaultGatewayFamily::None &&
-        !firewall_backend_supports_default_gateway(backend)) {
-      reject(rule, "default_gateway");
+        !firewall_supports_default_gateway()) {
+      throw FirewallError("default_gateway is not available on Keenetic");
     }
   }
 }

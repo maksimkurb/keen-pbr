@@ -1524,6 +1524,14 @@ TEST_CASE("ipset names: owned static grammar is strict") {
   CHECK(T::classify("kpbr4_remote") == Kind::Stable);
   CHECK(T::classify("kpbr6_a1_b") == Kind::Stable);
   CHECK(T::classify("kpbr4t_remote") == Kind::Temp);
+  CHECK(T::classify("kpbr4g_bypass") == Kind::Internal);
+  CHECK(T::classify("kpbr6g_bypass_new") == Kind::Internal);
+  CHECK(T::classify("kpbr4n_0123456789ab") == Kind::Internal);
+  CHECK(T::classify("kpbr4n_0123456789ab_new") == Kind::Internal);
+  CHECK(T::classify("kpbr4n_") == Kind::None);
+  CHECK(T::classify("kpbr4g_Bypass") == Kind::None);
+  CHECK(T::temp_set_name("kpbr4g_bypass") ==
+        std::optional<std::string>{"kpbr4g_bypass_new"});
   CHECK(T::classify("kpbr6t_remote") == Kind::Temp);
   CHECK(T::classify("kpbr4s_remote") == Kind::Legacy);
   CHECK(T::classify("kpbr4S_remote") == Kind::Legacy);
@@ -1722,12 +1730,13 @@ TEST_CASE("an invalid plan fails before any firewall mutation, a valid one commi
   FirewallPlan invalid;
   FirewallRuleInstance gateway;
   gateway.key = {"route.mark", "invalid"};
-  gateway.family = FirewallFamily::ipv4;
+  // A gateway rule of the wrong family is invalid on every platform.
+  gateway.family = FirewallFamily::ipv6;
   gateway.criteria.default_gateway = DefaultGatewayFamily::Ipv4;
   gateway.action = MarkAction{1U};
   invalid.rules.push_back(std::move(gateway));
   CHECK_THROWS_AS(firewall.apply(invalid, FirewallApplyMode::PreserveSets),
-                  FirewallError);
+                  std::exception);
 
   CHECK_FALSE(std::filesystem::exists(restore_log));
   CHECK_FALSE(std::filesystem::exists(mutation_log));
@@ -2110,6 +2119,89 @@ TEST_CASE("static sets: RulesOnly needs the sets under their stable names") {
     CHECK(at(out.log, "iptables-restore") == std::string::npos);
   }
 }
+
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
+namespace {
+
+// Applies one default_gateway rule (IPv4) through the real IptablesFirewall
+// against the fake tools of `fixture`; `with_rule` false applies an empty plan.
+StaticApplyOutcome apply_gateway(IptablesApplyFixture &fixture,
+                                 FirewallApplyMode mode,
+                                 bool with_rule = true) {
+  IptablesFirewall firewall;
+  firewall.override_capabilities_for_fixtures(true, std::nullopt, false);
+  firewall.set_ipv6_enabled(false);
+  StaticApplyOutcome outcome;
+  try {
+    firewall.prepare_apply(mode);
+    FirewallPlan plan;
+    if (with_rule) {
+      FirewallRuleCriteria criteria;
+      criteria.default_gateway = DefaultGatewayFamily::Ipv4;
+      criteria.default_gateway_bypass = {"10.0.0.0/8", "192.168.0.0/16"};
+      plan = IptablesBuilderTest::mark_plan(1, criteria);
+      plan.rules[0].family = FirewallFamily::ipv4;
+    }
+    firewall.apply(plan, mode);
+  } catch (const FirewallRulesOnlyError &) {
+    outcome.threw = true;
+    outcome.rules_only_error = true;
+  } catch (const FirewallError &) {
+    outcome.threw = true;
+  }
+  outcome.log = fixture.log();
+  return outcome;
+}
+
+} // namespace
+
+TEST_CASE("default_gateway: the bypass set is created and filled before the rules") {
+  IptablesApplyFixture fixture("gateway-fresh", {});
+  const auto out = apply_gateway(fixture, FirewallApplyMode::PreserveSets);
+  REQUIRE_FALSE(out.threw);
+  const auto create = at(out.log, "create kpbr4g_bypass hash:net family inet -exist\n");
+  REQUIRE(create != std::string::npos);
+  CHECK(at(out.log, "add kpbr4g_bypass 10.0.0.0/8 -exist\n") > create);
+  CHECK(at(out.log, "add kpbr4g_bypass 192.168.0.0/16 -exist\n") > create);
+  const auto restore = at(out.log, "iptables-restore --noflush");
+  REQUIRE(restore != std::string::npos);
+  CHECK(restore > at(out.log, "add kpbr4g_bypass"));
+  CHECK(at(out.log, "-m set ! --match-set kpbr4g_bypass dst", restore) !=
+        std::string::npos);
+}
+
+TEST_CASE("default_gateway: RulesOnly refreshes only the bypass set, through swap") {
+  const std::string dump = "-N KeenPbrTable\n-N KeenPbrOutput";
+  IptablesApplyFixture fixture("gateway-rules-only", {"kpbr4g_bypass", "kpbr4_x"},
+                               dump);
+  const auto out = apply_gateway(fixture, FirewallApplyMode::RulesOnly);
+  REQUIRE_FALSE(out.threw);
+  CHECK(at(out.log, "create kpbr4g_bypass_new hash:net family inet -exist\n") !=
+        std::string::npos);
+  CHECK(at(out.log, "add kpbr4g_bypass_new 10.0.0.0/8 -exist\n") !=
+        std::string::npos);
+  const auto swap = at(out.log, "ipset swap kpbr4g_bypass_new kpbr4g_bypass\n");
+  const auto restore = at(out.log, "iptables-restore --noflush");
+  REQUIRE(swap != std::string::npos);
+  REQUIRE(restore != std::string::npos);
+  CHECK(swap < restore);
+  // The list set is not touched.
+  CHECK(at(out.log, "kpbr4_x") == std::string::npos);
+  CHECK(at(out.log, "ipset destroy kpbr4g_bypass\n") == std::string::npos);
+}
+
+TEST_CASE("default_gateway: the bypass set is destroyed after the rule is gone") {
+  IptablesApplyFixture fixture("gateway-removed", {"kpbr4g_bypass"});
+  const auto out =
+      apply_gateway(fixture, FirewallApplyMode::PreserveSets, /*with_rule=*/false);
+  REQUIRE_FALSE(out.threw);
+  const auto restore = at(out.log, "iptables-restore --noflush");
+  const auto destroy = at(out.log, "ipset destroy kpbr4g_bypass\n");
+  REQUIRE(restore != std::string::npos);
+  REQUIRE(destroy != std::string::npos);
+  CHECK(destroy > restore);
+}
+#endif
 
 TEST_CASE("consecutive RulesOnly applies rewrite the same chains while reusing the static sets") {
   const auto sandbox = std::filesystem::temp_directory_path() /
@@ -3379,9 +3471,38 @@ TEST_CASE("build_ipt_script: drop rule with negated src_addr") {
 
 // =============================================================================
 // Multiple CIDR / port negation tests
-// (expand_and_push emits one rule per CIDR; each carries the shared negate
-// flag)
+// (separate plan rules, each with one negated CIDR; a negated list of several
+// CIDRs in ONE rule is matched through an ipset, see the cases below)
 // =============================================================================
+
+TEST_CASE("build_ipt_script: negated dst_addr list → one rule, none of the addresses") {
+  ProtoPortFilter f;
+  f.dst_addr = {"8.8.8.0/24", "1.1.1.0/24"};
+  f.negate_dst_addr = true;
+  auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
+  // `! -d a,b` is rejected by iptables and one rule per address would match
+  // every packet, so the list is an ipset.
+  CHECK(s.find("! -d") == std::string::npos);
+  const auto at = s.find("-m set ! --match-set kpbr4n_");
+  REQUIRE(at != std::string::npos);
+  CHECK(s.find("-j MARK --set-xmark 0x100/0xffffffff", at) != std::string::npos);
+  std::size_t marks = 0;
+  for (auto pos = s.find("-j MARK"); pos != std::string::npos;
+       pos = s.find("-j MARK", pos + 1)) {
+    ++marks;
+  }
+  CHECK(marks == 1);
+}
+
+TEST_CASE("build_ipt_script: negated src_addr list → one rule on an ipset") {
+  ProtoPortFilter f;
+  f.src_addr = {"192.168.1.0/24", "10.0.0.0/8"};
+  f.negate_src_addr = true;
+  auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
+  CHECK(s.find("! -s") == std::string::npos);
+  CHECK(s.find("-m set ! --match-set kpbr4n_") != std::string::npos);
+  CHECK(s.find(" src ") != std::string::npos);
+}
 
 TEST_CASE(
     "build_ipt_script: two negated src_addrs → two rules each with ! -s") {
