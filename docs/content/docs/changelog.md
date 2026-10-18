@@ -14,9 +14,12 @@ What changed in each keen-pbr release, and what to do when you upgrade.
 - **dnsmasq is optional.**\
   You need it only for {{< term "split DNS" >}} (different DNS servers depending on the domain) or to set DNS servers for the whole network right in keen-pbr. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}). keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and repairs it when it loses the config. New commands: `keen-pbr resolver dnsmasq detect` and `keen-pbr resolver dnsmasq print-config`.
 - **DNS-over-HTTPS.**\
-  Added DNS-over-HTTPS support: add a DNS server of type **DNS-over-HTTPS** and use it in DNS rules and as a default server. See [DNS]({{< relref "/docs/configuration/dns#dns-over-https" >}}).
+  Added DNS-over-HTTPS support: add a DNS server of type **DNS-over-HTTPS** and use it in DNS rules and among the main DNS servers. See [DNS]({{< relref "/docs/configuration/dns#dns-over-https" >}}).
+- **Bootstrap servers for DoH.**\
+  You can choose which plain servers keen-pbr asks for the addresses of DoH servers. A DoH server can have its IP addresses set. See [DNS]({{< relref "/docs/configuration/dns#doh-bootstrap" >}}).
 - **Several DNS servers for a list.**\
   Added the ability to pick several DNS servers for a list. Requests go to them in turn, and if a server does not answer, the next one takes over. In `config.json` the `server` field of a DNS rule is now `servers`, an array of server names; keen-pbr converts old configs automatically. dnsmasq sends queries for domains of lists with several servers or with DNS-over-HTTPS to the keen-pbr built-in DNS proxy on `127.0.0.89`, with ports starting at 52100. You can change the address and the first port in the **Advanced** settings mode: **DNS proxy address** and **First DNS proxy port**. See [DNS]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}).
+- The main DNS servers moved from the **DNS rules** page to the **DNS servers** page. A new DNS rule no longer starts with a server picked: choose one yourself.
 - **Load balancing across several links.** {{< only openwrt debian >}}\
   A `urltest` or `icmptest` outbound with `strategy: "balance"` spreads connections across links, each with its own weight. A connection stays on the link it started on. See [Multi-WAN Load Balancing]({{< relref "/docs/configuration/multi-wan" >}}).
 - **Automatic gateway detection.**\
@@ -84,7 +87,7 @@ opkg flag user dnsmasq-full
 - **Go without dnsmasq.**\
   Turn off **Manage dnsmasq configuration**. Then, in the router's web console (http://my.keenetic.net/a), run `no opkg dns-override` and `system configuration save`, and reboot the router.
 
-After the upgrade, dnsmasq management stays on, as in 3.3.x. If you do not need it, turn off **Manage dnsmasq configuration** in the Web UI (**General** > **Settings** > **Local DNS server management**) and follow the rollback steps: [Keenetic]({{< relref "/docs/getting-started/installation/keenetic#dnsmasq-rollback" >}}), [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt#dnsmasq-rollback" >}}), [Debian]({{< relref "/docs/getting-started/installation/debian#dnsmasq-rollback" >}}). Without it, DNS rules and default DNS servers stop working.
+After the upgrade, dnsmasq management stays on, as in 3.3.x. If you do not need it, turn off **Manage dnsmasq configuration** in the Web UI (**General** > **Settings** > **Local DNS server management**) and follow the rollback steps: [Keenetic]({{< relref "/docs/getting-started/installation/keenetic#dnsmasq-rollback" >}}), [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt#dnsmasq-rollback" >}}), [Debian]({{< relref "/docs/getting-started/installation/debian#dnsmasq-rollback" >}}). Without it, DNS rules and main DNS servers stop working.
 
 What to check after the upgrade:
 

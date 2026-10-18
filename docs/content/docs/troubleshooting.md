@@ -311,7 +311,7 @@ The command shows the dnsmasq instances found, their DNS addresses, and the inst
 
 **Symptom:** the **System overview** page shows the warning "DNS server 'name' is not answering", or sites from a list open slowly.
 
-The warning appears when 10 requests in a row to a server got no answer or ended with SERVFAIL or REFUSED. It concerns servers used in lists with several servers, in lists with DNS-over-HTTPS, and among the default servers with DNS-over-HTTPS. The warning goes away as soon as the server answers. If every server of a list stops answering, the warning becomes an error and names those lists.
+The warning appears when 10 requests in a row to a server got no answer or ended with SERVFAIL or REFUSED. It concerns servers used in lists with several servers, in lists with DNS-over-HTTPS, and among the main servers with DNS-over-HTTPS. The warning goes away as soon as the server answers. If every server of a list stops answering, the warning becomes an error and names those lists.
 
 **In the web interface.**
 
@@ -331,6 +331,7 @@ Use the address of the server from the warning instead of `8.8.8.8`.
 - "No answer in time", "refused the connection", "unreachable": check the address and port of the server and that the router can reach it. If the server works only through a VPN, set an outbound for it.
 - "Server error (SERVFAIL)": the server could not resolve the name. Try another server.
 - "Refused the request (REFUSED)": the server does not serve requests from your address. Use another server or an outbound.
+- "Address of the server not found" for DNS-over-HTTPS: the host name of the server did not resolve through the bootstrap servers. In **DNS** > **DNS servers** choose other **Bootstrap servers**, or enter the **Server IP addresses** of the DoH server (see [Finding the address of a DoH server]({{< relref "/docs/configuration/dns#doh-bootstrap" >}})).
 - "TLS error" or "no CA certificates" for DNS-over-HTTPS: install the CA certificates package on the router (see [DNS-over-HTTPS]({{< relref "/docs/configuration/dns#dns-over-https" >}})).
 
 ## Firewall and `KeenPbrTable`

@@ -12,7 +12,7 @@ Domains from your lists work without any DNS setup. keen-pbr itself reads the pl
 **Yes, if you need one of these two things:**
 
 - to resolve the domains of some lists through a separate DNS server. For example, a CDN (content delivery network) should answer for your VPN's region, or the domains resolve only inside the VPN;
-- to set your own default DNS servers for the whole network right in keen-pbr.
+- to set your own main DNS servers for the whole network right in keen-pbr.
 
 Both work only through dnsmasq. If neither fits you, leave the **Manage dnsmasq configuration** switch off. If you upgraded from 3.3.x, the switch is already on: turn it off if you do not need dnsmasq (see [Breaking Changes in 3.4.0]({{< relref "/docs/changelog#upgrading-from-33x" >}})).
 
@@ -55,9 +55,9 @@ Open **DNS** > **DNS servers** > **Add DNS server**. Fill in **Name**, **DNS typ
 
 Open **DNS** > **DNS Rules** > **Add DNS rule**. In **Domain lists** pick the lists, and in **DNS servers** the server from the previous step. You can pick several servers.
 
-### Set default DNS servers (optional)
+### Set main DNS servers (optional)
 
-In the **Default upstream DNS servers** block click **Add default DNS server** and pick the servers for all other domains. If the block is empty, dnsmasq uses its usual DNS servers.
+On the **DNS** > **DNS servers** page, find the **Main DNS servers** block under the table, click **Add main DNS server** and pick the servers for all other domains. If the block is empty, dnsmasq uses its usual DNS servers.
 
 ### Apply the settings
 
@@ -113,6 +113,7 @@ A server name (`tag`) must be unique: lowercase Latin letters, digits and `_`, s
 | `type` | string | no | Server type (**DNS type**): `static` (**Plaintext DNS**, default), `doh` (**DNS-over-HTTPS**) or `keenetic` (**Keenetic DNS**, {{< only keenetic >}}) |
 | `address` | string | for `static` and `doh` | `static`: IP address of the DNS server, with optional port, for example `"10.8.0.1"`, `"10.8.0.1:5353"`, `"2001:4860:4860::8888"`, or `"[2001:4860:4860::8888]:5353"`. `doh`: the server URL starting with `https://`, for example `"https://dns.google/dns-query"` (**URL**) |
 | `detour` | string | no | Outbound the router itself uses to send queries to this server (**Make requests via Outbound**) |
+| `ips` | array of string | no | Only for `doh`: IP addresses of the server, without a port (**Server IP addresses**). When set, keen-pbr connects only to these addresses. The server certificate is still checked against the name in `address`. See [Finding the address of a DoH server](#doh-bootstrap) |
 
 `detour` is useful when a DNS server must be reached through a specific connection, usually the same VPN. It does not affect queries that devices in your network send directly to the same address: route them with a normal route rule.
 
@@ -152,9 +153,38 @@ A server name (`tag`) must be unique: lowercase Latin letters, digits and `_`, s
 
 DNS-over-HTTPS (DoH) sends requests to the server over an encrypted HTTPS connection, so your ISP cannot read or spoof the answers. Pick **DNS-over-HTTPS** as **DNS type** and enter the server address in **URL**, for example `https://dns.google/dns-query` or `https://cloudflare-dns.com/dns-query`.
 
-- Use the server in a DNS rule or in the default servers like any other one. Several DoH servers, or a DoH server together with plain ones, can be picked in one rule.
+- Use the server in a DNS rule or among the main DNS servers like any other one. Several DoH servers, or a DoH server together with plain ones, can be picked in one rule.
 - **Make requests via Outbound** works as for other servers: keen-pbr connects to the DoH server through the chosen outbound.
 - The router must have CA certificates installed to check the server (Keenetic: the `ca-certificates` package in Entware; OpenWrt: `ca-bundle`; Debian: `ca-certificates`). If it has none, the status page shows the problem "DNS-over-HTTPS servers are not used".
+
+### Finding the address of a DoH server {#doh-bootstrap}
+
+When the URL of a DoH server has a host name (`dns.google`) and not an IP address, keen-pbr first asks a plain DNS server for the address of that name. These servers are called bootstrap servers.
+
+By default keen-pbr asks the first plain server of the **DNS servers** table. To choose other ones, open **DNS** > **DNS servers**, find the **Bootstrap servers** block under **Main DNS servers**, and click **Add bootstrap server**. Plain DNS servers and Keenetic DNS fit. The servers are asked in the order of the list. If a server does not answer, answers with an error, says the name does not exist, or gives no address, keen-pbr asks the next one. After you change the list, the addresses are looked up again.
+
+If your ISP blocks the name of a DoH server, put first a bootstrap server that does not block it, for example one reached through a VPN (**Make requests via Outbound**).
+
+If you know the addresses of the server, enter them in the **Server IP addresses** field of the DoH server, separated by commas. keen-pbr then connects only to them and does not look the server up.
+
+```json { filename="config.json" }
+{
+  "dns": {
+    "servers": [
+      {"tag": "google_dns", "address": "8.8.8.8"},
+      {"tag": "quad9", "address": "9.9.9.9"},
+      {"tag": "google_doh", "type": "doh", "address": "https://dns.google/dns-query"},
+      {
+        "tag": "cloudflare_doh",
+        "type": "doh",
+        "address": "https://cloudflare-dns.com/dns-query",
+        "ips": ["1.1.1.1", "1.0.0.1"]
+      }
+    ],
+    "bootstrap": ["google_dns", "quad9"]
+  }
+}
+```
 
 ### The "Keenetic DNS" type
 
@@ -193,7 +223,8 @@ The `dns` section in `config.json`:
 | `resolver_integration` | string | no | `"none"` (default) or `"dnsmasq"`. In the Web UI: **Manage dnsmasq configuration**. |
 | `dnsmasq_instance` | string | no | Selector of the dnsmasq instance to manage: `uci:<section>` (OpenWrt), `entware:default` (Keenetic), `systemd:<unit>.service` (Debian). In the Web UI: **dnsmasq instance**. Empty means automatic selection; needed only when several instances are found. |
 | `rules` | array | no | Rules that map lists to DNS servers (only active when `resolver_integration: "dnsmasq"`) |
-| `fallback` | array of string | no | Tags of upstream DNS servers for queries that match no rule (only active when `resolver_integration: "dnsmasq"`). In the Web UI: **Default upstream DNS servers**. If omitted, dnsmasq keeps its own servers and also gets the servers from `dnsmasq-fallback.conf`. |
+| `bootstrap` | array of string | no | Tags of plain DNS servers (`static` or `keenetic`) that find the IP addresses of DoH servers, asked in order. In the Web UI: **Bootstrap servers**. If omitted, the first plain server of `servers` is used. |
+| `fallback` | array of string | no | Tags of the main DNS servers, used for queries that match no rule (only active when `resolver_integration: "dnsmasq"`). In the Web UI: **Main DNS servers**. If omitted, dnsmasq keeps its own servers and also gets the servers from `dnsmasq-fallback.conf`. |
 | `proxy_address` | string | no | IPv4 address of the built-in DNS proxy, which handles the queries of lists with several DNS servers or with DNS-over-HTTPS. Default `127.0.0.89`. In the Web UI (advanced mode): **DNS proxy address**. Change it only if the address is taken. |
 | `proxy_port_start` | integer | no | First port of the DNS proxy, default `52100`. Each set of DNS servers takes the next port, up to 32 ports. In the Web UI (advanced mode): **First DNS proxy port**. |
 | `dns_test_server` | object | no | Ignored; use `intercept.dns.marker` |
@@ -245,7 +276,7 @@ Router vendors sometimes strip parts of the kernel, so keen-pbr does not rely on
 
 keen-pbr does not install dnsmasq; install it yourself when you need this feature. Step-by-step install and rollback are on the installation pages: [Keenetic]({{< relref "/docs/getting-started/installation/keenetic#dnsmasq" >}}), [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt#dnsmasq" >}}), [Debian]({{< relref "/docs/getting-started/installation/debian#dnsmasq" >}}). What keen-pbr changes on each platform:
 
-**OpenWrt**: install `dnsmasq`. keen-pbr adds three `addnmount` entries to the dnsmasq section in `/etc/config/dhcp`, so that the sandboxed dnsmasq can run keen-pbr. While management is on and default DNS servers are set, keen-pbr takes the servers without a domain out of `/etc/config/dhcp`; per-domain servers stay. Turning management off or clearing the default servers returns them. Removing the package removes the added entries.
+**OpenWrt**: install `dnsmasq`. keen-pbr adds three `addnmount` entries to the dnsmasq section in `/etc/config/dhcp`, so that the sandboxed dnsmasq can run keen-pbr. While management is on and main DNS servers are set, keen-pbr takes the servers without a domain out of `/etc/config/dhcp`; per-domain servers stay. Turning management off or clearing the main servers returns them. Removing the package removes the added entries.
 
 **Keenetic (Entware)**: install `dnsmasq-full` (replaces the built-in ndnproxy as the LAN resolver). The first time you turn management on, keen-pbr adds a marked block with one `conf-script` line to `/opt/etc/dnsmasq.conf`. `install-recommended-config` adds the same block. If dnsmasq is not installed, the status page shows an error.
 
@@ -313,11 +344,11 @@ The code is shown in `GET /api/health/service` (`error_code`) and in the Web UI.
 
 ### How it works
 
-One {{< term "drop-in" >}} line in the dnsmasq configuration makes dnsmasq run keen-pbr at every start and get the per-list rules and default DNS servers from it.
+One {{< term "drop-in" >}} line in the dnsmasq configuration makes dnsmasq run keen-pbr at every start and get the per-list rules and main DNS servers from it.
 
 - With **Manage dnsmasq configuration** on, dnsmasq is restarted when this data changes (list update, settings change, or once after keen-pbr starts), and only after the checks described in [Checks before every restart](#checks-before-every-restart) have passed.
 - With it off, dnsmasq gets the servers from the `dnsmasq-fallback.conf` file (Keenetic: `/opt/etc/keen-pbr/`, Debian and OpenWrt: `/etc/keen-pbr/`). They are added to dnsmasq's own servers; clear the file to avoid that. On OpenWrt the file is empty by default.
-- With it on but no default DNS servers set, dnsmasq also gets the servers from `dnsmasq-fallback.conf`.
+- With it on but no main DNS servers set, dnsmasq also gets the servers from `dnsmasq-fallback.conf`.
 
 ### On stop, disable, or uninstall
 

@@ -60,7 +60,7 @@ systemctl restart keen-pbr
 
 ## Separate DNS servers for lists (dnsmasq) {#dnsmasq}
 
-dnsmasq is not needed for routing. It is a DNS server installed on the system next to keen-pbr. Install it if you want to send the domains of some lists to separate DNS servers, or set your own default DNS servers. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}).
+dnsmasq is not needed for routing. It is a DNS server installed on the system next to keen-pbr. Install it if you want to send the domains of some lists to separate DNS servers, or set your own main DNS servers. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}).
 
 ### Install dnsmasq {#dnsmasq-install}
 
