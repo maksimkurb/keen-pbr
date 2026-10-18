@@ -54,7 +54,7 @@ Open **DNS** > **DNS Rules** > **Add DNS rule**. In **Domain lists** pick the li
 
 ### Set main DNS servers (optional)
 
-On the **DNS** > **DNS servers** page, find the **Main DNS servers** block under the table, click **Add main DNS server** and pick the servers for all other domains. If the block is empty, dnsmasq uses its usual DNS servers.
+On the **DNS** > **DNS rules** page, expand the **Main DNS servers** section, click **Add main DNS server** and pick the servers for all other domains. The collapsed section shows which servers are chosen, and in the **DNS servers** table they get the **Main** mark.
 
 ### Apply the settings
 
@@ -158,7 +158,7 @@ DNS-over-HTTPS (DoH) sends requests to the server over an encrypted HTTPS connec
 
 When the URL of a DoH server has a host name (`dns.google`) and not an IP address, keen-pbr first asks a plain DNS server for the address of that name. These servers are called bootstrap servers.
 
-By default keen-pbr asks the first plain server of the **DNS servers** table. To choose other ones, open **DNS** > **DNS servers**, find the **Bootstrap servers** block under **Main DNS servers**, and click **Add bootstrap server**. Plain DNS servers and Keenetic DNS fit. The servers are asked in the order of the list. If a server does not answer, answers with an error, says the name does not exist, or gives no address, keen-pbr asks the next one. After you change the list, the addresses are looked up again.
+By default keen-pbr asks the first plain server of the **DNS servers** table. To choose other ones, open **DNS** > **DNS rules**, expand the **Bootstrap servers** section and click **Add bootstrap server**. In the **DNS servers** table these servers get the **Bootstrap** mark. If a DoH server has a host name in its URL, an empty **Server IP addresses** field and no bootstrap servers are chosen, the section shows a ⚠️ icon, and the Overview page and `keen-pbr status` show a warning. Plain DNS servers and Keenetic DNS fit. The servers are asked in the order of the list. If a server does not answer, answers with an error, says the name does not exist, or gives no address, keen-pbr asks the next one. After you change the list, the addresses are looked up again.
 
 If your ISP blocks the name of a DoH server, put first a bootstrap server that does not block it, for example one reached through a VPN (**Make requests via Outbound**).
 
@@ -193,20 +193,19 @@ On Keenetic routers, `type: "keenetic"` takes the DNS servers from the router's 
 
 ### Checking the DNS servers {#check-dns-servers}
 
-The **Check** button on **DNS** > **DNS servers** asks every server in the list about a few sites and shows which servers work and which do not. The servers from the applied settings are checked, even when no rule uses them. If the web interface has changes you have not applied, a hint appears above the result.
+The **Check** button on **DNS** > **DNS servers** asks every server in the list about a few sites and shows which servers work and which do not. The servers from the applied settings are checked, even when no rule uses them. If the web interface has changes you have not applied, the result notification says so.
 
 The arrow next to the button opens a menu of sites. `yandex.ru` and `telegram.org` are selected by default; you can add `youtube.com`, `google.com`, `instagram.com`, `chatgpt.com`, or type your own site into **Another site**. One check asks about five sites at most. The browser remembers your choice.
 
-After the check, a summary appears above the table, and each server gets a status in the **Check** column. Click a status to see the server's answer for each site: the addresses and how long it took.
+After the check, a notification shows the summary, and each server gets a status in the **Check** column. If some servers do not answer or tamper with answers, the notification lists them and stays until you close it. Click a status to see the server's answer for each site: the addresses and how long it took.
 
 - "Works": the server answered every question.
 - "Not answering": the server did not answer in time, refused the connection, is unreachable or returned an error. A DNS-over-HTTPS server without certificates cannot be checked, which also shows as "Not answering" with the reason. Servers with an IPv6 address are skipped while IPv6 is off.
 - "Suspicious": the server answers, but the answers look tampered with. The signs are:
   - the server says a well-known site does not exist;
-  - the answer holds a stub address instead of the site's address: `0.0.0.0`, `127.0.0.1` or an address from a local network. This is how ISPs and filters block sites;
-  - the server answers with addresses for names that do not exist.
+  - the answer holds a stub address instead of the site's address: `0.0.0.0`, `127.0.0.1` or an address from a local network. This is how ISPs and filters block sites.
 
-For your own site from **Another site**, "does not exist" or "no addresses" stays an ordinary result: keen-pbr cannot know whether the site exists.
+If a server says your own site from **Another site** does not exist, that is "Suspicious" too: keen-pbr cannot know whether the site exists, so it is up to you. If you are sure the site exists, the DNS server or your ISP tampers with the answer. "No addresses" for your own site stays an ordinary result.
 
 If a server tampers with answers, use a DNS-over-HTTPS server, or set an outbound for the server in **Make requests via Outbound** so the requests bypass your ISP.
 

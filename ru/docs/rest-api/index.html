@@ -51,7 +51,7 @@ REST API доступен, если:
 Prometheus и Grafana показывают состояние VPN-каналов и задержку (см. GET /metrics). Задание cron обновляет списки по расписанию через POST /api/lists/refresh. Скрипт перезапускает маршрутизацию через POST /api/service/restart. Если вы пользуетесь только веб-интерфейсом, эту страницу можно не читать.
 REST API доступен, если:
 Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация В веб-интерфейсе откройте Безопасность &gt; Аутентификация и CORS. Включите Включить аутентификацию, введите Новый пароль и подтвердите его. Если API должен принимать запросы из браузера с другого сайта, добавьте его адрес в Разрешённые источники CORS (по одному в строке). Изменения вступают в силу сразу.">
-	<meta itemprop="wordCount" content="3314">
+	<meta itemprop="wordCount" content="3302">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
 	<meta name="twitter:description" content="REST API нужен, чтобы управлять keen-pbr и следить за ним из скриптов и внешних систем. Например:
@@ -2231,7 +2231,6 @@ REST API доступен, если:
 </span></span><span class="line"><span class="cl">        <span class="p">{</span>
 </span></span><span class="line"><span class="cl">          <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">          <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">          <span class="nt">&#34;nxdomain_hijack&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">          <span class="nt">&#34;results&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">            <span class="p">{</span>
 </span></span><span class="line"><span class="cl">              <span class="nt">&#34;domain&#34;</span><span class="p">:</span> <span class="s2">&#34;yandex.ru&#34;</span><span class="p">,</span>
@@ -2269,7 +2268,6 @@ REST API доступен, если:
 <ul>
 <li><code>overall</code> — <code>ok</code>, <code>warning</code> (есть признаки подмены) или <code>error</code> (какой-то сервер не отвечает).</li>
 <li><code>status</code> результата — <code>ok</code>, <code>nxdomain</code>, <code>nodata</code>, <code>stub_address</code>, <code>servfail</code>, <code>refused</code>, <code>rcode</code> либо причина, по которой ответа нет: <code>timeout</code>, <code>connection_refused</code>, <code>unreachable</code>, <code>connection_closed</code>, <code>tls_error</code>, <code>http_error</code>, <code>bad_answer</code>, <code>not_resolved</code>, <code>network_error</code>. <code>severity</code> — <code>ok</code>, <code>warning</code> или <code>error</code>.</li>
-<li><code>nxdomain_hijack</code> — <code>true</code>, если сервер ответил адресами на несуществующее имя.</li>
 <li>Статус адреса <code>skipped</code> значит, что адрес не проверялся (например, IPv6 выключен), <code>unavailable</code> — что его нельзя проверить (например, DNS-over-HTTPS без сертификатов); причина в <code>reason</code>.</li>
 </ul>
 <p>Ошибки: <code>400</code> — неверное тело запроса, больше 5 сайтов, неверное имя сайта или неизвестный <code>tag</code>; <code>409</code> — предыдущая проверка ещё идёт; <code>503</code> — сервис остановлен.</p>

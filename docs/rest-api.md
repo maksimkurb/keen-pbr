@@ -550,7 +550,6 @@ You can name at most 5 sites in total.
         {
           "address": "8.8.8.8",
           "status": "ok",
-          "nxdomain_hijack": false,
           "results": [
             {
               "domain": "yandex.ru",
@@ -578,7 +577,6 @@ You can name at most 5 sites in total.
 
 - `overall` is `ok`, `warning` (signs of tampering) or `error` (a server does not answer).
 - A result's `status` is `ok`, `nxdomain`, `nodata`, `stub_address`, `servfail`, `refused`, `rcode`, or the reason there is no answer: `timeout`, `connection_refused`, `unreachable`, `connection_closed`, `tls_error`, `http_error`, `bad_answer`, `not_resolved`, `network_error`. `severity` is `ok`, `warning` or `error`.
-- `nxdomain_hijack` is `true` when the server answered a name that does not exist with addresses.
 - An address with status `skipped` was not checked (for example, IPv6 is off); `unavailable` means it cannot be checked (for example, DNS-over-HTTPS without certificates). The reason is in `reason`.
 
 Errors: `400` for an invalid body, more than 5 sites, an invalid site name or an unknown `tag`; `409` while the previous check is still running; `503` while the service is stopped.

@@ -35,7 +35,7 @@ Do I need dnsmasq?
 	<meta itemprop="name" content="DNS">
 	<meta itemprop="description" content="Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in DNS interception.
 Do I need dnsmasq? No, not for routing. Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough (DoH and DoT are encrypted DNS).">
-	<meta itemprop="wordCount" content="3825">
+	<meta itemprop="wordCount" content="3916">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="DNS">
 	<meta name="twitter:description" content="Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in DNS interception.
@@ -1157,7 +1157,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 <h3>Link the server to lists<span class="hx:absolute hx:-mt-20" id="link-the-server-to-lists"></span>
     <a href="#link-the-server-to-lists" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Open <strong>DNS</strong> &gt; <strong>DNS Rules</strong> &gt; <strong>Add DNS rule</strong>. In <strong>Domain lists</strong> pick the lists, and in <strong>DNS servers</strong> the server from the previous step. You can pick several servers.</p>
 <h3>Set main DNS servers (optional)<span class="hx:absolute hx:-mt-20" id="set-main-dns-servers-optional"></span>
-    <a href="#set-main-dns-servers-optional" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>On the <strong>DNS</strong> &gt; <strong>DNS servers</strong> page, find the <strong>Main DNS servers</strong> block under the table, click <strong>Add main DNS server</strong> and pick the servers for all other domains. If the block is empty, dnsmasq uses its usual DNS servers.</p>
+    <a href="#set-main-dns-servers-optional" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>On the <strong>DNS</strong> &gt; <strong>DNS rules</strong> page, expand the <strong>Main DNS servers</strong> section, click <strong>Add main DNS server</strong> and pick the servers for all other domains. The collapsed section shows which servers are chosen, and in the <strong>DNS servers</strong> table they get the <strong>Main</strong> mark.</p>
 <h3>Apply the settings<span class="hx:absolute hx:-mt-20" id="apply-the-settings"></span>
     <a href="#apply-the-settings" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Click <strong>Apply</strong> (or <strong>Apply &amp; Restart</strong>).</p>
 </div>
@@ -1314,7 +1314,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 </ul>
 <h3>Bootstrap servers<span class="hx:absolute hx:-mt-20" id="doh-bootstrap"></span>
     <a href="#doh-bootstrap" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>When the URL of a DoH server has a host name (<code>dns.google</code>) and not an IP address, keen-pbr first asks a plain DNS server for the address of that name. These servers are called bootstrap servers.</p>
-<p>By default keen-pbr asks the first plain server of the <strong>DNS servers</strong> table. To choose other ones, open <strong>DNS</strong> &gt; <strong>DNS servers</strong>, find the <strong>Bootstrap servers</strong> block under <strong>Main DNS servers</strong>, and click <strong>Add bootstrap server</strong>. Plain DNS servers and Keenetic DNS fit. The servers are asked in the order of the list. If a server does not answer, answers with an error, says the name does not exist, or gives no address, keen-pbr asks the next one. After you change the list, the addresses are looked up again.</p>
+<p>By default keen-pbr asks the first plain server of the <strong>DNS servers</strong> table. To choose other ones, open <strong>DNS</strong> &gt; <strong>DNS rules</strong>, expand the <strong>Bootstrap servers</strong> section and click <strong>Add bootstrap server</strong>. In the <strong>DNS servers</strong> table these servers get the <strong>Bootstrap</strong> mark. If a DoH server has a host name in its URL, an empty <strong>Server IP addresses</strong> field and no bootstrap servers are chosen, the section shows a ⚠️ icon, and the Overview page and <code>keen-pbr status</code> show a warning. Plain DNS servers and Keenetic DNS fit. The servers are asked in the order of the list. If a server does not answer, answers with an error, says the name does not exist, or gives no address, keen-pbr asks the next one. After you change the list, the addresses are looked up again.</p>
 <p>If your ISP blocks the name of a DoH server, put first a bootstrap server that does not block it, for example one reached through a VPN (<strong>Make requests via Outbound</strong>).</p>
 <p>If you know the addresses of the server, enter them in the <strong>Server IP addresses</strong> field of the DoH server, separated by commas. keen-pbr then connects only to them and does not look the server up.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1355,21 +1355,20 @@ On Keenetic routers, <code>type: &quot;keenetic&quot;</code> takes the DNS serve
 <li>keen-pbr reads the servers that are not tied to a domain from the <strong>System</strong> DNS proxy group. If any of them are encrypted (<abbr title="DNS over HTTPS: encrypted DNS. The router cannot read these queries.">DoH</abbr>/DoT), all encrypted servers are used in order. Otherwise, all plain servers are used in order.</li>
 </ul>
 <h3>Checking the DNS servers<span class="hx:absolute hx:-mt-20" id="check-dns-servers"></span>
-    <a href="#check-dns-servers" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>The <strong>Check</strong> button on <strong>DNS</strong> &gt; <strong>DNS servers</strong> asks every server in the list about a few sites and shows which servers work and which do not. The servers from the applied settings are checked, even when no rule uses them. If the web interface has changes you have not applied, a hint appears above the result.</p>
+    <a href="#check-dns-servers" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>The <strong>Check</strong> button on <strong>DNS</strong> &gt; <strong>DNS servers</strong> asks every server in the list about a few sites and shows which servers work and which do not. The servers from the applied settings are checked, even when no rule uses them. If the web interface has changes you have not applied, the result notification says so.</p>
 <p>The arrow next to the button opens a menu of sites. <code>yandex.ru</code> and <code>telegram.org</code> are selected by default; you can add <code>youtube.com</code>, <code>google.com</code>, <code>instagram.com</code>, <code>chatgpt.com</code>, or type your own site into <strong>Another site</strong>. One check asks about five sites at most. The browser remembers your choice.</p>
-<p>After the check, a summary appears above the table, and each server gets a status in the <strong>Check</strong> column. Click a status to see the server&rsquo;s answer for each site: the addresses and how long it took.</p>
+<p>After the check, a notification shows the summary, and each server gets a status in the <strong>Check</strong> column. If some servers do not answer or tamper with answers, the notification lists them and stays until you close it. Click a status to see the server&rsquo;s answer for each site: the addresses and how long it took.</p>
 <ul>
 <li>&ldquo;Works&rdquo;: the server answered every question.</li>
 <li>&ldquo;Not answering&rdquo;: the server did not answer in time, refused the connection, is unreachable or returned an error. A DNS-over-HTTPS server without certificates cannot be checked, which also shows as &ldquo;Not answering&rdquo; with the reason. Servers with an IPv6 address are skipped while IPv6 is off.</li>
 <li>&ldquo;Suspicious&rdquo;: the server answers, but the answers look tampered with. The signs are:
 <ul>
 <li>the server says a well-known site does not exist;</li>
-<li>the answer holds a stub address instead of the site&rsquo;s address: <code>0.0.0.0</code>, <code>127.0.0.1</code> or an address from a local network. This is how ISPs and filters block sites;</li>
-<li>the server answers with addresses for names that do not exist.</li>
+<li>the answer holds a stub address instead of the site&rsquo;s address: <code>0.0.0.0</code>, <code>127.0.0.1</code> or an address from a local network. This is how ISPs and filters block sites.</li>
 </ul>
 </li>
 </ul>
-<p>For your own site from <strong>Another site</strong>, &ldquo;does not exist&rdquo; or &ldquo;no addresses&rdquo; stays an ordinary result: keen-pbr cannot know whether the site exists.</p>
+<p>If a server says your own site from <strong>Another site</strong> does not exist, that is &ldquo;Suspicious&rdquo; too: keen-pbr cannot know whether the site exists, so it is up to you. If you are sure the site exists, the DNS server or your ISP tampers with the answer. &ldquo;No addresses&rdquo; for your own site stays an ordinary result.</p>
 <p>If a server tampers with answers, use a DNS-over-HTTPS server, or set an outbound for the server in <strong>Make requests via Outbound</strong> so the requests bypass your ISP.</p>
 <h2>Field reference<span class="hx:absolute hx:-mt-20" id="field-reference"></span>
     <a href="#field-reference" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>The <code>dns</code> section in <code>config.json</code>:</p>

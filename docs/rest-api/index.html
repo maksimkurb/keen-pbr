@@ -51,7 +51,7 @@ Configuration
 Prometheus and Grafana show VPN channel health and latency (see GET /metrics). A cron job refreshes lists on a schedule through POST /api/lists/refresh. A script restarts routing through POST /api/service/restart. If you only use the web interface, you can skip this page.
 The REST API is available when:
 Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration In the web interface, open Security &gt; Authentication and CORS. Turn on Enable authentication, enter a New password and confirm it. If a website on another address must call the API from a browser, add its address to Allowed CORS origins (one per line). Changes take effect immediately.">
-	<meta itemprop="wordCount" content="3693">
+	<meta itemprop="wordCount" content="3676">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
 	<meta name="twitter:description" content="The REST API lets scripts and external systems control and monitor keen-pbr. For example:
@@ -2231,7 +2231,6 @@ These metrics exist only with this firewall backend. A series with no data is om
 </span></span><span class="line"><span class="cl">        <span class="p">{</span>
 </span></span><span class="line"><span class="cl">          <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">          <span class="nt">&#34;status&#34;</span><span class="p">:</span> <span class="s2">&#34;ok&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">          <span class="nt">&#34;nxdomain_hijack&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">          <span class="nt">&#34;results&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">            <span class="p">{</span>
 </span></span><span class="line"><span class="cl">              <span class="nt">&#34;domain&#34;</span><span class="p">:</span> <span class="s2">&#34;yandex.ru&#34;</span><span class="p">,</span>
@@ -2269,7 +2268,6 @@ These metrics exist only with this firewall backend. A series with no data is om
 <ul>
 <li><code>overall</code> is <code>ok</code>, <code>warning</code> (signs of tampering) or <code>error</code> (a server does not answer).</li>
 <li>A result&rsquo;s <code>status</code> is <code>ok</code>, <code>nxdomain</code>, <code>nodata</code>, <code>stub_address</code>, <code>servfail</code>, <code>refused</code>, <code>rcode</code>, or the reason there is no answer: <code>timeout</code>, <code>connection_refused</code>, <code>unreachable</code>, <code>connection_closed</code>, <code>tls_error</code>, <code>http_error</code>, <code>bad_answer</code>, <code>not_resolved</code>, <code>network_error</code>. <code>severity</code> is <code>ok</code>, <code>warning</code> or <code>error</code>.</li>
-<li><code>nxdomain_hijack</code> is <code>true</code> when the server answered a name that does not exist with addresses.</li>
 <li>An address with status <code>skipped</code> was not checked (for example, IPv6 is off); <code>unavailable</code> means it cannot be checked (for example, DNS-over-HTTPS without certificates). The reason is in <code>reason</code>.</li>
 </ul>
 <p>Errors: <code>400</code> for an invalid body, more than 5 sites, an invalid site name or an unknown <code>tag</code>; <code>409</code> while the previous check is still running; <code>503</code> while the service is stopped.</p>

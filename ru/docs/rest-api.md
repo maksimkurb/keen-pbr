@@ -550,7 +550,6 @@ curl -X POST http://127.0.0.1:12121/api/dns/servers/check \
         {
           "address": "8.8.8.8",
           "status": "ok",
-          "nxdomain_hijack": false,
           "results": [
             {
               "domain": "yandex.ru",
@@ -578,7 +577,6 @@ curl -X POST http://127.0.0.1:12121/api/dns/servers/check \
 
 - `overall` — `ok`, `warning` (есть признаки подмены) или `error` (какой-то сервер не отвечает).
 - `status` результата — `ok`, `nxdomain`, `nodata`, `stub_address`, `servfail`, `refused`, `rcode` либо причина, по которой ответа нет: `timeout`, `connection_refused`, `unreachable`, `connection_closed`, `tls_error`, `http_error`, `bad_answer`, `not_resolved`, `network_error`. `severity` — `ok`, `warning` или `error`.
-- `nxdomain_hijack` — `true`, если сервер ответил адресами на несуществующее имя.
 - Статус адреса `skipped` значит, что адрес не проверялся (например, IPv6 выключен), `unavailable` — что его нельзя проверить (например, DNS-over-HTTPS без сертификатов); причина в `reason`.
 
 Ошибки: `400` — неверное тело запроса, больше 5 сайтов, неверное имя сайта или неизвестный `tag`; `409` — предыдущая проверка ещё идёт; `503` — сервис остановлен.
