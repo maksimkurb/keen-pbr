@@ -266,6 +266,11 @@ export function DnsCheckBadge({ server }: { server: DnsCheckServer }) {
         {server.endpoints.map((endpoint) => (
           <div className="space-y-1" key={endpoint.address}>
             <div className="font-medium break-all">{endpoint.address}</div>
+            {endpoint.ips && endpoint.ips.length > 0 ? (
+              <div className="text-xs break-all text-muted-foreground">
+                {endpoint.ips.join(", ")}
+              </div>
+            ) : null}
             {endpoint.status !== "ok" ? (
               <p className="text-muted-foreground">
                 {statusText(

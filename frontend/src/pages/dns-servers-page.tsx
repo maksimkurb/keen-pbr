@@ -3,7 +3,10 @@ import { ArrowRight, Pencil, Plus, Trash2 } from "lucide-react"
 import type { ReactNode } from "react"
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import { useLocation } from "wouter"
+
+import { useQueryClient } from "@tanstack/react-query"
 
 import type { ApiError } from "@/api/client"
 import type { getConfigResponse } from "@/api/generated/keen-api"
@@ -15,6 +18,7 @@ import {
   useConfigMutationPending,
   usePostConfigMutation,
 } from "@/api/mutations"
+import { queryKeys } from "@/api/query-keys"
 import { useGetConfig } from "@/api/queries"
 import { usePostDnsServersCheck } from "@/api/generated/keen-api"
 import { getApiErrorMessage } from "@/lib/api-errors"
@@ -38,6 +42,7 @@ import { useRowSelection } from "@/hooks/use-row-selection"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { DnsServerLists } from "@/pages/dns-servers-lists"
 import {
   DnsCheckBadge,
   DnsCheckButton,
@@ -49,14 +54,18 @@ import {
   saveSelection,
   type CheckSelection,
 } from "@/pages/dns-servers-check-utils"
+import { getRuleDraft, validateRules } from "@/pages/dns-rules-utils"
 import {
   buildUpdatedConfigForDnsServersDelete,
+  buildUpdatedConfigWithServerList,
+  getBootstrapCandidateTags,
   getDnsServerDeleteImpact,
   type DnsServerDeleteImpact,
 } from "@/pages/dns-servers-utils"
 
 export function DnsServersPage() {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const [, navigate] = useLocation()
   const [deleteRequest, setDeleteRequest] = useState<{
     tags: string[]
@@ -97,6 +106,60 @@ export function DnsServersPage() {
   const dnsServers = useMemo(() => config?.dns?.servers ?? [], [config])
   const serverRowIds = dnsServers.map((server) => server.tag)
   const serverSelection = useRowSelection(serverRowIds)
+  const bootstrapOptions = useMemo(
+    () => getBootstrapCandidateTags(dnsServers),
+    [dnsServers]
+  )
+
+  const saveServerList = (key: "fallback" | "bootstrap", tags: string[]) => {
+    if (!config) {
+      return
+    }
+
+    const knownTags = key === "bootstrap" ? bootstrapOptions : serverRowIds
+    if (tags.some((tag) => !knownTags.includes(tag))) {
+      toast.error(
+        t(
+          key === "bootstrap"
+            ? "pages.dnsServers.validation.invalidBootstrap"
+            : "pages.dnsServers.validation.invalidFallback"
+        ),
+        { richColors: true }
+      )
+      return
+    }
+
+    if (key === "fallback") {
+      const draftRules = (config.dns?.rules ?? []).map((rule) =>
+        getRuleDraft(rule)
+      )
+      const listOptions = Object.keys(config.lists ?? {})
+      if (
+        Object.keys(validateRules(draftRules, serverRowIds, listOptions))
+          .length > 0
+      ) {
+        toast.error(t("pages.dnsServers.validation.invalidFallbackChange"), {
+          richColors: true,
+        })
+        return
+      }
+    }
+
+    postConfigMutation.mutate(
+      { data: buildUpdatedConfigWithServerList(config, key, tags) },
+      {
+        onSuccess: async () => {
+          await queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() })
+          toast.success(t("pages.dnsServers.messages.saved"))
+        },
+        onError: (error) => {
+          toast.error(getApiErrorMessage(error as unknown as ApiError), {
+            richColors: true,
+          })
+        },
+      }
+    )
+  }
 
   const deleteServer = (serverTag: string) => {
     if (!config) {
@@ -214,110 +277,130 @@ export function DnsServersPage() {
         />
       ) : effectiveResolverIntegration(config) !== "dnsmasq" ? (
         <DnsManagementDisabled />
-      ) : dnsServers.length === 0 ? (
-        <ListPlaceholder
-          description={t("pages.dnsServers.empty.description")}
-          title={t("pages.dnsServers.empty.title")}
-        />
       ) : (
-        <div className="space-y-3">
-          {serverSelection.isSelecting ? (
-            <BulkSelectionToolbar
-              selection={serverSelection}
-              disabled={configMutationPending}
-              countLabel={t("pages.dnsServers.bulk.selected", {
-                count: serverSelection.selectedCount,
-              })}
-            >
-              <Button
-                disabled={configMutationPending}
-                onClick={deleteServersBulk}
-                size="sm"
-                variant="destructive"
-              >
-                <Trash2 className="mr-1 h-4 w-4" />
-                {t("pages.dnsServers.bulk.delete", {
-                  count: serverSelection.selectedCount,
-                })}
-              </Button>
-            </BulkSelectionToolbar>
-          ) : null}
-          <DataTable
-            mobileCards={{
-              titleColumns: [0],
-              bodyColumns: checkResponse ? [1, 2, 3] : [1, 2],
-            }}
-            headers={[
-              t("pages.dnsServers.headers.name"),
-              t("pages.dnsServers.headers.address"),
-              t("pages.dnsServers.headers.outbound"),
-              ...(checkResponse ? [t("pages.dnsServers.headers.check")] : []),
-              t("pages.dnsServers.headers.actions"),
-            ]}
-            rows={dnsServers.map((server) => [
-              <div className="font-medium" key={`${server.tag}-tag`}>
-                {server.tag}
-              </div>,
-              <span
-                className="text-sm text-muted-foreground"
-                key={`${server.tag}-address`}
-              >
-                {server.type === DnsServerType.keenetic
-                  ? t("pages.dnsServers.keeneticAddress")
-                  : server.address}
-              </span>,
-              <Badge
-                key={`${server.tag}-detour`}
-                variant={server.detour ? "outline" : "secondary"}
-              >
-                {server.detour || t("pages.dnsServers.none")}
-              </Badge>,
-              ...(checkResponse
-                ? [
-                    <CheckStatusCell
-                      key={`${server.tag}-check`}
-                      response={checkResponse}
-                      tag={server.tag}
-                    />,
-                  ]
-                : []),
-              <ActionButtons
-                mobileIcons
-                actions={[
-                  {
-                    disabled: configMutationPending,
-                    icon: <Pencil className="h-4 w-4" />,
-                    label: t("common.edit"),
-                    onClick: () =>
-                      navigate(
-                        `/dns-servers/${encodeURIComponent(server.tag)}/edit`
-                      ),
-                  },
-                  {
-                    disabled: configMutationPending,
-                    icon: <Trash2 className="h-4 w-4" />,
-                    destructive: true,
-                    label: t("common.delete"),
-                    onClick: () => deleteServer(server.tag),
-                  },
+        <>
+          {dnsServers.length === 0 ? (
+            <ListPlaceholder
+              description={t("pages.dnsServers.empty.description")}
+              title={t("pages.dnsServers.empty.title")}
+            />
+          ) : (
+            <div className="space-y-3">
+              {serverSelection.isSelecting ? (
+                <BulkSelectionToolbar
+                  selection={serverSelection}
+                  disabled={configMutationPending}
+                  countLabel={t("pages.dnsServers.bulk.selected", {
+                    count: serverSelection.selectedCount,
+                  })}
+                >
+                  <Button
+                    disabled={configMutationPending}
+                    onClick={deleteServersBulk}
+                    size="sm"
+                    variant="destructive"
+                  >
+                    <Trash2 className="mr-1 h-4 w-4" />
+                    {t("pages.dnsServers.bulk.delete", {
+                      count: serverSelection.selectedCount,
+                    })}
+                  </Button>
+                </BulkSelectionToolbar>
+              ) : null}
+              <DataTable
+                mobileCards={{
+                  titleColumns: [0],
+                  bodyColumns: checkResponse ? [1, 2, 3] : [1, 2],
+                }}
+                headers={[
+                  t("pages.dnsServers.headers.name"),
+                  t("pages.dnsServers.headers.address"),
+                  t("pages.dnsServers.headers.outbound"),
+                  ...(checkResponse
+                    ? [t("pages.dnsServers.headers.check")]
+                    : []),
+                  t("pages.dnsServers.headers.actions"),
                 ]}
-                key={`${server.tag}-actions`}
-              />,
-            ])}
-            selection={{
-              isSelecting: serverSelection.isSelecting,
-              onStartSelecting: serverSelection.startSelecting,
-              rowIds: serverRowIds,
-              selectedIds: serverSelection.selectedIds,
-              disabled: configMutationPending,
-              onToggle: serverSelection.toggleOne,
-              onToggleAll: serverSelection.setAllVisible,
-              selectAllLabel: t("common.selection.selectAll"),
-              getRowLabel: (rowId) =>
-                t("common.selection.selectRow", { rowLabel: rowId }),
-            }}
+                rows={dnsServers.map((server) => [
+                  <div className="font-medium" key={`${server.tag}-tag`}>
+                    {server.tag}
+                  </div>,
+                  <span
+                    className="text-sm text-muted-foreground"
+                    key={`${server.tag}-address`}
+                  >
+                    {server.type === DnsServerType.keenetic
+                      ? t("pages.dnsServers.keeneticAddress")
+                      : server.address}
+                    {server.ips && server.ips.length > 0 ? (
+                      <span className="block text-xs">
+                        {server.ips.join(", ")}
+                      </span>
+                    ) : null}
+                  </span>,
+                  <Badge
+                    key={`${server.tag}-detour`}
+                    variant={server.detour ? "outline" : "secondary"}
+                  >
+                    {server.detour || t("pages.dnsServers.none")}
+                  </Badge>,
+                  ...(checkResponse
+                    ? [
+                        <CheckStatusCell
+                          key={`${server.tag}-check`}
+                          response={checkResponse}
+                          tag={server.tag}
+                        />,
+                      ]
+                    : []),
+                  <ActionButtons
+                    mobileIcons
+                    actions={[
+                      {
+                        disabled: configMutationPending,
+                        icon: <Pencil className="h-4 w-4" />,
+                        label: t("common.edit"),
+                        onClick: () =>
+                          navigate(
+                            `/dns-servers/${encodeURIComponent(server.tag)}/edit`
+                          ),
+                      },
+                      {
+                        disabled: configMutationPending,
+                        icon: <Trash2 className="h-4 w-4" />,
+                        destructive: true,
+                        label: t("common.delete"),
+                        onClick: () => deleteServer(server.tag),
+                      },
+                    ]}
+                    key={`${server.tag}-actions`}
+                  />,
+                ])}
+                selection={{
+                  isSelecting: serverSelection.isSelecting,
+                  onStartSelecting: serverSelection.startSelecting,
+                  rowIds: serverRowIds,
+                  selectedIds: serverSelection.selectedIds,
+                  disabled: configMutationPending,
+                  onToggle: serverSelection.toggleOne,
+                  onToggleAll: serverSelection.setAllVisible,
+                  selectAllLabel: t("common.selection.selectAll"),
+                  getRowLabel: (rowId) =>
+                    t("common.selection.selectRow", { rowLabel: rowId }),
+                }}
+              />
+            </div>
+          )}
+
+          <DnsServerLists
+            bootstrap={config?.dns?.bootstrap ?? []}
+            bootstrapOptions={bootstrapOptions}
+            fallback={config?.dns?.fallback ?? []}
+            onBootstrapChange={(tags) => saveServerList("bootstrap", tags)}
+            onFallbackChange={(tags) => saveServerList("fallback", tags)}
+            serverTags={serverRowIds}
           />
-        </div>
+        </>
       )}
       <DeleteImpactDialog
         confirmLabel={t("pages.dnsServers.deleteDialog.confirm")}
@@ -394,13 +477,32 @@ function getDnsServerDeleteImpactItems(
       label: t("pages.dnsServers.deleteDialog.items.fallback"),
       details: [
         formatDetail(
-          t("pages.dnsRules.fallback.title"),
+          t("pages.dnsServers.fallback.title"),
           <ChangeValue
             after={formatListValue(
               fallback.filter((tag) => !serverTags.includes(tag)),
               t
             )}
             before={formatListValue(fallback, t)}
+          />
+        ),
+      ],
+    })
+  }
+
+  if (impact.usesBootstrap) {
+    const bootstrap = config?.dns?.bootstrap ?? []
+    items.push({
+      label: t("pages.dnsServers.deleteDialog.items.bootstrap"),
+      details: [
+        formatDetail(
+          t("pages.dnsServers.bootstrap.title"),
+          <ChangeValue
+            after={formatListValue(
+              bootstrap.filter((tag) => !serverTags.includes(tag)),
+              t
+            )}
+            before={formatListValue(bootstrap, t)}
           />
         ),
       ],
@@ -423,7 +525,10 @@ function getDnsRuleDetails(
       t("pages.dnsRules.criteriaLabels.lists"),
       formatListValue(rule.list, t)
     ),
-    formatDetail(t("pages.dnsRules.headers.serverTag"), rule.servers.join(", ")),
+    formatDetail(
+      t("pages.dnsRules.headers.serverTag"),
+      rule.servers.join(", ")
+    ),
   ]
 }
 

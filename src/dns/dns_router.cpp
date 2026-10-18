@@ -242,7 +242,7 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
         if (groups_.size() >= kDnsBalancerMaxGroups) {
             balancer_error_ = "too many different DNS server sets: at most " +
                               std::to_string(kDnsBalancerMaxGroups) +
-                              " lists or default servers can use several servers or DNS-over-HTTPS";
+                              " lists or main DNS servers can use several servers or DNS-over-HTTPS";
             break;
         }
         DnsBalancerGroup group;

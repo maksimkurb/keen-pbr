@@ -267,7 +267,7 @@ export const enTranslation = {
       dnsServerFailing: "DNS server '{{tag}}' is not answering",
       dnsServerFailingFor:
         "{{detail}}. No working server is left for: {{lists}}",
-      defaultServers: "default servers",
+      defaultServers: "main servers",
       dohNoCertificates:
         "The router has no CA certificates to check the servers with. Install the ca-certificates package.",
       hostWarning: {
@@ -461,7 +461,7 @@ export const enTranslation = {
     dnsmasqMissing: {
       title: "dnsmasq is not installed",
       description:
-        '"Manage dnsmasq configuration" is on, but dnsmasq is not installed. Until you fix this, DNS rules and default DNS servers do not work.',
+        '"Manage dnsmasq configuration" is on, but dnsmasq is not installed. Until you fix this, DNS rules and main DNS servers do not work.',
       install: {
         title: "Install dnsmasq",
         command: "Run over SSH:",
@@ -1205,7 +1205,7 @@ export const enTranslation = {
       delete: {
         confirmWithReferences:
           'DNS server "{{serverTag}}" is currently used by {{count}} rule(s){{fallbackSuffix}}.\nDelete and automatically remove those references?',
-        fallbackSuffix: " and as fallback",
+        fallbackSuffix: " and among the main DNS servers",
       },
       deleteDialog: {
         title: "Delete DNS servers?",
@@ -1216,7 +1216,8 @@ export const enTranslation = {
           serverPrefix: "DNS server",
           serverSuffix: "will be deleted.",
           dnsRule: "DNS rule #{{number}} will be deleted.",
-          fallback: "Fallback DNS will be changed.",
+          fallback: "Main DNS servers will be changed.",
+          bootstrap: "Bootstrap servers will be changed.",
         },
       },
       bulk: {
@@ -1226,6 +1227,40 @@ export const enTranslation = {
           "Delete DNS servers {{tags}}?\nAutomatically remove stale references?",
       },
       none: "none",
+      messages: {
+        saved: "DNS configuration staged. Apply new config to persist it.",
+      },
+      validation: {
+        invalidFallback:
+          "Main DNS servers must reference existing server tags.",
+        invalidFallbackChange:
+          "Cannot change the main DNS servers while DNS rules are invalid.",
+        invalidBootstrap:
+          "Bootstrap servers must be existing plain DNS servers.",
+      },
+      fallback: {
+        title: "Main DNS servers",
+        description:
+          "Queries for domains that no DNS rule matches go to these servers, tried in order. When set, the router's system DNS servers are not used.",
+        add: "Add main DNS server",
+        placeholderTitle: "No main DNS servers selected",
+        placeholderDescription:
+          "Optional. Leave empty to keep the system DNS servers for domains not matched by any rule.",
+        noneDefined: "Add a DNS server first.",
+        noneAvailable: "All DNS servers are already selected.",
+      },
+      bootstrap: {
+        title: "Bootstrap servers",
+        description:
+          "keen-pbr uses these servers to find the IP addresses of DoH servers whose URL has a host name rather than an IP. Only plain DNS servers fit. If none is chosen, the first plain server of the list is used.",
+        add: "Add bootstrap server",
+        autoTitle: "Automatic: {{tag}}",
+        systemTitle: "The router's system resolver",
+        noPlainHint:
+          "Add a plain DNS server, otherwise the address of a DoH server may not be found.",
+        noneDefined: "Add a plain DNS server first.",
+        noneAvailable: "All plain DNS servers are already selected.",
+      },
     },
     dnsServerUpsert: {
       createTitle: "Create DNS server",
@@ -1236,7 +1271,7 @@ export const enTranslation = {
         "Return to the DNS servers table and choose a valid entry.",
       back: "Back to DNS servers",
       description:
-        "This server will be available in your DNS rules and as a fallback.",
+        "This server will be available in your DNS rules and among the main DNS servers.",
       cardDescription:
         "Choose the DNS server type and optional detour outbound.",
       editCardTitle: "Edit DNS server <entity>{{tag}}</entity>",
@@ -1273,6 +1308,10 @@ export const enTranslation = {
         detourPlaceholder: "Optional outbound tag",
         detourHint:
           "Optional: send DNS queries for this server through a specific outbound (e.g. a VPN).",
+        ips: "Server IP addresses",
+        ipsPlaceholder: "8.8.8.8, 8.8.4.4",
+        ipsHint:
+          "Optional, comma separated. If set, keen-pbr connects only to these addresses and does not look the server up through the bootstrap servers.",
       },
       validation: {
         tagUnique: "Name must be unique.",
@@ -1280,6 +1319,8 @@ export const enTranslation = {
         addressInvalid:
           "Address must be a valid IPv4/IPv6 value with an optional port.",
         dohUrlInvalid: "URL must start with https:// and include a host name.",
+        ipsInvalid:
+          "Enter IPv4 or IPv6 addresses without a port, separated by commas, with no repeats.",
       },
       actions: {
         create: "Create DNS server",
@@ -1749,7 +1790,7 @@ export const enTranslation = {
       },
       bulk: {
         deleteConsequences:
-          "After applying changes, the selected rules will no longer select DNS servers for domains. Remaining rules and default DNS servers will be used.",
+          "After applying changes, the selected rules will no longer select DNS servers for domains. Remaining rules and main DNS servers will be used.",
         selected: "{{count}} selected",
         enable: "Enable {{count}}",
         disable: "Disable {{count}}",
@@ -1760,22 +1801,7 @@ export const enTranslation = {
         saved: "DNS configuration staged. Apply new config to persist it.",
       },
       validation: {
-        invalidFallback:
-          "Primary DNS servers must reference existing server tags.",
-        invalidFallbackChange:
-          "Cannot change fallback while DNS rules are invalid.",
         invalidResult: "Cannot save because resulting DNS rules are invalid.",
-      },
-      fallback: {
-        title: "Default upstream DNS servers",
-        description:
-          "The ordered DNS servers dnsmasq should use when no DNS rule matches. When set, dnsmasq ignores the system upstreams (no-resolv).",
-        add: "Add default DNS server",
-        placeholderTitle: "No default upstream DNS servers selected",
-        placeholderDescription:
-          "Optional. Leave empty to keep the system upstreams for domains not matched by any rule.",
-        noneDefined: "No DNS servers defined on the DNS Servers page.",
-        noneAvailable: "All DNS servers are already selected.",
       },
       integration: {},
       empty: {

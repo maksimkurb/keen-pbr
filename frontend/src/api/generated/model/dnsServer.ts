@@ -18,4 +18,7 @@ export interface DnsServer {
   address?: string;
   /** Outbound tag to use when querying this DNS server. */
   detour?: string;
+  /** Only for `type=doh`: fixed IPv4 or IPv6 addresses of the server, without a port. When set, keen-pbr connects only to these addresses and does not look the server up through the bootstrap servers. The host name of the URL is still used for the TLS handshake and the `Host` header. Rejected for other types.
+   */
+  ips?: string[];
 }

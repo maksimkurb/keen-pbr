@@ -39,6 +39,11 @@ import i18n from "@/i18n"
 import { useDraftForm } from "@/lib/draft-form"
 import { PLATFORM_DEVELOPMENT, PLATFORM_KEENETIC } from "@/lib/platform"
 import { getTagNameValidationError } from "@/lib/tag-name-validation"
+import {
+  isLikelyIpv6,
+  isValidIpv4,
+  parseServerIps,
+} from "@/pages/dns-servers-utils"
 
 type DnsServerDraft = {
   tag: string
@@ -48,6 +53,7 @@ type DnsServerDraft = {
     | typeof DnsServerType.doh
   address: string
   detour: string
+  ips: string
 }
 
 const emptyDnsServerDraft: DnsServerDraft = {
@@ -55,6 +61,7 @@ const emptyDnsServerDraft: DnsServerDraft = {
   type: DnsServerType.static,
   address: "",
   detour: "",
+  ips: "",
 }
 
 export function DnsServerUpsertPage({
@@ -228,6 +235,13 @@ function DnsServerForm({
         }
       }
 
+      if (
+        value.type === DnsServerType.doh &&
+        parseServerIps(value.ips).invalid
+      ) {
+        errors.ips = i18n.t("pages.dnsServerUpsert.validation.ipsInvalid")
+      }
+
       return errors
     },
   })
@@ -252,11 +266,14 @@ function DnsServerForm({
     }
 
     const normalizedDetour = isKeeneticDns ? "" : value.detour.trim()
+    const normalizedIps =
+      value.type === DnsServerType.doh ? parseServerIps(value.ips).ips : []
     const nextServer: DnsServer = {
       tag: normalizedTag,
       type: value.type,
       ...(normalizedAddress ? { address: normalizedAddress } : {}),
       ...(normalizedDetour ? { detour: normalizedDetour } : {}),
+      ...(normalizedIps.length > 0 ? { ips: normalizedIps } : {}),
     }
 
     const currentServers = config.dns?.servers ?? []
@@ -444,6 +461,31 @@ function DnsServerForm({
                 />
               </FieldContent>
             </Field>
+
+            {isDoh ? (
+              <Field invalid={Boolean(form.errorFor("ips"))}>
+                <FieldLabel htmlFor="dns-server-ips">
+                  {t("pages.dnsServerUpsert.fields.ips")}
+                </FieldLabel>
+                <FieldContent>
+                  <Input
+                    aria-invalid={Boolean(form.errorFor("ips"))}
+                    id="dns-server-ips"
+                    onChange={(event) =>
+                      form.setValue("ips", event.target.value)
+                    }
+                    placeholder={t(
+                      "pages.dnsServerUpsert.fields.ipsPlaceholder"
+                    )}
+                    value={values.ips}
+                  />
+                  <FieldHint
+                    description={t("pages.dnsServerUpsert.fields.ipsHint")}
+                    error={form.errorFor("ips")}
+                  />
+                </FieldContent>
+              </Field>
+            ) : null}
           </>
         ) : null}
       </FieldGroup>
@@ -491,6 +533,7 @@ function getDnsServerDraft(server?: DnsServer): DnsServerDraft {
     type: server.type ?? DnsServerType.static,
     address: server.address ?? "",
     detour: server.detour ?? "",
+    ips: (server.ips ?? []).join(", "),
   }
 }
 
@@ -606,30 +649,6 @@ function normalizeDnsAddress(value: string) {
   }
 
   return null
-}
-
-function isValidIpv4(value: string) {
-  const octets = value.split(".")
-  if (octets.length !== 4) {
-    return false
-  }
-
-  return octets.every((octet) => {
-    if (!/^\d+$/.test(octet)) {
-      return false
-    }
-
-    const num = Number(octet)
-    return num >= 0 && num <= 255
-  })
-}
-
-function isLikelyIpv6(value: string) {
-  if (!/^[0-9a-f:]+$/i.test(value)) {
-    return false
-  }
-
-  return value.includes(":")
 }
 
 function isValidPort(value?: string) {

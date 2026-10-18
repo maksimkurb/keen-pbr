@@ -201,18 +201,14 @@ describe("dns rule enabled helpers", () => {
     }
 
     expect(
-      buildUpdatedConfigWithRules(
-        config,
-        ["vpn_dns"],
-        [
-          {
-            enabled: false,
-            servers: ["vpn_dns"],
-            list: ["ads"],
-            allow_domain_rebinding: true,
-          },
-        ]
-      )
+      buildUpdatedConfigWithRules(config, [
+        {
+          enabled: false,
+          servers: ["vpn_dns"],
+          list: ["ads"],
+          allow_domain_rebinding: true,
+        },
+      ])
     ).toEqual({
       dns: {
         fallback: ["vpn_dns"],

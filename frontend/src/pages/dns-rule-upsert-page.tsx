@@ -29,6 +29,7 @@ import {
   buildUpdatedConfigWithRules,
   type DnsRuleDraft,
   getRuleDraft,
+  newRuleDraft,
   validateRules,
 } from "@/pages/dns-rules-utils"
 
@@ -136,12 +137,7 @@ function DnsRuleForm({
   const draft =
     mode === "edit" && existingRule
       ? getRuleDraft(existingRule)
-      : {
-          enabled: true,
-          servers: serverTags.slice(0, 1),
-          list: [],
-          allow_domain_rebinding: false,
-        }
+      : newRuleDraft()
 
   const form = useDraftForm<DnsRuleDraft>(draft, {
     // Index the rule has in the array that is sent (new ones are appended).
@@ -191,11 +187,7 @@ function DnsRuleForm({
 
     try {
       await postConfigMutation.mutateAsync({
-        data: buildUpdatedConfigWithRules(
-          loadedConfig,
-          loadedConfig.dns?.fallback ?? [],
-          nextRules
-        ),
+        data: buildUpdatedConfigWithRules(loadedConfig, nextRules),
       })
       await queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() })
       toast.success(t("pages.dnsRuleUpsert.messages.saved"))

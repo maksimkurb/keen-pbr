@@ -21,20 +21,12 @@ import { MobileAddFab } from "@/components/shared/mobile-add-fab"
 import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
 import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable } from "@/components/shared/data-table"
-import {
-  Field,
-  FieldContent,
-  FieldHint,
-  FieldLabel,
-} from "@/components/shared/field"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
-import { MultiSelectList } from "@/components/shared/multi-select-list"
 import { PageHeader } from "@/components/shared/page-header"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { useRowSelection } from "@/hooks/use-row-selection"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { getApiErrorMessage } from "@/lib/api-errors"
 import {
@@ -84,32 +76,6 @@ export function DnsRulesPage() {
   const ruleRowIds = rules.map((_rule, index) => String(index))
   const ruleSelection = useRowSelection(ruleRowIds)
 
-  const handleFallbackChange = (fallback: string[]) => {
-    if (!loadedConfig) {
-      return
-    }
-
-    if (fallback.some((tag) => !serverTags.includes(tag))) {
-      toast.error(t("pages.dnsRules.validation.invalidFallback"), {
-        richColors: true,
-      })
-      return
-    }
-
-    const draftRules = rules.map((rule) => getRuleDraft(rule))
-    const validation = validateRules(draftRules, serverTags, listOptions)
-    if (Object.keys(validation).length > 0) {
-      toast.error(t("pages.dnsRules.validation.invalidFallbackChange"), {
-        richColors: true,
-      })
-      return
-    }
-
-    postConfigMutation.mutate({
-      data: buildUpdatedConfigWithRules(loadedConfig, fallback, draftRules),
-    })
-  }
-
   const resolverIntegration = effectiveResolverIntegration(loadedConfig)
 
   const handleDeleteRule = (index: number) => {
@@ -130,11 +96,7 @@ export function DnsRulesPage() {
     }
 
     postConfigMutation.mutate({
-      data: buildUpdatedConfigWithRules(
-        loadedConfig,
-        loadedConfig.dns?.fallback ?? [],
-        nextDraftRules
-      ),
+      data: buildUpdatedConfigWithRules(loadedConfig, nextDraftRules),
     })
   }
 
@@ -158,11 +120,7 @@ export function DnsRulesPage() {
     }
 
     postConfigMutation.mutate({
-      data: buildUpdatedConfigWithRules(
-        loadedConfig,
-        loadedConfig.dns?.fallback ?? [],
-        nextDraftRules
-      ),
+      data: buildUpdatedConfigWithRules(loadedConfig, nextDraftRules),
     })
   }
 
@@ -184,11 +142,7 @@ export function DnsRulesPage() {
 
     postConfigMutation.mutate(
       {
-        data: buildUpdatedConfigWithRules(
-          loadedConfig,
-          loadedConfig.dns?.fallback ?? [],
-          nextDraftRules
-        ),
+        data: buildUpdatedConfigWithRules(loadedConfig, nextDraftRules),
       },
       options?.clearSelection
         ? {
@@ -290,42 +244,6 @@ export function DnsRulesPage() {
         <DnsManagementDisabled />
       ) : (
         <>
-          <Card>
-            <CardContent className="space-y-6">
-              <Field>
-                <FieldLabel>{t("pages.dnsRules.fallback.title")}</FieldLabel>
-                <FieldContent>
-                  <MultiSelectList
-                    addLabel={t("pages.dnsRules.fallback.add")}
-                    allowReorder
-                    emptyMessage={t("pages.dnsRules.fallback.noneAvailable")}
-                    onChange={handleFallbackChange}
-                    options={serverTags}
-                    placeholderDescription={t(
-                      "pages.dnsRules.fallback.placeholderDescription"
-                    )}
-                    placeholderTitle={t(
-                      "pages.dnsRules.fallback.placeholderTitle"
-                    )}
-                    value={loadedConfig?.dns?.fallback ?? []}
-                  />
-                  <FieldHint
-                    description={
-                      serverTags.length === 0 ? (
-                        <>
-                          {t("pages.dnsRules.fallback.description")}{" "}
-                          {t("pages.dnsRules.fallback.noneDefined")}
-                        </>
-                      ) : (
-                        t("pages.dnsRules.fallback.description")
-                      )
-                    }
-                  />
-                </FieldContent>
-              </Field>
-            </CardContent>
-          </Card>
-
           {rules.length === 0 ? (
             <ListPlaceholder
               description={t("pages.dnsRules.empty.description")}

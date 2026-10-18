@@ -67,6 +67,7 @@ describe("bulk DNS server delete helpers", () => {
       matchingRuleIndexes: [0],
       matchingRulesCount: 1,
       usesFallback: true,
+      usesBootstrap: false,
     })
   })
 
@@ -110,6 +111,7 @@ describe("bulk DNS server delete helpers with several servers per rule", () => {
       matchingRuleIndexes: [0],
       matchingRulesCount: 1,
       usesFallback: false,
+      usesBootstrap: false,
     })
   })
 

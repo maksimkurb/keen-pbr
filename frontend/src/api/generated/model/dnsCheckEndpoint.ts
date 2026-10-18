@@ -22,5 +22,8 @@ export interface DnsCheckEndpoint {
   /** True when the server resolved a made-up name that does not exist. Absent when it did not answer.
    */
   nxdomain_hijack?: boolean;
+  /** DNS-over-HTTPS only: the fixed addresses the server was asked at (`ips` of the server). Absent when its host name was looked up.
+   */
+  ips?: string[];
   results: DnsCheckResult[];
 }

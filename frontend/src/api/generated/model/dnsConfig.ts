@@ -19,6 +19,9 @@ export interface DnsConfig {
   /** DNS server tags used as dnsmasq's default upstreams. When set, the generated config adds `no-resolv` and unscoped `server=` lines. Used only when `resolver_integration` is `dnsmasq`.
    */
   fallback?: string[];
+  /** Tags of the plain DNS servers (`static` or `keenetic`, not `doh`) that find the IP addresses of `doh` servers whose URL has a host name. They are asked in order; the next one is tried when a server does not answer, answers with an error, says the name does not exist, or gives no address. When absent or empty, the first plain server of `dns.servers` is used.
+   */
+  bootstrap?: string[];
   /** `none` (default) | `dnsmasq`. With `dnsmasq`, keen-pbr generates a dnsmasq config with per-list `server=` lines, installs it via the platform hook and restarts dnsmasq. If absent and `dns.rules` is non-empty, `dnsmasq` is assumed (upgrade compatibility).
    */
   resolver_integration?: ResolverIntegrationMode;

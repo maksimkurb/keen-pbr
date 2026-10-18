@@ -272,7 +272,7 @@ export const ruTranslation = {
       dnsServerFailing: "DNS-сервер «{{tag}}» не отвечает",
       dnsServerFailingFor:
         "{{detail}}. Не осталось рабочих серверов для: {{lists}}",
-      defaultServers: "серверы по умолчанию",
+      defaultServers: "основные серверы",
       dohNoCertificates:
         "На роутере нет сертификатов центров сертификации, чтобы проверить серверы. Установите пакет ca-certificates.",
       hostWarning: {
@@ -1183,7 +1183,8 @@ export const ruTranslation = {
         },
         result: {
           ok: "Все DNS-серверы работают",
-          warning: "Серверы отвечают, но у некоторых есть признаки подмены ответов",
+          warning:
+            "Серверы отвечают, но у некоторых есть признаки подмены ответов",
           error: "Некоторые DNS-серверы не отвечают",
           notAnswering: "Не отвечают или не удалось проверить:",
           alsoSuspicious: "Также есть признаки подмены:",
@@ -1235,7 +1236,7 @@ export const ruTranslation = {
       delete: {
         confirmWithReferences:
           'DNS-сервер "{{serverTag}}" сейчас используется в {{count}} правил(е/ах){{fallbackSuffix}}.\nУдалить и автоматически убрать эти ссылки?',
-        fallbackSuffix: " и как fallback",
+        fallbackSuffix: " и среди основных DNS-серверов",
       },
       deleteDialog: {
         title: "Удалить DNS-серверы?",
@@ -1246,7 +1247,8 @@ export const ruTranslation = {
           serverPrefix: "DNS-сервер",
           serverSuffix: "будет удалён.",
           dnsRule: "DNS-правило #{{number}} будет удалено.",
-          fallback: "Fallback DNS будет изменён.",
+          fallback: "Основные DNS-серверы будут изменены.",
+          bootstrap: "Bootstrap-серверы будут изменены.",
         },
       },
       bulk: {
@@ -1256,6 +1258,41 @@ export const ruTranslation = {
           "Удалить DNS-серверы: {{tags}}?\nАвтоматически убрать ссылки из правил?",
       },
       none: "нет",
+      messages: {
+        saved:
+          "Конфигурация DNS сохранена в черновик. Примените новый конфиг, чтобы записать её.",
+      },
+      validation: {
+        invalidFallback:
+          "Основные DNS-серверы должны ссылаться на существующие теги серверов.",
+        invalidFallbackChange:
+          "Нельзя изменить основные DNS-серверы, пока DNS-правила невалидны.",
+        invalidBootstrap:
+          "Bootstrap-серверами могут быть только существующие обычные DNS-серверы.",
+      },
+      fallback: {
+        title: "Основные DNS-серверы",
+        description:
+          "Запросы доменов, для которых нет подходящего DNS-правила, идут на эти серверы по порядку. Если список задан, системные DNS-серверы роутера не используются.",
+        add: "Добавить основной DNS-сервер",
+        placeholderTitle: "Основные DNS-серверы не выбраны",
+        placeholderDescription:
+          "Необязательно. Если оставить пустым, для доменов без правил используются системные DNS-серверы роутера.",
+        noneDefined: "Сначала добавьте DNS-сервер.",
+        noneAvailable: "Все DNS-серверы уже выбраны.",
+      },
+      bootstrap: {
+        title: "Bootstrap-серверы",
+        description:
+          "Через эти серверы keen-pbr узнаёт IP-адреса DoH-серверов, у которых в адресе указано имя, а не IP. Подходят только обычные DNS-серверы. Если не выбрано, используется первый обычный сервер из списка.",
+        add: "Добавить bootstrap-сервер",
+        autoTitle: "Автоматически: {{tag}}",
+        systemTitle: "Системный резолвер роутера",
+        noPlainHint:
+          "Добавьте обычный DNS-сервер, иначе адрес DoH-сервера может не найтись.",
+        noneDefined: "Сначала добавьте обычный DNS-сервер.",
+        noneAvailable: "Все обычные DNS-серверы уже выбраны.",
+      },
     },
     dnsServerUpsert: {
       createTitle: "Создать DNS-сервер",
@@ -1265,7 +1302,8 @@ export const ruTranslation = {
       missingDescription:
         "Вернитесь к таблице DNS-серверов и выберите корректную запись.",
       back: "Назад к DNS-серверам",
-      description: "Этот сервер будет доступен в DNS-правилах и как fallback.",
+      description:
+        "Этот сервер будет доступен в DNS-правилах и среди основных DNS-серверов.",
       cardDescription:
         "Выберите тип DNS-сервера и необязательный detour outbound.",
       editCardTitle: "Изменить DNS-сервер <entity>{{tag}}</entity>",
@@ -1292,8 +1330,7 @@ export const ruTranslation = {
         address: "Адрес",
         dohUrl: "URL",
         dohUrlPlaceholder: "https://dns.google/dns-query",
-        dohUrlHint:
-          "Адрес DNS-over-HTTPS сервиса, начиная с `https://`.",
+        dohUrlHint: "Адрес DNS-over-HTTPS сервиса, начиная с `https://`.",
         addressPlaceholder: "1.1.1.1 или [2606:4700::1111]:53",
         addressHint:
           "IP-адрес сервера, напр. `1.1.1.1` или `[2606:4700::1111]:53`.",
@@ -1302,13 +1339,20 @@ export const ruTranslation = {
         detourPlaceholder: "Необязательный тег outbound",
         detourHint:
           "Необязательно: отправлять DNS-запросы к этому серверу через конкретный outbound (например, VPN).",
+        ips: "IP-адреса сервера",
+        ipsPlaceholder: "8.8.8.8, 8.8.4.4",
+        ipsHint:
+          "Необязательно, через запятую. Если указать, keen-pbr будет подключаться только к этим адресам и не будет искать адрес сервера через bootstrap-серверы.",
       },
       validation: {
         tagUnique: "Название должно быть уникальным.",
         typeRequired: "Тип DNS обязателен.",
         addressInvalid:
           "Адрес должен быть корректным IPv4/IPv6 значением с необязательным портом.",
-        dohUrlInvalid: "URL должен начинаться с https:// и содержать имя хоста.",
+        dohUrlInvalid:
+          "URL должен начинаться с https:// и содержать имя хоста.",
+        ipsInvalid:
+          "Введите IPv4- или IPv6-адреса без порта через запятую, без повторов.",
       },
       actions: {
         create: "Создать DNS-сервер",
@@ -1790,7 +1834,7 @@ export const ruTranslation = {
       },
       bulk: {
         deleteConsequences:
-          "После применения изменений выбранные правила перестанут выбирать DNS-серверы для доменов. Будут использоваться оставшиеся правила и DNS-серверы по умолчанию.",
+          "После применения изменений выбранные правила перестанут выбирать DNS-серверы для доменов. Будут использоваться оставшиеся правила и основные DNS-серверы.",
         selected: "Выбрано: {{count}}",
         enable: "Включить {{count}}",
         disable: "Выключить {{count}}",
@@ -1802,23 +1846,8 @@ export const ruTranslation = {
           "Конфигурация DNS сохранена в черновик. Примените новый конфиг, чтобы записать её.",
       },
       validation: {
-        invalidFallback:
-          "Основные DNS сервера должны ссылаться на существующие теги серверов.",
-        invalidFallbackChange:
-          "Нельзя изменить fallback, пока DNS-правила невалидны.",
         invalidResult:
           "Нельзя сохранить, потому что итоговые DNS-правила невалидны.",
-      },
-      fallback: {
-        title: "Вышестоящие DNS-сервера по умолчанию",
-        description:
-          "Упорядоченный список DNS-серверов, которые dnsmasq использует, когда ни одно DNS-правило не подходит. Если список задан, dnsmasq игнорирует системные вышестоящие DNS-серверы (no-resolv).",
-        add: "Добавить DNS-сервер по умолчанию",
-        placeholderTitle: "Вышестоящие DNS-сервера по умолчанию не выбраны",
-        placeholderDescription:
-          "Необязательно. Оставьте пустым, чтобы для доменов без правил использовались системные вышестоящие DNS-серверы.",
-        noneDefined: "На странице DNS-серверы не добавлено ни одного сервера.",
-        noneAvailable: "Все DNS-серверы уже выбраны.",
       },
       integration: {},
       empty: {

@@ -28,16 +28,24 @@ export function getRuleDraft(rule?: {
   }
 }
 
+/** The draft of a new rule: no DNS server is chosen for the user. */
+export function newRuleDraft(): DnsRuleDraft {
+  return {
+    enabled: true,
+    servers: [],
+    list: [],
+    allow_domain_rebinding: false,
+  }
+}
+
 export function buildUpdatedConfigWithRules(
   config: ConfigObject,
-  fallback: string[],
   rules: DnsRuleDraft[]
 ): ConfigObject {
   return {
     ...config,
     dns: {
       ...config.dns,
-      fallback,
       rules: rules.map((rule) => ({
         enabled: rule.enabled,
         servers: rule.servers,
