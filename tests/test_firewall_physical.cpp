@@ -1196,11 +1196,13 @@ TEST_CASE("physical: nft queue, log, ct counters and new base chain hooks") {
     CHECK(rule == make_rule(Fam::any, {}, {QueueStmt{9053, true}}));
     CHECK(parse_nft_expr(R"([{"queue":{"num":4}}])").statements[0] ==
           PhysicalStatement{QueueStmt{4, false}});
+    // Older libnftables (Keenetic) prints a single flag as a plain string.
+    CHECK(parse_nft_expr(R"([{"queue":{"flags":"bypass","num":9053}}])")
+              .statements[0] == PhysicalStatement{QueueStmt{9053, true}});
     for (const char *text :
          {R"([{"queue":{"num":{"range":[3,5]}}}])",
           R"([{"queue":{"num":3,"flags":["bypass","fanout"]}}])",
           R"([{"queue":{"num":3,"flags":["fanout"]}}])",
-          R"([{"queue":{"num":3,"flags":"bypass"}}])",
           R"([{"queue":{"num":70000}}])", R"([{"queue":{}}])",
           R"([{"queue":{"flags":["bypass"]}}])",
           R"([{"queue":{"num":3,"extra":1}}])", R"([{"queue":5}])"}) {

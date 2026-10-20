@@ -78,6 +78,21 @@ TEST_CASE("kernel checks keep only the ones the requested features need") {
     CHECK(collect_health_issues(inputs).issues.empty());
 }
 
+TEST_CASE("a kernel without in-place nft timeout update only warns") {
+    auto health = intercept_health();
+    health.probes = std::vector<api::InterceptProbeFeatureElement>{
+        probe("nft_timeout_update", api::InterceptProbeFeatureStatus::UNSUPPORTED,
+              "using delete+add refresh"),
+    };
+    HealthIssueInputs inputs;
+    inputs.intercept = &health;
+    inputs.requested_dns = true;
+    const auto response = collect_health_issues(inputs);
+    REQUIRE(response.issues.size() == 1);
+    CHECK(response.issues[0].key == "probe:nft_timeout_update");
+    CHECK(response.issues[0].severity == api::Severity::WARNING);
+}
+
 TEST_CASE("addrtype only warns and the extension list replaces it") {
     auto health = intercept_health();
     health.capabilities.addrtype = false;

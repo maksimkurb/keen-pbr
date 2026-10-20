@@ -445,7 +445,9 @@ std::vector<api::KernelCheckElement> collect_kernel_checks(
         check.kind = "probe";
         check.feature = probe.feature;
         check.status = enum_name(probe.status);
-        check.advisory = false;
+        // A kernel without in-place timeout update keeps the delete+add
+        // refresh, so that probe only ever warns.
+        check.advisory = probe.feature == "nft_timeout_update";
         check.reason = probe.reason;
         checks.push_back(std::move(check));
     }
