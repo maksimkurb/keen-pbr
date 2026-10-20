@@ -439,15 +439,16 @@ std::vector<api::KernelCheckElement> collect_kernel_checks(
             (probe.feature == "nfqueue" && requested_dns) ||
             ((probe.feature == "nflog" || probe.feature == "connbytes") && requested_l7) ||
             ((requested_dns || requested_l7) && !own_capability);
-        if (!relevant) continue;
+        // nft_timeout_update only picks between two working refresh methods
+        // (in place needs Linux 6.12+), so it is neither a check nor an
+        // issue; the startup log keeps its result.
+        if (!relevant || probe.feature == "nft_timeout_update") continue;
         api::KernelCheckElement check;
         check.key = "probe:" + probe.feature;
         check.kind = "probe";
         check.feature = probe.feature;
         check.status = enum_name(probe.status);
-        // A kernel without in-place timeout update keeps the delete+add
-        // refresh, so that probe only ever warns.
-        check.advisory = probe.feature == "nft_timeout_update";
+        check.advisory = false;
         check.reason = probe.reason;
         checks.push_back(std::move(check));
     }
