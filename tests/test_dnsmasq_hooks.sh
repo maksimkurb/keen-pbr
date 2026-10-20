@@ -588,7 +588,7 @@ test_keenetic_recommended() {
         fail "keenetic recommended: managed block missing"
     ! grep -q 'max-cache-ttl\|ipset' "$keen_recommended" || fail "keenetic recommended: ipset-era settings left"
     grep -q '^no-resolv' "$keen_recommended" || fail "keenetic recommended: no-resolv missing"
-    grep -q '^address=/my.keenetic.net/' "$keen_recommended" || fail "keenetic recommended: my.keenetic.net record missing"
+    grep -qxF 'interface-name=my.keenetic.net,ezcfg0' "$keen_recommended" || fail "keenetic recommended: my.keenetic.net record missing"
 
     # dnsmasq not installed.
     rm -f "$INIT_SCRIPT"
