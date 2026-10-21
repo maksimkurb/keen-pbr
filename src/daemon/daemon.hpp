@@ -510,6 +510,10 @@ private:
   NetlinkManager netlink_;
   RouteTable route_table_;
   PolicyRuleManager policy_rules_;
+  // Every policy rule this process applied and has not yet seen removed (a
+  // superset while an apply is in flight). Unset until the first successful
+  // apply, which claims leftovers of earlier runs by the rule namespace.
+  std::optional<std::vector<RuleSpec>> applied_policy_rules_;
   FirewallState firewall_state_;
   ConntrackManager conntrack_manager_;
   std::optional<ControlGenerationSnapshot> generation_snapshot_;

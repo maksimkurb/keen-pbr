@@ -88,6 +88,8 @@ std::string host_warning_title(const HealthWarning& warning, const std::string& 
         return interface + ": strict rp_filter may drop replies";
     case HealthWarningCode::fwmark_mask_conflict:
         return "A foreign rule uses packet mark bits reserved for keen-pbr";
+    case HealthWarningCode::stale_policy_rule:
+        return "keen-pbr did not remove an outdated ip rule";
     }
     return warning.message;
 }

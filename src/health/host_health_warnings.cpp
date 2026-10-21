@@ -1,5 +1,6 @@
 #include "host_health_warnings.hpp"
 
+#include "../config/routing_state.hpp"
 #include "../log/logger.hpp"
 
 #include <algorithm>
@@ -293,18 +294,24 @@ std::vector<ForeignMarkRule> find_foreign_mark_overlaps(
     return out;
 }
 
+namespace {
+
+bool is_own_policy_rule(const DumpedRule& r, const std::vector<RuleSpec>& own_rules) {
+    return std::any_of(own_rules.begin(), own_rules.end(), [&](const RuleSpec& s) {
+        return s.priority == r.priority && s.fwmark == r.fwmark &&
+               s.fwmask == r.fwmask && s.table == r.table;
+    });
+}
+
+}  // namespace
+
 std::vector<ForeignPolicyRule> find_foreign_policy_rule_overlaps(
     const std::vector<DumpedRule>& dumped, const std::vector<RuleSpec>& own_rules,
-    std::uint32_t fwmark_mask) {
+    std::uint32_t fwmark_mask, const RuleNamespace& ns) {
     std::vector<ForeignPolicyRule> out;
     for (const auto& r : dumped) {
         if (r.fwmask == 0) continue;  // no fwmark selector
-        const bool own = std::any_of(
-            own_rules.begin(), own_rules.end(), [&](const RuleSpec& s) {
-                return s.priority == r.priority && s.fwmark == r.fwmark &&
-                       s.fwmask == r.fwmask && s.table == r.table;
-            });
-        if (own) continue;
+        if (is_own_policy_rule(r, own_rules) || rule_in_namespace(r, ns)) continue;
         const std::uint32_t overlap = r.fwmask & fwmark_mask;
         if (overlap == 0) continue;
         const bool dup = std::any_of(out.begin(), out.end(), [&](const auto& x) {
@@ -316,10 +323,48 @@ std::vector<ForeignPolicyRule> find_foreign_policy_rule_overlaps(
     return out;
 }
 
+std::vector<DumpedRule> find_stale_policy_rules(const std::vector<DumpedRule>& dumped,
+                                                const std::vector<RuleSpec>& own_rules,
+                                                const RuleNamespace& ns) {
+    std::vector<DumpedRule> out;
+    for (const auto& r : dumped) {
+        if (!rule_in_namespace(r, ns) || is_own_policy_rule(r, own_rules)) continue;
+        const bool dup = std::any_of(out.begin(), out.end(), [&](const DumpedRule& x) {
+            return x.priority == r.priority && x.fwmark == r.fwmark &&
+                   x.fwmask == r.fwmask && x.table == r.table && x.action == r.action;
+        });
+        if (!dup) out.push_back(r);
+    }
+    return out;
+}
+
+std::vector<HealthWarning> evaluate_stale_policy_rule_warnings(
+    const std::vector<DumpedRule>& dumped_rules,
+    const std::vector<RuleSpec>& own_rules, const RuleNamespace& ns) {
+    std::vector<HealthWarning> warnings;
+    for (const auto& r : find_stale_policy_rules(dumped_rules, own_rules, ns)) {
+        HealthWarning w;
+        w.code = HealthWarningCode::stale_policy_rule;
+        w.message = "Outdated keen-pbr ip rule priority " + std::to_string(r.priority) +
+                    " fwmark " + hex_bits(r.fwmark) + "/" + hex_bits(r.fwmask) +
+                    (r.action == RuleAction::lookup
+                         ? " lookup " + std::to_string(r.table)
+                         : std::string(r.action == RuleAction::unreachable
+                                           ? " unreachable"
+                                           : " blackhole")) +
+                    " is still installed after the last apply. keen-pbr removes "
+                    "such rules on apply; apply the configuration again, and "
+                    "report a keen-pbr bug if this warning stays";
+        warnings.push_back(std::move(w));
+    }
+    return warnings;
+}
+
 std::vector<HealthWarning> evaluate_fwmark_conflict_warnings(
     const std::vector<std::pair<std::string, std::string>>& iptables_texts,
     const std::vector<DumpedRule>& dumped_rules,
-    const std::vector<RuleSpec>& own_rules, std::uint32_t fwmark_mask) {
+    const std::vector<RuleSpec>& own_rules, std::uint32_t fwmark_mask,
+    const RuleNamespace& ns) {
     std::vector<HealthWarning> warnings;
     std::set<std::string> seen;
     const std::string advice =
@@ -337,7 +382,7 @@ std::vector<HealthWarning> evaluate_fwmark_conflict_warnings(
         }
     }
     for (const auto& r :
-         find_foreign_policy_rule_overlaps(dumped_rules, own_rules, fwmark_mask)) {
+         find_foreign_policy_rule_overlaps(dumped_rules, own_rules, fwmark_mask, ns)) {
         HealthWarning w;
         w.code = HealthWarningCode::fwmark_mask_conflict;
         w.message = "Foreign ip rule priority " + std::to_string(r.priority) +
@@ -557,6 +602,7 @@ HostHealthInputs host_health_inputs(const Config& config) {
     }
     try {
         inputs.fwmark_mask = fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{}));
+        inputs.rule_namespace = policy_rule_namespace(config);
     } catch (const std::exception& e) {
         Logger::instance().debug("fwmark overlap check skipped: {}", e.what());
     }
@@ -618,7 +664,8 @@ void collect_fwmark_conflicts(const HostHealthInputs& inputs,
             "iptables backend");
     }
     auto found = evaluate_fwmark_conflict_warnings(
-        texts, policy_rules.dumped, policy_rules.own, inputs.fwmark_mask);
+        texts, policy_rules.dumped, policy_rules.own, inputs.fwmark_mask,
+        inputs.rule_namespace);
     warnings.insert(warnings.end(), found.begin(), found.end());
 }
 
@@ -629,7 +676,8 @@ std::vector<HealthWarning> collect_host_health_warnings(
     const std::vector<DumpedInterface>& interfaces, FirewallBackend backend,
     const PolicyRuleInputs& policy_rules, IptablesTableCache& table_cache,
     const CommandRunner& runner, const ProcFileReader& reader) {
-    std::vector<HealthWarning> warnings;
+    std::vector<HealthWarning> warnings = evaluate_stale_policy_rule_warnings(
+        policy_rules.dumped, policy_rules.own, inputs.rule_namespace);
     // Mark overlap breaks regular marking too, so it is not balance-only.
     collect_fwmark_conflicts(inputs, backend, policy_rules, table_cache, runner,
                              warnings);

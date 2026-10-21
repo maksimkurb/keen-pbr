@@ -166,4 +166,49 @@ TEST_CASE("RoutingReconciler removes stale rules only from active mark namespace
     CHECK(netlink.deleted_rules.front().first.priority == 1001);
 }
 
+TEST_CASE("RoutingReconciler removes leftovers of the previous generation") {
+    FakeRoutingNetlink netlink;
+    RuleSpec desired{0x140000, 0xff0000, 407, 419, AF_INET};
+    RuleSpec previous{0x120000, 0xff0000, 407, 419, AF_INET};
+    netlink.rules = {{419, 0x120000, 0xff0000, 407, AF_INET},
+                     {419, 0x140000, 0xff0000, 407, AF_INET}};
+    RoutingReconciler reconciler(netlink);
+
+    reconciler.reconcile({}, {desired}, {previous});
+
+    CHECK(netlink.added_rules.empty());
+    REQUIRE(netlink.deleted_rules.size() == 1);
+    CHECK(netlink.deleted_rules.front().first.fwmark == 0x120000);
+}
+
+TEST_CASE("RoutingReconciler removes unclaimed rules only inside the namespace") {
+    FakeRoutingNetlink netlink;
+    RuleNamespace ns;
+    ns.priority_first = 401;
+    ns.priority_last = 910;
+    ns.fwmask = 0xff0000;
+    ns.mark_first = 0x10000;
+    ns.table_first = 401;
+    ns.table_last = 670;
+    ns.tables = {200};
+    RuleSpec desired{0x140000, 0xff0000, 407, 419, AF_INET};
+    netlink.rules = {
+        {419, 0x140000, 0xff0000, 407, AF_INET},
+        {420, 0x120000, 0xff0000, 0, AF_INET6, RuleAction::unreachable},  // stale guard
+        {421, 0x120000, 0xff0000, 200, AF_INET},       // stale table outbound lookup
+        {5270, 0x120000, 0xff0000, 407, AF_INET},      // priority outside the block
+        {422, 0x120000, 0xffffff, 407, AF_INET},       // different mask
+        {423, 0x120000, 0xff0000, 52, AF_INET},        // foreign table
+        {424, 0x120001, 0xff0000, 407, AF_INET},       // mark outside fwmark.mask
+    };
+    RoutingReconciler reconciler(netlink);
+
+    reconciler.reconcile({}, {desired}, {}, ns);
+
+    REQUIRE(netlink.deleted_rules.size() == 2);
+    CHECK(netlink.deleted_rules[0].first.priority == 420);
+    CHECK(netlink.deleted_rules[0].second == AF_INET6);
+    CHECK(netlink.deleted_rules[1].first.priority == 421);
+}
+
 } // namespace keen_pbr3

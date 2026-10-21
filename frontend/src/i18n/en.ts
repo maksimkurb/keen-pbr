@@ -282,6 +282,7 @@ export const enTranslation = {
         rp_filter_strict: "{{interface}}: strict rp_filter may drop replies",
         fwmark_mask_conflict:
           "A foreign rule uses packet mark bits reserved for keen-pbr",
+        stale_policy_rule: "keen-pbr did not remove an outdated ip rule",
       },
     },
     healthy: {
