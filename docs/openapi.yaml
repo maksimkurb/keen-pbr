@@ -3572,7 +3572,7 @@ components:
 
     RoutingHealthWarningCode:
       type: string
-      enum: [nat_missing, nat_partial, rp_filter_strict, fwmark_mask_conflict]
+      enum: [nat_missing, nat_partial, rp_filter_strict, fwmark_mask_conflict, stale_policy_rule]
       description: >
         - nat_missing: no MASQUERADE/SNAT rule covers the interface (iptables
           backend only). Only the iptables nat table of the flavour keen-pbr
@@ -3583,6 +3583,7 @@ components:
           matches such as mark or protocol) cover the interface
         - rp_filter_strict: effective IPv4 rp_filter on the interface is 1 (strict)
         - fwmark_mask_conflict: a foreign iptables MARK/CONNMARK rule (mangle/raw, iptables backend only) or `ip rule` writes or matches mark bits overlapping `fwmark.mask`
+        - stale_policy_rule: an `ip rule` inside keen-pbr's priority block, fwmark.mask and table range that the active configuration no longer uses is still installed after an apply (the apply removes such rules, so this means the cleanup failed)
       example: "nat_missing"
 
     HealthIssuesResponse:

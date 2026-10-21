@@ -4,7 +4,9 @@
 #include "config_defaults.hpp"
 #include "../routing/target.hpp"
 
+#include <algorithm>
 #include <arpa/inet.h>
+#include <cstdint>
 #include <cstring>
 #include <set>
 #include <sys/ioctl.h>
@@ -377,6 +379,36 @@ std::map<std::string, uint32_t> build_outbound_table_map(const Config& cfg) {
         }
     }
     return tables;
+}
+
+RuleNamespace policy_rule_namespace(const Config& cfg) {
+    const auto fwmark = cfg.fwmark.value_or(FwmarkConfig{});
+    const uint32_t mask = fwmark_mask_value(fwmark);
+    const auto iproute = cfg.iproute.value_or(IprouteConfig{});
+    const uint32_t table_start = static_cast<uint32_t>(
+        iproute.table_start.value_or(config_defaults::table_start));
+    const uint32_t priority_start = static_cast<uint32_t>(
+        iproute.rule_priority_start.value_or(table_start));
+    // Each allocator mark takes at most one lookup/guard priority pair, and
+    // each table-backed outbound at least two marks.
+    const uint64_t marks = static_cast<uint64_t>(mask / (mask & (~mask + 1U))) + 1U;
+    const uint64_t reserved_skip = RESERVED_TABLE_BLOCK_HIGH - RESERVED_TABLE_BLOCK_LOW + 2U;
+
+    RuleNamespace ns;
+    ns.fwmask = mask;
+    ns.mark_first = fwmark_start_value(fwmark);
+    ns.priority_first = priority_start;
+    ns.priority_last = static_cast<uint32_t>(
+        std::min<uint64_t>(priority_start + marks * 2U - 1U, UINT32_MAX));
+    ns.table_first = table_start;
+    ns.table_last = static_cast<uint32_t>(std::min<uint64_t>(
+        table_start + marks / 2U + reserved_skip, RESERVED_TABLE_SYSTEM_START - 1U));
+    for (const auto& outbound : cfg.outbounds.value_or(std::vector<Outbound>{})) {
+        if (outbound.type == OutboundType::TABLE && outbound.table) {
+            ns.tables.push_back(static_cast<uint32_t>(*outbound.table));
+        }
+    }
+    return ns;
 }
 
 void populate_routing_state(const Config& cfg,

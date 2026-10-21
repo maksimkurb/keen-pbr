@@ -70,7 +70,8 @@ enum class HealthWarningCode {
     nat_missing,
     nat_partial,
     rp_filter_strict,
-    fwmark_mask_conflict
+    fwmark_mask_conflict,
+    stale_policy_rule
 };
 
 inline const char* health_warning_code_name(HealthWarningCode code) {
@@ -79,6 +80,7 @@ inline const char* health_warning_code_name(HealthWarningCode code) {
         case HealthWarningCode::nat_partial: return "nat_partial";
         case HealthWarningCode::rp_filter_strict: return "rp_filter_strict";
         case HealthWarningCode::fwmark_mask_conflict: return "fwmark_mask_conflict";
+        case HealthWarningCode::stale_policy_rule: return "stale_policy_rule";
     }
     return "unknown";
 }

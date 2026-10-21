@@ -4,6 +4,8 @@
 #include <netinet/in.h>
 #include <set>
 
+#include "../log/logger.hpp"
+
 namespace keen_pbr3 {
 namespace {
 
@@ -60,8 +62,24 @@ bool rule_namespace_owned(const DumpedRule& actual,
 
 } // namespace
 
+bool rule_in_namespace(const DumpedRule& rule, const RuleNamespace& ns) {
+    if (ns.fwmask == 0 || rule.fwmask != ns.fwmask) return false;
+    if (rule.fwmark == 0 || (rule.fwmark & ~ns.fwmask) != 0 ||
+        rule.fwmark < ns.mark_first) {
+        return false;
+    }
+    if (rule.priority < ns.priority_first || rule.priority > ns.priority_last) {
+        return false;
+    }
+    if (rule.action != RuleAction::lookup) return true;
+    return (rule.table >= ns.table_first && rule.table <= ns.table_last) ||
+           std::find(ns.tables.begin(), ns.tables.end(), rule.table) != ns.tables.end();
+}
+
 void RoutingReconciler::reconcile(const std::vector<RouteSpec>& desired_routes,
-                                  const std::vector<RuleSpec>& desired_rules) {
+                                  const std::vector<RuleSpec>& desired_rules,
+                                  const std::vector<RuleSpec>& previous_rules,
+                                  const RuleNamespace& ns) {
     std::set<uint32_t> tables;
     for (const auto& route : desired_routes) tables.insert(route.table);
 
@@ -153,7 +171,11 @@ void RoutingReconciler::reconcile(const std::vector<RouteSpec>& desired_routes,
         }
     }
     for (const auto& actual : actual_rules) {
-        if (!rule_namespace_owned(actual, desired_rules)) continue;
+        const bool tracked =
+            rule_namespace_owned(actual, desired_rules) ||
+            std::any_of(previous_rules.begin(), previous_rules.end(),
+                        [&](const RuleSpec& previous) { return same_rule(previous, actual); });
+        if (!tracked && !rule_in_namespace(actual, ns)) continue;
         const bool wanted = std::any_of(desired_rules.begin(), desired_rules.end(),
                                         [&](const RuleSpec& desired) {
                                             return same_rule(desired, actual);
@@ -162,6 +184,12 @@ void RoutingReconciler::reconcile(const std::vector<RouteSpec>& desired_routes,
             RuleSpec stale{actual.fwmark, actual.fwmask, actual.table,
                            actual.priority, actual.family, actual.action};
             netlink_.delete_rule_for_family(stale, actual.family);
+            Logger::instance().info(
+                tracked ? "Removed stale {} policy rule priority {} fwmark {:#x}/{:#x}"
+                        : "Removed leftover {} policy rule priority {} fwmark {:#x}/{:#x}: "
+                          "it fits keen-pbr's fwmark.mask, priority and table range",
+                actual.family == AF_INET6 ? "IPv6" : "IPv4", actual.priority,
+                actual.fwmark, actual.fwmask);
         }
     }
 }

@@ -288,6 +288,7 @@ export const ruTranslation = {
           "{{interface}}: строгий rp_filter может отбрасывать ответы",
         fwmark_mask_conflict:
           "Стороннее правило использует биты метки пакета, зарезервированные keen-pbr",
+        stale_policy_rule: "keen-pbr не удалил устаревшее правило ip rule",
       },
     },
     healthy: {

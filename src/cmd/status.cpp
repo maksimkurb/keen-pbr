@@ -856,6 +856,8 @@ RoutingHealthReport routing_health_report_from_api(
                 warning.code = HealthWarningCode::rp_filter_strict; break;
             case api::RoutingHealthWarningCode::FWMARK_MASK_CONFLICT:
                 warning.code = HealthWarningCode::fwmark_mask_conflict; break;
+            case api::RoutingHealthWarningCode::STALE_POLICY_RULE:
+                warning.code = HealthWarningCode::stale_policy_rule; break;
         }
         warning.interface = item.interface;
         warning.outbound = item.outbound;
@@ -914,9 +916,7 @@ int run_status_command_impl(const Config& config, const std::string& config_path
     report.warnings = collect_host_health_warnings(
         health_inputs, netlink.dump_interfaces(),
         resolve_firewall_backend(firewall_backend_preference(config)),
-        fwmark_conflict_check_enabled(health_inputs)
-            ? PolicyRuleInputs{netlink.dump_policy_rules(0), rules.get_rules()}
-            : PolicyRuleInputs{},
+        PolicyRuleInputs{netlink.dump_policy_rules(0), rules.get_rules()},
         nat_cache, run_command_capture, read_proc_file);
     return render_status_report(config, config_path, report);
 }

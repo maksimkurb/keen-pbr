@@ -1880,9 +1880,11 @@ struct NftRuleParser {
         if (it.key() == "num") {
           num = json_u32(it.value());
           ok = num.has_value() && *num <= 65535U;
-        } else if (it.key() == "flags" && it.value().is_array() &&
-                   it.value().size() == 1 && it.value()[0].is_string() &&
-                   it.value()[0] == "bypass") {
+        } else if (it.key() == "flags" &&
+                   (it.value() == "bypass" ||
+                    (it.value().is_array() && it.value().size() == 1 &&
+                     it.value()[0] == "bypass"))) {
+          // Older libnftables prints a single flag as a plain string.
           bypass = true;
         } else {
           ok = false;

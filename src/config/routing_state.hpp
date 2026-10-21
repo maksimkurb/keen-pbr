@@ -4,6 +4,7 @@
 #include "../routing/firewall_state.hpp"
 #include "../routing/policy_rule.hpp"
 #include "../routing/route_table.hpp"
+#include "../routing/routing_reconciler.hpp"
 
 #include <functional>
 #include <map>
@@ -47,6 +48,10 @@ bool interface_outbound_uses_auto_gateway(const Outbound& outbound);
 // groups map to their generated kill-switch table; their live lookup may point
 // at a selected child's table instead.
 std::map<std::string, uint32_t> build_outbound_table_map(const Config& cfg);
+
+// The policy-rule namespace any configuration with the same fwmark and
+// iproute settings can allocate from; throws ConfigError on an invalid fwmark.
+RuleNamespace policy_rule_namespace(const Config& cfg);
 
 // Populate route tables and policy rules from config. Works for real or dry-run instances.
 void populate_routing_state(const Config& cfg,

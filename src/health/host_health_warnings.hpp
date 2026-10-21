@@ -4,6 +4,7 @@
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_verifier.hpp"
 #include "../routing/netlink.hpp"
+#include "../routing/routing_reconciler.hpp"
 #include "routing_health.hpp"
 
 #include <chrono>
@@ -100,28 +101,44 @@ struct ForeignPolicyRule {
 };
 
 // Pure: rules matching one of `own_rules` (priority, fwmark, mask, table) are
-// keen-pbr's and skipped; rules without a fwmark match are ignored.
+// keen-pbr's and skipped, as are rules inside `ns` (stale keen-pbr rules, see
+// find_stale_policy_rules); rules without a fwmark match are ignored.
 std::vector<ForeignPolicyRule> find_foreign_policy_rule_overlaps(
     const std::vector<DumpedRule>& dumped, const std::vector<RuleSpec>& own_rules,
-    std::uint32_t fwmark_mask);
+    std::uint32_t fwmark_mask, const RuleNamespace& ns = {});
+
+// Pure: rules inside keen-pbr's namespace that match none of `own_rules`, one
+// entry per (priority, fwmark, mask, table, action) across both families.
+// The apply removes them, so any hit means the cleanup failed.
+std::vector<DumpedRule> find_stale_policy_rules(const std::vector<DumpedRule>& dumped,
+                                                const std::vector<RuleSpec>& own_rules,
+                                                const RuleNamespace& ns);
 
 // Builds fwmark_mask_conflict warnings. `iptables_texts` pairs a label such as
 // "mangle" with its `iptables -S` text; identical sources fold into one warning.
 std::vector<HealthWarning> evaluate_fwmark_conflict_warnings(
     const std::vector<std::pair<std::string, std::string>>& iptables_texts,
     const std::vector<DumpedRule>& dumped_rules,
-    const std::vector<RuleSpec>& own_rules, std::uint32_t fwmark_mask);
+    const std::vector<RuleSpec>& own_rules, std::uint32_t fwmark_mask,
+    const RuleNamespace& ns = {});
+
+// Builds stale_policy_rule warnings from find_stale_policy_rules.
+std::vector<HealthWarning> evaluate_stale_policy_rule_warnings(
+    const std::vector<DumpedRule>& dumped_rules,
+    const std::vector<RuleSpec>& own_rules, const RuleNamespace& ns);
 
 struct HostHealthInputs {
     std::vector<BalanceCandidate> candidates;
     std::vector<std::string> inbound_interfaces;
     // Configured fwmark.mask; 0 when it is invalid (overlap check skipped).
     std::uint32_t fwmark_mask{0};
+    // keen-pbr's policy-rule namespace; empty when fwmark is invalid.
+    RuleNamespace rule_namespace;
 };
 
 // The fwmark overlap check is off on Keenetic (its firmware chains set marks
 // with full masks, which would warn permanently) and when the mask is invalid.
-// When false, callers skip the policy-rule dump and no mangle/raw reads happen.
+// When false, no mangle/raw reads happen.
 inline bool fwmark_conflict_check_enabled(const HostHealthInputs& inputs) {
 #ifdef KEEN_PBR_PLATFORM_KEENETIC
     (void)inputs;

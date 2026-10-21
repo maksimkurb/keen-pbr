@@ -265,8 +265,22 @@ void Daemon::reconcile_static_routing(
 
     // Inspect the kernel on every apply so a restarted daemon adopts intact
     // state and only removes objects with a verifiable ownership marker.
-    RoutingReconciler(netlink_).reconcile(desired_routes.get_routes(),
-                                          desired_rules.get_rules());
+    // Rules applied earlier by this process are removed by exact match, even
+    // when fwmark or iproute settings changed. Before the first successful
+    // apply there is no such record, so rules that fit the configured rule
+    // namespace are taken as leftovers of an earlier run.
+    const auto& wanted_rules = desired_rules.get_rules();
+    if (applied_policy_rules_) {
+        // Rules added by a failed apply must stay tracked for the next one.
+        applied_policy_rules_->insert(applied_policy_rules_->end(),
+                                      wanted_rules.begin(), wanted_rules.end());
+        RoutingReconciler(netlink_).reconcile(desired_routes.get_routes(), wanted_rules,
+                                              *applied_policy_rules_);
+    } else {
+        RoutingReconciler(netlink_).reconcile(desired_routes.get_routes(), wanted_rules,
+                                              {}, policy_rule_namespace(config_));
+    }
+    applied_policy_rules_ = wanted_rules;
     route_table_.adopt_desired(desired_routes.get_routes());
     policy_rules_.adopt_desired(desired_rules.get_rules());
 }

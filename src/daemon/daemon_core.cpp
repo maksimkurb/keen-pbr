@@ -881,6 +881,11 @@ void Daemon::request_routing_health_refresh(
 }
 
 RoutingHealthReport Daemon::cached_routing_health() {
+  // The revision is read before the snapshot: publish_runtime_state()
+  // publishes before it invalidates, so a report built from a snapshot older
+  // than this revision cannot be stored under it.
+  const auto health_revision =
+      routing_health_revision_.load(std::memory_order_acquire);
   const auto runtime_snapshot = runtime_state_store_.snapshot();
   const auto backend = firewall_->backend();
   if (auto not_ready =
@@ -888,8 +893,6 @@ RoutingHealthReport Daemon::cached_routing_health() {
     return std::move(*not_ready);
   }
 
-  const auto health_revision =
-      routing_health_revision_.load(std::memory_order_acquire);
   const auto runtime_generation =
       runtime_generation_.load(std::memory_order_acquire);
   {
@@ -936,10 +939,8 @@ RoutingHealthReport Daemon::cached_routing_health() {
                 // evaluated when the cached report is (re)built.
                 health.warnings = collect_host_health_warnings(
                     host_inputs, netlink_.dump_interfaces(), backend,
-                    fwmark_conflict_check_enabled(host_inputs)
-                        ? PolicyRuleInputs{netlink_.dump_policy_rules(0),
-                                           runtime_snapshot.policy_rule_specs}
-                        : PolicyRuleInputs{},
+                    PolicyRuleInputs{netlink_.dump_policy_rules(0),
+                                     runtime_snapshot.policy_rule_specs},
                     host_table_cache_, run_command_capture, read_proc_file);
               }
             } catch (const std::exception& error) {

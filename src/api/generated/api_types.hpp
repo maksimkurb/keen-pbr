@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesHLv3CM data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesCkKxNy data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -822,7 +822,7 @@ namespace api {
 
     enum class RoutingHealthResponseOverall : int { DEGRADED, ERROR, OK };
 
-    enum class RoutingHealthWarningCode : int { FWMARK_MASK_CONFLICT, NAT_MISSING, NAT_PARTIAL, RP_FILTER_STRICT };
+    enum class RoutingHealthWarningCode : int { FWMARK_MASK_CONFLICT, NAT_MISSING, NAT_PARTIAL, RP_FILTER_STRICT, STALE_POLICY_RULE };
 
     struct RoutingHealthWarningElement {
         RoutingHealthWarningCode code;
@@ -1040,7 +1040,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesHLv3CM {
+    struct KeenPbrTypesCkKxNy {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1447,8 +1447,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesHLv3CM & x);
-    void to_json(json & j, const KeenPbrTypesHLv3CM & x);
+    void from_json(const json & j, KeenPbrTypesCkKxNy & x);
+    void to_json(json & j, const KeenPbrTypesCkKxNy & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -3389,7 +3389,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesHLv3CM& x) {
+    inline void from_json(const json & j, KeenPbrTypesCkKxNy& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -3498,7 +3498,7 @@ namespace api {
         x.xt_extension_health = get_stack_optional<XtExtensionHealthElement>(j, "XtExtensionHealth");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesHLv3CM & x) {
+    inline void to_json(json & j, const KeenPbrTypesCkKxNy & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -4301,6 +4301,7 @@ namespace api {
         else if (j == "nat_missing") x = RoutingHealthWarningCode::NAT_MISSING;
         else if (j == "nat_partial") x = RoutingHealthWarningCode::NAT_PARTIAL;
         else if (j == "rp_filter_strict") x = RoutingHealthWarningCode::RP_FILTER_STRICT;
+        else if (j == "stale_policy_rule") x = RoutingHealthWarningCode::STALE_POLICY_RULE;
         else { throw std::runtime_error("Cannot deserialize to enumeration \"RoutingHealthWarningCode\""); }
     }
 
@@ -4310,6 +4311,7 @@ namespace api {
             case RoutingHealthWarningCode::NAT_MISSING: j = "nat_missing"; break;
             case RoutingHealthWarningCode::NAT_PARTIAL: j = "nat_partial"; break;
             case RoutingHealthWarningCode::RP_FILTER_STRICT: j = "rp_filter_strict"; break;
+            case RoutingHealthWarningCode::STALE_POLICY_RULE: j = "stale_policy_rule"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"RoutingHealthWarningCode\": " + std::to_string(static_cast<int>(x)));
         }
     }

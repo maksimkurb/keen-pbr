@@ -353,7 +353,7 @@ ProbeResult probe_nft_timeout_update(SetWriterTransport& transport, std::string_
                 ProbeStatus::unsupported,
                 "kernel keeps the old expiration of an existing element (remaining " +
                     std::to_string(expiration_ms) +
-                    " ms after refresh to 300 s); using delete+add refresh");
+                    " ms after refresh to 300 s, needs Linux 6.12+); using delete+add refresh");
         }
     }
 

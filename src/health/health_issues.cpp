@@ -88,6 +88,8 @@ std::string host_warning_title(const HealthWarning& warning, const std::string& 
         return interface + ": strict rp_filter may drop replies";
     case HealthWarningCode::fwmark_mask_conflict:
         return "A foreign rule uses packet mark bits reserved for keen-pbr";
+    case HealthWarningCode::stale_policy_rule:
+        return "keen-pbr did not remove an outdated ip rule";
     }
     return warning.message;
 }
@@ -439,7 +441,10 @@ std::vector<api::KernelCheckElement> collect_kernel_checks(
             (probe.feature == "nfqueue" && requested_dns) ||
             ((probe.feature == "nflog" || probe.feature == "connbytes") && requested_l7) ||
             ((requested_dns || requested_l7) && !own_capability);
-        if (!relevant) continue;
+        // nft_timeout_update only picks between two working refresh methods
+        // (in place needs Linux 6.12+), so it is neither a check nor an
+        // issue; the startup log keeps its result.
+        if (!relevant || probe.feature == "nft_timeout_update") continue;
         api::KernelCheckElement check;
         check.key = "probe:" + probe.feature;
         check.kind = "probe";
