@@ -31,6 +31,7 @@ public:
         for (const auto& route : routes) if (route.table == table) result.push_back(route);
         return result;
     }
+    std::vector<DumpedRoute> dump_routes(int = 0) override { return routes; }
     std::vector<DumpedRule> dump_policy_rules(int = 0) override { return rules; }
 
     std::vector<DumpedRoute> routes;
@@ -209,6 +210,87 @@ TEST_CASE("RoutingReconciler removes unclaimed rules only inside the namespace")
     CHECK(netlink.deleted_rules[0].first.priority == 420);
     CHECK(netlink.deleted_rules[0].second == AF_INET6);
     CHECK(netlink.deleted_rules[1].first.priority == 421);
+}
+
+namespace {
+
+DumpedRoute stale_default(uint32_t table, uint8_t protocol = KEEN_PBR_GENERATED_ROUTE_PROTOCOL) {
+    RouteSpec route;
+    route.destination = "default";
+    route.table = table;
+    route.interface = "phy1-sta0";
+    route.gateway = "192.168.8.1";
+    route.family = AF_INET;
+    route.protocol = protocol;
+    return dumped(route);
+}
+
+RuleNamespace table_range_namespace() {
+    RuleNamespace ns;
+    ns.fwmask = 0xff0000;
+    ns.mark_first = 0x10000;
+    ns.table_first = 151;
+    ns.table_last = 160;
+    ns.tables = {200};
+    return ns;
+}
+
+} // namespace
+
+TEST_CASE("RoutingReconciler prunes a previously applied table that has no desired routes") {
+    FakeRoutingNetlink netlink;
+    netlink.routes = {stale_default(151), stale_default(152)};
+    RoutingReconciler reconciler(netlink);
+
+    reconciler.reconcile({desired_route()}, {}, {}, {}, {151});
+
+    REQUIRE(netlink.deleted_routes.size() == 1);
+    CHECK(netlink.deleted_routes.front().table == 151);
+}
+
+TEST_CASE("RoutingReconciler ignores tables it neither applied nor owns by range") {
+    FakeRoutingNetlink netlink;
+    netlink.routes = {stale_default(151)};
+    RoutingReconciler reconciler(netlink);
+
+    reconciler.reconcile({desired_route()}, {});
+
+    CHECK(netlink.deleted_routes.empty());
+}
+
+TEST_CASE("RoutingReconciler first apply prunes generated routes in the table range") {
+    FakeRoutingNetlink netlink;
+    netlink.routes = {stale_default(151), stale_default(200), stale_default(152, 4),
+                      stale_default(300), stale_default(161)};
+    RoutingReconciler reconciler(netlink);
+
+    reconciler.reconcile({desired_route()}, {}, {}, table_range_namespace());
+
+    REQUIRE(netlink.deleted_routes.size() == 2);
+    CHECK(netlink.deleted_routes[0].table == 151);
+    CHECK(netlink.deleted_routes[1].table == 200);
+}
+
+TEST_CASE("RoutingReconciler never deletes a foreign-protocol route in an inspected table") {
+    FakeRoutingNetlink netlink;
+    netlink.routes = {stale_default(151, 4), stale_default(152, 3)};
+    RoutingReconciler reconciler(netlink);
+
+    reconciler.reconcile({}, {}, {}, table_range_namespace(), {151, 152});
+
+    CHECK(netlink.deleted_routes.empty());
+}
+
+TEST_CASE("RoutingReconciler with nothing desired clears every tracked table") {
+    FakeRoutingNetlink netlink;
+    netlink.routes = {stale_default(151), stale_default(153)};
+    RoutingReconciler reconciler(netlink);
+
+    reconciler.reconcile({}, {}, {}, {}, {151, 153});
+
+    REQUIRE(netlink.deleted_routes.size() == 2);
+    CHECK(netlink.rules.empty());
+    CHECK(netlink.deleted_rules.empty());
 }
 
 } // namespace keen_pbr3

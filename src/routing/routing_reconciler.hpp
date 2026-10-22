@@ -1,5 +1,6 @@
 #pragma once
 
+#include <set>
 #include <vector>
 
 #include "netlink.hpp"
@@ -29,6 +30,11 @@ bool rule_in_namespace(const DumpedRule& rule, const RuleNamespace& ns);
 // process applied before).  Without such a record, i.e. on the first apply
 // after start, the caller passes `ns` so that rules left by an earlier run
 // are claimed too.  Every unwanted owned rule is removed and logged.
+// Generated routes unwanted by `desired_routes` are removed from the tables
+// that hold desired routes, from `previous_route_tables` (what this process
+// applied before) and, when `ns` is given, from its table range and table
+// outbounds, so a table whose desired set became empty is still cleaned.
+// Routes of any other protocol are never touched.
 class RoutingReconciler {
 public:
     explicit RoutingReconciler(RoutingNetlinkOperations& netlink)
@@ -37,7 +43,8 @@ public:
     void reconcile(const std::vector<RouteSpec>& desired_routes,
                    const std::vector<RuleSpec>& desired_rules,
                    const std::vector<RuleSpec>& previous_rules = {},
-                   const RuleNamespace& ns = {});
+                   const RuleNamespace& ns = {},
+                   const std::set<uint32_t>& previous_route_tables = {});
 
 private:
     RoutingNetlinkOperations& netlink_;

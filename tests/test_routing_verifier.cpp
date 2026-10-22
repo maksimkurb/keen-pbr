@@ -19,6 +19,7 @@ public:
     std::vector<DumpedRoute> dump_routes_in_table(uint32_t, int = 0) override {
         return routes;
     }
+    std::vector<DumpedRoute> dump_routes(int = 0) override { return routes; }
     std::vector<DumpedRule> dump_policy_rules(int = 0) override { return {}; }
 
     std::vector<DumpedRoute> routes;

@@ -2104,6 +2104,7 @@ void Daemon::run() {
   });
   best_effort("policy rules", [this] { policy_rules_.clear(); });
   best_effort("route table", [this] { route_table_.clear(); });
+  best_effort("generated routes", [this] { remove_applied_routes(); });
   best_effort("firewall", [this] { firewall_->cleanup(); });
   // Rules first, then unbind the queue (see quiesce_intercept_service).
   best_effort("interception", [this] { stop_intercept_service(); });
