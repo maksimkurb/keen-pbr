@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesCkKxNy data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesOdAvQi data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -859,6 +859,10 @@ namespace api {
         std::string via;
     };
 
+    enum class MissingCriterion : int { DEST_PORT, PROTO, SRC_ADDR, SRC_PORT };
+
+    enum class UndeterminedReason : int { DEFAULT_GATEWAY_DIRECTNESS, MISSING_CRITERIA };
+
     struct RoutingTestEntry {
         std::string actual_outbound;
         std::optional<bool> criteria_match;
@@ -866,7 +870,10 @@ namespace api {
         std::string ip;
         std::optional<ListMatch> list_match;
         std::optional<int64_t> matched_rule_index;
+        std::optional<std::vector<MissingCriterion>> missing_criteria;
         bool ok;
+        std::optional<UndeterminedReason> undetermined_reason;
+        std::optional<int64_t> undetermined_rule_index;
     };
 
     enum class Proto : int { OTHER, TCP, UDP };
@@ -1040,7 +1047,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesCkKxNy {
+    struct KeenPbrTypesOdAvQi {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1447,8 +1454,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesCkKxNy & x);
-    void to_json(json & j, const KeenPbrTypesCkKxNy & x);
+    void from_json(const json & j, KeenPbrTypesOdAvQi & x);
+    void to_json(json & j, const KeenPbrTypesOdAvQi & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1575,6 +1582,12 @@ namespace api {
 
     void from_json(const json & j, Resolver & x);
     void to_json(json & j, const Resolver & x);
+
+    void from_json(const json & j, MissingCriterion & x);
+    void to_json(json & j, const MissingCriterion & x);
+
+    void from_json(const json & j, UndeterminedReason & x);
+    void to_json(json & j, const UndeterminedReason & x);
 
     void from_json(const json & j, Proto & x);
     void to_json(json & j, const Proto & x);
@@ -3064,7 +3077,10 @@ namespace api {
         x.ip = j.at("ip").get<std::string>();
         x.list_match = get_stack_optional<ListMatch>(j, "list_match");
         x.matched_rule_index = get_stack_optional<int64_t>(j, "matched_rule_index");
+        x.missing_criteria = get_stack_optional<std::vector<MissingCriterion>>(j, "missing_criteria");
         x.ok = j.at("ok").get<bool>();
+        x.undetermined_reason = get_stack_optional<UndeterminedReason>(j, "undetermined_reason");
+        x.undetermined_rule_index = get_stack_optional<int64_t>(j, "undetermined_rule_index");
     }
 
     inline void to_json(json & j, const RoutingTestEntry & x) {
@@ -3075,7 +3091,10 @@ namespace api {
         j["ip"] = x.ip;
         j["list_match"] = x.list_match;
         j["matched_rule_index"] = x.matched_rule_index;
+        j["missing_criteria"] = x.missing_criteria;
         j["ok"] = x.ok;
+        j["undetermined_reason"] = x.undetermined_reason;
+        j["undetermined_rule_index"] = x.undetermined_rule_index;
     }
 
     inline void from_json(const json & j, RoutingTestRequest& x) {
@@ -3389,7 +3408,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesCkKxNy& x) {
+    inline void from_json(const json & j, KeenPbrTypesOdAvQi& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -3498,7 +3517,7 @@ namespace api {
         x.xt_extension_health = get_stack_optional<XtExtensionHealthElement>(j, "XtExtensionHealth");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesCkKxNy & x) {
+    inline void to_json(json & j, const KeenPbrTypesOdAvQi & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -4357,6 +4376,38 @@ namespace api {
             case Resolver::SYSTEM: j = "system"; break;
             case Resolver::TEST: j = "test"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"Resolver\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, MissingCriterion & x) {
+        if (j == "dest_port") x = MissingCriterion::DEST_PORT;
+        else if (j == "proto") x = MissingCriterion::PROTO;
+        else if (j == "src_addr") x = MissingCriterion::SRC_ADDR;
+        else if (j == "src_port") x = MissingCriterion::SRC_PORT;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"MissingCriterion\""); }
+    }
+
+    inline void to_json(json & j, const MissingCriterion & x) {
+        switch (x) {
+            case MissingCriterion::DEST_PORT: j = "dest_port"; break;
+            case MissingCriterion::PROTO: j = "proto"; break;
+            case MissingCriterion::SRC_ADDR: j = "src_addr"; break;
+            case MissingCriterion::SRC_PORT: j = "src_port"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"MissingCriterion\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, UndeterminedReason & x) {
+        if (j == "default_gateway_directness") x = UndeterminedReason::DEFAULT_GATEWAY_DIRECTNESS;
+        else if (j == "missing_criteria") x = UndeterminedReason::MISSING_CRITERIA;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"UndeterminedReason\""); }
+    }
+
+    inline void to_json(json & j, const UndeterminedReason & x) {
+        switch (x) {
+            case UndeterminedReason::DEFAULT_GATEWAY_DIRECTNESS: j = "default_gateway_directness"; break;
+            case UndeterminedReason::MISSING_CRITERIA: j = "missing_criteria"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"UndeterminedReason\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

@@ -132,6 +132,8 @@ export * from './routingTestDnsAaaaStatus';
 export * from './routingTestDnsAStatus';
 export * from './routingTestDnsResolver';
 export * from './routingTestEntry';
+export * from './routingTestEntryMissingCriteriaItem';
+export * from './routingTestEntryUndeterminedReason';
 export * from './routingTestListMatch';
 export * from './routingTestRequest';
 export * from './routingTestRequestProto';

@@ -2598,6 +2598,31 @@ components:
           type: boolean
           nullable: true
           description: Whether packet criteria matched the selected rule; null when omitted or unknown.
+        undetermined_rule_index:
+          type: integer
+          minimum: 0
+          description: >
+            Index of the route rule at which the decision stopped because its
+            packet criteria could not be evaluated. Present only when
+            expected_outbound is "(unknown)" for that reason.
+        undetermined_reason:
+          type: string
+          enum: [missing_criteria, default_gateway_directness]
+          description: >
+            Why undetermined_rule_index could not be evaluated.
+            missing_criteria: filling the fields listed in missing_criteria
+            would let the rule be evaluated. default_gateway_directness: the
+            rule depends on whether the address is directly connected, which
+            no request field can resolve.
+        missing_criteria:
+          type: array
+          items:
+            type: string
+            enum: [src_addr, src_port, proto, dest_port]
+          description: >
+            Request fields that, if filled, would let the rule at
+            undetermined_rule_index be evaluated. DSCP is never listed because
+            an absent DSCP is treated as 0.
         ok:
           type: boolean
           description: true when expected_outbound equals actual_outbound and neither side is unknown.
