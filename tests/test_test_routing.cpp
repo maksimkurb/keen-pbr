@@ -1346,18 +1346,18 @@ namespace {
 
 // A urltest group "lb" over interface outbounds wan1..wanN with the given
 // weights; one rule sends everything to it.
-Config group_config(const std::vector<uint32_t>& weights, api::Strategy strategy) {
+Config group_config(const std::vector<uint32_t>& weights, api::TestGroupStrategy strategy) {
     Config config = build_test_config();
     std::vector<Outbound> outbounds;
     OutboundGroup tier;
-    std::vector<api::OutboundGroupMemberElement> members;
+    std::vector<api::OutboundGroupMember> members;
     for (size_t i = 0; i < weights.size(); ++i) {
         Outbound child;
         child.tag = "wan" + std::to_string(i + 1);
         child.type = OutboundType::INTERFACE;
         child.interface = "eth" + std::to_string(i + 1);
         outbounds.push_back(child);
-        api::OutboundGroupMemberElement member;
+        api::OutboundGroupMember member;
         member.outbound = child.tag;
         member.weight = weights[i];
         members.push_back(member);
@@ -1422,7 +1422,7 @@ TEST_CASE("compute_test_routing: balance group shares sum to 100") {
     const std::vector<Case> cases{
         {{1, 1}, {50, 50}}, {{3, 1}, {75, 25}}, {{1, 1, 1}, {34, 33, 33}}};
     for (const auto& c : cases) {
-        const auto config = group_config(c.weights, api::Strategy::BALANCE);
+        const auto config = group_config(c.weights, api::TestGroupStrategy::BALANCE);
         std::vector<FirewallBalanceCandidate> candidates;
         for (size_t i = 0; i < c.weights.size(); ++i) {
             candidates.push_back({0x100 + static_cast<uint32_t>(i), true, true, c.weights[i]});
@@ -1446,7 +1446,7 @@ TEST_CASE("compute_test_routing: balance group shares sum to 100") {
 }
 
 TEST_CASE("compute_test_routing: balance member missing from the candidates is not in use") {
-    const auto config = group_config({1, 1}, api::Strategy::BALANCE);
+    const auto config = group_config({1, 1}, api::TestGroupStrategy::BALANCE);
     const auto entry = run_group(config, {group_rule_state({{0x100, true, true, 1}})},
                                  group_state_for(2));
     REQUIRE(entry.outbound_group.has_value());
@@ -1461,7 +1461,7 @@ TEST_CASE("compute_test_routing: balance member missing from the candidates is n
 }
 
 TEST_CASE("compute_test_routing: balance breakdown honours the address family") {
-    const auto config = group_config({1, 1}, api::Strategy::BALANCE);
+    const auto config = group_config({1, 1}, api::TestGroupStrategy::BALANCE);
     const auto realized = group_rule_state(
         {{0x100, true, false, 1}, {0x101, false, true, 1}});
 
@@ -1479,7 +1479,7 @@ TEST_CASE("compute_test_routing: balance breakdown honours the address family") 
 #endif
 
 TEST_CASE("compute_test_routing: priority group marks the selected member") {
-    const auto config = group_config({1, 1}, api::Strategy::PRIORITY);
+    const auto config = group_config({1, 1}, api::TestGroupStrategy::PRIORITY);
     auto state = group_state_for(2);
     state.urltest_selections["lb"] = "wan2";
     const auto entry = run_group(config, {group_rule_state({})}, state);
@@ -1493,7 +1493,7 @@ TEST_CASE("compute_test_routing: priority group marks the selected member") {
 }
 
 TEST_CASE("compute_test_routing: no group state means no outbound group") {
-    const auto config = group_config({1, 1}, api::Strategy::PRIORITY);
+    const auto config = group_config({1, 1}, api::TestGroupStrategy::PRIORITY);
     static std::filesystem::path dir = make_temp_dir();
     CacheManager cache(dir);
     cache.ensure_dir();

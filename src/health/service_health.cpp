@@ -8,14 +8,14 @@ namespace keen_pbr3 {
 
 namespace {
 
-api::RuntimeState to_api_runtime_state(const std::string& state) {
-    if (state == "starting") return api::RuntimeState::STARTING;
-    if (state == "running") return api::RuntimeState::RUNNING;
-    if (state == "restart_required") return api::RuntimeState::RESTART_REQUIRED;
-    if (state == "applying") return api::RuntimeState::APPLYING;
-    if (state == "stopped") return api::RuntimeState::STOPPED;
-    if (state == "broken") return api::RuntimeState::BROKEN;
-    return api::RuntimeState::SHUTTING_DOWN;
+api::HealthResponseRuntimeState to_api_runtime_state(const std::string& state) {
+    if (state == "starting") return api::HealthResponseRuntimeState::STARTING;
+    if (state == "running") return api::HealthResponseRuntimeState::RUNNING;
+    if (state == "restart_required") return api::HealthResponseRuntimeState::RESTART_REQUIRED;
+    if (state == "applying") return api::HealthResponseRuntimeState::APPLYING;
+    if (state == "stopped") return api::HealthResponseRuntimeState::STOPPED;
+    if (state == "broken") return api::HealthResponseRuntimeState::BROKEN;
+    return api::HealthResponseRuntimeState::SHUTTING_DOWN;
 }
 
 } // namespace
@@ -68,19 +68,19 @@ api::DnsmasqHealth to_dnsmasq_health(const DnsmasqStatus& status) {
     api::DnsmasqHealth health;
     health.mode = status.mode;
     switch (status.state) {
-    case DnsmasqSyncState::Disabled: health.state = api::State::DISABLED; break;
-    case DnsmasqSyncState::Ok: health.state = api::State::OK; break;
-    case DnsmasqSyncState::Applying: health.state = api::State::APPLYING; break;
-    case DnsmasqSyncState::Reconciling: health.state = api::State::RECONCILING; break;
-    case DnsmasqSyncState::Error: health.state = api::State::ERROR; break;
+    case DnsmasqSyncState::Disabled: health.state = api::DnsmasqHealthState::DISABLED; break;
+    case DnsmasqSyncState::Ok: health.state = api::DnsmasqHealthState::OK; break;
+    case DnsmasqSyncState::Applying: health.state = api::DnsmasqHealthState::APPLYING; break;
+    case DnsmasqSyncState::Reconciling: health.state = api::DnsmasqHealthState::RECONCILING; break;
+    case DnsmasqSyncState::Error: health.state = api::DnsmasqHealthState::ERROR; break;
     }
     if (!status.config_hash.empty()) health.config_hash = status.config_hash;
     switch (status.probe_state) {
-    case DnsmasqProbeState::NotChecked: health.probe_status = api::ProbeStatus::NOT_CHECKED; break;
-    case DnsmasqProbeState::Ok: health.probe_status = api::ProbeStatus::OK; break;
-    case DnsmasqProbeState::Missing: health.probe_status = api::ProbeStatus::MISSING; break;
-    case DnsmasqProbeState::Invalid: health.probe_status = api::ProbeStatus::INVALID; break;
-    case DnsmasqProbeState::QueryFailed: health.probe_status = api::ProbeStatus::QUERY_FAILED; break;
+    case DnsmasqProbeState::NotChecked: health.probe_status = api::DnsmasqHealthProbeStatus::NOT_CHECKED; break;
+    case DnsmasqProbeState::Ok: health.probe_status = api::DnsmasqHealthProbeStatus::OK; break;
+    case DnsmasqProbeState::Missing: health.probe_status = api::DnsmasqHealthProbeStatus::MISSING; break;
+    case DnsmasqProbeState::Invalid: health.probe_status = api::DnsmasqHealthProbeStatus::INVALID; break;
+    case DnsmasqProbeState::QueryFailed: health.probe_status = api::DnsmasqHealthProbeStatus::QUERY_FAILED; break;
     }
     if (!status.loaded_hash.empty()) health.loaded_hash = status.loaded_hash;
     health.loaded_boottime_ms = status.loaded_boottime_ms;
@@ -98,9 +98,9 @@ api::DnsmasqHealth to_dnsmasq_health(const DnsmasqStatus& status) {
     health.next_repair_ts = status.next_repair_ts;
     if (status.dnsmasq_alive) {
         switch (*status.dnsmasq_alive) {
-        case DnsmasqLiveness::Alive: health.dnsmasq_alive = api::DnsmasqAlive::ALIVE; break;
-        case DnsmasqLiveness::Dead: health.dnsmasq_alive = api::DnsmasqAlive::DEAD; break;
-        case DnsmasqLiveness::Unknown: health.dnsmasq_alive = api::DnsmasqAlive::UNKNOWN; break;
+        case DnsmasqLiveness::Alive: health.dnsmasq_alive = api::DnsmasqHealthAlive::ALIVE; break;
+        case DnsmasqLiveness::Dead: health.dnsmasq_alive = api::DnsmasqHealthAlive::DEAD; break;
+        case DnsmasqLiveness::Unknown: health.dnsmasq_alive = api::DnsmasqHealthAlive::UNKNOWN; break;
         }
     }
     health.rules = static_cast<std::int64_t>(status.rules);
@@ -111,28 +111,28 @@ api::DnsmasqHealth to_dnsmasq_health(const DnsmasqStatus& status) {
     if (!status.selector.empty()) health.instance_selector = status.selector;
     switch (status.selection) {
     case DnsmasqSelectionKind::None: break;
-    case DnsmasqSelectionKind::Explicit: health.instance_selection = api::InstanceSelection::EXPLICIT; break;
-    case DnsmasqSelectionKind::Adopted: health.instance_selection = api::InstanceSelection::ADOPTED; break;
-    case DnsmasqSelectionKind::Automatic: health.instance_selection = api::InstanceSelection::AUTOMATIC; break;
+    case DnsmasqSelectionKind::Explicit: health.instance_selection = api::DnsmasqHealthInstanceSelection::EXPLICIT; break;
+    case DnsmasqSelectionKind::Adopted: health.instance_selection = api::DnsmasqHealthInstanceSelection::ADOPTED; break;
+    case DnsmasqSelectionKind::Automatic: health.instance_selection = api::DnsmasqHealthInstanceSelection::AUTOMATIC; break;
     }
     if (status.endpoint) health.endpoint = status.endpoint->str();
     switch (status.endpoint_evidence) {
-    case EndpointEvidence::None: health.endpoint_evidence = api::EndpointEvidence::NONE; break;
-    case EndpointEvidence::SocketOwned: health.endpoint_evidence = api::EndpointEvidence::SOCKET_OWNED; break;
-    case EndpointEvidence::Responding: health.endpoint_evidence = api::EndpointEvidence::RESPONDING; break;
-    case EndpointEvidence::StampVerified: health.endpoint_evidence = api::EndpointEvidence::STAMP_VERIFIED; break;
+    case EndpointEvidence::None: health.endpoint_evidence = api::DnsmasqHealthEndpointEvidence::NONE; break;
+    case EndpointEvidence::SocketOwned: health.endpoint_evidence = api::DnsmasqHealthEndpointEvidence::SOCKET_OWNED; break;
+    case EndpointEvidence::Responding: health.endpoint_evidence = api::DnsmasqHealthEndpointEvidence::RESPONDING; break;
+    case EndpointEvidence::StampVerified: health.endpoint_evidence = api::DnsmasqHealthEndpointEvidence::STAMP_VERIFIED; break;
     }
     if (status.pid) health.pid = static_cast<std::int64_t>(*status.pid);
     switch (status.capability) {
-    case DnsmasqCapabilityStatus::NotChecked: health.capability = api::Capability::NOT_CHECKED; break;
-    case DnsmasqCapabilityStatus::Ok: health.capability = api::Capability::OK; break;
-    case DnsmasqCapabilityStatus::Unsupported: health.capability = api::Capability::UNSUPPORTED; break;
-    case DnsmasqCapabilityStatus::Failed: health.capability = api::Capability::FAILED; break;
+    case DnsmasqCapabilityStatus::NotChecked: health.capability = api::DnsmasqHealthCapability::NOT_CHECKED; break;
+    case DnsmasqCapabilityStatus::Ok: health.capability = api::DnsmasqHealthCapability::OK; break;
+    case DnsmasqCapabilityStatus::Unsupported: health.capability = api::DnsmasqHealthCapability::UNSUPPORTED; break;
+    case DnsmasqCapabilityStatus::Failed: health.capability = api::DnsmasqHealthCapability::FAILED; break;
     }
-    if (status.preflight == "ok") health.preflight = api::Preflight::OK;
-    else if (status.preflight == "failed") health.preflight = api::Preflight::FAILED;
-    else if (status.preflight == "skipped") health.preflight = api::Preflight::SKIPPED;
-    else if (status.preflight == "not_run") health.preflight = api::Preflight::NOT_RUN;
+    if (status.preflight == "ok") health.preflight = api::DnsmasqHealthPreflight::OK;
+    else if (status.preflight == "failed") health.preflight = api::DnsmasqHealthPreflight::FAILED;
+    else if (status.preflight == "skipped") health.preflight = api::DnsmasqHealthPreflight::SKIPPED;
+    else if (status.preflight == "not_run") health.preflight = api::DnsmasqHealthPreflight::NOT_RUN;
     health.instance_count = static_cast<std::int64_t>(status.instances);
     if (!status.warnings.empty()) health.warnings = status.warnings;
     return health;

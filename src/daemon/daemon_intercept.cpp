@@ -410,7 +410,7 @@ InterceptEffective Daemon::intercept_effective_snapshot() const {
     return intercept_effective_;
 }
 
-api::InterceptHealthClass Daemon::build_intercept_health() const {
+api::InterceptHealth Daemon::build_intercept_health() const {
     std::shared_ptr<InterceptService> service;
     InterceptEffective effective;
     {

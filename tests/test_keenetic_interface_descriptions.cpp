@@ -12,7 +12,7 @@ api::RuntimeInterfaceInventoryResponse inventory(
     std::string name, std::vector<std::string> ipv4_addresses = {}) {
     api::RuntimeInterfaceInventoryEntry entry;
     entry.name = std::move(name);
-    entry.status = api::RuntimeInterfaceInventoryStatusEnum::UP;
+    entry.status = api::RuntimeInterfaceInventoryStatus::UP;
     if (!ipv4_addresses.empty()) entry.ipv4_addresses = std::move(ipv4_addresses);
     return {{entry}};
 }

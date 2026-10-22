@@ -1508,7 +1508,7 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
             const std::string group_path =
                 json_index_path(ob_path + ".outbound_groups", group_index);
 
-            const auto& members = group.members.value_or(std::vector<api::OutboundGroupMemberElement>{});
+            const auto& members = group.members.value_or(std::vector<api::OutboundGroupMember>{});
             if (members.empty()) {
                 add_issue(issues, group_path + ".members",
                           std::string(is_icmp ? "Icmptest" : "Urltest") +

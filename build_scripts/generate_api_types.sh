@@ -43,10 +43,49 @@ process.stdin.on('end', () => {
   }
   clean(schemas);
 
-  // QuickType names a shared enum after its most specific property ("code")
-  // unless the schema carries a title. Pin names that would be too generic.
-  for (const name of ['RoutingHealthWarningCode']) {
-    schemas[name].title = name;
+  // QuickType names a type after the property it is first reached through
+  // (OutboundElement, Bypass, Code, ...) unless the schema carries a title.
+  // Pin every component schema to its OpenAPI name so C++ names match it.
+  for (const [name, schema] of Object.entries(schemas)) {
+    schema.title = name;
+  }
+
+  // Inline (non-\$ref) objects and enums have no schema name, so QuickType
+  // would call them after the property alone (Data, State, Kind, Proto, ...).
+  // Pin the ones whose property name is generic.  Keys are Schema.property.
+  const inlineTitles = {
+    'StatusEventSnapshot.data': 'StatusEventSnapshotData',
+    'AuthSettingsRequest.authentication': 'AuthSettingsRequestAuthentication',
+    'AuthSettingsRequest.cors': 'AuthSettingsRequestCors',
+    'XtExtensionHealth.kind': 'XtExtensionKind',
+    'InterceptCapabilitiesHealth.payload_replacement': 'InterceptPayloadReplacementSupport',
+    'DnsTestInterceptEvent.timeout_cause': 'DnsTestInterceptEventTimeoutCause',
+    'RoutingTestRequest.proto': 'RoutingTestRequestProto',
+    'RoutingTestEntry.undetermined_reason': 'RoutingTestEntryUndeterminedReason',
+    'RoutingTestDns.resolver': 'RoutingTestDnsResolver',
+    'RoutingTestDns.a_status': 'RoutingTestDnsAddressStatus',
+    'RoutingTestDns.aaaa_status': 'RoutingTestDnsAddressStatus',
+    'HealthResponse.runtime_state': 'HealthResponseRuntimeState',
+    'HealthIssue.severity': 'HealthIssueSeverity',
+    'FirewallChain.verification_state': 'FirewallChainVerificationState',
+    'PolicyRuleCheck.expected_action': 'PolicyRuleCheckExpectedAction',
+    'DnsmasqHealth.state': 'DnsmasqHealthState',
+    'DnsmasqHealth.probe_status': 'DnsmasqHealthProbeStatus',
+    'DnsmasqHealth.dnsmasq_alive': 'DnsmasqHealthAlive',
+    'DnsmasqHealth.instance_selection': 'DnsmasqHealthInstanceSelection',
+    'DnsmasqHealth.endpoint_evidence': 'DnsmasqHealthEndpointEvidence',
+    'DnsmasqHealth.capability': 'DnsmasqHealthCapability',
+    'DnsmasqHealth.preflight': 'DnsmasqHealthPreflight',
+  };
+  for (const [key, title] of Object.entries(inlineTitles)) {
+    const [schemaName, prop] = key.split('.');
+    const target = schemas[schemaName] && schemas[schemaName].properties &&
+                   schemas[schemaName].properties[prop];
+    if (!target || target['\$ref']) {
+      console.error('generate_api_types: inline title ' + key + ' does not match an inline property');
+      process.exit(1);
+    }
+    target.title = title;
   }
 
   // Rewrite \$ref paths from OpenAPI to JSON Schema \$defs format
@@ -84,6 +123,7 @@ npx --yes quicktype \
   --src "$SCHEMA_TMP" \
   --src-lang schema \
   --namespace keen_pbr3::api \
+  --top-level KeenPbrTypes \
   --no-boost \
   --code-format with-struct \
   -o "$TYPES_TMP"
@@ -112,6 +152,17 @@ content = content.replace(
   'j[' + quote + 'detail' + quote + '] = x.detail;\n' +
     '        if (x.interface_name.has_value()) j[' + quote + 'interface_name' + quote + '] = *x.interface_name;'
 );
+
+// Every OpenAPI schema must exist under its own name in the header, so the C++
+// type names stay equal to the schema names.
+const schemaNames = JSON.parse(fs.readFileSync('$SCHEMA_TMP', 'utf8'))['\$defs'];
+const missing = Object.keys(schemaNames).filter(name =>
+  !new RegExp('^ *(struct|enum class) ' + name + '[^A-Za-z0-9_]', 'm').test(content));
+if (missing.length > 0) {
+  console.error('generate_api_types: no generated type named after these OpenAPI schemas: ' +
+                missing.join(', '));
+  process.exit(1);
+}
 
 // Add generation comment at the top
 const header = '// Generated from docs/openapi.yaml via build_scripts/generate_api_types.sh\n' +

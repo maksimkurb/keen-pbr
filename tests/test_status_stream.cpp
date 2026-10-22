@@ -45,7 +45,7 @@ TestStatusSnapshot make_snapshot(std::string version = "1",
     auto &outbound = snapshot.outbounds.outbounds[i];
     outbound.tag = "outbound" + std::to_string(i);
     outbound.type = api::OutboundType::INTERFACE;
-    outbound.status = api::RuntimeOutboundStatusEnum::HEALTHY;
+    outbound.status = api::RuntimeOutboundStatus::HEALTHY;
   }
   return snapshot;
 }
@@ -193,7 +193,7 @@ TEST_CASE("status stream emits issues only when the derived issues change") {
   const auto build_issues = [&] {
     api::HealthIssuesResponse issues;
     for (const auto &outbound : current.outbounds.outbounds) {
-      if (outbound.status != api::RuntimeOutboundStatusEnum::HEALTHY) {
+      if (outbound.status != api::RuntimeOutboundStatus::HEALTHY) {
         api::HealthIssue issue{};
         issue.key = "outbound-" + outbound.tag;
         issues.issues.push_back(issue);
@@ -215,7 +215,7 @@ TEST_CASE("status stream emits issues only when the derived issues change") {
 
   // Outbounds change and so do the issues.
   current.outbounds.outbounds[0].status =
-      api::RuntimeOutboundStatusEnum::UNAVAILABLE;
+      api::RuntimeOutboundStatus::UNAVAILABLE;
   stream.reconcile(StatusUpdate::Outbounds);
   CHECK(pop(subscription).rfind("event: outbounds\n", 0) == 0);
   CHECK(pop(subscription).rfind("event: issues\n", 0) == 0);

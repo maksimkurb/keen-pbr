@@ -96,7 +96,7 @@ Config make_config_defaults() {
     dns.enabled = d::intercept_dns_enabled;
     dns.queue_num = d::intercept_dns_queue_num;
     dns.hold_timeout_ms = d::intercept_dns_hold_timeout_ms;
-    api::Marker& marker = dns.marker.emplace();
+    api::InterceptMarkerConfig& marker = dns.marker.emplace();
     marker.domain = std::string(d::intercept_marker_domain);
     marker.answer_ipv4 = std::string(d::intercept_marker_answer_ipv4);
     InterceptL7Config& l7 = intercept.l7.emplace();

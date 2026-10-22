@@ -53,14 +53,14 @@ void validate_integer_field(const nlohmann::json& body,
     }
 }
 
-constexpr std::pair<const char*, api::AStatus> kDnsStatusNames[] = {
-    {"ok", api::AStatus::OK}, {"nodata", api::AStatus::NODATA},
-    {"nxdomain", api::AStatus::NXDOMAIN}, {"servfail", api::AStatus::SERVFAIL},
-    {"refused", api::AStatus::REFUSED}, {"rcode", api::AStatus::RCODE},
-    {"timeout", api::AStatus::TIMEOUT}, {"network_error", api::AStatus::NETWORK_ERROR},
-    {"malformed", api::AStatus::MALFORMED}};
+constexpr std::pair<const char*, api::RoutingTestDnsAddressStatus> kDnsStatusNames[] = {
+    {"ok", api::RoutingTestDnsAddressStatus::OK}, {"nodata", api::RoutingTestDnsAddressStatus::NODATA},
+    {"nxdomain", api::RoutingTestDnsAddressStatus::NXDOMAIN}, {"servfail", api::RoutingTestDnsAddressStatus::SERVFAIL},
+    {"refused", api::RoutingTestDnsAddressStatus::REFUSED}, {"rcode", api::RoutingTestDnsAddressStatus::RCODE},
+    {"timeout", api::RoutingTestDnsAddressStatus::TIMEOUT}, {"network_error", api::RoutingTestDnsAddressStatus::NETWORK_ERROR},
+    {"malformed", api::RoutingTestDnsAddressStatus::MALFORMED}};
 
-std::optional<api::AStatus> dns_status_to_api(const std::optional<std::string>& name) {
+std::optional<api::RoutingTestDnsAddressStatus> dns_status_to_api(const std::optional<std::string>& name) {
     if (!name) return std::nullopt;
     for (const auto& [text, value] : kDnsStatusNames) {
         if (*name == text) return value;
@@ -68,7 +68,7 @@ std::optional<api::AStatus> dns_status_to_api(const std::optional<std::string>& 
     return std::nullopt;
 }
 
-std::optional<std::string> dns_status_from_api(const std::optional<api::AStatus>& status) {
+std::optional<std::string> dns_status_from_api(const std::optional<api::RoutingTestDnsAddressStatus>& status) {
     if (!status) return std::nullopt;
     for (const auto& [text, value] : kDnsStatusNames) {
         if (*status == value) return std::string(text);
@@ -76,14 +76,14 @@ std::optional<std::string> dns_status_from_api(const std::optional<api::AStatus>
     return std::nullopt;
 }
 
-api::ListMatch list_match_to_api(const ListMatchInfo& match) {
-    api::ListMatch out;
+api::RoutingTestListMatch list_match_to_api(const ListMatchInfo& match) {
+    api::RoutingTestListMatch out;
     out.list = match.list_name;
     out.via = match.via;
     return out;
 }
 
-ListMatchInfo list_match_from_api(const api::ListMatch& match) {
+ListMatchInfo list_match_from_api(const api::RoutingTestListMatch& match) {
     return ListMatchInfo{match.list, match.via};
 }
 
@@ -93,7 +93,7 @@ api::RoutingTestDefaultGateway default_gateway_to_api(const DefaultGatewayDecisi
     out.uses_default_gateway = in.uses_default_gateway;
     out.applied_uses_default_gateway = in.applied_uses_default_gateway;
     if (in.bypass) {
-        api::Bypass bypass;
+        api::RoutingTestDefaultGatewayBypass bypass;
         bypass.cidr = in.bypass->cidr;
         bypass.interface = in.bypass->interface;
         switch (in.bypass->source) {
@@ -131,12 +131,12 @@ DefaultGatewayDecision default_gateway_from_api(const api::RoutingTestDefaultGat
     return out;
 }
 
-api::OutboundGroup outbound_group_to_api(const OutboundGroupBreakdown& in) {
-    api::OutboundGroup out;
+api::RoutingTestOutboundGroup outbound_group_to_api(const OutboundGroupBreakdown& in) {
+    api::RoutingTestOutboundGroup out;
     out.tag = in.tag;
-    out.strategy = in.strategy == "balance" ? api::Strategy::BALANCE : api::Strategy::PRIORITY;
+    out.strategy = in.strategy == "balance" ? api::TestGroupStrategy::BALANCE : api::TestGroupStrategy::PRIORITY;
     for (const auto& member : in.members) {
-        api::RoutingTestOutboundGroupMemberElement m;
+        api::RoutingTestOutboundGroupMember m;
         m.tag = member.tag;
         m.interface = member.interface_name;
         if (member.weight) m.weight = static_cast<int64_t>(*member.weight);
@@ -147,10 +147,10 @@ api::OutboundGroup outbound_group_to_api(const OutboundGroupBreakdown& in) {
     return out;
 }
 
-OutboundGroupBreakdown outbound_group_from_api(const api::OutboundGroup& in) {
+OutboundGroupBreakdown outbound_group_from_api(const api::RoutingTestOutboundGroup& in) {
     OutboundGroupBreakdown out;
     out.tag = in.tag;
-    out.strategy = in.strategy == api::Strategy::BALANCE ? "balance" : "priority";
+    out.strategy = in.strategy == api::TestGroupStrategy::BALANCE ? "balance" : "priority";
     for (const auto& m : in.members) {
         OutboundGroupMember member;
         member.tag = m.tag;
@@ -197,9 +197,9 @@ TestRoutingRequest parse_test_routing_request(const nlohmann::json& body) {
     auto& criteria = request.criteria;
     if (req.proto.has_value()) {
         switch (*req.proto) {
-        case api::Proto::TCP: criteria.proto = "tcp"; break;
-        case api::Proto::UDP: criteria.proto = "udp"; break;
-        case api::Proto::OTHER: criteria.proto = "other"; break;
+        case api::RoutingTestRequestProto::TCP: criteria.proto = "tcp"; break;
+        case api::RoutingTestRequestProto::UDP: criteria.proto = "udp"; break;
+        case api::RoutingTestRequestProto::OTHER: criteria.proto = "other"; break;
         }
     }
     criteria.src_addr = req.src_addr;
@@ -226,9 +226,9 @@ nlohmann::json test_routing_result_to_json(const TestRoutingResult& result) {
     resp.warnings     = result.warnings;
     if (result.dns) {
         api::RoutingTestDns d;
-        if (result.dns->resolver == "dnsmasq") d.resolver = api::Resolver::DNSMASQ;
-        else if (result.dns->resolver == "test") d.resolver = api::Resolver::TEST;
-        else d.resolver = api::Resolver::SYSTEM;
+        if (result.dns->resolver == "dnsmasq") d.resolver = api::RoutingTestDnsResolver::DNSMASQ;
+        else if (result.dns->resolver == "test") d.resolver = api::RoutingTestDnsResolver::TEST;
+        else d.resolver = api::RoutingTestDnsResolver::SYSTEM;
         d.endpoint = result.dns->endpoint;
         d.instance = result.dns->instance;
         d.a_status = dns_status_to_api(result.dns->a_status);
@@ -247,9 +247,9 @@ nlohmann::json test_routing_result_to_json(const TestRoutingResult& result) {
         if (entry.undetermined_rule_index) {
             e.undetermined_rule_index = *entry.undetermined_rule_index;
             if (entry.default_gateway_directness) {
-                e.undetermined_reason = api::UndeterminedReason::DEFAULT_GATEWAY_DIRECTNESS;
+                e.undetermined_reason = api::RoutingTestEntryUndeterminedReason::DEFAULT_GATEWAY_DIRECTNESS;
             } else if (!entry.missing_criteria.empty()) {
-                e.undetermined_reason = api::UndeterminedReason::MISSING_CRITERIA;
+                e.undetermined_reason = api::RoutingTestEntryUndeterminedReason::MISSING_CRITERIA;
             }
             std::vector<api::MissingCriterion> missing;
             for (const auto& field : entry.missing_criteria) {
@@ -274,7 +274,7 @@ nlohmann::json test_routing_result_to_json(const TestRoutingResult& result) {
     }
 
     for (const auto& rule_diag : result.rule_diagnostics) {
-        api::RoutingTestRuleDiagnosticElement rd;
+        api::RoutingTestRuleDiagnostic rd;
         rd.rule_index = rule_diag.rule_index;
         rd.rule = rule_diag.rule;
         rd.outbound = rule_diag.outbound;
@@ -284,7 +284,7 @@ nlohmann::json test_routing_result_to_json(const TestRoutingResult& result) {
             rd.target_match = list_match_to_api(*rule_diag.target_match);
         }
         for (const auto& ip_diag : rule_diag.ip_rows) {
-            api::RoutingTestRuleIpDiagnosticElement ipd;
+            api::RoutingTestRuleIpDiagnostic ipd;
             ipd.ip = ip_diag.ip;
             ipd.in_lists = ip_diag.in_lists;
             if (ip_diag.list_match) {
@@ -293,7 +293,7 @@ nlohmann::json test_routing_result_to_json(const TestRoutingResult& result) {
             ipd.criteria_match = ip_diag.criteria_match;
             ipd.in_ipset = ip_diag.in_ipset;
             if (ip_diag.set_write_evidence.has_value()) {
-                api::SetWriteEvidence evidence;
+                api::RoutingTestSetWriteEvidence evidence;
                 switch (ip_diag.set_write_evidence->status) {
                 case SetWriteEvidenceStatus::Recorded:
                     evidence.status = api::RoutingTestSetWriteEvidenceStatus::RECORDED;
@@ -336,9 +336,9 @@ TestRoutingResult test_routing_result_from_json(const nlohmann::json& value) {
     if (resp.dns) {
         TestRoutingDnsInfo info;
         switch (resp.dns->resolver) {
-        case api::Resolver::DNSMASQ: info.resolver = "dnsmasq"; break;
-        case api::Resolver::TEST: info.resolver = "test"; break;
-        case api::Resolver::SYSTEM: info.resolver = "system"; break;
+        case api::RoutingTestDnsResolver::DNSMASQ: info.resolver = "dnsmasq"; break;
+        case api::RoutingTestDnsResolver::TEST: info.resolver = "test"; break;
+        case api::RoutingTestDnsResolver::SYSTEM: info.resolver = "system"; break;
         }
         info.endpoint = resp.dns->endpoint;
         info.instance = resp.dns->instance;
@@ -361,7 +361,7 @@ TestRoutingResult test_routing_result_from_json(const nlohmann::json& value) {
             entry.undetermined_rule_index = static_cast<int>(*item.undetermined_rule_index);
         }
         entry.default_gateway_directness =
-            item.undetermined_reason == api::UndeterminedReason::DEFAULT_GATEWAY_DIRECTNESS;
+            item.undetermined_reason == api::RoutingTestEntryUndeterminedReason::DEFAULT_GATEWAY_DIRECTNESS;
         for (const auto field : item.missing_criteria.value_or(std::vector<api::MissingCriterion>{})) {
             switch (field) {
             case api::MissingCriterion::SRC_ADDR: entry.missing_criteria.emplace_back("src_addr"); break;

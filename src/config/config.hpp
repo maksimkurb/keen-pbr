@@ -58,29 +58,29 @@ struct ConfigValidationContext {
 // Type aliases: map generated QuickType names to conventional keen-pbr names.
 // All config structs now live in api:: with full from_json/to_json support.
 using Config               = api::ConfigObject;
-using DaemonConfig         = api::Daemon;
+using DaemonConfig         = api::DaemonConfig;
 using ApiConfig            = api::ApiConfig;
-using AuthenticationConfig = api::AuthenticationConfigClass;
-using CorsConfig           = api::CorsConfigClass;
-using Outbound             = api::OutboundElement;
+using AuthenticationConfig = api::AuthenticationConfig;
+using CorsConfig           = api::CorsConfig;
+using Outbound             = api::Outbound;
 using OutboundType         = api::OutboundType;  // enum: INTERFACE, TABLE, BLACKHOLE, IGNORE, URLTEST
-using OutboundGroup        = api::OutboundGroupElement;
-using RetryConfig          = api::Retry;
+using OutboundGroup        = api::OutboundGroup;
+using RetryConfig          = api::RetryConfig;
 using CircuitBreakerConfig = api::CircuitBreakerConfig;
-using ListConfig           = api::ListConfigValue;
-using DnsServer            = api::DnsServerElement;
+using ListConfig           = api::ListConfig;
+using DnsServer            = api::DnsServer;
 using DnsTestServer        = api::DnsTestServer;
-using DnsRule              = api::DnsRuleElement;
-using DnsConfig            = api::DnsConfigClass;
-using ResolverIntegrationMode = api::ResolverIntegration;  // enum: NONE, DNSMASQ
-using RouteRule            = api::RouteRuleElement;
-using RouteConfig          = api::Route;
-using FwmarkConfig         = api::Fwmark;
-using IprouteConfig        = api::Iproute;
-using ListsAutoupdateConfig = api::ListsAutoupdate;
-using InterceptConfig      = api::InterceptConfigClass;
-using InterceptDnsConfig   = api::InterceptDnsConfigClass;
-using InterceptL7Config    = api::L7;
+using DnsRule              = api::DnsRule;
+using DnsConfig            = api::DnsConfig;
+using ResolverIntegrationMode = api::ResolverIntegrationMode;  // enum: NONE, DNSMASQ
+using RouteRule            = api::RouteRule;
+using RouteConfig          = api::RouteConfig;
+using FwmarkConfig         = api::FwmarkConfig;
+using IprouteConfig        = api::IprouteConfig;
+using ListsAutoupdateConfig = api::ListsAutoupdateConfig;
+using InterceptConfig      = api::InterceptConfig;
+using InterceptDnsConfig   = api::InterceptDnsConfig;
+using InterceptL7Config    = api::InterceptL7Config;
 // Note: DnsRule.list (not .lists) and RouteRule.list (not .lists) match JSON keys.
 
 constexpr std::size_t kDefaultMaxFileSizeBytes = std::size_t{8} * 1024U * 1024U; // 8 MiB
@@ -98,9 +98,9 @@ inline bool dns_rule_enabled(const DnsRule& rule) {
     return rule.enabled.value_or(true);
 }
 
-inline const std::vector<api::OutboundGroupMemberElement>& outbound_group_members(
+inline const std::vector<api::OutboundGroupMember>& outbound_group_members(
     const OutboundGroup& group) {
-    static const std::vector<api::OutboundGroupMemberElement> empty;
+    static const std::vector<api::OutboundGroupMember> empty;
     return group.members ? *group.members : empty;
 }
 
@@ -136,8 +136,8 @@ inline uint32_t outbound_group_balance_weight(const OutboundGroup& group,
 
 // What the config asks for, independent of the build.
 inline bool outbound_requests_balance(const Outbound& outbound) {
-    return outbound.strategy.value_or(api::Strategy::PRIORITY) ==
-           api::Strategy::BALANCE;
+    return outbound.strategy.value_or(api::TestGroupStrategy::PRIORITY) ==
+           api::TestGroupStrategy::BALANCE;
 }
 
 // Whether keen-pbr balances this outbound.  The Keenetic platform build does

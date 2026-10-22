@@ -45,9 +45,9 @@ TEST_CASE("runtime outbound projection reuses one route snapshot") {
     auto missing = make_outbound("missing", OutboundType::TABLE);
     auto automatic = make_outbound("auto", OutboundType::URLTEST);
     OutboundGroup group;
-    api::OutboundGroupMemberElement member;
+    api::OutboundGroupMember member;
     member.outbound = "wan";
-    group.members = std::vector<api::OutboundGroupMemberElement>{member};
+    group.members = std::vector<api::OutboundGroupMember>{member};
     automatic.outbound_groups = std::vector<OutboundGroup>{group};
     config.outbounds = std::vector<Outbound>{interface, table, missing, automatic};
 
@@ -76,12 +76,12 @@ TEST_CASE("runtime outbound projection reuses one route snapshot") {
         });
 
     REQUIRE(response.outbounds.size() == 4);
-    CHECK(response.outbounds[0].status == api::RuntimeOutboundStatusEnum::HEALTHY);
-    CHECK(response.outbounds[1].status == api::RuntimeOutboundStatusEnum::HEALTHY);
-    CHECK(response.outbounds[2].status == api::RuntimeOutboundStatusEnum::UNKNOWN);
-    CHECK(response.outbounds[3].status == api::RuntimeOutboundStatusEnum::HEALTHY);
+    CHECK(response.outbounds[0].status == api::RuntimeOutboundStatus::HEALTHY);
+    CHECK(response.outbounds[1].status == api::RuntimeOutboundStatus::HEALTHY);
+    CHECK(response.outbounds[2].status == api::RuntimeOutboundStatus::UNKNOWN);
+    CHECK(response.outbounds[3].status == api::RuntimeOutboundStatus::HEALTHY);
     CHECK(response.outbounds[3].interfaces.size() == 1);
-    CHECK(response.outbounds[3].interfaces[0].status == api::RuntimeInterfaceStatusEnum::ACTIVE);
+    CHECK(response.outbounds[3].interfaces[0].status == api::RuntimeInterfaceStatus::ACTIVE);
     CHECK(response.outbounds[3].interfaces[0].latency_ms == 12);
 }
 
@@ -107,7 +107,7 @@ TEST_CASE("runtime outbound projection accepts the resolved auto gateway") {
     REQUIRE(response.outbounds.size() == 1);
     REQUIRE(response.outbounds[0].interfaces.size() == 1);
     CHECK(response.outbounds[0].interfaces[0].status ==
-          api::RuntimeInterfaceStatusEnum::ACTIVE);
+          api::RuntimeInterfaceStatus::ACTIVE);
 }
 
 TEST_CASE("runtime test-group projection reports table candidate probe state") {
@@ -116,10 +116,10 @@ TEST_CASE("runtime test-group projection reports table candidate probe state") {
     table.table = 200;
     auto automatic = make_outbound("auto", OutboundType::ICMPTEST);
     OutboundGroup group;
-    api::OutboundGroupMemberElement member;
+    api::OutboundGroupMember member;
     member.outbound = "external";
     member.target = "1.1.1.1";
-    group.members = std::vector<api::OutboundGroupMemberElement>{member};
+    group.members = std::vector<api::OutboundGroupMember>{member};
     automatic.outbound_groups = std::vector<OutboundGroup>{group};
     config.outbounds = std::vector<Outbound>{table, automatic};
 
@@ -153,15 +153,15 @@ TEST_CASE("runtime test-group projection reports table candidate probe state") {
     const auto& active = response.outbounds[1].interfaces[0];
     CHECK_FALSE(active.interface_name.has_value());
     CHECK_FALSE(nlohmann::json(active).contains("interface_name"));
-    CHECK(active.status == api::RuntimeInterfaceStatusEnum::ACTIVE);
+    CHECK(active.status == api::RuntimeInterfaceStatus::ACTIVE);
     CHECK(active.latency_ms == 23);
     CHECK(active.packets_received == 3);
 
     state.last_results["external"].success = false;
     response = build();
     CHECK(response.outbounds[1].interfaces[0].status ==
-          api::RuntimeInterfaceStatusEnum::DEGRADED);
-    CHECK(response.outbounds[1].status == api::RuntimeOutboundStatusEnum::DEGRADED);
+          api::RuntimeInterfaceStatus::DEGRADED);
+    CHECK(response.outbounds[1].status == api::RuntimeOutboundStatus::DEGRADED);
 }
 
 #ifndef KEEN_PBR_PLATFORM_KEENETIC
@@ -171,11 +171,11 @@ TEST_CASE("runtime balance projection reports each usable first-tier child activ
     auto second = make_outbound("second", OutboundType::TABLE);
     auto backup = make_outbound("backup", OutboundType::TABLE);
     auto automatic = make_outbound("auto", OutboundType::URLTEST);
-    automatic.strategy = api::Strategy::BALANCE;
+    automatic.strategy = api::TestGroupStrategy::BALANCE;
     OutboundGroup active_group;
-    active_group.members = std::vector<api::OutboundGroupMemberElement>{{"first", std::nullopt, std::nullopt}, {"second", std::nullopt, std::nullopt}};
+    active_group.members = std::vector<api::OutboundGroupMember>{{"first", std::nullopt, std::nullopt}, {"second", std::nullopt, std::nullopt}};
     OutboundGroup backup_group;
-    backup_group.members = std::vector<api::OutboundGroupMemberElement>{{"backup", std::nullopt, std::nullopt}};
+    backup_group.members = std::vector<api::OutboundGroupMember>{{"backup", std::nullopt, std::nullopt}};
     automatic.outbound_groups = std::vector<OutboundGroup>{active_group, backup_group};
     config.outbounds = std::vector<Outbound>{first, second, backup, automatic};
 
@@ -201,11 +201,11 @@ TEST_CASE("runtime balance projection reports each usable first-tier child activ
 
     REQUIRE(response.outbounds.size() == 4);
     const auto& balanced = response.outbounds[3];
-    CHECK(balanced.status == api::RuntimeOutboundStatusEnum::HEALTHY);
+    CHECK(balanced.status == api::RuntimeOutboundStatus::HEALTHY);
     REQUIRE(balanced.interfaces.size() == 3);
-    CHECK(balanced.interfaces[0].status == api::RuntimeInterfaceStatusEnum::ACTIVE);
-    CHECK(balanced.interfaces[1].status == api::RuntimeInterfaceStatusEnum::ACTIVE);
-    CHECK(balanced.interfaces[2].status == api::RuntimeInterfaceStatusEnum::BACKUP);
+    CHECK(balanced.interfaces[0].status == api::RuntimeInterfaceStatus::ACTIVE);
+    CHECK(balanced.interfaces[1].status == api::RuntimeInterfaceStatus::ACTIVE);
+    CHECK(balanced.interfaces[2].status == api::RuntimeInterfaceStatus::BACKUP);
     CHECK(balanced.detail == "balancing new connections across active candidates");
 }
 #endif

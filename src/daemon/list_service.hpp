@@ -95,7 +95,7 @@ std::vector<std::string> uncached_lists_detouring_via(
     const std::string& outbound_tag,
     const std::vector<std::string>& selected_members);
 
-std::map<std::string, api::ListRefreshStateValue> build_list_refresh_state_map(const Config& config,
+std::map<std::string, api::ListRefreshState> build_list_refresh_state_map(const Config& config,
                                                                                const CacheManager& cache_manager);
 
 class ListService {

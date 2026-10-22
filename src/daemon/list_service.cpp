@@ -151,16 +151,16 @@ std::vector<std::string> uncached_lists_detouring_via(
     return result;
 }
 
-std::map<std::string, api::ListRefreshStateValue> build_list_refresh_state_map(const Config& config,
+std::map<std::string, api::ListRefreshState> build_list_refresh_state_map(const Config& config,
                                                                                const CacheManager& cache_manager) {
-    std::map<std::string, api::ListRefreshStateValue> refresh_state;
+    std::map<std::string, api::ListRefreshState> refresh_state;
 
     for (const auto& [name, list_cfg] : config_lists(config)) {
         if (!list_cfg.url.has_value()) {
             continue;
         }
 
-        api::ListRefreshStateValue state;
+        api::ListRefreshState state;
         const auto metadata = cache_manager.load_metadata(name);
         state.last_updated = metadata.download_time;
         refresh_state.emplace(name, std::move(state));

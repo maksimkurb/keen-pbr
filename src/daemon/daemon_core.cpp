@@ -689,10 +689,10 @@ api::RuntimeOutboundsResponse Daemon::runtime_outbounds_state() {
     api::RuntimeOutboundsResponse response;
     for (const auto &outbound :
          config_snapshot.outbounds.value_or(std::vector<Outbound>{})) {
-      api::RuntimeOutboundStateElement state;
+      api::RuntimeOutboundState state;
       state.tag = outbound.tag;
       state.type = outbound.type;
-      state.status = api::RuntimeOutboundStatusEnum::UNKNOWN;
+      state.status = api::RuntimeOutboundStatus::UNKNOWN;
       response.outbounds.push_back(std::move(state));
     }
     return response;

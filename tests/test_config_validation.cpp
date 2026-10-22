@@ -206,7 +206,7 @@ TEST_CASE("test-group balance and default gateway rules are parsed") {
         {"default_gateway":"ipv6","outbound":"auto"}
       ]}
     })");
-    CHECK(cfg.outbounds->at(2).strategy == api::Strategy::BALANCE);
+    CHECK(cfg.outbounds->at(2).strategy == api::TestGroupStrategy::BALANCE);
     CHECK(cfg.route->rules->at(0).default_gateway == api::DefaultGateway::IPV4);
 }
 
@@ -389,7 +389,7 @@ TEST_CASE("auto backend resolves to nftables and accepts balance") {
         {"default_gateway":"ipv4","outbound":"auto"}
       ]}
     })");
-    CHECK(cfg.outbounds->at(2).strategy == api::Strategy::BALANCE);
+    CHECK(cfg.outbounds->at(2).strategy == api::TestGroupStrategy::BALANCE);
     CHECK(cfg.route->rules->at(0).default_gateway == api::DefaultGateway::IPV4);
     reset_detected_firewall_backend_for_tests();
 }
@@ -443,7 +443,7 @@ TEST_CASE("explicit nftables backend accepts balance") {
         {"default_gateway":"ipv4","outbound":"auto"}
       ]}
     })");
-    CHECK(cfg.outbounds->at(2).strategy == api::Strategy::BALANCE);
+    CHECK(cfg.outbounds->at(2).strategy == api::TestGroupStrategy::BALANCE);
     CHECK(cfg.route->rules->at(0).default_gateway == api::DefaultGateway::IPV4);
 }
 

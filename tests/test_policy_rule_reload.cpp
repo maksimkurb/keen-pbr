@@ -283,7 +283,7 @@ TEST_CASE("probe marks: a strict child or balance candidate is probed with its o
     {
         Config cfg = probe_config(false);
         auto& outbounds = *cfg.outbounds;
-        outbounds[2].strategy = api::Strategy::BALANCE;
+        outbounds[2].strategy = api::TestGroupStrategy::BALANCE;
         const auto marks = allocate_outbound_marks(cfg);
         CHECK(marks.count(probe_mark_key("warp")) == 0);
         CHECK(marks.count(probe_mark_key("wan")) == 0);

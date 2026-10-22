@@ -32,7 +32,7 @@ ApiContext make_status_context(SseBroadcaster &broadcaster,
       [] { return api::RuntimeOutboundsResponse{}; },
       [] { return api::RuntimeInterfaceInventoryResponse{}; },
       [](const Config &) {
-        return std::map<std::string, api::ListRefreshStateValue>{};
+        return std::map<std::string, api::ListRefreshState>{};
       },
       [](const std::string &) { return TestRoutingResult{}; },
       [] {},
