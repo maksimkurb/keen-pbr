@@ -9,17 +9,17 @@ import type { DnsmasqHealthCapability } from './dnsmasqHealthCapability';
 import type { DnsmasqHealthDnsmasqAlive } from './dnsmasqHealthDnsmasqAlive';
 import type { DnsmasqHealthEndpointEvidence } from './dnsmasqHealthEndpointEvidence';
 import type { DnsmasqHealthInstanceSelection } from './dnsmasqHealthInstanceSelection';
-import type { DnsmasqHealthMode } from './dnsmasqHealthMode';
 import type { DnsmasqHealthPreflight } from './dnsmasqHealthPreflight';
 import type { DnsmasqHealthProbeStatus } from './dnsmasqHealthProbeStatus';
 import type { DnsmasqHealthState } from './dnsmasqHealthState';
+import type { ResolverIntegrationMode } from './resolverIntegrationMode';
 
 /**
  * Status of the generated dnsmasq config (`dns.resolver_integration`).
  */
 export interface DnsmasqHealth {
   /** Effective resolver integration mode. */
-  mode: DnsmasqHealthMode;
+  mode: ResolverIntegrationMode;
   /** - disabled: resolver integration is `none`; keen-pbr does not touch dnsmasq - ok: dnsmasq confirmed (config-hash.keen.pbr TXT stamp) that it serves the current config - applying: the platform hook is running or dnsmasq has not yet confirmed the config
     (an explicit apply or an automatic repair attempt, see `repair_attempt`)
   - reconciling: dnsmasq lost the config and the next automatic repair is scheduled (`next_repair_ts`) - error: an explicit apply failed, automatic repairs are paused (`repair_paused`),
@@ -30,7 +30,7 @@ export interface DnsmasqHealth {
   config_hash?: string | null;
   /** Result of the last `config-hash.keen.pbr` TXT query to dnsmasq. - not_checked: no query has been made yet - ok: dnsmasq returned a keen-pbr stamp - missing: dnsmasq answered without the stamp (the keen-pbr config is not loaded) - invalid: the TXT record is not a valid keen-pbr stamp - query_failed: dnsmasq did not answer (timeout, refused, malformed reply)
    */
-  probe_status?: DnsmasqHealthProbeStatus;
+  probe_status?: DnsmasqHealthProbeStatus | null;
   /** Config hash dnsmasq reported in the TXT stamp. */
   loaded_hash?: string | null;
   /** CLOCK_BOOTTIME (milliseconds) when dnsmasq generated the loaded config. */
@@ -61,7 +61,7 @@ export interface DnsmasqHealth {
   repair_paused?: boolean | null;
   /** Last answer of the platform hook `alive` (whether the service manager says dnsmasq is running); asked only when dnsmasq does not answer the config check. Null if never asked.
    */
-  dnsmasq_alive?: DnsmasqHealthDnsmasqAlive;
+  dnsmasq_alive?: DnsmasqHealthDnsmasqAlive | null;
   /** Number of enabled `dns.rules` in the generated config. */
   rules: number;
   /** Number of domains written to the generated config. */
@@ -69,13 +69,13 @@ export interface DnsmasqHealth {
   /** Machine-readable reason for `state=error` (DNSMASQ_* codes, see the integration docs). */
   error_code?: string | null;
   instance_selector?: string | null;
-  instance_selection?: DnsmasqHealthInstanceSelection;
+  instance_selection?: DnsmasqHealthInstanceSelection | null;
   /** DNS endpoint of the selected instance, "ip:port" or "[ipv6]:port". */
   endpoint?: string | null;
-  endpoint_evidence?: DnsmasqHealthEndpointEvidence;
+  endpoint_evidence?: DnsmasqHealthEndpointEvidence | null;
   pid?: number | null;
-  capability?: DnsmasqHealthCapability;
-  preflight?: DnsmasqHealthPreflight;
+  capability?: DnsmasqHealthCapability | null;
+  preflight?: DnsmasqHealthPreflight | null;
   instance_count?: number | null;
   warnings?: string[] | null;
 }

@@ -7,12 +7,12 @@
  */
 
 /**
- * Per-outbound override of daemon.strict_enforcement_action.
+ * Terminal RPDB action used by strict enforcement.
  */
-export type OutboundStrictEnforcementAction = typeof OutboundStrictEnforcementAction[keyof typeof OutboundStrictEnforcementAction];
+export type StrictEnforcementAction = typeof StrictEnforcementAction[keyof typeof StrictEnforcementAction];
 
 
-export const OutboundStrictEnforcementAction = {
+export const StrictEnforcementAction = {
   unreachable: 'unreachable',
   blackhole: 'blackhole',
 } as const;

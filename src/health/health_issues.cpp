@@ -272,7 +272,7 @@ void collect_dnsmasq_issues(const api::DnsmasqHealth& dnsmasq,
             issue.detail = dnsmasq.last_error;
         } else if (dnsmasq.repair_reason) {
             issue.detail = dnsmasq.repair_reason;
-        } else if (dnsmasq.dnsmasq_alive == api::DnsmasqHealthAlive::DEAD) {
+        } else if (dnsmasq.dnsmasq_alive == api::DnsmasqHealthDnsmasqAlive::DEAD) {
             issue.detail_code = api::HealthIssueDetailCode::DNSMASQ_DEAD;
             issue.detail = "dnsmasq is not running";
         }

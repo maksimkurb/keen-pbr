@@ -6,16 +6,6 @@
  * OpenAPI spec version: 3.0.0
  */
 
-/**
- * Retained evidence for a successful operation on this exact
-dynamic firewall set and address. `recorded` means Added,
-Refreshed, or Exists was observed; `no_record` means no retained
-successful record remains; `not_tracked` means the set is static,
-outside the active interception snapshot, or interception is
-unavailable. This is not DNS provenance and does not prove live
-kernel membership.
-
- */
 export type RoutingTestSetWriteEvidenceStatus = typeof RoutingTestSetWriteEvidenceStatus[keyof typeof RoutingTestSetWriteEvidenceStatus];
 
 

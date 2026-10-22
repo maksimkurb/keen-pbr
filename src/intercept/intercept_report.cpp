@@ -66,7 +66,7 @@ std::vector<api::XtExtensionHealth> xt_extension_health(
     for (const auto& extension : routing_xt_extensions()) {
         api::XtExtensionHealth item;
         item.name = extension.name;
-        item.kind = extension.target ? api::XtExtensionKind::TARGET : api::XtExtensionKind::MATCH;
+        item.kind = extension.target ? api::XtExtensionHealthKind::TARGET : api::XtExtensionHealthKind::MATCH;
         item.kernel_module = extension.module;
         item.available = !contains(missing, &extension);
         item.required = module_needed && contains(in_use, &extension);
@@ -96,13 +96,13 @@ api::InterceptHealth make_intercept_health(const InterceptEffective& effective,
     if (probe.nfqueue.status != nfnl::ProbeStatus::not_run) {
         switch (probe.replacement) {
         case nfnl::ReplacementCapability::supported:
-            health.capabilities.payload_replacement = api::InterceptPayloadReplacementSupport::SUPPORTED;
+            health.capabilities.payload_replacement = api::InterceptCapabilitiesHealthPayloadReplacement::SUPPORTED;
             break;
         case nfnl::ReplacementCapability::unsupported:
-            health.capabilities.payload_replacement = api::InterceptPayloadReplacementSupport::UNSUPPORTED;
+            health.capabilities.payload_replacement = api::InterceptCapabilitiesHealthPayloadReplacement::UNSUPPORTED;
             break;
         case nfnl::ReplacementCapability::unknown:
-            health.capabilities.payload_replacement = api::InterceptPayloadReplacementSupport::UNKNOWN;
+            health.capabilities.payload_replacement = api::InterceptCapabilitiesHealthPayloadReplacement::UNKNOWN;
             break;
         }
     }

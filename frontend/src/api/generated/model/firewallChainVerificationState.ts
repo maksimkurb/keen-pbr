@@ -6,13 +6,6 @@
  * OpenAPI spec version: 3.0.0
  */
 
-/**
- * Verification state of the firewall chain.
-- verified: chain is properly configured
-- unavailable: verification not possible (runtime initializing/applying)
-- failed: chain is missing or misconfigured
-
- */
 export type FirewallChainVerificationState = typeof FirewallChainVerificationState[keyof typeof FirewallChainVerificationState];
 
 

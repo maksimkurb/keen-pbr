@@ -6,7 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 import type { DaemonConfigFirewallBackend } from './daemonConfigFirewallBackend';
-import type { DaemonConfigStrictEnforcementAction } from './daemonConfigStrictEnforcementAction';
+import type { StrictEnforcementAction } from './strictEnforcementAction';
 
 export interface DaemonConfig {
   /** Path to the PID file. */
@@ -50,7 +50,7 @@ export interface DaemonConfig {
    */
   strict_enforcement?: boolean;
   /** Terminal RPDB action used by strict enforcement. */
-  strict_enforcement_action?: DaemonConfigStrictEnforcementAction;
+  strict_enforcement_action?: StrictEnforcementAction;
   /** Maximum allowed size in bytes for downloaded remote content such as URL-backed lists. Defaults to 8 MiB.
    */
   max_file_size_bytes?: number;

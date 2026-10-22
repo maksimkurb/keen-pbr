@@ -6,14 +6,14 @@
  * OpenAPI spec version: 3.0.0
  */
 import type { RoutingTestOutboundGroupMember } from './routingTestOutboundGroupMember';
-import type { RoutingTestOutboundGroupStrategy } from './routingTestOutboundGroupStrategy';
+import type { TestGroupStrategy } from './testGroupStrategy';
 
 export interface RoutingTestOutboundGroup {
   /** Tag of the urltest or icmptest outbound. */
   tag: string;
   /** balance: new connections are spread over the members in use by weight. priority: one member is selected, the others are standby.
    */
-  strategy: RoutingTestOutboundGroupStrategy;
+  strategy: TestGroupStrategy;
   /** Members in configuration order. */
   members: RoutingTestOutboundGroupMember[];
 }

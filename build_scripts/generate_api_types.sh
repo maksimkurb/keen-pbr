@@ -19,6 +19,27 @@ process.stdin.on('end', () => {
   const spec = JSON.parse(d);
   const schemas = spec.components.schemas;
 
+  // Inline enums and objects have no schema name, so QuickType would name
+  // them after the property alone. Require them to be named schemas.
+  const inline = [];
+  function findInline(node, path, top) {
+    if (typeof node !== 'object' || node === null) return;
+    if (node['\$ref']) return;
+    if (!top && (node.enum || node.properties)) inline.push(path);
+    for (const [k, v] of Object.entries(node.properties || {})) findInline(v, path + '.' + k, false);
+    if (node.items) findInline(node.items, path + '[]', false);
+    if (node.additionalProperties) findInline(node.additionalProperties, path + '{}', false);
+    for (const k of ['oneOf', 'anyOf', 'allOf']) {
+      (node[k] || []).forEach((s, i) => findInline(s, path + '/' + k + '[' + i + ']', false));
+    }
+  }
+  for (const [name, schema] of Object.entries(schemas)) findInline(schema, name, true);
+  if (inline.length > 0) {
+    console.error('generate_api_types: inline enums/objects must be moved to components/schemas ' +
+                  'and referenced with \$ref: ' + inline.join(', '));
+    process.exit(1);
+  }
+
   // password_hash is daemon-internal configuration state. Keep it out of the
   // public OpenAPI contract (and therefore out of browser-generated models),
   // while retaining it in the C++ configuration representation.
@@ -48,44 +69,6 @@ process.stdin.on('end', () => {
   // Pin every component schema to its OpenAPI name so C++ names match it.
   for (const [name, schema] of Object.entries(schemas)) {
     schema.title = name;
-  }
-
-  // Inline (non-\$ref) objects and enums have no schema name, so QuickType
-  // would call them after the property alone (Data, State, Kind, Proto, ...).
-  // Pin the ones whose property name is generic.  Keys are Schema.property.
-  const inlineTitles = {
-    'StatusEventSnapshot.data': 'StatusEventSnapshotData',
-    'AuthSettingsRequest.authentication': 'AuthSettingsRequestAuthentication',
-    'AuthSettingsRequest.cors': 'AuthSettingsRequestCors',
-    'XtExtensionHealth.kind': 'XtExtensionKind',
-    'InterceptCapabilitiesHealth.payload_replacement': 'InterceptPayloadReplacementSupport',
-    'DnsTestInterceptEvent.timeout_cause': 'DnsTestInterceptEventTimeoutCause',
-    'RoutingTestRequest.proto': 'RoutingTestRequestProto',
-    'RoutingTestEntry.undetermined_reason': 'RoutingTestEntryUndeterminedReason',
-    'RoutingTestDns.resolver': 'RoutingTestDnsResolver',
-    'RoutingTestDns.a_status': 'RoutingTestDnsAddressStatus',
-    'RoutingTestDns.aaaa_status': 'RoutingTestDnsAddressStatus',
-    'HealthResponse.runtime_state': 'HealthResponseRuntimeState',
-    'HealthIssue.severity': 'HealthIssueSeverity',
-    'FirewallChain.verification_state': 'FirewallChainVerificationState',
-    'PolicyRuleCheck.expected_action': 'PolicyRuleCheckExpectedAction',
-    'DnsmasqHealth.state': 'DnsmasqHealthState',
-    'DnsmasqHealth.probe_status': 'DnsmasqHealthProbeStatus',
-    'DnsmasqHealth.dnsmasq_alive': 'DnsmasqHealthAlive',
-    'DnsmasqHealth.instance_selection': 'DnsmasqHealthInstanceSelection',
-    'DnsmasqHealth.endpoint_evidence': 'DnsmasqHealthEndpointEvidence',
-    'DnsmasqHealth.capability': 'DnsmasqHealthCapability',
-    'DnsmasqHealth.preflight': 'DnsmasqHealthPreflight',
-  };
-  for (const [key, title] of Object.entries(inlineTitles)) {
-    const [schemaName, prop] = key.split('.');
-    const target = schemas[schemaName] && schemas[schemaName].properties &&
-                   schemas[schemaName].properties[prop];
-    if (!target || target['\$ref']) {
-      console.error('generate_api_types: inline title ' + key + ' does not match an inline property');
-      process.exit(1);
-    }
-    target.title = title;
   }
 
   // Rewrite \$ref paths from OpenAPI to JSON Schema \$defs format

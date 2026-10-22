@@ -6,7 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 
-export type DnsmasqHealthCapability = typeof DnsmasqHealthCapability[keyof typeof DnsmasqHealthCapability] | null;
+export type DnsmasqHealthCapability = typeof DnsmasqHealthCapability[keyof typeof DnsmasqHealthCapability];
 
 
 export const DnsmasqHealthCapability = {

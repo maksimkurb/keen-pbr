@@ -6,11 +6,9 @@
  * OpenAPI spec version: 3.0.0
  */
 
-export type DnsCheckServerType = typeof DnsCheckServerType[keyof typeof DnsCheckServerType];
+export type OkResponseStatus = typeof OkResponseStatus[keyof typeof OkResponseStatus];
 
 
-export const DnsCheckServerType = {
-  static: 'static',
-  doh: 'doh',
-  keenetic: 'keenetic',
+export const OkResponseStatus = {
+  ok: 'ok',
 } as const;

@@ -403,12 +403,12 @@ namespace api {
         std::optional<std::map<std::string, ListRefreshState>> list_refresh_state;
     };
 
-    enum class ConfigUpdateResponseStatus : int { OK };
+    enum class OkResponseStatus : int { OK };
 
     struct ConfigUpdateResponse {
         std::optional<int64_t> apply_started_ts;
         std::string message;
-        ConfigUpdateResponseStatus status;
+        OkResponseStatus status;
     };
 
     struct DnsCheckResult {
@@ -501,7 +501,7 @@ namespace api {
 
     enum class DnsmasqHealthCapability : int { FAILED, NOT_CHECKED, OK, UNSUPPORTED };
 
-    enum class DnsmasqHealthAlive : int { ALIVE, DEAD, UNKNOWN };
+    enum class DnsmasqHealthDnsmasqAlive : int { ALIVE, DEAD, UNKNOWN };
 
     enum class DnsmasqHealthEndpointEvidence : int { NONE, RESPONDING, SOCKET_OWNED, STAMP_VERIFIED };
 
@@ -516,7 +516,7 @@ namespace api {
     struct DnsmasqHealth {
         std::optional<DnsmasqHealthCapability> capability;
         std::optional<std::string> config_hash;
-        std::optional<DnsmasqHealthAlive> dnsmasq_alive;
+        std::optional<DnsmasqHealthDnsmasqAlive> dnsmasq_alive;
         int64_t domains;
         std::optional<std::string> endpoint;
         std::optional<DnsmasqHealthEndpointEvidence> endpoint_evidence;
@@ -607,14 +607,14 @@ namespace api {
         std::vector<KernelCheck> kernel_checks;
     };
 
-    enum class InterceptPayloadReplacementSupport : int { SUPPORTED, UNKNOWN, UNSUPPORTED };
+    enum class InterceptCapabilitiesHealthPayloadReplacement : int { SUPPORTED, UNKNOWN, UNSUPPORTED };
 
-    enum class XtExtensionKind : int { MATCH, TARGET };
+    enum class XtExtensionHealthKind : int { MATCH, TARGET };
 
     struct XtExtensionHealth {
         bool available;
         std::string kernel_module;
-        XtExtensionKind kind;
+        XtExtensionHealthKind kind;
         std::string name;
         bool required;
     };
@@ -626,7 +626,7 @@ namespace api {
         std::optional<bool> fail_open;
         bool nflog;
         bool nfqueue;
-        std::optional<InterceptPayloadReplacementSupport> payload_replacement;
+        std::optional<InterceptCapabilitiesHealthPayloadReplacement> payload_replacement;
         std::optional<std::vector<XtExtensionHealth>> xt_extensions;
     };
 
@@ -773,7 +773,7 @@ namespace api {
         std::string message;
         std::vector<std::string> refreshed_lists;
         bool reloaded;
-        ConfigUpdateResponseStatus status;
+        OkResponseStatus status;
     };
 
     enum class PolicyRuleCheckExpectedAction : int { BLACKHOLE, LOOKUP, UNREACHABLE };
@@ -792,7 +792,7 @@ namespace api {
 
     struct ReloadResponse {
         std::string message;
-        ConfigUpdateResponseStatus status;
+        OkResponseStatus status;
     };
 
     struct RouteTableCheck {
@@ -874,7 +874,7 @@ namespace api {
         std::string via;
     };
 
-    enum class MissingCriterion : int { DEST_PORT, PROTO, SRC_ADDR, SRC_PORT };
+    enum class RoutingTestEntryMissingCriteriaItem : int { DEST_PORT, PROTO, SRC_ADDR, SRC_PORT };
 
     struct RoutingTestOutboundGroupMember {
         bool in_use;
@@ -900,7 +900,7 @@ namespace api {
         std::string ip;
         std::optional<RoutingTestListMatch> list_match;
         std::optional<int64_t> matched_rule_index;
-        std::optional<std::vector<MissingCriterion>> missing_criteria;
+        std::optional<std::vector<RoutingTestEntryMissingCriteriaItem>> missing_criteria;
         bool ok;
         std::optional<RoutingTestOutboundGroup> outbound_group;
         std::optional<RoutingTestEntryUndeterminedReason> undetermined_reason;
@@ -1086,6 +1086,8 @@ namespace api {
         std::optional<AuthPasswordRequest> auth_password_request;
         std::optional<AuthPasswordStatus> auth_password_status;
         std::optional<AuthSettingsRequest> auth_settings_request;
+        std::optional<AuthSettingsRequestAuthentication> auth_settings_request_authentication;
+        std::optional<AuthSettingsRequestCors> auth_settings_request_cors;
         std::optional<AuthSettingsResponse> auth_settings_response;
         std::optional<AuthStatusResponse> auth_status_response;
         std::optional<CacheMetadata> cache_metadata;
@@ -1097,32 +1099,51 @@ namespace api {
         std::optional<ConntrackOnSwitch> conntrack_on_switch;
         std::optional<CorsConfig> cors_config;
         std::optional<DaemonConfig> daemon_config;
+        std::optional<DaemonConfigFirewallBackend> daemon_config_firewall_backend;
         std::optional<DefaultGateway> default_gateway;
         std::optional<DnsCheckEndpoint> dns_check_endpoint;
+        std::optional<DnsCheckEndpointStatus> dns_check_endpoint_status;
         std::optional<DnsCheckRequest> dns_check_request;
         std::optional<DnsCheckResponse> dns_check_response;
         std::optional<DnsCheckResult> dns_check_result;
         std::optional<DnsCheckServer> dns_check_server;
         std::optional<DnsConfig> dns_config;
         std::optional<DnsmasqHealth> dnsmasq_health;
+        std::optional<DnsmasqHealthCapability> dnsmasq_health_capability;
+        std::optional<DnsmasqHealthDnsmasqAlive> dnsmasq_health_dnsmasq_alive;
+        std::optional<DnsmasqHealthEndpointEvidence> dnsmasq_health_endpoint_evidence;
+        std::optional<DnsmasqHealthInstanceSelection> dnsmasq_health_instance_selection;
+        std::optional<DnsmasqHealthPreflight> dnsmasq_health_preflight;
+        std::optional<DnsmasqHealthProbeStatus> dnsmasq_health_probe_status;
+        std::optional<DnsmasqHealthState> dnsmasq_health_state;
         std::optional<DnsRule> dns_rule;
         std::optional<DnsServer> dns_server;
+        std::optional<DnsServerType> dns_server_type;
         std::optional<DnsSystemResolver> dns_system_resolver;
         std::optional<DnsTestGapEvent> dns_test_gap_event;
+        std::optional<DnsTestGapEventType> dns_test_gap_event_type;
         std::optional<DnsTestInterceptEvent> dns_test_intercept_event;
+        std::optional<DnsTestInterceptEventSource> dns_test_intercept_event_source;
+        std::optional<DnsTestInterceptEventTimeoutCause> dns_test_intercept_event_timeout_cause;
+        std::optional<DnsTestInterceptEventType> dns_test_intercept_event_type;
         std::optional<DnsTestServer> dns_test_server;
         std::optional<DraftConfig> draft_config;
         std::optional<ErrorResponse> error_response;
         std::optional<FirewallChain> firewall_chain;
+        std::optional<FirewallChainVerificationState> firewall_chain_verification_state;
         std::optional<FirewallRuleCheck> firewall_rule_check;
         std::optional<FwmarkConfig> fwmark_config;
         std::optional<HealthIssue> health_issue;
         std::optional<HealthIssueCode> health_issue_code;
         std::optional<HealthIssueDetailCode> health_issue_detail_code;
+        std::optional<HealthIssueSeverity> health_issue_severity;
         std::optional<HealthIssuesResponse> health_issues_response;
         std::optional<HealthResponse> health_response;
+        std::optional<HealthResponseRuntimeState> health_response_runtime_state;
+        std::optional<HealthResponseStatus> health_response_status;
         std::optional<IcmpCandidate> icmp_candidate;
         std::optional<InterceptCapabilitiesHealth> intercept_capabilities_health;
+        std::optional<InterceptCapabilitiesHealthPayloadReplacement> intercept_capabilities_health_payload_replacement;
         std::optional<InterceptConfig> intercept_config;
         std::optional<InterceptCountersHealth> intercept_counters_health;
         std::optional<InterceptDnsConfig> intercept_dns_config;
@@ -1131,21 +1152,29 @@ namespace api {
         std::optional<InterceptL7Config> intercept_l7_config;
         std::optional<InterceptMarkerConfig> intercept_marker_config;
         std::optional<InterceptProbeFeature> intercept_probe_feature;
+        std::optional<InterceptProbeFeatureStatus> intercept_probe_feature_status;
         std::optional<InterceptWriteLatency> intercept_write_latency;
         std::optional<IprouteConfig> iproute_config;
         std::optional<KernelCheck> kernel_check;
         std::optional<LifecycleOperation> lifecycle_operation;
         std::optional<LifecycleOperationAcceptedResponse> lifecycle_operation_accepted_response;
+        std::optional<LifecycleOperationAcceptedResponseStatus> lifecycle_operation_accepted_response_status;
         std::optional<LifecycleOperationStage> lifecycle_operation_stage;
+        std::optional<LifecycleOperationStageStatus> lifecycle_operation_stage_status;
+        std::optional<LifecycleOperationStatus> lifecycle_operation_status;
+        std::optional<LifecycleOperationType> lifecycle_operation_type;
         std::optional<ListConfig> list_config;
         std::optional<ListRefreshRequest> list_refresh_request;
         std::optional<ListRefreshResponse> list_refresh_response;
         std::optional<ListRefreshState> list_refresh_state;
         std::optional<ListsAutoupdateConfig> lists_autoupdate_config;
+        std::optional<OkResponseStatus> ok_response_status;
         std::optional<Outbound> outbound;
         std::optional<OutboundGroup> outbound_group;
         std::optional<OutboundGroupMember> outbound_group_member;
+        std::optional<OutboundType> outbound_type;
         std::optional<PolicyRuleCheck> policy_rule_check;
+        std::optional<PolicyRuleCheckExpectedAction> policy_rule_check_expected_action;
         std::optional<ReloadResponse> reload_response;
         std::optional<ResolverIntegrationMode> resolver_integration_mode;
         std::optional<RetryConfig> retry_config;
@@ -1153,21 +1182,31 @@ namespace api {
         std::optional<RouteRule> route_rule;
         std::optional<RouteTableCheck> route_table_check;
         std::optional<RoutingHealthErrorResponse> routing_health_error_response;
+        std::optional<RoutingHealthErrorResponseOverall> routing_health_error_response_overall;
         std::optional<RoutingHealthResponse> routing_health_response;
+        std::optional<RoutingHealthResponseFirewallBackend> routing_health_response_firewall_backend;
+        std::optional<RoutingHealthResponseOverall> routing_health_response_overall;
         std::optional<RoutingHealthWarning> routing_health_warning;
         std::optional<RoutingHealthWarningCode> routing_health_warning_code;
         std::optional<RoutingTestDefaultGateway> routing_test_default_gateway;
         std::optional<RoutingTestDefaultGatewayBypass> routing_test_default_gateway_bypass;
+        std::optional<RoutingTestDefaultGatewayBypassSource> routing_test_default_gateway_bypass_source;
         std::optional<RoutingTestDns> routing_test_dns;
+        std::optional<RoutingTestDnsAddressStatus> routing_test_dns_address_status;
+        std::optional<RoutingTestDnsResolver> routing_test_dns_resolver;
         std::optional<RoutingTestEntry> routing_test_entry;
+        std::optional<RoutingTestEntryMissingCriteriaItem> routing_test_entry_missing_criteria_item;
+        std::optional<RoutingTestEntryUndeterminedReason> routing_test_entry_undetermined_reason;
         std::optional<RoutingTestListMatch> routing_test_list_match;
         std::optional<RoutingTestOutboundGroup> routing_test_outbound_group;
         std::optional<RoutingTestOutboundGroupMember> routing_test_outbound_group_member;
         std::optional<RoutingTestRequest> routing_test_request;
+        std::optional<RoutingTestRequestProto> routing_test_request_proto;
         std::optional<RoutingTestResponse> routing_test_response;
         std::optional<RoutingTestRuleDiagnostic> routing_test_rule_diagnostic;
         std::optional<RoutingTestRuleIpDiagnostic> routing_test_rule_ip_diagnostic;
         std::optional<RoutingTestSetWriteEvidence> routing_test_set_write_evidence;
+        std::optional<RoutingTestSetWriteEvidenceStatus> routing_test_set_write_evidence_status;
         std::optional<RuntimeInterfaceInventoryEntry> runtime_interface_inventory_entry;
         std::optional<RuntimeInterfaceInventoryResponse> runtime_interface_inventory_response;
         std::optional<RuntimeInterfaceInventoryStatus> runtime_interface_inventory_status;
@@ -1179,16 +1218,27 @@ namespace api {
         std::optional<StatusAuthState> status_auth_state;
         std::optional<StatusConfigState> status_config_state;
         std::optional<StatusEventAuth> status_event_auth;
+        std::optional<StatusEventAuthType> status_event_auth_type;
         std::optional<StatusEventConfig> status_event_config;
+        std::optional<StatusEventConfigType> status_event_config_type;
         std::optional<StatusEventInterfaces> status_event_interfaces;
+        std::optional<StatusEventInterfacesType> status_event_interfaces_type;
         std::optional<StatusEventIssues> status_event_issues;
+        std::optional<StatusEventIssuesType> status_event_issues_type;
         std::optional<StatusEventOutbounds> status_event_outbounds;
+        std::optional<StatusEventOutboundsType> status_event_outbounds_type;
         std::optional<StatusEventRouting> status_event_routing;
+        std::optional<StatusEventRoutingType> status_event_routing_type;
         std::optional<StatusEventService> status_event_service;
+        std::optional<StatusEventServiceType> status_event_service_type;
         std::optional<StatusEventSnapshot> status_event_snapshot;
+        std::optional<StatusEventSnapshotData> status_event_snapshot_data;
+        std::optional<StatusEventSnapshotType> status_event_snapshot_type;
+        std::optional<StrictEnforcementAction> strict_enforcement_action;
         std::optional<TestGroupStrategy> test_group_strategy;
         std::optional<ValidationError> validation_error;
         std::optional<XtExtensionHealth> xt_extension_health;
+        std::optional<XtExtensionHealthKind> xt_extension_health_kind;
     };
 }
 }
@@ -1531,8 +1581,8 @@ namespace api {
     void from_json(const json & j, DefaultGateway & x);
     void to_json(json & j, const DefaultGateway & x);
 
-    void from_json(const json & j, ConfigUpdateResponseStatus & x);
-    void to_json(json & j, const ConfigUpdateResponseStatus & x);
+    void from_json(const json & j, OkResponseStatus & x);
+    void to_json(json & j, const OkResponseStatus & x);
 
     void from_json(const json & j, DnsCheckEndpointStatus & x);
     void to_json(json & j, const DnsCheckEndpointStatus & x);
@@ -1552,8 +1602,8 @@ namespace api {
     void from_json(const json & j, DnsmasqHealthCapability & x);
     void to_json(json & j, const DnsmasqHealthCapability & x);
 
-    void from_json(const json & j, DnsmasqHealthAlive & x);
-    void to_json(json & j, const DnsmasqHealthAlive & x);
+    void from_json(const json & j, DnsmasqHealthDnsmasqAlive & x);
+    void to_json(json & j, const DnsmasqHealthDnsmasqAlive & x);
 
     void from_json(const json & j, DnsmasqHealthEndpointEvidence & x);
     void to_json(json & j, const DnsmasqHealthEndpointEvidence & x);
@@ -1582,11 +1632,11 @@ namespace api {
     void from_json(const json & j, HealthIssueSeverity & x);
     void to_json(json & j, const HealthIssueSeverity & x);
 
-    void from_json(const json & j, InterceptPayloadReplacementSupport & x);
-    void to_json(json & j, const InterceptPayloadReplacementSupport & x);
+    void from_json(const json & j, InterceptCapabilitiesHealthPayloadReplacement & x);
+    void to_json(json & j, const InterceptCapabilitiesHealthPayloadReplacement & x);
 
-    void from_json(const json & j, XtExtensionKind & x);
-    void to_json(json & j, const XtExtensionKind & x);
+    void from_json(const json & j, XtExtensionHealthKind & x);
+    void to_json(json & j, const XtExtensionHealthKind & x);
 
     void from_json(const json & j, InterceptProbeFeatureStatus & x);
     void to_json(json & j, const InterceptProbeFeatureStatus & x);
@@ -1633,8 +1683,8 @@ namespace api {
     void from_json(const json & j, RoutingTestDnsResolver & x);
     void to_json(json & j, const RoutingTestDnsResolver & x);
 
-    void from_json(const json & j, MissingCriterion & x);
-    void to_json(json & j, const MissingCriterion & x);
+    void from_json(const json & j, RoutingTestEntryMissingCriteriaItem & x);
+    void to_json(json & j, const RoutingTestEntryMissingCriteriaItem & x);
 
     void from_json(const json & j, RoutingTestEntryUndeterminedReason & x);
     void to_json(json & j, const RoutingTestEntryUndeterminedReason & x);
@@ -2306,7 +2356,7 @@ namespace api {
     inline void from_json(const json & j, ConfigUpdateResponse& x) {
         x.apply_started_ts = get_stack_optional<int64_t>(j, "apply_started_ts");
         x.message = j.at("message").get<std::string>();
-        x.status = j.at("status").get<ConfigUpdateResponseStatus>();
+        x.status = j.at("status").get<OkResponseStatus>();
     }
 
     inline void to_json(json & j, const ConfigUpdateResponse & x) {
@@ -2482,7 +2532,7 @@ namespace api {
     inline void from_json(const json & j, DnsmasqHealth& x) {
         x.capability = get_stack_optional<DnsmasqHealthCapability>(j, "capability");
         x.config_hash = get_stack_optional<std::string>(j, "config_hash");
-        x.dnsmasq_alive = get_stack_optional<DnsmasqHealthAlive>(j, "dnsmasq_alive");
+        x.dnsmasq_alive = get_stack_optional<DnsmasqHealthDnsmasqAlive>(j, "dnsmasq_alive");
         x.domains = j.at("domains").get<int64_t>();
         x.endpoint = get_stack_optional<std::string>(j, "endpoint");
         x.endpoint_evidence = get_stack_optional<DnsmasqHealthEndpointEvidence>(j, "endpoint_evidence");
@@ -2662,7 +2712,7 @@ namespace api {
     inline void from_json(const json & j, XtExtensionHealth& x) {
         x.available = j.at("available").get<bool>();
         x.kernel_module = j.at("kernel_module").get<std::string>();
-        x.kind = j.at("kind").get<XtExtensionKind>();
+        x.kind = j.at("kind").get<XtExtensionHealthKind>();
         x.name = j.at("name").get<std::string>();
         x.required = j.at("required").get<bool>();
     }
@@ -2683,7 +2733,7 @@ namespace api {
         x.fail_open = get_stack_optional<bool>(j, "fail_open");
         x.nflog = j.at("nflog").get<bool>();
         x.nfqueue = j.at("nfqueue").get<bool>();
-        x.payload_replacement = get_stack_optional<InterceptPayloadReplacementSupport>(j, "payload_replacement");
+        x.payload_replacement = get_stack_optional<InterceptCapabilitiesHealthPayloadReplacement>(j, "payload_replacement");
         x.xt_extensions = get_stack_optional<std::vector<XtExtensionHealth>>(j, "xt_extensions");
     }
 
@@ -2961,7 +3011,7 @@ namespace api {
         x.message = j.at("message").get<std::string>();
         x.refreshed_lists = j.at("refreshed_lists").get<std::vector<std::string>>();
         x.reloaded = j.at("reloaded").get<bool>();
-        x.status = j.at("status").get<ConfigUpdateResponseStatus>();
+        x.status = j.at("status").get<OkResponseStatus>();
     }
 
     inline void to_json(json & j, const ListRefreshResponse & x) {
@@ -3001,7 +3051,7 @@ namespace api {
 
     inline void from_json(const json & j, ReloadResponse& x) {
         x.message = j.at("message").get<std::string>();
-        x.status = j.at("status").get<ConfigUpdateResponseStatus>();
+        x.status = j.at("status").get<OkResponseStatus>();
     }
 
     inline void to_json(json & j, const ReloadResponse & x) {
@@ -3186,7 +3236,7 @@ namespace api {
         x.ip = j.at("ip").get<std::string>();
         x.list_match = get_stack_optional<RoutingTestListMatch>(j, "list_match");
         x.matched_rule_index = get_stack_optional<int64_t>(j, "matched_rule_index");
-        x.missing_criteria = get_stack_optional<std::vector<MissingCriterion>>(j, "missing_criteria");
+        x.missing_criteria = get_stack_optional<std::vector<RoutingTestEntryMissingCriteriaItem>>(j, "missing_criteria");
         x.ok = j.at("ok").get<bool>();
         x.outbound_group = get_stack_optional<RoutingTestOutboundGroup>(j, "outbound_group");
         x.undetermined_reason = get_stack_optional<RoutingTestEntryUndeterminedReason>(j, "undetermined_reason");
@@ -3528,6 +3578,8 @@ namespace api {
         x.auth_password_request = get_stack_optional<AuthPasswordRequest>(j, "AuthPasswordRequest");
         x.auth_password_status = get_stack_optional<AuthPasswordStatus>(j, "AuthPasswordStatus");
         x.auth_settings_request = get_stack_optional<AuthSettingsRequest>(j, "AuthSettingsRequest");
+        x.auth_settings_request_authentication = get_stack_optional<AuthSettingsRequestAuthentication>(j, "AuthSettingsRequestAuthentication");
+        x.auth_settings_request_cors = get_stack_optional<AuthSettingsRequestCors>(j, "AuthSettingsRequestCors");
         x.auth_settings_response = get_stack_optional<AuthSettingsResponse>(j, "AuthSettingsResponse");
         x.auth_status_response = get_stack_optional<AuthStatusResponse>(j, "AuthStatusResponse");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
@@ -3539,32 +3591,51 @@ namespace api {
         x.conntrack_on_switch = get_stack_optional<ConntrackOnSwitch>(j, "ConntrackOnSwitch");
         x.cors_config = get_stack_optional<CorsConfig>(j, "CorsConfig");
         x.daemon_config = get_stack_optional<DaemonConfig>(j, "DaemonConfig");
+        x.daemon_config_firewall_backend = get_stack_optional<DaemonConfigFirewallBackend>(j, "DaemonConfigFirewallBackend");
         x.default_gateway = get_stack_optional<DefaultGateway>(j, "DefaultGateway");
         x.dns_check_endpoint = get_stack_optional<DnsCheckEndpoint>(j, "DnsCheckEndpoint");
+        x.dns_check_endpoint_status = get_stack_optional<DnsCheckEndpointStatus>(j, "DnsCheckEndpointStatus");
         x.dns_check_request = get_stack_optional<DnsCheckRequest>(j, "DnsCheckRequest");
         x.dns_check_response = get_stack_optional<DnsCheckResponse>(j, "DnsCheckResponse");
         x.dns_check_result = get_stack_optional<DnsCheckResult>(j, "DnsCheckResult");
         x.dns_check_server = get_stack_optional<DnsCheckServer>(j, "DnsCheckServer");
         x.dns_config = get_stack_optional<DnsConfig>(j, "DnsConfig");
         x.dnsmasq_health = get_stack_optional<DnsmasqHealth>(j, "DnsmasqHealth");
+        x.dnsmasq_health_capability = get_stack_optional<DnsmasqHealthCapability>(j, "DnsmasqHealthCapability");
+        x.dnsmasq_health_dnsmasq_alive = get_stack_optional<DnsmasqHealthDnsmasqAlive>(j, "DnsmasqHealthDnsmasqAlive");
+        x.dnsmasq_health_endpoint_evidence = get_stack_optional<DnsmasqHealthEndpointEvidence>(j, "DnsmasqHealthEndpointEvidence");
+        x.dnsmasq_health_instance_selection = get_stack_optional<DnsmasqHealthInstanceSelection>(j, "DnsmasqHealthInstanceSelection");
+        x.dnsmasq_health_preflight = get_stack_optional<DnsmasqHealthPreflight>(j, "DnsmasqHealthPreflight");
+        x.dnsmasq_health_probe_status = get_stack_optional<DnsmasqHealthProbeStatus>(j, "DnsmasqHealthProbeStatus");
+        x.dnsmasq_health_state = get_stack_optional<DnsmasqHealthState>(j, "DnsmasqHealthState");
         x.dns_rule = get_stack_optional<DnsRule>(j, "DnsRule");
         x.dns_server = get_stack_optional<DnsServer>(j, "DnsServer");
+        x.dns_server_type = get_stack_optional<DnsServerType>(j, "DnsServerType");
         x.dns_system_resolver = get_stack_optional<DnsSystemResolver>(j, "DnsSystemResolver");
         x.dns_test_gap_event = get_stack_optional<DnsTestGapEvent>(j, "DnsTestGapEvent");
+        x.dns_test_gap_event_type = get_stack_optional<DnsTestGapEventType>(j, "DnsTestGapEventType");
         x.dns_test_intercept_event = get_stack_optional<DnsTestInterceptEvent>(j, "DnsTestInterceptEvent");
+        x.dns_test_intercept_event_source = get_stack_optional<DnsTestInterceptEventSource>(j, "DnsTestInterceptEventSource");
+        x.dns_test_intercept_event_timeout_cause = get_stack_optional<DnsTestInterceptEventTimeoutCause>(j, "DnsTestInterceptEventTimeoutCause");
+        x.dns_test_intercept_event_type = get_stack_optional<DnsTestInterceptEventType>(j, "DnsTestInterceptEventType");
         x.dns_test_server = get_stack_optional<DnsTestServer>(j, "DnsTestServer");
         x.draft_config = get_stack_optional<DraftConfig>(j, "DraftConfig");
         x.error_response = get_stack_optional<ErrorResponse>(j, "ErrorResponse");
         x.firewall_chain = get_stack_optional<FirewallChain>(j, "FirewallChain");
+        x.firewall_chain_verification_state = get_stack_optional<FirewallChainVerificationState>(j, "FirewallChainVerificationState");
         x.firewall_rule_check = get_stack_optional<FirewallRuleCheck>(j, "FirewallRuleCheck");
         x.fwmark_config = get_stack_optional<FwmarkConfig>(j, "FwmarkConfig");
         x.health_issue = get_stack_optional<HealthIssue>(j, "HealthIssue");
         x.health_issue_code = get_stack_optional<HealthIssueCode>(j, "HealthIssueCode");
         x.health_issue_detail_code = get_stack_optional<HealthIssueDetailCode>(j, "HealthIssueDetailCode");
+        x.health_issue_severity = get_stack_optional<HealthIssueSeverity>(j, "HealthIssueSeverity");
         x.health_issues_response = get_stack_optional<HealthIssuesResponse>(j, "HealthIssuesResponse");
         x.health_response = get_stack_optional<HealthResponse>(j, "HealthResponse");
+        x.health_response_runtime_state = get_stack_optional<HealthResponseRuntimeState>(j, "HealthResponseRuntimeState");
+        x.health_response_status = get_stack_optional<HealthResponseStatus>(j, "HealthResponseStatus");
         x.icmp_candidate = get_stack_optional<IcmpCandidate>(j, "IcmpCandidate");
         x.intercept_capabilities_health = get_stack_optional<InterceptCapabilitiesHealth>(j, "InterceptCapabilitiesHealth");
+        x.intercept_capabilities_health_payload_replacement = get_stack_optional<InterceptCapabilitiesHealthPayloadReplacement>(j, "InterceptCapabilitiesHealthPayloadReplacement");
         x.intercept_config = get_stack_optional<InterceptConfig>(j, "InterceptConfig");
         x.intercept_counters_health = get_stack_optional<InterceptCountersHealth>(j, "InterceptCountersHealth");
         x.intercept_dns_config = get_stack_optional<InterceptDnsConfig>(j, "InterceptDnsConfig");
@@ -3573,21 +3644,29 @@ namespace api {
         x.intercept_l7_config = get_stack_optional<InterceptL7Config>(j, "InterceptL7Config");
         x.intercept_marker_config = get_stack_optional<InterceptMarkerConfig>(j, "InterceptMarkerConfig");
         x.intercept_probe_feature = get_stack_optional<InterceptProbeFeature>(j, "InterceptProbeFeature");
+        x.intercept_probe_feature_status = get_stack_optional<InterceptProbeFeatureStatus>(j, "InterceptProbeFeatureStatus");
         x.intercept_write_latency = get_stack_optional<InterceptWriteLatency>(j, "InterceptWriteLatency");
         x.iproute_config = get_stack_optional<IprouteConfig>(j, "IprouteConfig");
         x.kernel_check = get_stack_optional<KernelCheck>(j, "KernelCheck");
         x.lifecycle_operation = get_stack_optional<LifecycleOperation>(j, "LifecycleOperation");
         x.lifecycle_operation_accepted_response = get_stack_optional<LifecycleOperationAcceptedResponse>(j, "LifecycleOperationAcceptedResponse");
+        x.lifecycle_operation_accepted_response_status = get_stack_optional<LifecycleOperationAcceptedResponseStatus>(j, "LifecycleOperationAcceptedResponseStatus");
         x.lifecycle_operation_stage = get_stack_optional<LifecycleOperationStage>(j, "LifecycleOperationStage");
+        x.lifecycle_operation_stage_status = get_stack_optional<LifecycleOperationStageStatus>(j, "LifecycleOperationStageStatus");
+        x.lifecycle_operation_status = get_stack_optional<LifecycleOperationStatus>(j, "LifecycleOperationStatus");
+        x.lifecycle_operation_type = get_stack_optional<LifecycleOperationType>(j, "LifecycleOperationType");
         x.list_config = get_stack_optional<ListConfig>(j, "ListConfig");
         x.list_refresh_request = get_stack_optional<ListRefreshRequest>(j, "ListRefreshRequest");
         x.list_refresh_response = get_stack_optional<ListRefreshResponse>(j, "ListRefreshResponse");
         x.list_refresh_state = get_stack_optional<ListRefreshState>(j, "ListRefreshState");
         x.lists_autoupdate_config = get_stack_optional<ListsAutoupdateConfig>(j, "ListsAutoupdateConfig");
+        x.ok_response_status = get_stack_optional<OkResponseStatus>(j, "OkResponseStatus");
         x.outbound = get_stack_optional<Outbound>(j, "Outbound");
         x.outbound_group = get_stack_optional<OutboundGroup>(j, "OutboundGroup");
         x.outbound_group_member = get_stack_optional<OutboundGroupMember>(j, "OutboundGroupMember");
+        x.outbound_type = get_stack_optional<OutboundType>(j, "OutboundType");
         x.policy_rule_check = get_stack_optional<PolicyRuleCheck>(j, "PolicyRuleCheck");
+        x.policy_rule_check_expected_action = get_stack_optional<PolicyRuleCheckExpectedAction>(j, "PolicyRuleCheckExpectedAction");
         x.reload_response = get_stack_optional<ReloadResponse>(j, "ReloadResponse");
         x.resolver_integration_mode = get_stack_optional<ResolverIntegrationMode>(j, "ResolverIntegrationMode");
         x.retry_config = get_stack_optional<RetryConfig>(j, "RetryConfig");
@@ -3595,21 +3674,31 @@ namespace api {
         x.route_rule = get_stack_optional<RouteRule>(j, "RouteRule");
         x.route_table_check = get_stack_optional<RouteTableCheck>(j, "RouteTableCheck");
         x.routing_health_error_response = get_stack_optional<RoutingHealthErrorResponse>(j, "RoutingHealthErrorResponse");
+        x.routing_health_error_response_overall = get_stack_optional<RoutingHealthErrorResponseOverall>(j, "RoutingHealthErrorResponseOverall");
         x.routing_health_response = get_stack_optional<RoutingHealthResponse>(j, "RoutingHealthResponse");
+        x.routing_health_response_firewall_backend = get_stack_optional<RoutingHealthResponseFirewallBackend>(j, "RoutingHealthResponseFirewallBackend");
+        x.routing_health_response_overall = get_stack_optional<RoutingHealthResponseOverall>(j, "RoutingHealthResponseOverall");
         x.routing_health_warning = get_stack_optional<RoutingHealthWarning>(j, "RoutingHealthWarning");
         x.routing_health_warning_code = get_stack_optional<RoutingHealthWarningCode>(j, "RoutingHealthWarningCode");
         x.routing_test_default_gateway = get_stack_optional<RoutingTestDefaultGateway>(j, "RoutingTestDefaultGateway");
         x.routing_test_default_gateway_bypass = get_stack_optional<RoutingTestDefaultGatewayBypass>(j, "RoutingTestDefaultGatewayBypass");
+        x.routing_test_default_gateway_bypass_source = get_stack_optional<RoutingTestDefaultGatewayBypassSource>(j, "RoutingTestDefaultGatewayBypassSource");
         x.routing_test_dns = get_stack_optional<RoutingTestDns>(j, "RoutingTestDns");
+        x.routing_test_dns_address_status = get_stack_optional<RoutingTestDnsAddressStatus>(j, "RoutingTestDnsAddressStatus");
+        x.routing_test_dns_resolver = get_stack_optional<RoutingTestDnsResolver>(j, "RoutingTestDnsResolver");
         x.routing_test_entry = get_stack_optional<RoutingTestEntry>(j, "RoutingTestEntry");
+        x.routing_test_entry_missing_criteria_item = get_stack_optional<RoutingTestEntryMissingCriteriaItem>(j, "RoutingTestEntryMissingCriteriaItem");
+        x.routing_test_entry_undetermined_reason = get_stack_optional<RoutingTestEntryUndeterminedReason>(j, "RoutingTestEntryUndeterminedReason");
         x.routing_test_list_match = get_stack_optional<RoutingTestListMatch>(j, "RoutingTestListMatch");
         x.routing_test_outbound_group = get_stack_optional<RoutingTestOutboundGroup>(j, "RoutingTestOutboundGroup");
         x.routing_test_outbound_group_member = get_stack_optional<RoutingTestOutboundGroupMember>(j, "RoutingTestOutboundGroupMember");
         x.routing_test_request = get_stack_optional<RoutingTestRequest>(j, "RoutingTestRequest");
+        x.routing_test_request_proto = get_stack_optional<RoutingTestRequestProto>(j, "RoutingTestRequestProto");
         x.routing_test_response = get_stack_optional<RoutingTestResponse>(j, "RoutingTestResponse");
         x.routing_test_rule_diagnostic = get_stack_optional<RoutingTestRuleDiagnostic>(j, "RoutingTestRuleDiagnostic");
         x.routing_test_rule_ip_diagnostic = get_stack_optional<RoutingTestRuleIpDiagnostic>(j, "RoutingTestRuleIpDiagnostic");
         x.routing_test_set_write_evidence = get_stack_optional<RoutingTestSetWriteEvidence>(j, "RoutingTestSetWriteEvidence");
+        x.routing_test_set_write_evidence_status = get_stack_optional<RoutingTestSetWriteEvidenceStatus>(j, "RoutingTestSetWriteEvidenceStatus");
         x.runtime_interface_inventory_entry = get_stack_optional<RuntimeInterfaceInventoryEntry>(j, "RuntimeInterfaceInventoryEntry");
         x.runtime_interface_inventory_response = get_stack_optional<RuntimeInterfaceInventoryResponse>(j, "RuntimeInterfaceInventoryResponse");
         x.runtime_interface_inventory_status = get_stack_optional<RuntimeInterfaceInventoryStatus>(j, "RuntimeInterfaceInventoryStatus");
@@ -3621,16 +3710,27 @@ namespace api {
         x.status_auth_state = get_stack_optional<StatusAuthState>(j, "StatusAuthState");
         x.status_config_state = get_stack_optional<StatusConfigState>(j, "StatusConfigState");
         x.status_event_auth = get_stack_optional<StatusEventAuth>(j, "StatusEventAuth");
+        x.status_event_auth_type = get_stack_optional<StatusEventAuthType>(j, "StatusEventAuthType");
         x.status_event_config = get_stack_optional<StatusEventConfig>(j, "StatusEventConfig");
+        x.status_event_config_type = get_stack_optional<StatusEventConfigType>(j, "StatusEventConfigType");
         x.status_event_interfaces = get_stack_optional<StatusEventInterfaces>(j, "StatusEventInterfaces");
+        x.status_event_interfaces_type = get_stack_optional<StatusEventInterfacesType>(j, "StatusEventInterfacesType");
         x.status_event_issues = get_stack_optional<StatusEventIssues>(j, "StatusEventIssues");
+        x.status_event_issues_type = get_stack_optional<StatusEventIssuesType>(j, "StatusEventIssuesType");
         x.status_event_outbounds = get_stack_optional<StatusEventOutbounds>(j, "StatusEventOutbounds");
+        x.status_event_outbounds_type = get_stack_optional<StatusEventOutboundsType>(j, "StatusEventOutboundsType");
         x.status_event_routing = get_stack_optional<StatusEventRouting>(j, "StatusEventRouting");
+        x.status_event_routing_type = get_stack_optional<StatusEventRoutingType>(j, "StatusEventRoutingType");
         x.status_event_service = get_stack_optional<StatusEventService>(j, "StatusEventService");
+        x.status_event_service_type = get_stack_optional<StatusEventServiceType>(j, "StatusEventServiceType");
         x.status_event_snapshot = get_stack_optional<StatusEventSnapshot>(j, "StatusEventSnapshot");
+        x.status_event_snapshot_data = get_stack_optional<StatusEventSnapshotData>(j, "StatusEventSnapshotData");
+        x.status_event_snapshot_type = get_stack_optional<StatusEventSnapshotType>(j, "StatusEventSnapshotType");
+        x.strict_enforcement_action = get_stack_optional<StrictEnforcementAction>(j, "StrictEnforcementAction");
         x.test_group_strategy = get_stack_optional<TestGroupStrategy>(j, "TestGroupStrategy");
         x.validation_error = get_stack_optional<ValidationError>(j, "ValidationError");
         x.xt_extension_health = get_stack_optional<XtExtensionHealth>(j, "XtExtensionHealth");
+        x.xt_extension_health_kind = get_stack_optional<XtExtensionHealthKind>(j, "XtExtensionHealthKind");
     }
 
     inline void to_json(json & j, const KeenPbrTypes & x) {
@@ -3642,6 +3742,8 @@ namespace api {
         j["AuthPasswordRequest"] = x.auth_password_request;
         j["AuthPasswordStatus"] = x.auth_password_status;
         j["AuthSettingsRequest"] = x.auth_settings_request;
+        j["AuthSettingsRequestAuthentication"] = x.auth_settings_request_authentication;
+        j["AuthSettingsRequestCors"] = x.auth_settings_request_cors;
         j["AuthSettingsResponse"] = x.auth_settings_response;
         j["AuthStatusResponse"] = x.auth_status_response;
         j["CacheMetadata"] = x.cache_metadata;
@@ -3653,32 +3755,51 @@ namespace api {
         j["ConntrackOnSwitch"] = x.conntrack_on_switch;
         j["CorsConfig"] = x.cors_config;
         j["DaemonConfig"] = x.daemon_config;
+        j["DaemonConfigFirewallBackend"] = x.daemon_config_firewall_backend;
         j["DefaultGateway"] = x.default_gateway;
         j["DnsCheckEndpoint"] = x.dns_check_endpoint;
+        j["DnsCheckEndpointStatus"] = x.dns_check_endpoint_status;
         j["DnsCheckRequest"] = x.dns_check_request;
         j["DnsCheckResponse"] = x.dns_check_response;
         j["DnsCheckResult"] = x.dns_check_result;
         j["DnsCheckServer"] = x.dns_check_server;
         j["DnsConfig"] = x.dns_config;
         j["DnsmasqHealth"] = x.dnsmasq_health;
+        j["DnsmasqHealthCapability"] = x.dnsmasq_health_capability;
+        j["DnsmasqHealthDnsmasqAlive"] = x.dnsmasq_health_dnsmasq_alive;
+        j["DnsmasqHealthEndpointEvidence"] = x.dnsmasq_health_endpoint_evidence;
+        j["DnsmasqHealthInstanceSelection"] = x.dnsmasq_health_instance_selection;
+        j["DnsmasqHealthPreflight"] = x.dnsmasq_health_preflight;
+        j["DnsmasqHealthProbeStatus"] = x.dnsmasq_health_probe_status;
+        j["DnsmasqHealthState"] = x.dnsmasq_health_state;
         j["DnsRule"] = x.dns_rule;
         j["DnsServer"] = x.dns_server;
+        j["DnsServerType"] = x.dns_server_type;
         j["DnsSystemResolver"] = x.dns_system_resolver;
         j["DnsTestGapEvent"] = x.dns_test_gap_event;
+        j["DnsTestGapEventType"] = x.dns_test_gap_event_type;
         j["DnsTestInterceptEvent"] = x.dns_test_intercept_event;
+        j["DnsTestInterceptEventSource"] = x.dns_test_intercept_event_source;
+        j["DnsTestInterceptEventTimeoutCause"] = x.dns_test_intercept_event_timeout_cause;
+        j["DnsTestInterceptEventType"] = x.dns_test_intercept_event_type;
         j["DnsTestServer"] = x.dns_test_server;
         j["DraftConfig"] = x.draft_config;
         j["ErrorResponse"] = x.error_response;
         j["FirewallChain"] = x.firewall_chain;
+        j["FirewallChainVerificationState"] = x.firewall_chain_verification_state;
         j["FirewallRuleCheck"] = x.firewall_rule_check;
         j["FwmarkConfig"] = x.fwmark_config;
         j["HealthIssue"] = x.health_issue;
         j["HealthIssueCode"] = x.health_issue_code;
         j["HealthIssueDetailCode"] = x.health_issue_detail_code;
+        j["HealthIssueSeverity"] = x.health_issue_severity;
         j["HealthIssuesResponse"] = x.health_issues_response;
         j["HealthResponse"] = x.health_response;
+        j["HealthResponseRuntimeState"] = x.health_response_runtime_state;
+        j["HealthResponseStatus"] = x.health_response_status;
         j["IcmpCandidate"] = x.icmp_candidate;
         j["InterceptCapabilitiesHealth"] = x.intercept_capabilities_health;
+        j["InterceptCapabilitiesHealthPayloadReplacement"] = x.intercept_capabilities_health_payload_replacement;
         j["InterceptConfig"] = x.intercept_config;
         j["InterceptCountersHealth"] = x.intercept_counters_health;
         j["InterceptDnsConfig"] = x.intercept_dns_config;
@@ -3687,21 +3808,29 @@ namespace api {
         j["InterceptL7Config"] = x.intercept_l7_config;
         j["InterceptMarkerConfig"] = x.intercept_marker_config;
         j["InterceptProbeFeature"] = x.intercept_probe_feature;
+        j["InterceptProbeFeatureStatus"] = x.intercept_probe_feature_status;
         j["InterceptWriteLatency"] = x.intercept_write_latency;
         j["IprouteConfig"] = x.iproute_config;
         j["KernelCheck"] = x.kernel_check;
         j["LifecycleOperation"] = x.lifecycle_operation;
         j["LifecycleOperationAcceptedResponse"] = x.lifecycle_operation_accepted_response;
+        j["LifecycleOperationAcceptedResponseStatus"] = x.lifecycle_operation_accepted_response_status;
         j["LifecycleOperationStage"] = x.lifecycle_operation_stage;
+        j["LifecycleOperationStageStatus"] = x.lifecycle_operation_stage_status;
+        j["LifecycleOperationStatus"] = x.lifecycle_operation_status;
+        j["LifecycleOperationType"] = x.lifecycle_operation_type;
         j["ListConfig"] = x.list_config;
         j["ListRefreshRequest"] = x.list_refresh_request;
         j["ListRefreshResponse"] = x.list_refresh_response;
         j["ListRefreshState"] = x.list_refresh_state;
         j["ListsAutoupdateConfig"] = x.lists_autoupdate_config;
+        j["OkResponseStatus"] = x.ok_response_status;
         j["Outbound"] = x.outbound;
         j["OutboundGroup"] = x.outbound_group;
         j["OutboundGroupMember"] = x.outbound_group_member;
+        j["OutboundType"] = x.outbound_type;
         j["PolicyRuleCheck"] = x.policy_rule_check;
+        j["PolicyRuleCheckExpectedAction"] = x.policy_rule_check_expected_action;
         j["ReloadResponse"] = x.reload_response;
         j["ResolverIntegrationMode"] = x.resolver_integration_mode;
         j["RetryConfig"] = x.retry_config;
@@ -3709,21 +3838,31 @@ namespace api {
         j["RouteRule"] = x.route_rule;
         j["RouteTableCheck"] = x.route_table_check;
         j["RoutingHealthErrorResponse"] = x.routing_health_error_response;
+        j["RoutingHealthErrorResponseOverall"] = x.routing_health_error_response_overall;
         j["RoutingHealthResponse"] = x.routing_health_response;
+        j["RoutingHealthResponseFirewallBackend"] = x.routing_health_response_firewall_backend;
+        j["RoutingHealthResponseOverall"] = x.routing_health_response_overall;
         j["RoutingHealthWarning"] = x.routing_health_warning;
         j["RoutingHealthWarningCode"] = x.routing_health_warning_code;
         j["RoutingTestDefaultGateway"] = x.routing_test_default_gateway;
         j["RoutingTestDefaultGatewayBypass"] = x.routing_test_default_gateway_bypass;
+        j["RoutingTestDefaultGatewayBypassSource"] = x.routing_test_default_gateway_bypass_source;
         j["RoutingTestDns"] = x.routing_test_dns;
+        j["RoutingTestDnsAddressStatus"] = x.routing_test_dns_address_status;
+        j["RoutingTestDnsResolver"] = x.routing_test_dns_resolver;
         j["RoutingTestEntry"] = x.routing_test_entry;
+        j["RoutingTestEntryMissingCriteriaItem"] = x.routing_test_entry_missing_criteria_item;
+        j["RoutingTestEntryUndeterminedReason"] = x.routing_test_entry_undetermined_reason;
         j["RoutingTestListMatch"] = x.routing_test_list_match;
         j["RoutingTestOutboundGroup"] = x.routing_test_outbound_group;
         j["RoutingTestOutboundGroupMember"] = x.routing_test_outbound_group_member;
         j["RoutingTestRequest"] = x.routing_test_request;
+        j["RoutingTestRequestProto"] = x.routing_test_request_proto;
         j["RoutingTestResponse"] = x.routing_test_response;
         j["RoutingTestRuleDiagnostic"] = x.routing_test_rule_diagnostic;
         j["RoutingTestRuleIpDiagnostic"] = x.routing_test_rule_ip_diagnostic;
         j["RoutingTestSetWriteEvidence"] = x.routing_test_set_write_evidence;
+        j["RoutingTestSetWriteEvidenceStatus"] = x.routing_test_set_write_evidence_status;
         j["RuntimeInterfaceInventoryEntry"] = x.runtime_interface_inventory_entry;
         j["RuntimeInterfaceInventoryResponse"] = x.runtime_interface_inventory_response;
         j["RuntimeInterfaceInventoryStatus"] = x.runtime_interface_inventory_status;
@@ -3735,16 +3874,27 @@ namespace api {
         j["StatusAuthState"] = x.status_auth_state;
         j["StatusConfigState"] = x.status_config_state;
         j["StatusEventAuth"] = x.status_event_auth;
+        j["StatusEventAuthType"] = x.status_event_auth_type;
         j["StatusEventConfig"] = x.status_event_config;
+        j["StatusEventConfigType"] = x.status_event_config_type;
         j["StatusEventInterfaces"] = x.status_event_interfaces;
+        j["StatusEventInterfacesType"] = x.status_event_interfaces_type;
         j["StatusEventIssues"] = x.status_event_issues;
+        j["StatusEventIssuesType"] = x.status_event_issues_type;
         j["StatusEventOutbounds"] = x.status_event_outbounds;
+        j["StatusEventOutboundsType"] = x.status_event_outbounds_type;
         j["StatusEventRouting"] = x.status_event_routing;
+        j["StatusEventRoutingType"] = x.status_event_routing_type;
         j["StatusEventService"] = x.status_event_service;
+        j["StatusEventServiceType"] = x.status_event_service_type;
         j["StatusEventSnapshot"] = x.status_event_snapshot;
+        j["StatusEventSnapshotData"] = x.status_event_snapshot_data;
+        j["StatusEventSnapshotType"] = x.status_event_snapshot_type;
+        j["StrictEnforcementAction"] = x.strict_enforcement_action;
         j["TestGroupStrategy"] = x.test_group_strategy;
         j["ValidationError"] = x.validation_error;
         j["XtExtensionHealth"] = x.xt_extension_health;
+        j["XtExtensionHealthKind"] = x.xt_extension_health_kind;
     }
 
     inline void from_json(const json & j, CheckStatus & x) {
@@ -3887,15 +4037,15 @@ namespace api {
         }
     }
 
-    inline void from_json(const json & j, ConfigUpdateResponseStatus & x) {
-        if (j == "ok") x = ConfigUpdateResponseStatus::OK;
-        else { throw std::runtime_error("Cannot deserialize to enumeration \"ConfigUpdateResponseStatus\""); }
+    inline void from_json(const json & j, OkResponseStatus & x) {
+        if (j == "ok") x = OkResponseStatus::OK;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"OkResponseStatus\""); }
     }
 
-    inline void to_json(json & j, const ConfigUpdateResponseStatus & x) {
+    inline void to_json(json & j, const OkResponseStatus & x) {
         switch (x) {
-            case ConfigUpdateResponseStatus::OK: j = "ok"; break;
-            default: throw std::runtime_error("Unexpected value in enumeration \"ConfigUpdateResponseStatus\": " + std::to_string(static_cast<int>(x)));
+            case OkResponseStatus::OK: j = "ok"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"OkResponseStatus\": " + std::to_string(static_cast<int>(x)));
         }
     }
 
@@ -3997,19 +4147,19 @@ namespace api {
         }
     }
 
-    inline void from_json(const json & j, DnsmasqHealthAlive & x) {
-        if (j == "alive") x = DnsmasqHealthAlive::ALIVE;
-        else if (j == "dead") x = DnsmasqHealthAlive::DEAD;
-        else if (j == "unknown") x = DnsmasqHealthAlive::UNKNOWN;
-        else { throw std::runtime_error("Cannot deserialize to enumeration \"DnsmasqHealthAlive\""); }
+    inline void from_json(const json & j, DnsmasqHealthDnsmasqAlive & x) {
+        if (j == "alive") x = DnsmasqHealthDnsmasqAlive::ALIVE;
+        else if (j == "dead") x = DnsmasqHealthDnsmasqAlive::DEAD;
+        else if (j == "unknown") x = DnsmasqHealthDnsmasqAlive::UNKNOWN;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"DnsmasqHealthDnsmasqAlive\""); }
     }
 
-    inline void to_json(json & j, const DnsmasqHealthAlive & x) {
+    inline void to_json(json & j, const DnsmasqHealthDnsmasqAlive & x) {
         switch (x) {
-            case DnsmasqHealthAlive::ALIVE: j = "alive"; break;
-            case DnsmasqHealthAlive::DEAD: j = "dead"; break;
-            case DnsmasqHealthAlive::UNKNOWN: j = "unknown"; break;
-            default: throw std::runtime_error("Unexpected value in enumeration \"DnsmasqHealthAlive\": " + std::to_string(static_cast<int>(x)));
+            case DnsmasqHealthDnsmasqAlive::ALIVE: j = "alive"; break;
+            case DnsmasqHealthDnsmasqAlive::DEAD: j = "dead"; break;
+            case DnsmasqHealthDnsmasqAlive::UNKNOWN: j = "unknown"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"DnsmasqHealthDnsmasqAlive\": " + std::to_string(static_cast<int>(x)));
         }
     }
 
@@ -4219,33 +4369,33 @@ namespace api {
         }
     }
 
-    inline void from_json(const json & j, InterceptPayloadReplacementSupport & x) {
-        if (j == "supported") x = InterceptPayloadReplacementSupport::SUPPORTED;
-        else if (j == "unknown") x = InterceptPayloadReplacementSupport::UNKNOWN;
-        else if (j == "unsupported") x = InterceptPayloadReplacementSupport::UNSUPPORTED;
-        else { throw std::runtime_error("Cannot deserialize to enumeration \"InterceptPayloadReplacementSupport\""); }
+    inline void from_json(const json & j, InterceptCapabilitiesHealthPayloadReplacement & x) {
+        if (j == "supported") x = InterceptCapabilitiesHealthPayloadReplacement::SUPPORTED;
+        else if (j == "unknown") x = InterceptCapabilitiesHealthPayloadReplacement::UNKNOWN;
+        else if (j == "unsupported") x = InterceptCapabilitiesHealthPayloadReplacement::UNSUPPORTED;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"InterceptCapabilitiesHealthPayloadReplacement\""); }
     }
 
-    inline void to_json(json & j, const InterceptPayloadReplacementSupport & x) {
+    inline void to_json(json & j, const InterceptCapabilitiesHealthPayloadReplacement & x) {
         switch (x) {
-            case InterceptPayloadReplacementSupport::SUPPORTED: j = "supported"; break;
-            case InterceptPayloadReplacementSupport::UNKNOWN: j = "unknown"; break;
-            case InterceptPayloadReplacementSupport::UNSUPPORTED: j = "unsupported"; break;
-            default: throw std::runtime_error("Unexpected value in enumeration \"InterceptPayloadReplacementSupport\": " + std::to_string(static_cast<int>(x)));
+            case InterceptCapabilitiesHealthPayloadReplacement::SUPPORTED: j = "supported"; break;
+            case InterceptCapabilitiesHealthPayloadReplacement::UNKNOWN: j = "unknown"; break;
+            case InterceptCapabilitiesHealthPayloadReplacement::UNSUPPORTED: j = "unsupported"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"InterceptCapabilitiesHealthPayloadReplacement\": " + std::to_string(static_cast<int>(x)));
         }
     }
 
-    inline void from_json(const json & j, XtExtensionKind & x) {
-        if (j == "match") x = XtExtensionKind::MATCH;
-        else if (j == "target") x = XtExtensionKind::TARGET;
-        else { throw std::runtime_error("Cannot deserialize to enumeration \"XtExtensionKind\""); }
+    inline void from_json(const json & j, XtExtensionHealthKind & x) {
+        if (j == "match") x = XtExtensionHealthKind::MATCH;
+        else if (j == "target") x = XtExtensionHealthKind::TARGET;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"XtExtensionHealthKind\""); }
     }
 
-    inline void to_json(json & j, const XtExtensionKind & x) {
+    inline void to_json(json & j, const XtExtensionHealthKind & x) {
         switch (x) {
-            case XtExtensionKind::MATCH: j = "match"; break;
-            case XtExtensionKind::TARGET: j = "target"; break;
-            default: throw std::runtime_error("Unexpected value in enumeration \"XtExtensionKind\": " + std::to_string(static_cast<int>(x)));
+            case XtExtensionHealthKind::MATCH: j = "match"; break;
+            case XtExtensionHealthKind::TARGET: j = "target"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"XtExtensionHealthKind\": " + std::to_string(static_cast<int>(x)));
         }
     }
 
@@ -4515,21 +4665,21 @@ namespace api {
         }
     }
 
-    inline void from_json(const json & j, MissingCriterion & x) {
-        if (j == "dest_port") x = MissingCriterion::DEST_PORT;
-        else if (j == "proto") x = MissingCriterion::PROTO;
-        else if (j == "src_addr") x = MissingCriterion::SRC_ADDR;
-        else if (j == "src_port") x = MissingCriterion::SRC_PORT;
-        else { throw std::runtime_error("Cannot deserialize to enumeration \"MissingCriterion\""); }
+    inline void from_json(const json & j, RoutingTestEntryMissingCriteriaItem & x) {
+        if (j == "dest_port") x = RoutingTestEntryMissingCriteriaItem::DEST_PORT;
+        else if (j == "proto") x = RoutingTestEntryMissingCriteriaItem::PROTO;
+        else if (j == "src_addr") x = RoutingTestEntryMissingCriteriaItem::SRC_ADDR;
+        else if (j == "src_port") x = RoutingTestEntryMissingCriteriaItem::SRC_PORT;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"RoutingTestEntryMissingCriteriaItem\""); }
     }
 
-    inline void to_json(json & j, const MissingCriterion & x) {
+    inline void to_json(json & j, const RoutingTestEntryMissingCriteriaItem & x) {
         switch (x) {
-            case MissingCriterion::DEST_PORT: j = "dest_port"; break;
-            case MissingCriterion::PROTO: j = "proto"; break;
-            case MissingCriterion::SRC_ADDR: j = "src_addr"; break;
-            case MissingCriterion::SRC_PORT: j = "src_port"; break;
-            default: throw std::runtime_error("Unexpected value in enumeration \"MissingCriterion\": " + std::to_string(static_cast<int>(x)));
+            case RoutingTestEntryMissingCriteriaItem::DEST_PORT: j = "dest_port"; break;
+            case RoutingTestEntryMissingCriteriaItem::PROTO: j = "proto"; break;
+            case RoutingTestEntryMissingCriteriaItem::SRC_ADDR: j = "src_addr"; break;
+            case RoutingTestEntryMissingCriteriaItem::SRC_PORT: j = "src_port"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"RoutingTestEntryMissingCriteriaItem\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

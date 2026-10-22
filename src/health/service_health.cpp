@@ -98,9 +98,9 @@ api::DnsmasqHealth to_dnsmasq_health(const DnsmasqStatus& status) {
     health.next_repair_ts = status.next_repair_ts;
     if (status.dnsmasq_alive) {
         switch (*status.dnsmasq_alive) {
-        case DnsmasqLiveness::Alive: health.dnsmasq_alive = api::DnsmasqHealthAlive::ALIVE; break;
-        case DnsmasqLiveness::Dead: health.dnsmasq_alive = api::DnsmasqHealthAlive::DEAD; break;
-        case DnsmasqLiveness::Unknown: health.dnsmasq_alive = api::DnsmasqHealthAlive::UNKNOWN; break;
+        case DnsmasqLiveness::Alive: health.dnsmasq_alive = api::DnsmasqHealthDnsmasqAlive::ALIVE; break;
+        case DnsmasqLiveness::Dead: health.dnsmasq_alive = api::DnsmasqHealthDnsmasqAlive::DEAD; break;
+        case DnsmasqLiveness::Unknown: health.dnsmasq_alive = api::DnsmasqHealthDnsmasqAlive::UNKNOWN; break;
         }
     }
     health.rules = static_cast<std::int64_t>(status.rules);

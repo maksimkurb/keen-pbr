@@ -184,7 +184,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         ctx.stage_config(std::move(staged));
 
         api::ConfigUpdateResponse resp;
-        resp.status = api::ConfigUpdateResponseStatus::OK;
+        resp.status = api::OkResponseStatus::OK;
         resp.message = "Config staged in memory";
         return nlohmann::json(resp).dump();
     });
@@ -198,7 +198,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         ctx.clear_staged_config();
 
         api::ConfigUpdateResponse resp;
-        resp.status = api::ConfigUpdateResponseStatus::OK;
+        resp.status = api::OkResponseStatus::OK;
         resp.message = "Staged config discarded";
         return nlohmann::json(resp).dump();
     });

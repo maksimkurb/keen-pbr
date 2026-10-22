@@ -669,26 +669,32 @@ components:
       required: [type, data]
       properties:
         type:
-          type: string
-          enum: [snapshot]
+          $ref: "#/components/schemas/StatusEventSnapshotType"
         data:
-          type: object
-          required: [service, outbounds, interfaces, issues, routing, auth, config]
-          properties:
-            service:
-              $ref: "#/components/schemas/HealthResponse"
-            outbounds:
-              $ref: "#/components/schemas/RuntimeOutboundsResponse"
-            interfaces:
-              $ref: "#/components/schemas/RuntimeInterfaceInventoryResponse"
-            issues:
-              $ref: "#/components/schemas/HealthIssuesResponse"
-            routing:
-              $ref: "#/components/schemas/RoutingHealthResponse"
-            auth:
-              $ref: "#/components/schemas/StatusAuthState"
-            config:
-              $ref: "#/components/schemas/StatusConfigState"
+          $ref: "#/components/schemas/StatusEventSnapshotData"
+
+    StatusEventSnapshotType:
+      type: string
+      enum: [snapshot]
+
+    StatusEventSnapshotData:
+      type: object
+      required: [service, outbounds, interfaces, issues, routing, auth, config]
+      properties:
+        service:
+          $ref: "#/components/schemas/HealthResponse"
+        outbounds:
+          $ref: "#/components/schemas/RuntimeOutboundsResponse"
+        interfaces:
+          $ref: "#/components/schemas/RuntimeInterfaceInventoryResponse"
+        issues:
+          $ref: "#/components/schemas/HealthIssuesResponse"
+        routing:
+          $ref: "#/components/schemas/RoutingHealthResponse"
+        auth:
+          $ref: "#/components/schemas/StatusAuthState"
+        config:
+          $ref: "#/components/schemas/StatusConfigState"
 
     StatusAuthState:
       type: object
@@ -717,74 +723,95 @@ components:
       required: [type, data]
       properties:
         type:
-          type: string
-          enum: [service]
+          $ref: "#/components/schemas/StatusEventServiceType"
         data:
           $ref: "#/components/schemas/HealthResponse"
+
+    StatusEventServiceType:
+      type: string
+      enum: [service]
 
     StatusEventOutbounds:
       type: object
       required: [type, data]
       properties:
         type:
-          type: string
-          enum: [outbounds]
+          $ref: "#/components/schemas/StatusEventOutboundsType"
         data:
           $ref: "#/components/schemas/RuntimeOutboundsResponse"
+
+    StatusEventOutboundsType:
+      type: string
+      enum: [outbounds]
 
     StatusEventInterfaces:
       type: object
       required: [type, data]
       properties:
         type:
-          type: string
-          enum: [interfaces]
+          $ref: "#/components/schemas/StatusEventInterfacesType"
         data:
           $ref: "#/components/schemas/RuntimeInterfaceInventoryResponse"
+
+    StatusEventInterfacesType:
+      type: string
+      enum: [interfaces]
 
     StatusEventIssues:
       type: object
       required: [type, data]
       properties:
         type:
-          type: string
-          enum: [issues]
+          $ref: "#/components/schemas/StatusEventIssuesType"
         data:
           $ref: "#/components/schemas/HealthIssuesResponse"
+
+    StatusEventIssuesType:
+      type: string
+      enum: [issues]
 
     StatusEventConfig:
       type: object
       required: [type, data]
       properties:
         type:
-          type: string
-          enum: [config]
+          $ref: "#/components/schemas/StatusEventConfigType"
         data:
           $ref: "#/components/schemas/StatusConfigState"
+
+    StatusEventConfigType:
+      type: string
+      enum: [config]
 
     StatusEventAuth:
       type: object
       required: [type, data]
       properties:
         type:
-          type: string
-          enum: [auth]
+          $ref: "#/components/schemas/StatusEventAuthType"
         data:
           $ref: "#/components/schemas/StatusAuthState"
+
+    StatusEventAuthType:
+      type: string
+      enum: [auth]
 
     StatusEventRouting:
       type: object
       required: [type, data]
       properties:
         type:
-          type: string
-          enum: [routing]
+          $ref: "#/components/schemas/StatusEventRoutingType"
         data:
           $ref: "#/components/schemas/RoutingHealthResponse"
 
     # -------------------------------------------------------------------------
     # /api/config — configuration object schema
     # -------------------------------------------------------------------------
+
+    StatusEventRoutingType:
+      type: string
+      enum: [routing]
 
     DaemonConfig:
       type: object
@@ -798,9 +825,8 @@ components:
           description: Directory for cached list data.
           example: "/var/cache/keen-pbr"
         firewall_backend:
-          type: string
+          $ref: "#/components/schemas/DaemonConfigFirewallBackend"
           description: Firewall backend selection.
-          enum: [auto, iptables, nftables]
           example: auto
         firewall_verify_max_bytes:
           type: integer
@@ -875,8 +901,7 @@ components:
             cannot be confirmed reachable.
           example: true
         strict_enforcement_action:
-          type: string
-          enum: [unreachable, blackhole]
+          $ref: "#/components/schemas/StrictEnforcementAction"
           description: Terminal RPDB action used by strict enforcement.
         max_file_size_bytes:
           type: integer
@@ -898,6 +923,16 @@ components:
           type: integer
           minimum: 0
           description: Grace period after SIGTERM before a timed-out helper receives SIGKILL.
+
+    DaemonConfigFirewallBackend:
+      type: string
+      enum: [auto, iptables, nftables]
+      description: Firewall backend selection.
+
+    StrictEnforcementAction:
+      type: string
+      enum: [unreachable, blackhole]
+      description: Terminal RPDB action used by strict enforcement.
 
     ApiConfig:
       type: object
@@ -979,23 +1014,29 @@ components:
       required: [authentication, cors]
       properties:
         authentication:
-          type: object
-          required: [enabled]
-          properties:
-            enabled:
-              type: boolean
+          $ref: "#/components/schemas/AuthSettingsRequestAuthentication"
         cors:
-          type: object
-          required: [allowed_origins]
-          properties:
-            allowed_origins:
-              type: array
-              items:
-                type: string
+          $ref: "#/components/schemas/AuthSettingsRequestCors"
         password:
           type: string
           minLength: 1
           writeOnly: true
+
+    AuthSettingsRequestAuthentication:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+
+    AuthSettingsRequestCors:
+      type: object
+      required: [allowed_origins]
+      properties:
+        allowed_origins:
+          type: array
+          items:
+            type: string
 
     AuthSettingsResponse:
       type: object
@@ -1188,8 +1229,7 @@ components:
         propertyName: type
       properties:
         type:
-          type: string
-          enum: [interface, table, blackhole, ignore, urltest, icmptest]
+          $ref: "#/components/schemas/OutboundType"
           description: Outbound type.
           example: "interface"
         tag:
@@ -1226,8 +1266,7 @@ components:
             `daemon.strict_enforcement` when present.
           example: true
         strict_enforcement_action:
-          type: string
-          enum: [unreachable, blackhole]
+          $ref: "#/components/schemas/StrictEnforcementAction"
           description: Per-outbound override of daemon.strict_enforcement_action.
         table:
           type: integer
@@ -1310,6 +1349,11 @@ components:
         circuit_breaker:
           $ref: "#/components/schemas/CircuitBreakerConfig"
 
+    OutboundType:
+      type: string
+      enum: [interface, table, blackhole, ignore, urltest, icmptest]
+      description: Outbound type.
+
     ConntrackOnSwitch:
       type: string
       enum: [preserve, delete]
@@ -1384,9 +1428,8 @@ components:
             within `dns.servers`.
           example: "vpn-dns"
         type:
-          type: string
+          $ref: "#/components/schemas/DnsServerType"
           description: DNS server source type.
-          enum: [static, keenetic, doh]
           example: "static"
         address:
           type: string
@@ -1416,6 +1459,11 @@ components:
           items:
             type: string
           example: ["8.8.8.8", "8.8.4.4"]
+
+    DnsServerType:
+      type: string
+      enum: [static, keenetic, doh]
+      description: DNS server source type.
 
     DnsRule:
       type: object
@@ -1834,8 +1882,7 @@ components:
             until a queue has been bound. When false the queue still works but
             packets are not released by the kernel if the daemon stalls.
         payload_replacement:
-          type: string
-          enum: [unknown, supported, unsupported]
+          $ref: "#/components/schemas/InterceptCapabilitiesHealthPayloadReplacement"
           description: >
             Whether the daemon may rewrite queued packets (answer TTL clamping).
             `unsupported` when the network namespace belongs to a non-initial
@@ -1856,6 +1903,10 @@ components:
           items:
             $ref: "#/components/schemas/XtExtensionHealth"
 
+    InterceptCapabilitiesHealthPayloadReplacement:
+      type: string
+      enum: [unknown, supported, unsupported]
+
     XtExtensionHealth:
       type: object
       required: [name, kind, kernel_module, available, required]
@@ -1865,8 +1916,7 @@ components:
           description: Extension name as iptables spells it.
           example: "multiport"
         kind:
-          type: string
-          enum: [match, target]
+          $ref: "#/components/schemas/XtExtensionHealthKind"
         kernel_module:
           type: string
           description: Kernel module that registers the extension.
@@ -1882,6 +1932,10 @@ components:
             required extension that is not available makes the firewall
             apply fail.
 
+    XtExtensionHealthKind:
+      type: string
+      enum: [match, target]
+
     InterceptProbeFeature:
       type: object
       description: >
@@ -1895,14 +1949,17 @@ components:
             One of `set_backend`, `nfqueue`, `fail_open`, `payload_replacement`,
             `nflog`, `set_write`, `conntrack`, `nft_timeout_update`.
         status:
-          type: string
-          enum: [ok, unsupported, error, skipped, not_run]
+          $ref: "#/components/schemas/InterceptProbeFeatureStatus"
           description: >
             `ok` accepted by the kernel; `unsupported` rejected (EINVAL /
             EOPNOTSUPP); `error` failed for another reason (timeout, EPERM,
             busy); `skipped` nothing to test against; `not_run` not attempted.
         reason:
           type: string
+
+    InterceptProbeFeatureStatus:
+      type: string
+      enum: [ok, unsupported, error, skipped, not_run]
 
     InterceptWriteLatency:
       type: object
@@ -2091,8 +2148,7 @@ components:
       required: [type, seq, ts_ms, source, domain, lists, ips, added, refreshed, errors, hold_us, timed_out]
       properties:
         type:
-          type: string
-          enum: [INTERCEPT]
+          $ref: "#/components/schemas/DnsTestInterceptEventType"
         seq:
           type: integer
           format: int64
@@ -2102,8 +2158,7 @@ components:
           format: int64
           description: Unix timestamp in milliseconds.
         source:
-          type: string
-          enum: [dns, sni, http, quic, marker]
+          $ref: "#/components/schemas/DnsTestInterceptEventSource"
         client_ip:
           type: string
           description: >
@@ -2195,8 +2250,7 @@ components:
           type: integer
           description: errno of the last failed set write for this event (absent on success).
         timeout_cause:
-          type: string
-          enum: [budget_spent_by_batch, admission_blocked, own_write_slow, late_batch_full, other]
+          $ref: "#/components/schemas/DnsTestInterceptEventTimeoutCause"
           description: >
             Why the hold timed out (only with `timed_out`). `budget_spent_by_batch`:
             the deadline had already passed when the packet started (earlier packets
@@ -2211,6 +2265,18 @@ components:
           type: integer
           description: DNS response code (RFC 1035, e.g. 0=NOERROR, 3=NXDOMAIN). Only for DNS-sourced events.
 
+    DnsTestInterceptEventType:
+      type: string
+      enum: [INTERCEPT]
+
+    DnsTestInterceptEventSource:
+      type: string
+      enum: [dns, sni, http, quic, marker]
+
+    DnsTestInterceptEventTimeoutCause:
+      type: string
+      enum: [budget_spent_by_batch, admission_blocked, own_write_slow, late_batch_full, other]
+
     DnsTestGapEvent:
       type: object
       description: >
@@ -2220,14 +2286,17 @@ components:
       required: [type, from_seq, to_seq]
       properties:
         type:
-          type: string
-          enum: [GAP]
+          $ref: "#/components/schemas/DnsTestGapEventType"
         from_seq:
           type: integer
           format: int64
         to_seq:
           type: integer
           format: int64
+
+    DnsTestGapEventType:
+      type: string
+      enum: [GAP]
 
     ConfigObject:
       type: object
@@ -2444,12 +2513,11 @@ components:
           description: "`ip`, `ip:port`, `[ipv6]:port` or the DNS-over-HTTPS URL."
           example: "8.8.8.8"
         status:
-          type: string
+          $ref: "#/components/schemas/DnsCheckEndpointStatus"
           description: >
             `ok` (asked), `skipped` (not asked, for example an IPv6 address
             while IPv6 is disabled) or `unavailable` (cannot be asked, for
             example DNS-over-HTTPS without CA certificates).
-          enum: [ok, skipped, unavailable]
         reason_code:
           type: string
           description: >
@@ -2470,6 +2538,10 @@ components:
           items:
             $ref: "#/components/schemas/DnsCheckResult"
 
+    DnsCheckEndpointStatus:
+      type: string
+      enum: [ok, skipped, unavailable]
+
     DnsCheckServer:
       type: object
       required: [tag, type, endpoints]
@@ -2477,8 +2549,7 @@ components:
         tag:
           type: string
         type:
-          type: string
-          enum: [static, doh, keenetic]
+          $ref: "#/components/schemas/DnsServerType"
         detour:
           type: string
         error_code:
@@ -2520,8 +2591,7 @@ components:
           description: IP address or domain name to test routing for.
           example: "www.google.com"
         proto:
-          type: string
-          enum: [tcp, udp, other]
+          $ref: "#/components/schemas/RoutingTestRequestProto"
           description: Optional packet transport protocol to evaluate against route rules.
           example: tcp
         dest_port:
@@ -2549,6 +2619,11 @@ components:
           maximum: 63
           description: Optional packet DSCP value.
           example: 46
+
+    RoutingTestRequestProto:
+      type: string
+      enum: [tcp, udp, other]
+      description: Optional packet transport protocol to evaluate against route rules.
 
     RoutingTestListMatch:
       type: object
@@ -2610,8 +2685,7 @@ components:
             packet criteria could not be evaluated. Present only when
             expected_outbound is "(unknown)" for that reason.
         undetermined_reason:
-          type: string
-          enum: [missing_criteria, default_gateway_directness]
+          $ref: "#/components/schemas/RoutingTestEntryUndeterminedReason"
           description: >
             Why undetermined_rule_index could not be evaluated.
             missing_criteria: filling the fields listed in missing_criteria
@@ -2622,8 +2696,7 @@ components:
         missing_criteria:
           type: array
           items:
-            type: string
-            enum: [src_addr, src_port, proto, dest_port]
+            $ref: "#/components/schemas/RoutingTestEntryMissingCriteriaItem"
           description: >
             Request fields that, if filled, would let the rule at
             undetermined_rule_index be evaluated. DSCP is never listed because
@@ -2643,6 +2716,14 @@ components:
             Present when the outbound the traffic takes is a urltest or
             icmptest group: its members and which of them carry new
             connections.
+
+    RoutingTestEntryUndeterminedReason:
+      type: string
+      enum: [missing_criteria, default_gateway_directness]
+
+    RoutingTestEntryMissingCriteriaItem:
+      type: string
+      enum: [src_addr, src_port, proto, dest_port]
 
     RoutingTestDefaultGateway:
       type: object
@@ -2681,8 +2762,7 @@ components:
           description: Most specific skipped network covering the address.
           example: "10.8.0.0/24"
         source:
-          type: string
-          enum: [reserved, route, address]
+          $ref: "#/components/schemas/RoutingTestDefaultGatewayBypassSource"
           description: >
             reserved: a reserved range (loopback, link-local, multicast).
             route: a route in the main routing table. address: the network of
@@ -2692,6 +2772,10 @@ components:
           description: Interface of the route or address. Absent for reserved ranges.
           example: "wg0"
 
+    RoutingTestDefaultGatewayBypassSource:
+      type: string
+      enum: [reserved, route, address]
+
     RoutingTestOutboundGroup:
       type: object
       required: [tag, strategy, members]
@@ -2700,8 +2784,7 @@ components:
           type: string
           description: Tag of the urltest or icmptest outbound.
         strategy:
-          type: string
-          enum: [balance, priority]
+          $ref: "#/components/schemas/TestGroupStrategy"
           description: >
             balance: new connections are spread over the members in use by
             weight. priority: one member is selected, the others are standby.
@@ -2710,6 +2793,7 @@ components:
           items:
             $ref: "#/components/schemas/RoutingTestOutboundGroupMember"
           description: Members in configuration order.
+
 
     RoutingTestOutboundGroupMember:
       type: object
@@ -2743,8 +2827,7 @@ components:
       required: [status]
       properties:
         status:
-          type: string
-          enum: [recorded, no_record, not_tracked]
+          $ref: "#/components/schemas/RoutingTestSetWriteEvidenceStatus"
           description: |
             Retained evidence for a successful operation on this exact
             dynamic firewall set and address. `recorded` means Added,
@@ -2758,6 +2841,10 @@ components:
           format: int64
           minimum: 0
           description: Age of the latest retained successful operation using a monotonic clock.
+
+    RoutingTestSetWriteEvidenceStatus:
+      type: string
+      enum: [recorded, no_record, not_tracked]
 
     RoutingTestRuleIpDiagnostic:
       type: object
@@ -2866,8 +2953,7 @@ components:
       required: [resolver]
       properties:
         resolver:
-          type: string
-          enum: [system, dnsmasq, test]
+          $ref: "#/components/schemas/RoutingTestDnsResolver"
         endpoint:
           type: string
           nullable: true
@@ -2875,13 +2961,13 @@ components:
           type: string
           nullable: true
         a_status:
-          type: string
           nullable: true
-          enum: [ok, nodata, nxdomain, servfail, refused, rcode, timeout, network_error, malformed]
+          allOf:
+            - $ref: "#/components/schemas/RoutingTestDnsAddressStatus"
         aaaa_status:
-          type: string
           nullable: true
-          enum: [ok, nodata, nxdomain, servfail, refused, rcode, timeout, network_error, malformed]
+          allOf:
+            - $ref: "#/components/schemas/RoutingTestDnsAddressStatus"
         cname_chain:
           type: array
           items:
@@ -2890,6 +2976,14 @@ components:
     # -------------------------------------------------------------------------
     # Internal: cache metadata (not exposed via API paths)
     # -------------------------------------------------------------------------
+
+    RoutingTestDnsResolver:
+      type: string
+      enum: [system, dnsmasq, test]
+
+    RoutingTestDnsAddressStatus:
+      type: string
+      enum: [ok, nodata, nxdomain, servfail, refused, rcode, timeout, network_error, malformed]
 
     CacheMetadata:
       type: object
@@ -2923,19 +3017,17 @@ components:
           description: Daemon build string (git commit UTC timestamp).
           example: "20260424231043"
         status:
-          type: string
+          $ref: "#/components/schemas/HealthResponseStatus"
           description: >
             - running: routing runtime is active
             - degraded: routing runtime is active but DNS interception is
               enabled in config and the DNS hold is unavailable (see
               `intercept.reasons`); domain-based routing is not filled
             - stopped: routing runtime is not active
-          enum: [running, degraded, stopped]
           example: "running"
         runtime_state:
-          type: string
+          $ref: "#/components/schemas/HealthResponseRuntimeState"
           description: Detailed runtime lifecycle state used to gate mutations.
-          enum: [starting, running, restart_required, applying, stopped, broken, shutting_down]
           example: "running"
         runtime_state_reason:
           type: string
@@ -2988,18 +3080,25 @@ components:
         dnsmasq:
           $ref: "#/components/schemas/DnsmasqHealth"
 
+    HealthResponseStatus:
+      type: string
+      enum: [running, degraded, stopped]
+
+    HealthResponseRuntimeState:
+      type: string
+      enum: [starting, running, restart_required, applying, stopped, broken, shutting_down]
+      description: Detailed runtime lifecycle state used to gate mutations.
+
     DnsmasqHealth:
       type: object
       required: [mode, state, rules, domains]
       description: Status of the generated dnsmasq config (`dns.resolver_integration`).
       properties:
         mode:
-          type: string
-          enum: [none, dnsmasq]
+          $ref: "#/components/schemas/ResolverIntegrationMode"
           description: Effective resolver integration mode.
         state:
-          type: string
-          enum: [disabled, ok, applying, reconciling, error]
+          $ref: "#/components/schemas/DnsmasqHealthState"
           description: >
             - disabled: resolver integration is `none`; keen-pbr does not touch dnsmasq
             - ok: dnsmasq confirmed (config-hash.keen.pbr TXT stamp) that it serves the current config
@@ -3013,9 +3112,6 @@ components:
           nullable: true
           description: MD5 of the config keen-pbr generated and expects dnsmasq to serve.
         probe_status:
-          type: string
-          enum: [not_checked, ok, missing, invalid, query_failed]
-          nullable: true
           description: >
             Result of the last `config-hash.keen.pbr` TXT query to dnsmasq.
             - not_checked: no query has been made yet
@@ -3023,6 +3119,9 @@ components:
             - missing: dnsmasq answered without the stamp (the keen-pbr config is not loaded)
             - invalid: the TXT record is not a valid keen-pbr stamp
             - query_failed: dnsmasq did not answer (timeout, refused, malformed reply)
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/DnsmasqHealthProbeStatus"
         loaded_hash:
           type: string
           nullable: true
@@ -3087,12 +3186,12 @@ components:
             restarts happen until the next config apply or runtime restart refills the budget, or
             dnsmasq stays in sync for an hour.
         dnsmasq_alive:
-          type: string
-          enum: [alive, dead, unknown]
-          nullable: true
           description: >
             Last answer of the platform hook `alive` (whether the service manager says dnsmasq is
             running); asked only when dnsmasq does not answer the config check. Null if never asked.
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/DnsmasqHealthDnsmasqAlive"
         rules:
           type: integer
           description: Number of enabled `dns.rules` in the generated config.
@@ -3108,28 +3207,28 @@ components:
           nullable: true
           example: "uci:cfg01411c"
         instance_selection:
-          type: string
-          enum: [explicit, adopted, automatic]
           nullable: true
+          allOf:
+            - $ref: "#/components/schemas/DnsmasqHealthInstanceSelection"
         endpoint:
           type: string
           nullable: true
           description: DNS endpoint of the selected instance, "ip:port" or "[ipv6]:port".
         endpoint_evidence:
-          type: string
-          enum: [none, socket_owned, responding, stamp_verified]
           nullable: true
+          allOf:
+            - $ref: "#/components/schemas/DnsmasqHealthEndpointEvidence"
         pid:
           type: integer
           nullable: true
         capability:
-          type: string
-          enum: [not_checked, ok, unsupported, failed]
           nullable: true
+          allOf:
+            - $ref: "#/components/schemas/DnsmasqHealthCapability"
         preflight:
-          type: string
-          enum: [not_run, ok, failed, skipped]
           nullable: true
+          allOf:
+            - $ref: "#/components/schemas/DnsmasqHealthPreflight"
         instance_count:
           type: integer
           nullable: true
@@ -3139,6 +3238,35 @@ components:
           items:
             type: string
 
+
+    DnsmasqHealthState:
+      type: string
+      enum: [disabled, ok, applying, reconciling, error]
+
+    DnsmasqHealthProbeStatus:
+      type: string
+      enum: [not_checked, ok, missing, invalid, query_failed]
+
+    DnsmasqHealthDnsmasqAlive:
+      type: string
+      enum: [alive, dead, unknown]
+
+    DnsmasqHealthInstanceSelection:
+      type: string
+      enum: [explicit, adopted, automatic]
+
+    DnsmasqHealthEndpointEvidence:
+      type: string
+      enum: [none, socket_owned, responding, stamp_verified]
+
+    DnsmasqHealthCapability:
+      type: string
+      enum: [not_checked, ok, unsupported, failed]
+
+    DnsmasqHealthPreflight:
+      type: string
+      enum: [not_run, ok, failed, skipped]
+
     LifecycleOperationAcceptedResponse:
       type: object
       required: [operation_id, status]
@@ -3147,8 +3275,11 @@ components:
           type: string
           example: "lifecycle-42"
         status:
-          type: string
-          enum: [accepted]
+          $ref: "#/components/schemas/LifecycleOperationAcceptedResponseStatus"
+
+    LifecycleOperationAcceptedResponseStatus:
+      type: string
+      enum: [accepted]
 
     LifecycleOperation:
       type: object
@@ -3157,11 +3288,9 @@ components:
         id:
           type: string
         type:
-          type: string
-          enum: [apply_config, rollback_config, start, stop, restart]
+          $ref: "#/components/schemas/LifecycleOperationType"
         status:
-          type: string
-          enum: [running, succeeded, failed]
+          $ref: "#/components/schemas/LifecycleOperationStatus"
         started_at:
           type: integer
           format: int64
@@ -3175,6 +3304,14 @@ components:
           items:
             $ref: "#/components/schemas/LifecycleOperationStage"
 
+    LifecycleOperationType:
+      type: string
+      enum: [apply_config, rollback_config, start, stop, restart]
+
+    LifecycleOperationStatus:
+      type: string
+      enum: [running, succeeded, failed]
+
     LifecycleOperationStage:
       type: object
       required: [id, title, status]
@@ -3184,14 +3321,17 @@ components:
         title:
           type: string
         status:
-          type: string
-          enum: [pending, running, succeeded, failed, skipped]
+          $ref: "#/components/schemas/LifecycleOperationStageStatus"
         detail:
           type: string
 
     # -------------------------------------------------------------------------
     # /api/runtime/outbounds
     # -------------------------------------------------------------------------
+
+    LifecycleOperationStageStatus:
+      type: string
+      enum: [pending, running, succeeded, failed, skipped]
 
     RuntimeInterfaceStatus:
       type: string
@@ -3260,8 +3400,7 @@ components:
           description: Configured outbound tag.
           example: "auto-select"
         type:
-          type: string
-          enum: [interface, table, blackhole, ignore, urltest, icmptest]
+          $ref: "#/components/schemas/OutboundType"
           example: "urltest"
         status:
           $ref: "#/components/schemas/RuntimeOutboundStatus"
@@ -3352,12 +3491,15 @@ components:
       required: [status, message]
       properties:
         status:
-          type: string
-          enum: [ok]
+          $ref: "#/components/schemas/OkResponseStatus"
           example: "ok"
         message:
           type: string
           example: "Routing runtime restarted"
+
+    OkResponseStatus:
+      type: string
+      enum: [ok]
 
     ListRefreshRequest:
       type: object
@@ -3384,8 +3526,7 @@ components:
       required: [status, message, refreshed_lists, changed_lists, failed_lists, reloaded]
       properties:
         status:
-          type: string
-          enum: [ok]
+          $ref: "#/components/schemas/OkResponseStatus"
           example: "ok"
         message:
           type: string
@@ -3419,6 +3560,7 @@ components:
     # /api/config
     # -------------------------------------------------------------------------
 
+
     ConfigStateResponse:
       type: object
       required: [config, is_draft]
@@ -3444,8 +3586,7 @@ components:
       required: [status, message]
       properties:
         status:
-          type: string
-          enum: [ok]
+          $ref: "#/components/schemas/OkResponseStatus"
           example: "ok"
         message:
           type: string
@@ -3457,6 +3598,7 @@ components:
             Present for `POST /api/config/save`: server-authoritative Unix
             timestamp (seconds) when apply started.
           example: 1712345680
+
 
     ErrorResponse:
       type: object
@@ -3517,8 +3659,7 @@ components:
           description: Whether the chain is hooked into PREROUTING.
           example: true
         verification_state:
-          type: string
-          enum: [verified, unavailable, failed]
+          $ref: "#/components/schemas/FirewallChainVerificationState"
           description: |
             Verification state of the firewall chain.
             - verified: chain is properly configured
@@ -3529,6 +3670,10 @@ components:
           type: string
           description: Human-readable detail. Omitted when empty.
           example: "chain keen-pbr found in table mangle"
+
+    FirewallChainVerificationState:
+      type: string
+      enum: [verified, unavailable, failed]
 
     FirewallRuleCheck:
       type: object
@@ -3631,8 +3776,7 @@ components:
           description: Policy rule priority.
           example: 1000
         expected_action:
-          type: string
-          enum: [lookup, unreachable, blackhole]
+          $ref: "#/components/schemas/PolicyRuleCheckExpectedAction"
           description: Expected terminal or lookup RPDB action.
         rule_present_v4:
           type: boolean
@@ -3648,21 +3792,24 @@ components:
           type: string
           description: Human-readable detail. Omitted when empty.
 
+    PolicyRuleCheckExpectedAction:
+      type: string
+      enum: [lookup, unreachable, blackhole]
+      description: Expected terminal or lookup RPDB action.
+
     RoutingHealthResponse:
       type: object
       required: [overall, firewall_backend, firewall, firewall_rules, route_tables, policy_rules]
       properties:
         overall:
-          type: string
-          enum: [ok, degraded, error]
+          $ref: "#/components/schemas/RoutingHealthResponseOverall"
           description: >
             - ok: all checks passed
             - degraded: one or more checks failed
             - error: an exception prevented checks from completing
           example: "ok"
         firewall_backend:
-          type: string
-          enum: [iptables, nftables]
+          $ref: "#/components/schemas/RoutingHealthResponseFirewallBackend"
           description: Active firewall backend.
           example: "nftables"
         firewall:
@@ -3686,6 +3833,15 @@ components:
             rp_filter on balance WANs). They never affect `overall`.
           items:
             $ref: "#/components/schemas/RoutingHealthWarning"
+
+    RoutingHealthResponseOverall:
+      type: string
+      enum: [ok, degraded, error]
+
+    RoutingHealthResponseFirewallBackend:
+      type: string
+      enum: [iptables, nftables]
+      description: Active firewall backend.
 
     RoutingHealthWarning:
       type: object
@@ -3745,8 +3901,7 @@ components:
           description: Stable identifier of the issue.
           example: "outbound-vpn"
         severity:
-          type: string
-          enum: [error, warning]
+          $ref: "#/components/schemas/HealthIssueSeverity"
         code:
           $ref: "#/components/schemas/HealthIssueCode"
         params:
@@ -3773,6 +3928,10 @@ components:
         outbound:
           type: string
           description: Outbound tag the issue is about.
+
+    HealthIssueSeverity:
+      type: string
+      enum: [error, warning]
 
     HealthIssueCode:
       type: string
@@ -3848,10 +4007,13 @@ components:
       required: [overall, error]
       properties:
         overall:
-          type: string
-          enum: [error]
+          $ref: "#/components/schemas/RoutingHealthErrorResponseOverall"
           example: "error"
         error:
           type: string
           description: Exception message.
           example: "failed to connect to netlink socket"
+
+    RoutingHealthErrorResponseOverall:
+      type: string
+      enum: [error]

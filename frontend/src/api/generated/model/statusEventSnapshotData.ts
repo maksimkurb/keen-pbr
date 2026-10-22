@@ -13,7 +13,7 @@ import type { RuntimeOutboundsResponse } from './runtimeOutboundsResponse';
 import type { StatusAuthState } from './statusAuthState';
 import type { StatusConfigState } from './statusConfigState';
 
-export type StatusEventSnapshotData = {
+export interface StatusEventSnapshotData {
   service: HealthResponse;
   outbounds: RuntimeOutboundsResponse;
   interfaces: RuntimeInterfaceInventoryResponse;
@@ -21,4 +21,4 @@ export type StatusEventSnapshotData = {
   routing: RoutingHealthResponse;
   auth: StatusAuthState;
   config: StatusConfigState;
-};
+}

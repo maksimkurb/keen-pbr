@@ -26,7 +26,7 @@ api::XtExtensionHealth extension(const std::string& name, bool available,
                                         bool required) {
     api::XtExtensionHealth ext{};
     ext.name = name;
-    ext.kind = api::XtExtensionKind::MATCH;
+    ext.kind = api::XtExtensionHealthKind::MATCH;
     ext.kernel_module = "xt_" + name;
     ext.available = available;
     ext.required = required;
@@ -236,7 +236,7 @@ TEST_CASE("a dead dnsmasq without an error message gets a fixed detail") {
     api::DnsmasqHealth dnsmasq{};
     dnsmasq.mode = api::ResolverIntegrationMode::DNSMASQ;
     dnsmasq.state = api::DnsmasqHealthState::ERROR;
-    dnsmasq.dnsmasq_alive = api::DnsmasqHealthAlive::DEAD;
+    dnsmasq.dnsmasq_alive = api::DnsmasqHealthDnsmasqAlive::DEAD;
     HealthIssueInputs inputs;
     inputs.service_running = true;
     inputs.dnsmasq = &dnsmasq;

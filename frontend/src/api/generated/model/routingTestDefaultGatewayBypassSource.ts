@@ -6,10 +6,6 @@
  * OpenAPI spec version: 3.0.0
  */
 
-/**
- * reserved: a reserved range (loopback, link-local, multicast). route: a route in the main routing table. address: the network of one of the router's interface addresses.
-
- */
 export type RoutingTestDefaultGatewayBypassSource = typeof RoutingTestDefaultGatewayBypassSource[keyof typeof RoutingTestDefaultGatewayBypassSource];
 
 

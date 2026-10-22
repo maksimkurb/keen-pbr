@@ -251,12 +251,12 @@ nlohmann::json test_routing_result_to_json(const TestRoutingResult& result) {
             } else if (!entry.missing_criteria.empty()) {
                 e.undetermined_reason = api::RoutingTestEntryUndeterminedReason::MISSING_CRITERIA;
             }
-            std::vector<api::MissingCriterion> missing;
+            std::vector<api::RoutingTestEntryMissingCriteriaItem> missing;
             for (const auto& field : entry.missing_criteria) {
-                if (field == "src_addr") missing.push_back(api::MissingCriterion::SRC_ADDR);
-                else if (field == "src_port") missing.push_back(api::MissingCriterion::SRC_PORT);
-                else if (field == "proto") missing.push_back(api::MissingCriterion::PROTO);
-                else if (field == "dest_port") missing.push_back(api::MissingCriterion::DEST_PORT);
+                if (field == "src_addr") missing.push_back(api::RoutingTestEntryMissingCriteriaItem::SRC_ADDR);
+                else if (field == "src_port") missing.push_back(api::RoutingTestEntryMissingCriteriaItem::SRC_PORT);
+                else if (field == "proto") missing.push_back(api::RoutingTestEntryMissingCriteriaItem::PROTO);
+                else if (field == "dest_port") missing.push_back(api::RoutingTestEntryMissingCriteriaItem::DEST_PORT);
             }
             e.missing_criteria = std::move(missing);
         }
@@ -362,12 +362,12 @@ TestRoutingResult test_routing_result_from_json(const nlohmann::json& value) {
         }
         entry.default_gateway_directness =
             item.undetermined_reason == api::RoutingTestEntryUndeterminedReason::DEFAULT_GATEWAY_DIRECTNESS;
-        for (const auto field : item.missing_criteria.value_or(std::vector<api::MissingCriterion>{})) {
+        for (const auto field : item.missing_criteria.value_or(std::vector<api::RoutingTestEntryMissingCriteriaItem>{})) {
             switch (field) {
-            case api::MissingCriterion::SRC_ADDR: entry.missing_criteria.emplace_back("src_addr"); break;
-            case api::MissingCriterion::SRC_PORT: entry.missing_criteria.emplace_back("src_port"); break;
-            case api::MissingCriterion::PROTO: entry.missing_criteria.emplace_back("proto"); break;
-            case api::MissingCriterion::DEST_PORT: entry.missing_criteria.emplace_back("dest_port"); break;
+            case api::RoutingTestEntryMissingCriteriaItem::SRC_ADDR: entry.missing_criteria.emplace_back("src_addr"); break;
+            case api::RoutingTestEntryMissingCriteriaItem::SRC_PORT: entry.missing_criteria.emplace_back("src_port"); break;
+            case api::RoutingTestEntryMissingCriteriaItem::PROTO: entry.missing_criteria.emplace_back("proto"); break;
+            case api::RoutingTestEntryMissingCriteriaItem::DEST_PORT: entry.missing_criteria.emplace_back("dest_port"); break;
             }
         }
         if (item.default_gateway) {

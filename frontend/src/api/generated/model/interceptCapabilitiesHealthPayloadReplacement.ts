@@ -6,10 +6,6 @@
  * OpenAPI spec version: 3.0.0
  */
 
-/**
- * Whether the daemon may rewrite queued packets (answer TTL clamping). `unsupported` when the network namespace belongs to a non-initial user namespace, `unknown` when a pre-4.9 kernel cannot tell.
-
- */
 export type InterceptCapabilitiesHealthPayloadReplacement = typeof InterceptCapabilitiesHealthPayloadReplacement[keyof typeof InterceptCapabilitiesHealthPayloadReplacement];
 
 
