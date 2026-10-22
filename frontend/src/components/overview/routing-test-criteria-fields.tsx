@@ -39,8 +39,10 @@ export function RoutingTestCriteriaFields({
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  // A fresh object per request, so asking for the same field again re-runs
+  // the focus effect.
   const [target, setTarget] = useState<{ field: RoutingTestField } | null>(null)
-  const [highlight, setHighlight] = useState<RoutingTestField | null>(null)
+  const highlight = target?.field ?? null
   useEffect(
     () =>
       onRoutingTestFocusField((field) => {
@@ -55,14 +57,11 @@ export function RoutingTestCriteriaFields({
     const element = document.getElementById(
       ROUTING_TEST_FIELD_IDS[target.field]
     )
-    if (!element) return
-    element.focus({ preventScroll: true })
-    element.scrollIntoView({ block: "center", behavior: "smooth" })
-    setHighlight(target.field)
-    setTarget(null)
-    const timer = window.setTimeout(() => setHighlight(null), 2500)
+    element?.focus({ preventScroll: true })
+    element?.scrollIntoView({ block: "center", behavior: "smooth" })
+    const timer = window.setTimeout(() => setTarget(null), 2500)
     return () => window.clearTimeout(timer)
-  }, [target, open])
+  }, [target])
   const set = (key: keyof RoutingTestCriteria, next: string) =>
     onChange({ ...value, [key]: next })
   const protocols = [
