@@ -1132,3 +1132,89 @@ TEST_CASE("populate_routing_state: balance test group keeps its stable mark for 
     }));
 }
 #endif
+
+TEST_CASE("interface outbound with auto gateways is reachable through a single family") {
+    auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
+        "outbounds":[{"tag":"wwan","type":"interface","interface":"lo",
+                      "gateway":"auto","gateway6":"auto"}]
+    })");
+    const auto& outbound = cfg.outbounds->front();
+    DumpedRoute v4_default;
+    v4_default.destination = "default";
+    v4_default.table = 254;
+    v4_default.family = AF_INET;
+    v4_default.interface = "lo";
+    v4_default.gateway = "192.0.2.1";
+    v4_default.metric = 10;
+    v4_default.nexthop_count = 1;
+
+    CHECK(is_interface_outbound_reachable(outbound, {v4_default}));
+    CHECK_FALSE(is_interface_outbound_reachable(outbound, {}));
+
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+    NetlinkManager netlink;
+    RouteTable routes(netlink, true);
+    PolicyRuleManager rules(netlink, true);
+    const std::vector<DumpedRoute> main_routes{v4_default};
+    populate_routing_state(
+        cfg, marks, routes, rules,
+        [&main_routes](const Outbound& ob) {
+            return is_interface_outbound_reachable(ob, main_routes);
+        },
+        nullptr, true, {}, &main_routes);
+
+    const auto v4 = std::find_if(routes.get_routes().begin(), routes.get_routes().end(),
+                                 [](const RouteSpec& r) {
+                                     return r.table == 100 && r.family == AF_INET &&
+                                            !r.unreachable && r.gateway == "192.0.2.1";
+                                 });
+    CHECK(v4 != routes.get_routes().end());
+    const auto v6_closure = std::find_if(routes.get_routes().begin(), routes.get_routes().end(),
+                                         [](const RouteSpec& r) {
+                                             return r.table == 100 && r.family == AF_INET6 &&
+                                                    r.unreachable;
+                                         });
+    CHECK(v6_closure != routes.get_routes().end());
+}
+
+TEST_CASE("populate_routing_state: test group selects a child reachable through one family") {
+    auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
+        "outbounds":[
+            {"tag":"wwan","type":"interface","interface":"lo",
+             "gateway":"auto","gateway6":"auto"},
+            {"tag":"lb","type":"urltest","url":"http://example.com",
+             "outbound_groups":[{"weight":1,"outbounds":["wwan"]}]}
+        ]
+    })");
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+    DumpedRoute v4_default;
+    v4_default.destination = "default";
+    v4_default.table = 254;
+    v4_default.family = AF_INET;
+    v4_default.interface = "lo";
+    v4_default.gateway = "192.0.2.1";
+    v4_default.metric = 10;
+    v4_default.nexthop_count = 1;
+    const std::vector<DumpedRoute> main_routes{v4_default};
+    std::map<std::string, std::string> selections{{"lb", "wwan"}};
+
+    NetlinkManager netlink;
+    RouteTable routes(netlink, true);
+    PolicyRuleManager rules(netlink, true);
+    populate_routing_state(
+        cfg, marks, routes, rules,
+        [&main_routes](const Outbound& ob) {
+            return is_interface_outbound_reachable(ob, main_routes);
+        },
+        &selections, true, {}, &main_routes);
+
+    CHECK(std::any_of(rules.get_rules().begin(), rules.get_rules().end(),
+                      [&](const RuleSpec& rule) {
+                          return rule.fwmark == marks.at("lb") &&
+                                 rule.action == RuleAction::lookup && rule.table == 100;
+                      }));
+}

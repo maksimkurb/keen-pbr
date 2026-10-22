@@ -616,7 +616,10 @@ bool is_interface_outbound_reachable(
         return true;
     }
 
-    return is_interface_outbound_family_reachable(outbound, AF_INET, routes) &&
+    // One usable family is enough: routes are installed per family, and the
+    // missing family is closed with an unreachable default in the outbound's
+    // table so it cannot leak to the main table.
+    return is_interface_outbound_family_reachable(outbound, AF_INET, routes) ||
            is_interface_outbound_family_reachable(outbound, AF_INET6, routes);
 }
 
