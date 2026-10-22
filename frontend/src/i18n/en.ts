@@ -702,6 +702,20 @@ export const enTranslation = {
         systemRule: "No rule matched. The system route is used.",
         unknownRule:
           "There is not enough information to select a rule reliably.",
+        undetermined: {
+          fieldName: "“{{name}}”",
+          fillFields_one: "Fill in the <fields/> field to pin down the rule.",
+          fillFields_other:
+            "Fill in the <fields/> fields to pin down the rule.",
+          ruleChecks_one:
+            "Rule #{{rule}} (→ {{outbound}}) checks <fields/>. Until that field is filled in, there is no telling whether the traffic matches it.",
+          ruleChecks_other:
+            "Rule #{{rule}} (→ {{outbound}}) checks <fields/>. Until those fields are filled in, there is no telling whether the traffic matches it.",
+          gateway:
+            "Rule #{{rule}} (→ {{outbound}}) applies to traffic that goes through the default gateway. This check cannot tell whether the address is directly connected.",
+          gatewayAdvice:
+            "No field in the form can settle this, so the rule choice stays unknown.",
+        },
         firewall: "Firewall check",
         configuredPath: "Current path of the expected outbound",
         expectedSetMissing: "The IP is not in this rule’s ipset.",

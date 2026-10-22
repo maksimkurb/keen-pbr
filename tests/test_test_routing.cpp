@@ -546,6 +546,54 @@ TEST_CASE("compute_test_routing reports unknown when packet criteria are incompl
     std::filesystem::remove_all(temp_dir);
 }
 
+TEST_CASE("compute_test_routing names the rule and fields that block a decision") {
+    ScopedIpv6Capabilities ipv6_capabilities;
+    const auto temp_dir = make_temp_dir();
+    CacheManager cache(temp_dir / "cache");
+    cache.ensure_dir();
+
+    ScopedDomainResolver resolver({"10.0.0.53"});
+    Config config = build_test_config();
+    const auto domain_list_path = temp_dir / "ya-domains.txt";
+    {
+        std::ofstream list(domain_list_path);
+        list << "ya.ru\n";
+    }
+    ListConfig domains;
+    domains.file = domain_list_path.string();
+    config.lists = std::map<std::string, ListConfig>{{"ya", domains}};
+    RouteRule source_rule;
+    source_rule.outbound = "direct";
+    source_rule.src_addr = "1.2.3.4";
+    RouteRule list_rule;
+    list_rule.outbound = "vpn";
+    list_rule.list = std::vector<std::string>{"ya"};
+    RouteConfig route;
+    route.rules = std::vector<RouteRule>{source_rule, list_rule};
+    config.route = route;
+
+    TestRoutingCriteria packet;
+    packet.proto = "tcp";
+    packet.dest_port = 443;
+    const auto blocked = compute_test_routing(config, cache, "ya.ru", packet);
+    REQUIRE_FALSE(blocked.entries.empty());
+    const auto& entry = blocked.entries.front();
+    CHECK(entry.expected_outbound == "(unknown)");
+    CHECK(entry.undetermined_rule_index == 0);
+    CHECK(entry.missing_criteria == std::vector<std::string>{"src_addr"});
+    CHECK_FALSE(entry.default_gateway_directness);
+
+    packet.src_addr = "10.0.0.1";
+    const auto resolved = compute_test_routing(config, cache, "ya.ru", packet);
+    REQUIRE_FALSE(resolved.entries.empty());
+    CHECK(resolved.entries.front().expected_outbound == "vpn");
+    CHECK(resolved.entries.front().matched_rule_index == 1);
+    CHECK_FALSE(resolved.entries.front().undetermined_rule_index.has_value());
+    CHECK(resolved.entries.front().missing_criteria.empty());
+
+    std::filesystem::remove_all(temp_dir);
+}
+
 TEST_CASE("compute_test_routing keeps no-list and default-gateway actual state honest") {
     ScopedIpv6Capabilities ipv6_capabilities;
     const auto temp_dir = make_temp_dir();

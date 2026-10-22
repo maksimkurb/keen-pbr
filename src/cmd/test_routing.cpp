@@ -430,9 +430,22 @@ bool port_matches_spec(const PortSpec& spec, uint16_t port) {
                        });
 }
 
+// Why a rule's packet criteria could not be evaluated for a request.
+struct UndeterminedCriteria {
+    std::vector<std::string> missing;  // request fields that would resolve it
+    bool default_gateway{false};       // directness cannot be resolved by a field
+
+    void add_missing(const char* field) {
+        if (std::find(missing.begin(), missing.end(), field) == missing.end()) {
+            missing.emplace_back(field);
+        }
+    }
+};
+
 std::optional<bool> match_rule_criteria(const RouteRule& rule,
                                         const std::string& ip,
-                                        const TestRoutingCriteria& packet) {
+                                        const TestRoutingCriteria& packet,
+                                        UndeterminedCriteria* undetermined = nullptr) {
     if (!packet.has_any()) return std::nullopt;
     if (!route_rule_enabled(rule)) return false;
 
@@ -448,12 +461,14 @@ std::optional<bool> match_rule_criteria(const RouteRule& rule,
         // Directness depends on the current main-table route and cannot be
         // established from a synthetic packet alone.
         result = combine_match(result, std::nullopt);
+        if (undetermined != nullptr) undetermined->default_gateway = true;
     }
 
     if (criteria.proto != L4Proto::Any || !criteria.src_port.empty() ||
         !criteria.dst_port.empty()) {
         if (!packet.proto.has_value()) {
             result = combine_match(result, std::nullopt);
+            if (undetermined != nullptr) undetermined->add_missing("proto");
         } else {
             const bool transport = *packet.proto == "tcp" || *packet.proto == "udp";
             bool proto_match = true;
@@ -477,21 +492,30 @@ std::optional<bool> match_rule_criteria(const RouteRule& rule,
 
     const auto match_port = [&](const PortSpec& spec,
                                 bool negate,
-                                const std::optional<uint16_t>& port) -> std::optional<bool> {
+                                const std::optional<uint16_t>& port,
+                                const char* field) -> std::optional<bool> {
         if (spec.empty()) return std::optional<bool>{true};
         if (!packet.proto.has_value() || *packet.proto == "other") {
+            if (!packet.proto.has_value() && undetermined != nullptr) {
+                undetermined->add_missing("proto");
+            }
             return packet.proto.has_value() ? std::optional<bool>{false} : std::nullopt;
         }
-        if (!port.has_value()) return std::optional<bool>{};
+        if (!port.has_value()) {
+            if (undetermined != nullptr) undetermined->add_missing(field);
+            return std::optional<bool>{};
+        }
         const bool matched = port_matches_spec(spec, *port);
         return std::optional<bool>{negate ? !matched : matched};
     };
     result = combine_match(result, match_port(criteria.src_port,
                                                criteria.negate_src_port,
-                                               packet.src_port));
+                                               packet.src_port,
+                                               "src_port"));
     result = combine_match(result, match_port(criteria.dst_port,
                                                criteria.negate_dst_port,
-                                               packet.dest_port));
+                                               packet.dest_port,
+                                               "dest_port"));
 
     if (!criteria.src_addr.empty()) {
         const auto address_match = packet.src_addr.has_value()
@@ -502,6 +526,9 @@ std::optional<bool> match_rule_criteria(const RouteRule& rule,
                              : ip_matches_spec(criteria.src_addr, *packet.src_addr))
                       : false}
             : std::nullopt;
+        if (!packet.src_addr.has_value() && undetermined != nullptr) {
+            undetermined->add_missing("src_addr");
+        }
         result = combine_match(result, address_match);
     }
     if (!criteria.dst_addr.empty()) {
@@ -528,7 +555,22 @@ struct ExpectedRoutingMatch {
     std::optional<ListMatchInfo> list_match;
     std::optional<int> rule_index;
     std::optional<bool> criteria_match;
+    // Set when the decision stopped at a rule that could not be evaluated.
+    std::optional<int> undetermined_rule_index;
+    std::vector<std::string> missing_criteria;
+    bool default_gateway_directness{false};
 };
+
+std::vector<std::string> sorted_missing_criteria(const std::vector<std::string>& missing) {
+    static const char* const kOrder[] = {"src_addr", "src_port", "proto", "dest_port"};
+    std::vector<std::string> out;
+    for (const char* field : kOrder) {
+        if (std::find(missing.begin(), missing.end(), field) != missing.end()) {
+            out.emplace_back(field);
+        }
+    }
+    return out;
+}
 
 ExpectedRoutingMatch find_expected_outbound(const Config& config,
                                             const ListLookupData& lookups,
@@ -546,19 +588,29 @@ ExpectedRoutingMatch find_expected_outbound(const Config& config,
         if (!packet.has_any() && route_rule_lists(rule).empty()) {
             continue;
         }
+        UndeterminedCriteria undetermined;
         const auto criteria_match = packet.has_any()
-            ? match_rule_criteria(rule, ip, packet)
+            ? match_rule_criteria(rule, ip, packet, &undetermined)
             : std::optional<bool>{true};
         if (criteria_match.has_value() && !*criteria_match) {
             continue;
         }
+        const auto unknown_result = [&](std::optional<ListMatchInfo> list_match) {
+            ExpectedRoutingMatch unknown{"(unknown)", std::move(list_match),
+                                         std::nullopt, std::nullopt};
+            unknown.undetermined_rule_index = static_cast<int>(index);
+            unknown.missing_criteria = sorted_missing_criteria(undetermined.missing);
+            unknown.default_gateway_directness =
+                unknown.missing_criteria.empty() && undetermined.default_gateway;
+            return unknown;
+        };
         for (const auto& list_name : route_rule_lists(rule)) {
             if (!lookups.has_list(list_name)) continue;
 
             // IP / CIDR match
             if (!ip.empty() && lookups.ip_sets.at(list_name).contains(ip)) {
                 if (!criteria_match.has_value()) {
-                    return {"(unknown)", ListMatchInfo{list_name, ip}, std::nullopt, std::nullopt};
+                    return unknown_result(ListMatchInfo{list_name, ip});
                 }
                 return {rule.outbound,
                         ListMatchInfo{list_name, ip},
@@ -569,7 +621,7 @@ ExpectedRoutingMatch find_expected_outbound(const Config& config,
             // Domain match
             if (auto via = lookups.domain_match(list_name, domain_cands)) {
                 if (!criteria_match.has_value()) {
-                    return {"(unknown)", ListMatchInfo{list_name, *via}, std::nullopt, std::nullopt};
+                    return unknown_result(ListMatchInfo{list_name, *via});
                 }
                 return {rule.outbound,
                         ListMatchInfo{list_name, *via},
@@ -579,7 +631,7 @@ ExpectedRoutingMatch find_expected_outbound(const Config& config,
         }
         if (!route_rule_lists(rule).empty()) continue;
         if (!criteria_match.has_value()) {
-            return {"(unknown)", std::nullopt, std::nullopt, std::nullopt};
+            return unknown_result(std::nullopt);
         }
         if (criteria_match.has_value() && *criteria_match) {
             return {rule.outbound, std::nullopt, static_cast<int>(index), criteria_match};
@@ -587,6 +639,12 @@ ExpectedRoutingMatch find_expected_outbound(const Config& config,
     }
 
     return {};
+}
+
+void apply_undetermined(TestRoutingEntry& entry, const ExpectedRoutingMatch& expected) {
+    entry.undetermined_rule_index = expected.undetermined_rule_index;
+    entry.missing_criteria = expected.missing_criteria;
+    entry.default_gateway_directness = expected.default_gateway_directness;
 }
 
 std::optional<ListMatchInfo> find_rule_match(const RouteRule& rule,
@@ -818,6 +876,7 @@ TestRoutingResult compute_test_routing(const Config& config,
         entry.list_match = expected.list_match;
         entry.matched_rule_index = expected.rule_index;
         entry.criteria_match = expected.criteria_match;
+        apply_undetermined(entry, expected);
         if (packet.has_any() && entry.expected_outbound == "(default)") {
             entry.criteria_match = false;
         }
@@ -871,6 +930,7 @@ TestRoutingResult compute_test_routing(const Config& config,
         per_ip.entry.list_match = std::move(expected.list_match);
         per_ip.entry.matched_rule_index = expected.rule_index;
         per_ip.entry.criteria_match = expected.criteria_match;
+        apply_undetermined(per_ip.entry, expected);
         if (packet.has_any() && per_ip.entry.expected_outbound == "(default)") {
             per_ip.entry.criteria_match = false;
         }

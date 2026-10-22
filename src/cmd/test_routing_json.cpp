@@ -168,6 +168,22 @@ nlohmann::json test_routing_result_to_json(const TestRoutingResult& result) {
         e.actual_outbound   = entry.actual_outbound;
         e.matched_rule_index = entry.matched_rule_index;
         e.criteria_match = entry.criteria_match;
+        if (entry.undetermined_rule_index) {
+            e.undetermined_rule_index = *entry.undetermined_rule_index;
+            if (entry.default_gateway_directness) {
+                e.undetermined_reason = api::UndeterminedReason::DEFAULT_GATEWAY_DIRECTNESS;
+            } else if (!entry.missing_criteria.empty()) {
+                e.undetermined_reason = api::UndeterminedReason::MISSING_CRITERIA;
+            }
+            std::vector<api::MissingCriterion> missing;
+            for (const auto& field : entry.missing_criteria) {
+                if (field == "src_addr") missing.push_back(api::MissingCriterion::SRC_ADDR);
+                else if (field == "src_port") missing.push_back(api::MissingCriterion::SRC_PORT);
+                else if (field == "proto") missing.push_back(api::MissingCriterion::PROTO);
+                else if (field == "dest_port") missing.push_back(api::MissingCriterion::DEST_PORT);
+            }
+            e.missing_criteria = std::move(missing);
+        }
         e.ok                = entry.ok;
         if (entry.list_match) {
             e.list_match = list_match_to_api(*entry.list_match);
@@ -259,6 +275,19 @@ TestRoutingResult test_routing_result_from_json(const nlohmann::json& value) {
             ? std::optional<int>(static_cast<int>(*item.matched_rule_index))
             : std::nullopt;
         entry.criteria_match = item.criteria_match;
+        if (item.undetermined_rule_index) {
+            entry.undetermined_rule_index = static_cast<int>(*item.undetermined_rule_index);
+        }
+        entry.default_gateway_directness =
+            item.undetermined_reason == api::UndeterminedReason::DEFAULT_GATEWAY_DIRECTNESS;
+        for (const auto field : item.missing_criteria.value_or(std::vector<api::MissingCriterion>{})) {
+            switch (field) {
+            case api::MissingCriterion::SRC_ADDR: entry.missing_criteria.emplace_back("src_addr"); break;
+            case api::MissingCriterion::SRC_PORT: entry.missing_criteria.emplace_back("src_port"); break;
+            case api::MissingCriterion::PROTO: entry.missing_criteria.emplace_back("proto"); break;
+            case api::MissingCriterion::DEST_PORT: entry.missing_criteria.emplace_back("dest_port"); break;
+            }
+        }
         if (item.list_match) {
             entry.list_match = list_match_from_api(*item.list_match);
         }

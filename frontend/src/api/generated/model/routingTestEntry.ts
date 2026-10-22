@@ -5,6 +5,8 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { RoutingTestEntryMissingCriteriaItem } from './routingTestEntryMissingCriteriaItem';
+import type { RoutingTestEntryUndeterminedReason } from './routingTestEntryUndeterminedReason';
 import type { RoutingTestListMatch } from './routingTestListMatch';
 
 export interface RoutingTestEntry {
@@ -26,6 +28,18 @@ export interface RoutingTestEntry {
   matched_rule_index?: number;
   /** Whether packet criteria matched the selected rule; null when omitted or unknown. */
   criteria_match?: boolean | null;
+  /**
+     * Index of the route rule at which the decision stopped because its packet criteria could not be evaluated. Present only when expected_outbound is "(unknown)" for that reason.
+
+     * @minimum 0
+     */
+  undetermined_rule_index?: number;
+  /** Why undetermined_rule_index could not be evaluated. missing_criteria: filling the fields listed in missing_criteria would let the rule be evaluated. default_gateway_directness: the rule depends on whether the address is directly connected, which no request field can resolve.
+   */
+  undetermined_reason?: RoutingTestEntryUndeterminedReason;
+  /** Request fields that, if filled, would let the rule at undetermined_rule_index be evaluated. DSCP is never listed because an absent DSCP is treated as 0.
+   */
+  missing_criteria?: RoutingTestEntryMissingCriteriaItem[];
   /** true when expected_outbound equals actual_outbound and neither side is unknown. */
   ok: boolean;
 }

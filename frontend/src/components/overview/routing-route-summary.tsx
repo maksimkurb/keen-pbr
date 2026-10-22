@@ -21,6 +21,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import {
+  focusRoutingTestField,
+  type RoutingTestField,
+} from "./routing-test-focus"
+import {
   getExpectedRoutingRule,
   getRuleConditions,
   getRoutingDiagnosticIssue,
@@ -110,6 +114,46 @@ function IpResultsLabel({
   )
 }
 
+const FIELD_LABEL_KEYS: Record<RoutingTestField, string> = {
+  src_addr: "overview.routingDiagnostics.conditions.sourceIp",
+  src_port: "pages.routingRuleUpsert.fields.sourcePort",
+  proto: "overview.routingTest.protocol",
+  dest_port: "overview.routingTest.port",
+}
+
+/** Request field names as links that reveal and focus the field in the form. */
+function MissingFieldLinks({ fields }: { fields: RoutingTestField[] }) {
+  const { t, i18n } = useTranslation()
+  const names = fields.map((field) =>
+    t("overview.routingDiagnostics.trace.undetermined.fieldName", {
+      name: t(FIELD_LABEL_KEYS[field]),
+    })
+  )
+  const parts = new Intl.ListFormat(i18n.language, {
+    style: "long",
+    type: "conjunction",
+  }).formatToParts(names)
+  return (
+    <>
+      {parts.map((part, index) => {
+        if (part.type === "literal") return part.value
+        const field = fields[names.indexOf(part.value)]
+        return (
+          <button
+            key={index}
+            type="button"
+            data-testid="missing-field-link"
+            className="font-medium text-foreground underline underline-offset-2"
+            onClick={() => focusRoutingTestField(field)}
+          >
+            {part.value}
+          </button>
+        )
+      })}
+    </>
+  )
+}
+
 export function RoutingRouteSummary({
   diagnostics,
   onRefresh,
@@ -128,6 +172,56 @@ export function RoutingRouteSummary({
       : tag === "(unknown)"
         ? t("overview.routingDiagnostics.unknownRoute")
         : tag
+  // Explains why the rule choice stopped at a rule that could not be
+  // evaluated; null for older servers that do not report the rule.
+  const undeterminedDetails = (
+    result: RoutingTestResponse["results"][number]
+  ) => {
+    if (result.undetermined_rule_index === undefined) return null
+    const rule = diagnostics.rule_diagnostics.find(
+      (item) => item.rule_index === result.undetermined_rule_index
+    )
+    const params = {
+      rule: result.undetermined_rule_index + 1,
+      outbound: label(rule?.outbound ?? "(unknown)"),
+    }
+    const fields = (result.missing_criteria ?? []) as RoutingTestField[]
+    if (
+      result.undetermined_reason === "missing_criteria" &&
+      fields.length > 0
+    ) {
+      const components = { fields: <MissingFieldLinks fields={fields} /> }
+      return {
+        key: JSON.stringify([params.rule, fields]),
+        fill: (
+          <Trans
+            i18nKey="overview.routingDiagnostics.trace.undetermined.fillFields"
+            count={fields.length}
+            components={components}
+          />
+        ),
+        explain: (
+          <Trans
+            i18nKey="overview.routingDiagnostics.trace.undetermined.ruleChecks"
+            count={fields.length}
+            values={params}
+            components={components}
+          />
+        ),
+      }
+    }
+    if (result.undetermined_reason === "default_gateway_directness") {
+      return {
+        key: JSON.stringify([params.rule, "gateway"]),
+        fill: t("overview.routingDiagnostics.trace.undetermined.gatewayAdvice"),
+        explain: t(
+          "overview.routingDiagnostics.trace.undetermined.gateway",
+          params
+        ),
+      }
+    }
+    return null
+  }
   const dnsMissing =
     diagnostics.is_domain && diagnostics.resolved_ips.length === 0
   const ipv6Off = diagnostics.ipv6_enabled === false
@@ -157,6 +251,7 @@ export function RoutingRouteSummary({
         rule,
         listMatch,
         issue: getRoutingDiagnosticIssue(diagnostics, result),
+        undetermined: undeterminedDetails(result),
         row: rule?.ip_rows.find((row) => row.ip === result.ip),
       }
     })
@@ -174,6 +269,7 @@ export function RoutingRouteSummary({
     const ruleKey = JSON.stringify([
       entry.rule?.rule_index,
       entry.result.expected_outbound,
+      entry.undetermined?.key,
     ])
     listGroups.set(listKey, [...(listGroups.get(listKey) ?? []), entry])
     ruleGroups.set(ruleKey, [...(ruleGroups.get(ruleKey) ?? []), entry])
@@ -325,7 +421,7 @@ export function RoutingRouteSummary({
       content: (
         <div className="space-y-3">
           {Array.from(ruleGroups.values()).map((group, index) => {
-            const { rule, result } = group[0]
+            const { rule, result, undetermined } = group[0]
             return (
               <div key={index}>
                 {/* Group label on top, like the firewall step's groups. */}
@@ -337,18 +433,25 @@ export function RoutingRouteSummary({
                     />
                   </p>
                 ) : null}
-                <p>
-                  {rule
-                    ? t("overview.routingDiagnostics.trace.selectedRule", {
-                        rule: rule.rule_index + 1,
-                        outbound: label(result.expected_outbound),
-                      })
-                    : t(
-                        result.expected_outbound === "(default)"
-                          ? "overview.routingDiagnostics.trace.systemRule"
-                          : "overview.routingDiagnostics.trace.unknownRule"
-                      )}
-                </p>
+                {undetermined ? (
+                  <div className="space-y-1">
+                    <p>{undetermined.fill}</p>
+                    <p className="text-xs">{undetermined.explain}</p>
+                  </div>
+                ) : (
+                  <p>
+                    {rule
+                      ? t("overview.routingDiagnostics.trace.selectedRule", {
+                          rule: rule.rule_index + 1,
+                          outbound: label(result.expected_outbound),
+                        })
+                      : t(
+                          result.expected_outbound === "(default)"
+                            ? "overview.routingDiagnostics.trace.systemRule"
+                            : "overview.routingDiagnostics.trace.unknownRule"
+                        )}
+                  </p>
+                )}
                 {rule ? (
                   <p className="mt-1 text-xs">
                     {getRuleConditions(rule.rule)
@@ -528,46 +631,55 @@ export function RoutingRouteSummary({
                     />
                   </p>
                 ) : null}
-                <p>
-                  {t(
-                    learnedFromDomain
-                      ? "overview.routingDiagnostics.trace.issues.missing_ipset.reasonDomain"
-                      : `overview.routingDiagnostics.trace.issues.${issue}.reason`
-                  )}
-                </p>
-                {learnedFromDomain ? (
-                  <ol className="list-decimal space-y-1 pl-5">
-                    <li>
+                {issue === "criteria" && group[0].undetermined ? (
+                  <div className="space-y-1">
+                    <p>{group[0].undetermined.explain}</p>
+                    <p>{group[0].undetermined.fill}</p>
+                  </div>
+                ) : (
+                  <>
+                    <p>
                       {t(
-                        "overview.routingDiagnostics.trace.issues.missing_ipset.steps.open"
+                        learnedFromDomain
+                          ? "overview.routingDiagnostics.trace.issues.missing_ipset.reasonDomain"
+                          : `overview.routingDiagnostics.trace.issues.${issue}.reason`
                       )}
-                    </li>
-                    <li>
-                      {t(
-                        "overview.routingDiagnostics.trace.issues.missing_ipset.steps.flush"
-                      )}
-                    </li>
-                    <li>
-                      <Trans
-                        i18nKey="overview.routingDiagnostics.trace.issues.missing_ipset.steps.dns"
-                        components={{
-                          log: (
-                            <Link
-                              className="font-medium text-foreground underline underline-offset-2"
-                              href="/requests-log"
-                            />
-                          ),
-                        }}
-                      />
-                    </li>
-                  </ol>
-                ) : issue !== "other_ipset" ? (
-                  <p>
-                    {t(
-                      `overview.routingDiagnostics.trace.issues.${issue}.advice`
-                    )}
-                  </p>
-                ) : null}
+                    </p>
+                    {learnedFromDomain ? (
+                      <ol className="list-decimal space-y-1 pl-5">
+                        <li>
+                          {t(
+                            "overview.routingDiagnostics.trace.issues.missing_ipset.steps.open"
+                          )}
+                        </li>
+                        <li>
+                          {t(
+                            "overview.routingDiagnostics.trace.issues.missing_ipset.steps.flush"
+                          )}
+                        </li>
+                        <li>
+                          <Trans
+                            i18nKey="overview.routingDiagnostics.trace.issues.missing_ipset.steps.dns"
+                            components={{
+                              log: (
+                                <Link
+                                  className="font-medium text-foreground underline underline-offset-2"
+                                  href="/requests-log"
+                                />
+                              ),
+                            }}
+                          />
+                        </li>
+                      </ol>
+                    ) : issue !== "other_ipset" ? (
+                      <p>
+                        {t(
+                          `overview.routingDiagnostics.trace.issues.${issue}.advice`
+                        )}
+                      </p>
+                    ) : null}
+                  </>
+                )}
               </div>
             )
           })}

@@ -59,6 +59,14 @@ struct TestRoutingEntry {
     // Whether the selected rule's packet criteria matched. null when packet
     // criteria were omitted or the result cannot be determined.
     std::optional<bool> criteria_match;
+    // Set when expected_outbound is "(unknown)" because this rule's packet
+    // criteria could not be evaluated.
+    std::optional<int> undetermined_rule_index;
+    // Request fields (src_addr, src_port, proto, dest_port) that would let
+    // that rule be evaluated.
+    std::vector<std::string> missing_criteria;
+    // True when only default-gateway directness is unknown (no field fixes it).
+    bool default_gateway_directness{false};
 };
 
 struct RuleIpDiagnostic {
