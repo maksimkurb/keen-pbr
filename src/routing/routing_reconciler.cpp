@@ -79,14 +79,22 @@ bool rule_in_namespace(const DumpedRule& rule, const RuleNamespace& ns) {
 void RoutingReconciler::reconcile(const std::vector<RouteSpec>& desired_routes,
                                   const std::vector<RuleSpec>& desired_rules,
                                   const std::vector<RuleSpec>& previous_rules,
-                                  const RuleNamespace& ns) {
-    std::set<uint32_t> tables;
+                                  const RuleNamespace& ns,
+                                  const std::set<uint32_t>& previous_route_tables) {
+    std::set<uint32_t> tables = previous_route_tables;
     for (const auto& route : desired_routes) tables.insert(route.table);
+    const auto in_range = [&ns](uint32_t table) {
+        return ns.fwmask != 0 &&
+               ((table >= ns.table_first && table <= ns.table_last) ||
+                std::find(ns.tables.begin(), ns.tables.end(), table) != ns.tables.end());
+    };
 
+    // One dump covers every inspected table, including a whole table range.
     std::vector<DumpedRoute> actual_routes;
-    for (uint32_t table : tables) {
-        auto routes = netlink_.dump_routes_in_table(table);
-        actual_routes.insert(actual_routes.end(), routes.begin(), routes.end());
+    for (auto& route : netlink_.dump_routes()) {
+        if (tables.count(route.table) != 0 || in_range(route.table)) {
+            actual_routes.push_back(std::move(route));
+        }
     }
 
     // A foreign route with the same lookup identity cannot be safely replaced:
@@ -154,6 +162,12 @@ void RoutingReconciler::reconcile(const std::vector<RouteSpec>& desired_routes,
                                         });
         if (!wanted) {
             netlink_.delete_route(route_spec_from_dump(actual));
+            Logger::instance().info(
+                "Removed stale generated route {} in table {}{}",
+                actual.destination, actual.table,
+                tables.count(actual.table) != 0
+                    ? ""
+                    : ": it lies in keen-pbr's table range");
         }
     }
 

@@ -793,9 +793,7 @@ TestRoutingResult compute_test_routing(const Config& config,
     const bool have_realized_rules = realized_rule_states != nullptr;
     std::vector<RuleState> configured_rule_states;
     if (realized_rule_states == nullptr) {
-        const auto marks = allocate_outbound_marks(
-            config.fwmark.value_or(FwmarkConfig{}),
-            config.outbounds.value_or(std::vector<Outbound>{}));
+        const auto marks = allocate_outbound_marks(config);
         configured_rule_states = build_fw_rule_states(config, marks);
         realized_rule_states = &configured_rule_states;
     }

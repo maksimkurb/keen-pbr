@@ -1657,7 +1657,7 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
 
     if (fwmark_start_valid && fwmark_mask_valid) {
         try {
-            (void)allocate_outbound_marks(fwmark_cfg, outbounds);
+            (void)allocate_outbound_marks(cfg);
         } catch (const ConfigError& e) {
             add_issue(issues, "outbounds", e.what());
         }
@@ -2151,8 +2151,11 @@ Config parse_and_validate_config(const std::string& json_str) {
     return config;
 }
 
-OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
-                                         const std::vector<Outbound>& outbounds) {
+namespace {
+
+OutboundMarkMap allocate_marks(const FwmarkConfig& fwmark_cfg,
+                               const std::vector<Outbound>& outbounds,
+                               const std::set<std::string>& probe_tags) {
     uint32_t mask  = parse_fwmark_mask_or_throw(fwmark_cfg);
     uint32_t start = parse_fwmark_start_or_throw(fwmark_cfg);
 
@@ -2182,7 +2185,9 @@ OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
     for (const Outbound* outbound : routable) {
         const auto& ob = *outbound;
 
-        if (count + 2 > max_marks) {
+        const bool probed = probe_tags.count(ob.tag) != 0;
+        const uint32_t needed = probed ? 3 : 2;
+        if (count + needed > max_marks) {
             throw ConfigError(
                 "Too many routable outbounds: maximum " + std::to_string(max_marks) +
                 " supported with current fwmark.mask");
@@ -2192,10 +2197,77 @@ OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
         current_mark += step;
         mark_map[internal_detour_mark_key(ob.tag)] = current_mark;
         current_mark += step;
-        count += 2;
+        if (probed) {
+            mark_map[probe_mark_key(ob.tag)] = current_mark;
+            current_mark += step;
+        }
+        count += needed;
     }
 
     return mark_map;
+}
+
+} // namespace
+
+OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
+                                         const std::vector<Outbound>& outbounds) {
+    return allocate_marks(fwmark_cfg, outbounds, {});
+}
+
+OutboundMarkMap allocate_outbound_marks(const Config& config) {
+    const auto outbounds = config.outbounds.value_or(std::vector<Outbound>{});
+    std::set<std::string> balance_candidates;
+    for (const auto& ob : outbounds) {
+        if (!outbound_uses_balance(ob)) continue;
+        for (const auto& group : ob.outbound_groups.value_or(std::vector<OutboundGroup>{})) {
+            for (const auto& tag : outbound_group_tags(group)) balance_candidates.insert(tag);
+        }
+    }
+    // A child with a terminal guard is probed with its own mark; any other
+    // child needs a mark that carries the guard, so a probe never falls
+    // through to the main table or a stale route.
+    std::set<std::string> probe_tags;
+    for (const auto& ob : outbounds) {
+        if (ob.type != OutboundType::URLTEST && ob.type != OutboundType::ICMPTEST) continue;
+        for (const auto& group : ob.outbound_groups.value_or(std::vector<OutboundGroup>{})) {
+            for (const auto& tag : outbound_group_tags(group)) {
+                const auto child = std::find_if(
+                    outbounds.begin(), outbounds.end(),
+                    [&tag](const Outbound& candidate) { return candidate.tag == tag; });
+                if (child == outbounds.end() ||
+                    (child->type != OutboundType::INTERFACE &&
+                     child->type != OutboundType::TABLE)) {
+                    continue;
+                }
+                if (strict_enforcement_enabled(config, *child) ||
+                    balance_candidates.count(tag) != 0) {
+                    continue;
+                }
+                probe_tags.insert(tag);
+            }
+        }
+    }
+    return allocate_marks(config.fwmark.value_or(FwmarkConfig{}), outbounds, probe_tags);
+}
+
+std::optional<uint32_t> probe_fwmark(const OutboundMarkMap& marks,
+                                     const std::string& child_tag) {
+    auto it = marks.find(probe_mark_key(child_tag));
+    if (it == marks.end()) it = marks.find(child_tag);
+    if (it == marks.end()) return std::nullopt;
+    return it->second;
+}
+
+bool strict_enforcement_enabled(const Config& config, const Outbound& outbound) {
+    if (outbound.strict_enforcement.has_value()) {
+        return *outbound.strict_enforcement;
+    }
+    return config.daemon.value_or(DaemonConfig{}).strict_enforcement.value_or(
+        config_defaults::strict_enforcement);
+}
+
+std::string probe_mark_key(const std::string& outbound_tag) {
+    return "__keen_pbr_probe__:" + outbound_tag;
 }
 
 std::string internal_detour_mark_key(const std::string& outbound_tag) {

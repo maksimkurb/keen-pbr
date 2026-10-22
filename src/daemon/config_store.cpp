@@ -8,9 +8,7 @@ namespace keen_pbr3 {
 
 ConfigStore::ConfigStore(Config active_config)
     : active_config_(std::move(active_config))
-    , active_outbound_marks_(allocate_outbound_marks(
-          active_config_.fwmark.value_or(FwmarkConfig{}),
-          active_config_.outbounds.value_or(std::vector<Outbound>{})))
+    , active_outbound_marks_(allocate_outbound_marks(active_config_))
     , revision_(static_cast<std::uint64_t>(
           std::chrono::duration_cast<std::chrono::seconds>(
               std::chrono::system_clock::now().time_since_epoch()).count())) {}

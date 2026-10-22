@@ -76,6 +76,16 @@ void Daemon::stop_routing_runtime() {
     Logger::instance().info("Routing runtime stopped.");
 }
 
+void Daemon::remove_applied_routes() {
+    if (applied_route_tables_.empty()) return;
+    try {
+        RoutingReconciler(netlink_).reconcile({}, {}, {}, {}, applied_route_tables_);
+        applied_route_tables_.clear();
+    } catch (const std::exception& e) {
+        Logger::instance().error("Failed to remove generated routes: {}", e.what());
+    }
+}
+
 void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
     auto& log = Logger::instance();
     if (!routing_runtime_active_) {
@@ -109,6 +119,7 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
     }
     policy_rules_.clear();
     route_table_.clear();
+    remove_applied_routes();
     firewall_->cleanup();
     // The rules are gone; only now unbind so no queued packet is dropped.
     stop_intercept_service();
@@ -265,22 +276,32 @@ void Daemon::reconcile_static_routing(
 
     // Inspect the kernel on every apply so a restarted daemon adopts intact
     // state and only removes objects with a verifiable ownership marker.
-    // Rules applied earlier by this process are removed by exact match, even
-    // when fwmark or iproute settings changed. Before the first successful
-    // apply there is no such record, so rules that fit the configured rule
+    // Rules and route tables applied earlier by this process are cleaned by
+    // exact match, even when fwmark or iproute settings changed or a table
+    // lost all its routes. Before the first successful apply there is no such
+    // record, so rules and generated routes that fit the configured
     // namespace are taken as leftovers of an earlier run.
     const auto& wanted_rules = desired_rules.get_rules();
+    for (const auto& route : desired_routes.get_routes()) {
+        applied_route_tables_.insert(route.table);
+    }
     if (applied_policy_rules_) {
-        // Rules added by a failed apply must stay tracked for the next one.
+        // Objects added by a failed apply must stay tracked for the next one.
         applied_policy_rules_->insert(applied_policy_rules_->end(),
                                       wanted_rules.begin(), wanted_rules.end());
         RoutingReconciler(netlink_).reconcile(desired_routes.get_routes(), wanted_rules,
-                                              *applied_policy_rules_);
+                                              *applied_policy_rules_, {},
+                                              applied_route_tables_);
     } else {
         RoutingReconciler(netlink_).reconcile(desired_routes.get_routes(), wanted_rules,
-                                              {}, policy_rule_namespace(config_));
+                                              {}, policy_rule_namespace(config_),
+                                              applied_route_tables_);
     }
     applied_policy_rules_ = wanted_rules;
+    applied_route_tables_.clear();
+    for (const auto& route : desired_routes.get_routes()) {
+        applied_route_tables_.insert(route.table);
+    }
     route_table_.adopt_desired(desired_routes.get_routes());
     policy_rules_.adopt_desired(desired_rules.get_rules());
 }
@@ -1335,9 +1356,7 @@ PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config) {
 
     PreparedRuntimeInputs prepared;
     prepared.config = config;
-    prepared.outbound_marks = allocate_outbound_marks(
-        config.fwmark.value_or(FwmarkConfig{}),
-        config.outbounds.value_or(std::vector<Outbound>{}));
+    prepared.outbound_marks = allocate_outbound_marks(config);
 
     // Remote lists are not downloaded here: the routes of a new detour do not
     // exist yet, so a download now would bypass it or deadlock the apply. The

@@ -69,13 +69,6 @@ bool route_matches_outbound(const DumpedRoute& route, const Outbound& outbound) 
     return !route.gateway.has_value();
 }
 
-bool strict_enforcement_enabled(const Config& cfg, const Outbound& ob) {
-    if (ob.strict_enforcement.has_value()) {
-        return *ob.strict_enforcement;
-    }
-    return cfg.daemon.value_or(DaemonConfig{}).strict_enforcement.value_or(config_defaults::strict_enforcement);
-}
-
 RuleAction strict_enforcement_action(const Config& cfg, const Outbound& ob) {
     const auto configured = ob.strict_enforcement_action.has_value()
         ? ob.strict_enforcement_action
@@ -487,6 +480,14 @@ void populate_routing_state(const Config& cfg,
         }
         ++rule_offset;
     };
+    // A probe mark exists only for a child without a terminal guard of its
+    // own; it looks up the child's table and fails closed like a strict child.
+    auto add_probe_guard = [&](uint32_t table, const Outbound& ob) {
+        const auto mark = marks.find(probe_mark_key(ob.tag));
+        if (mark != marks.end()) {
+            add_lookup_and_guard(mark->second, table, ob, true);
+        }
+    };
     auto add_internal_detour_guard = [&](uint32_t table, const Outbound& ob) {
         const auto mark = marks.find(internal_detour_mark_key(ob.tag));
         if (mark != marks.end() && internal_detours.count(ob.tag) != 0) {
@@ -548,6 +549,7 @@ void populate_routing_state(const Config& cfg,
 
             add_lookup_and_guard(mark_it->second, table_id, ob, strict);
             add_internal_detour_guard(table_id, ob);
+            add_probe_guard(table_id, ob);
         } else if (ob.type == OutboundType::TABLE) {
             auto mark_it = marks.find(ob.tag);
             if (mark_it == marks.end()) continue;
@@ -557,6 +559,7 @@ void populate_routing_state(const Config& cfg,
             const uint32_t table_id = outbound_tables.at(ob.tag);
             add_lookup_and_guard(mark_it->second, table_id, ob, strict);
             add_internal_detour_guard(table_id, ob);
+            add_probe_guard(table_id, ob);
         } else if (ob.type == OutboundType::URLTEST || ob.type == OutboundType::ICMPTEST) {
             auto mark_it = marks.find(ob.tag);
             if (mark_it == marks.end()) continue;
@@ -616,7 +619,10 @@ bool is_interface_outbound_reachable(
         return true;
     }
 
-    return is_interface_outbound_family_reachable(outbound, AF_INET, routes) &&
+    // One usable family is enough: routes are installed per family, and the
+    // missing family is closed with an unreachable default in the outbound's
+    // table so it cannot leak to the main table.
+    return is_interface_outbound_family_reachable(outbound, AF_INET, routes) ||
            is_interface_outbound_family_reachable(outbound, AF_INET6, routes);
 }
 

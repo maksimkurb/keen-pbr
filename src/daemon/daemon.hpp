@@ -325,6 +325,8 @@ private:
   prepare_runtime_inputs(const Config &config);
   void reload_from_disk();
   void teardown_routing_and_firewall(bool explicit_stop);
+  // Removes the generated routes from every table this process applied.
+  void remove_applied_routes();
   void setup_routing_and_firewall();
   void reconcile_prepared_runtime(PreparedRuntimeInputs prepared);
   void complete_running_runtime(const char *reason, bool defer_dnsmasq_sync = false);
@@ -514,6 +516,10 @@ private:
   // superset while an apply is in flight). Unset until the first successful
   // apply, which claims leftovers of earlier runs by the rule namespace.
   std::optional<std::vector<RuleSpec>> applied_policy_rules_;
+  // The route tables this process applied generated routes into, with the
+  // same lifecycle as applied_policy_rules_. A table whose desired routes
+  // disappear stays inspected, so its stale generated routes are removed.
+  std::set<uint32_t> applied_route_tables_;
   FirewallState firewall_state_;
   ConntrackManager conntrack_manager_;
   std::optional<ControlGenerationSnapshot> generation_snapshot_;

@@ -4,6 +4,7 @@
 #include "../src/config/routing_state.hpp"
 #include "../src/health/host_health_warnings.hpp"
 #include "../src/routing/routing_reconciler.hpp"
+#include "../src/routing/urltest_manager.hpp"
 
 #include <algorithm>
 #include <netinet/in.h>
@@ -41,6 +42,7 @@ public:
         rules.erase(it);
     }
     std::vector<DumpedRoute> dump_routes_in_table(uint32_t, int = 0) override { return {}; }
+    std::vector<DumpedRoute> dump_routes(int = 0) override { return {}; }
     std::vector<DumpedRule> dump_policy_rules(int = 0) override { return rules; }
 
     std::vector<DumpedRule> rules;
@@ -70,9 +72,28 @@ Config reload_config(bool with_group, bool work_strict,
     return cfg;
 }
 
+// Non-strict test group; `extra` adds a leading interface that shifts the marks
+// of everything after it, and `warp_strict` makes the group child strict.
+Config probe_config(bool extra, bool warp_strict = false) {
+    std::string outbounds =
+        R"({"tag":"warp","type":"interface","interface":"wg_cf","strict_enforcement":)" +
+        std::string(warp_strict ? "true" : "false") + "},"
+        R"({"tag":"wan","type":"interface","interface":"eth1","strict_enforcement":false},)"
+        R"({"tag":"auto","type":"urltest","url":"http://example.com",)"
+        R"("outbound_groups":[{"weight":1,"outbounds":["warp","wan"]}]})";
+    if (extra) outbounds += R"(,{"tag":"aaa","type":"interface","interface":"wg_x"})";
+    Config cfg = parse_config(R"({
+        "fwmark":{"start":"0x00010000","mask":"0x00FF0000"},
+        "iproute":{"table_start":401},
+        "daemon":{"strict_enforcement":false},
+        "outbounds":[)" + outbounds + R"(]
+    })");
+    validate_config(cfg);
+    return cfg;
+}
+
 std::vector<RuleSpec> planned_rules(const Config& cfg) {
-    const auto marks = allocate_outbound_marks(
-        cfg.fwmark.value_or(FwmarkConfig{}), cfg.outbounds.value_or(std::vector<Outbound>{}));
+    const auto marks = allocate_outbound_marks(cfg);
     KernelRules unused;
     RouteTable routes(unused, true);
     PolicyRuleManager rules(unused, true);
@@ -215,6 +236,88 @@ TEST_CASE("policy_rule_namespace covers the configured allocation") {
     for (const auto& rule : expanded(planned_rules(cfg))) {
         CHECK(rule_in_namespace(rule, ns));
     }
+}
+
+TEST_CASE("probe marks: a non-strict group child gets a probe mark with lookup and guard") {
+    const auto cfg = probe_config(false);
+    const auto marks = allocate_outbound_marks(cfg);
+    const auto rules = planned_rules(cfg);
+    for (const char* tag : {"warp", "wan"}) {
+        const auto probe = marks.find(probe_mark_key(tag));
+        REQUIRE(probe != marks.end());
+        CHECK(probe->second != marks.at(tag));
+        const auto lookup = std::find_if(rules.begin(), rules.end(), [&](const RuleSpec& r) {
+            return r.fwmark == probe->second && r.action == RuleAction::lookup;
+        });
+        const auto guard = std::find_if(rules.begin(), rules.end(), [&](const RuleSpec& r) {
+            return r.fwmark == probe->second && r.action == RuleAction::unreachable;
+        });
+        REQUIRE(lookup != rules.end());
+        REQUIRE(guard != rules.end());
+        CHECK(guard->priority == lookup->priority + 1);
+        CHECK(lookup->family == 0);
+        // The child's own mark is still a plain, non-strict lookup.
+        const auto own_guard = std::find_if(rules.begin(), rules.end(), [&](const RuleSpec& r) {
+            return r.fwmark == marks.at(tag) && r.action != RuleAction::lookup;
+        });
+        CHECK(own_guard == rules.end());
+    }
+    CHECK(probe_fwmark(marks, "warp") == marks.at(probe_mark_key("warp")));
+}
+
+TEST_CASE("probe marks: a strict child or balance candidate is probed with its own mark") {
+    {
+        const auto cfg = probe_config(false, true);
+        const auto marks = allocate_outbound_marks(cfg);
+        CHECK(marks.count(probe_mark_key("warp")) == 0);
+        CHECK(probe_fwmark(marks, "warp") == marks.at("warp"));
+        CHECK(marks.count(probe_mark_key("wan")) == 1);
+        const auto rules = planned_rules(cfg);
+        CHECK(std::count_if(rules.begin(), rules.end(), [&](const RuleSpec& r) {
+                  return r.fwmark == marks.at("warp");
+              }) == 2);  // lookup + guard of its own mark, nothing more
+    }
+    {
+        Config cfg = probe_config(false);
+        auto& outbounds = *cfg.outbounds;
+        outbounds[2].strategy = api::Strategy::BALANCE;
+        const auto marks = allocate_outbound_marks(cfg);
+        CHECK(marks.count(probe_mark_key("warp")) == 0);
+        CHECK(marks.count(probe_mark_key("wan")) == 0);
+    }
+}
+
+TEST_CASE("probe marks: ipv6 disabled limits the probe rules to IPv4") {
+    const auto cfg = probe_config(false);
+    const auto marks = allocate_outbound_marks(cfg);
+    KernelRules unused;
+    RouteTable routes(unused, true);
+    PolicyRuleManager rules(unused, true);
+    populate_routing_state(cfg, marks, routes, rules, [](const Outbound&) { return true; },
+                           nullptr, false);
+    const auto probe = marks.at(probe_mark_key("warp"));
+    for (const auto& rule : rules.get_rules()) {
+        if (rule.fwmark == probe) CHECK(rule.family == AF_INET);
+    }
+}
+
+TEST_CASE("probe marks: a reload that shifts marks removes the old probe rules") {
+    const auto before = probe_config(false);
+    const auto after = probe_config(true);
+    REQUIRE(allocate_outbound_marks(before).at(probe_mark_key("warp")) !=
+            allocate_outbound_marks(after).at(probe_mark_key("warp")));
+    SUBCASE("hot reload") { check_reload(before, after, true); }
+    SUBCASE("restart without the previous generation") { check_reload(before, after, false); }
+}
+
+TEST_CASE("probe marks: the probe rules are in the namespace and raise no health warnings") {
+    const auto cfg = probe_config(true);
+    const auto rules = planned_rules(cfg);
+    const auto ns = policy_rule_namespace(cfg);
+    const auto kernel = expanded(rules);
+    for (const auto& rule : kernel) CHECK(rule_in_namespace(rule, ns));
+    CHECK(evaluate_stale_policy_rule_warnings(kernel, rules, ns).empty());
+    CHECK(evaluate_fwmark_conflict_warnings({}, kernel, rules, ns.fwmask, ns).empty());
 }
 
 } // namespace keen_pbr3
