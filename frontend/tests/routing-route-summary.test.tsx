@@ -432,3 +432,72 @@ test("a literal IPv6 target with IPv6 off is explained, not reported as unknown"
   expect(html).toContain('data-testid="ipv6-disabled-note"')
   expect(html).not.toContain("Route problems detected")
 })
+
+test("an unknown rule names the rule and the request fields it needs", () => {
+  const html = render({
+    ...diagnostics,
+    resolved_ips: [result.ip],
+    results: [
+      {
+        ...result,
+        expected_outbound: "(unknown)",
+        actual_outbound: "(unknown)",
+        undetermined_rule_index: 0,
+        undetermined_reason: "missing_criteria",
+        missing_criteria: ["src_addr", "src_port"],
+      },
+    ],
+    rule_diagnostics: [
+      {
+        ...rule,
+        rule_index: 0,
+        outbound: "direct",
+        rule: { outbound: "direct", src_addr: "1.2.3.4" },
+      },
+    ],
+  })
+  const text = stripTags(html)
+  expect(text).toContain("Fill in the “Source IP” and “Source port” fields")
+  expect(text).toContain("Rule #1 (→ direct) checks")
+  expect(html).toContain('data-testid="missing-field-link"')
+  expect(text).not.toContain("Provide source IP, source port and DSCP")
+})
+
+test("default-gateway directness is explained without asking for a field", () => {
+  const text = stripTags(
+    render({
+      ...diagnostics,
+      results: [
+        {
+          ...result,
+          expected_outbound: "(unknown)",
+          actual_outbound: "(unknown)",
+          undetermined_rule_index: 0,
+          undetermined_reason: "default_gateway_directness",
+          missing_criteria: [],
+        },
+      ],
+      rule_diagnostics: [{ ...rule, rule_index: 0 }],
+    })
+  )
+  expect(text).toContain(
+    "cannot tell whether the address is directly connected"
+  )
+  expect(text).not.toContain("Fill in the")
+})
+
+test("an unknown rule from an older server keeps the generic wording", () => {
+  const text = stripTags(
+    render({
+      ...diagnostics,
+      results: [
+        {
+          ...result,
+          expected_outbound: "(unknown)",
+          actual_outbound: "(unknown)",
+        },
+      ],
+    })
+  )
+  expect(text).toContain("There is not enough information to select a rule")
+})
