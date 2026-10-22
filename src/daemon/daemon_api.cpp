@@ -422,9 +422,7 @@ ListRefreshOperationResult Daemon::refresh_lists_via_api(std::optional<std::stri
     }
 
     const Config config_snapshot = config_store_.active_config();
-    const auto marks_snapshot = allocate_outbound_marks(
-        config_snapshot.fwmark.value_or(FwmarkConfig{}),
-        config_snapshot.outbounds.value_or(std::vector<Outbound>{}));
+    const auto marks_snapshot = allocate_outbound_marks(config_snapshot);
     const bool runtime_active_snapshot = runtime_state_store_.snapshot().routing_runtime_active;
     const auto target_selection = select_remote_list_targets(config_snapshot, requested_name);
     if (!target_selection.ok()) {
@@ -633,9 +631,7 @@ void Daemon::setup_api() {
                 }});
             }
 
-            const auto marks = allocate_outbound_marks(
-                config.fwmark.value_or(FwmarkConfig{}),
-                config.outbounds.value_or(std::vector<Outbound>{}));
+            const auto marks = allocate_outbound_marks(config);
             (void)build_fw_rule_states(config, marks);
         },
         [this]() {

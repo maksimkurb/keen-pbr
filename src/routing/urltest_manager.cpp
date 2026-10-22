@@ -300,8 +300,8 @@ bool UrltestManager::queue_probe_unlocked(const std::string& tag,
 
         for (const auto& group : state.config.outbound_groups.value_or(std::vector<OutboundGroup>{})) {
             for (const auto& child_tag : outbound_group_tags(group)) {
-                const auto mark_it = marks_.find(child_tag);
-                if (mark_it == marks_.end()) {
+                const auto probe_mark = probe_fwmark(marks_, child_tag);
+                if (!probe_mark) {
                     continue;
                 }
 
@@ -318,7 +318,7 @@ bool UrltestManager::queue_probe_unlocked(const std::string& tag,
                 candidates.push_back(TestCandidate{
                     .child_tag = child_tag,
                     .url = state.config.url.value_or(""),
-                    .fwmark = mark_it->second,
+                    .fwmark = *probe_mark,
                     .timeout_ms = static_cast<uint32_t>(
                         state.config.probe_timeout_ms.value_or(
                             state.config.type == OutboundType::ICMPTEST

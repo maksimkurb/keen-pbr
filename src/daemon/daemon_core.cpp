@@ -243,9 +243,7 @@ Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts)
           })),
       netlink_(), route_table_(netlink_), policy_rules_(netlink_),
       firewall_state_(), url_tester_(),
-      outbound_marks_(allocate_outbound_marks(
-          config_.fwmark.value_or(FwmarkConfig{}),
-          config_.outbounds.value_or(std::vector<Outbound>{}))),
+      outbound_marks_(allocate_outbound_marks(config_)),
       dnsmasq_manager_(KEEN_PBR_DNSMASQ_HOOK, make_dnsmasq_deps()),
       routing_runtime_active_(true) {
   if (opts_.use_raw_prerouting || opts_.use_raw6_prerouting) {

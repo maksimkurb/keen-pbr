@@ -716,8 +716,7 @@ int render_status_report(const Config& config,
                          const std::string& config_path,
                          const RoutingHealthReport& report,
                          const DaemonHealthDetails* details = nullptr) {
-    auto marks = allocate_outbound_marks(config.fwmark.value_or(FwmarkConfig{}),
-                                         config.outbounds.value_or(std::vector<Outbound>{}));
+    auto marks = allocate_outbound_marks(config);
     auto display_firewall_rules =
         build_display_firewall_rules(config, marks, report.firewall_rules, report.policy_rules);
     if (report.firewall_rules.empty() && firewall_verification_unavailable(report)) {
@@ -880,8 +879,7 @@ RoutingHealthReport routing_health_report_from_json(const nlohmann::json& value)
 
 namespace {
 int run_status_command_impl(const Config& config, const std::string& config_path) {
-    auto marks = allocate_outbound_marks(config.fwmark.value_or(FwmarkConfig{}),
-                                         config.outbounds.value_or(std::vector<Outbound>{}));
+    auto marks = allocate_outbound_marks(config);
 
     NetlinkManager netlink;
     const auto main_routes = netlink.dump_routes_in_table(254);

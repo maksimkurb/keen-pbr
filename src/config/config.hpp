@@ -204,11 +204,32 @@ using OutboundMarkMap = std::map<std::string, uint32_t>;
 // It is deliberately distinct from the mark used for user packet classification.
 std::string internal_detour_mark_key(const std::string& outbound_tag);
 
+// Reserved map key for the mark that urltest/icmptest probes of a group child
+// carry. It exists only for a child whose own mark has no terminal guard (see
+// allocate_outbound_marks(const Config&)); other children are probed with
+// their own mark.
+std::string probe_mark_key(const std::string& outbound_tag);
+
+// The fwmark a probe of `child_tag` must carry so that it follows the child's
+// table and fails closed instead of falling through to the main table or a
+// stale route: the child's probe mark, or its own mark when that already has
+// a terminal guard. Empty when the child has no mark.
+std::optional<uint32_t> probe_fwmark(const OutboundMarkMap& marks,
+                                     const std::string& child_tag);
+
+// Whether the outbound's own mark gets a terminal guard rule (kill switch).
+bool strict_enforcement_enabled(const Config& config, const Outbound& outbound);
+
 // Validates fwmark.mask and assigns deterministic normal and internal-detour
 // fwmarks to each routable outbound. Blackhole and ignore outbounds get none.
 // Throws ConfigError if mask is invalid or too many outbounds for the mark space.
+//
+// This overload allocates no probe marks. The runtime uses the Config overload
+// below, which adds a probe mark for every interface/table child of a
+// urltest/icmptest group that is neither strict nor a balance candidate.
 OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
                                          const std::vector<Outbound>& outbounds);
+OutboundMarkMap allocate_outbound_marks(const Config& config);
 
 uint32_t fwmark_start_value(const FwmarkConfig& fwmark_cfg);
 uint32_t fwmark_mask_value(const FwmarkConfig& fwmark_cfg);

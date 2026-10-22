@@ -1356,9 +1356,7 @@ PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config) {
 
     PreparedRuntimeInputs prepared;
     prepared.config = config;
-    prepared.outbound_marks = allocate_outbound_marks(
-        config.fwmark.value_or(FwmarkConfig{}),
-        config.outbounds.value_or(std::vector<Outbound>{}));
+    prepared.outbound_marks = allocate_outbound_marks(config);
 
     // Remote lists are not downloaded here: the routes of a new detour do not
     // exist yet, so a download now would bypass it or deadlock the apply. The
