@@ -87,6 +87,82 @@ ListMatchInfo list_match_from_api(const api::ListMatch& match) {
     return ListMatchInfo{match.list, match.via};
 }
 
+api::RoutingTestDefaultGateway default_gateway_to_api(const DefaultGatewayDecision& in) {
+    api::RoutingTestDefaultGateway out;
+    out.rule_index = in.rule_index;
+    out.uses_default_gateway = in.uses_default_gateway;
+    out.applied_uses_default_gateway = in.applied_uses_default_gateway;
+    if (in.bypass) {
+        api::Bypass bypass;
+        bypass.cidr = in.bypass->cidr;
+        bypass.interface = in.bypass->interface;
+        switch (in.bypass->source) {
+        case DefaultGatewayBypassSource::Reserved:
+            bypass.source = api::RoutingTestDefaultGatewayBypassSource::RESERVED; break;
+        case DefaultGatewayBypassSource::Route:
+            bypass.source = api::RoutingTestDefaultGatewayBypassSource::ROUTE; break;
+        case DefaultGatewayBypassSource::Address:
+            bypass.source = api::RoutingTestDefaultGatewayBypassSource::ADDRESS; break;
+        }
+        out.bypass = std::move(bypass);
+    }
+    return out;
+}
+
+DefaultGatewayDecision default_gateway_from_api(const api::RoutingTestDefaultGateway& in) {
+    DefaultGatewayDecision out;
+    out.rule_index = static_cast<int>(in.rule_index);
+    out.uses_default_gateway = in.uses_default_gateway;
+    out.applied_uses_default_gateway = in.applied_uses_default_gateway;
+    if (in.bypass) {
+        DefaultGatewayBypassEntry bypass;
+        bypass.cidr = in.bypass->cidr;
+        bypass.interface = in.bypass->interface;
+        switch (in.bypass->source) {
+        case api::RoutingTestDefaultGatewayBypassSource::RESERVED:
+            bypass.source = DefaultGatewayBypassSource::Reserved; break;
+        case api::RoutingTestDefaultGatewayBypassSource::ROUTE:
+            bypass.source = DefaultGatewayBypassSource::Route; break;
+        case api::RoutingTestDefaultGatewayBypassSource::ADDRESS:
+            bypass.source = DefaultGatewayBypassSource::Address; break;
+        }
+        out.bypass = std::move(bypass);
+    }
+    return out;
+}
+
+api::OutboundGroup outbound_group_to_api(const OutboundGroupBreakdown& in) {
+    api::OutboundGroup out;
+    out.tag = in.tag;
+    out.strategy = in.strategy == "balance" ? api::Strategy::BALANCE : api::Strategy::PRIORITY;
+    for (const auto& member : in.members) {
+        api::RoutingTestOutboundGroupMemberElement m;
+        m.tag = member.tag;
+        m.interface = member.interface_name;
+        if (member.weight) m.weight = static_cast<int64_t>(*member.weight);
+        if (member.share_percent) m.share_percent = static_cast<int64_t>(*member.share_percent);
+        m.in_use = member.in_use;
+        out.members.push_back(std::move(m));
+    }
+    return out;
+}
+
+OutboundGroupBreakdown outbound_group_from_api(const api::OutboundGroup& in) {
+    OutboundGroupBreakdown out;
+    out.tag = in.tag;
+    out.strategy = in.strategy == api::Strategy::BALANCE ? "balance" : "priority";
+    for (const auto& m : in.members) {
+        OutboundGroupMember member;
+        member.tag = m.tag;
+        member.interface_name = m.interface;
+        if (m.weight) member.weight = static_cast<uint32_t>(*m.weight);
+        if (m.share_percent) member.share_percent = static_cast<uint32_t>(*m.share_percent);
+        member.in_use = m.in_use;
+        out.members.push_back(std::move(member));
+    }
+    return out;
+}
+
 } // namespace
 
 TestRoutingRequest parse_test_routing_request(const nlohmann::json& body) {
@@ -185,6 +261,12 @@ nlohmann::json test_routing_result_to_json(const TestRoutingResult& result) {
             e.missing_criteria = std::move(missing);
         }
         e.ok                = entry.ok;
+        if (entry.default_gateway) {
+            e.default_gateway = default_gateway_to_api(*entry.default_gateway);
+        }
+        if (entry.outbound_group) {
+            e.outbound_group = outbound_group_to_api(*entry.outbound_group);
+        }
         if (entry.list_match) {
             e.list_match = list_match_to_api(*entry.list_match);
         }
@@ -287,6 +369,12 @@ TestRoutingResult test_routing_result_from_json(const nlohmann::json& value) {
             case api::MissingCriterion::PROTO: entry.missing_criteria.emplace_back("proto"); break;
             case api::MissingCriterion::DEST_PORT: entry.missing_criteria.emplace_back("dest_port"); break;
             }
+        }
+        if (item.default_gateway) {
+            entry.default_gateway = default_gateway_from_api(*item.default_gateway);
+        }
+        if (item.outbound_group) {
+            entry.outbound_group = outbound_group_from_api(*item.outbound_group);
         }
         if (item.list_match) {
             entry.list_match = list_match_from_api(*item.list_match);

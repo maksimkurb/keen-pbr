@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesOdAvQi data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesDm1VXw data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -460,7 +460,7 @@ namespace api {
         DnsTestGapEventType type;
     };
 
-    enum class Source : int { DNS, HTTP, MARKER, QUIC, SNI };
+    enum class DnsTestInterceptEventSource : int { DNS, HTTP, MARKER, QUIC, SNI };
 
     enum class TimeoutCause : int { ADMISSION_BLOCKED, BUDGET_SPENT_BY_BATCH, LATE_BATCH_FULL, OTHER, OWN_WRITE_SLOW };
 
@@ -490,7 +490,7 @@ namespace api {
         int64_t refreshed;
         int64_t seq;
         std::optional<int64_t> set_write_us;
-        Source source;
+        DnsTestInterceptEventSource source;
         bool timed_out;
         std::optional<TimeoutCause> timeout_cause;
         int64_t ts_ms;
@@ -841,6 +841,21 @@ namespace api {
         std::optional<std::vector<RoutingHealthWarningElement>> warnings;
     };
 
+    enum class RoutingTestDefaultGatewayBypassSource : int { ADDRESS, RESERVED, ROUTE };
+
+    struct Bypass {
+        std::string cidr;
+        std::optional<std::string> interface;
+        RoutingTestDefaultGatewayBypassSource source;
+    };
+
+    struct RoutingTestDefaultGateway {
+        std::optional<bool> applied_uses_default_gateway;
+        std::optional<Bypass> bypass;
+        int64_t rule_index;
+        std::optional<bool> uses_default_gateway;
+    };
+
     enum class AStatus : int { MALFORMED, NETWORK_ERROR, NODATA, NXDOMAIN, OK, RCODE, REFUSED, SERVFAIL, TIMEOUT };
 
     enum class Resolver : int { DNSMASQ, SYSTEM, TEST };
@@ -861,17 +876,33 @@ namespace api {
 
     enum class MissingCriterion : int { DEST_PORT, PROTO, SRC_ADDR, SRC_PORT };
 
+    struct RoutingTestOutboundGroupMemberElement {
+        bool in_use;
+        std::optional<std::string> interface;
+        std::optional<int64_t> share_percent;
+        std::string tag;
+        std::optional<int64_t> weight;
+    };
+
+    struct OutboundGroup {
+        std::vector<RoutingTestOutboundGroupMemberElement> members;
+        Strategy strategy;
+        std::string tag;
+    };
+
     enum class UndeterminedReason : int { DEFAULT_GATEWAY_DIRECTNESS, MISSING_CRITERIA };
 
     struct RoutingTestEntry {
         std::string actual_outbound;
         std::optional<bool> criteria_match;
+        std::optional<RoutingTestDefaultGateway> default_gateway;
         std::string expected_outbound;
         std::string ip;
         std::optional<ListMatch> list_match;
         std::optional<int64_t> matched_rule_index;
         std::optional<std::vector<MissingCriterion>> missing_criteria;
         bool ok;
+        std::optional<OutboundGroup> outbound_group;
         std::optional<UndeterminedReason> undetermined_reason;
         std::optional<int64_t> undetermined_rule_index;
     };
@@ -1047,7 +1078,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesOdAvQi {
+    struct KeenPbrTypesDm1VXw {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1125,9 +1156,13 @@ namespace api {
         std::optional<RoutingHealthResponse> routing_health_response;
         std::optional<RoutingHealthWarningElement> routing_health_warning;
         std::optional<RoutingHealthWarningCode> routing_health_warning_code;
+        std::optional<RoutingTestDefaultGateway> routing_test_default_gateway;
+        std::optional<Bypass> routing_test_default_gateway_bypass;
         std::optional<RoutingTestDns> routing_test_dns;
         std::optional<RoutingTestEntry> routing_test_entry;
         std::optional<ListMatch> routing_test_list_match;
+        std::optional<OutboundGroup> routing_test_outbound_group;
+        std::optional<RoutingTestOutboundGroupMemberElement> routing_test_outbound_group_member;
         std::optional<RoutingTestRequest> routing_test_request;
         std::optional<RoutingTestResponse> routing_test_response;
         std::optional<RoutingTestRuleDiagnosticElement> routing_test_rule_diagnostic;
@@ -1382,11 +1417,23 @@ namespace api {
     void from_json(const json & j, RoutingHealthResponse & x);
     void to_json(json & j, const RoutingHealthResponse & x);
 
+    void from_json(const json & j, Bypass & x);
+    void to_json(json & j, const Bypass & x);
+
+    void from_json(const json & j, RoutingTestDefaultGateway & x);
+    void to_json(json & j, const RoutingTestDefaultGateway & x);
+
     void from_json(const json & j, RoutingTestDns & x);
     void to_json(json & j, const RoutingTestDns & x);
 
     void from_json(const json & j, ListMatch & x);
     void to_json(json & j, const ListMatch & x);
+
+    void from_json(const json & j, RoutingTestOutboundGroupMemberElement & x);
+    void to_json(json & j, const RoutingTestOutboundGroupMemberElement & x);
+
+    void from_json(const json & j, OutboundGroup & x);
+    void to_json(json & j, const OutboundGroup & x);
 
     void from_json(const json & j, RoutingTestEntry & x);
     void to_json(json & j, const RoutingTestEntry & x);
@@ -1454,8 +1501,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesOdAvQi & x);
-    void to_json(json & j, const KeenPbrTypesOdAvQi & x);
+    void from_json(const json & j, KeenPbrTypesDm1VXw & x);
+    void to_json(json & j, const KeenPbrTypesDm1VXw & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1493,8 +1540,8 @@ namespace api {
     void from_json(const json & j, DnsTestGapEventType & x);
     void to_json(json & j, const DnsTestGapEventType & x);
 
-    void from_json(const json & j, Source & x);
-    void to_json(json & j, const Source & x);
+    void from_json(const json & j, DnsTestInterceptEventSource & x);
+    void to_json(json & j, const DnsTestInterceptEventSource & x);
 
     void from_json(const json & j, TimeoutCause & x);
     void to_json(json & j, const TimeoutCause & x);
@@ -1576,6 +1623,9 @@ namespace api {
 
     void from_json(const json & j, RoutingHealthWarningCode & x);
     void to_json(json & j, const RoutingHealthWarningCode & x);
+
+    void from_json(const json & j, RoutingTestDefaultGatewayBypassSource & x);
+    void to_json(json & j, const RoutingTestDefaultGatewayBypassSource & x);
 
     void from_json(const json & j, AStatus & x);
     void to_json(json & j, const AStatus & x);
@@ -2386,7 +2436,7 @@ namespace api {
         x.refreshed = j.at("refreshed").get<int64_t>();
         x.seq = j.at("seq").get<int64_t>();
         x.set_write_us = get_stack_optional<int64_t>(j, "set_write_us");
-        x.source = j.at("source").get<Source>();
+        x.source = j.at("source").get<DnsTestInterceptEventSource>();
         x.timed_out = j.at("timed_out").get<bool>();
         x.timeout_cause = get_stack_optional<TimeoutCause>(j, "timeout_cause");
         x.ts_ms = j.at("ts_ms").get<int64_t>();
@@ -3040,6 +3090,34 @@ namespace api {
         j["warnings"] = x.warnings;
     }
 
+    inline void from_json(const json & j, Bypass& x) {
+        x.cidr = j.at("cidr").get<std::string>();
+        x.interface = get_stack_optional<std::string>(j, "interface");
+        x.source = j.at("source").get<RoutingTestDefaultGatewayBypassSource>();
+    }
+
+    inline void to_json(json & j, const Bypass & x) {
+        j = json::object();
+        j["cidr"] = x.cidr;
+        j["interface"] = x.interface;
+        j["source"] = x.source;
+    }
+
+    inline void from_json(const json & j, RoutingTestDefaultGateway& x) {
+        x.applied_uses_default_gateway = get_stack_optional<bool>(j, "applied_uses_default_gateway");
+        x.bypass = get_stack_optional<Bypass>(j, "bypass");
+        x.rule_index = j.at("rule_index").get<int64_t>();
+        x.uses_default_gateway = get_stack_optional<bool>(j, "uses_default_gateway");
+    }
+
+    inline void to_json(json & j, const RoutingTestDefaultGateway & x) {
+        j = json::object();
+        j["applied_uses_default_gateway"] = x.applied_uses_default_gateway;
+        j["bypass"] = x.bypass;
+        j["rule_index"] = x.rule_index;
+        j["uses_default_gateway"] = x.uses_default_gateway;
+    }
+
     inline void from_json(const json & j, RoutingTestDns& x) {
         x.a_status = get_stack_optional<AStatus>(j, "a_status");
         x.aaaa_status = get_stack_optional<AStatus>(j, "aaaa_status");
@@ -3070,15 +3148,47 @@ namespace api {
         j["via"] = x.via;
     }
 
+    inline void from_json(const json & j, RoutingTestOutboundGroupMemberElement& x) {
+        x.in_use = j.at("in_use").get<bool>();
+        x.interface = get_stack_optional<std::string>(j, "interface");
+        x.share_percent = get_stack_optional<int64_t>(j, "share_percent");
+        x.tag = j.at("tag").get<std::string>();
+        x.weight = get_stack_optional<int64_t>(j, "weight");
+    }
+
+    inline void to_json(json & j, const RoutingTestOutboundGroupMemberElement & x) {
+        j = json::object();
+        j["in_use"] = x.in_use;
+        j["interface"] = x.interface;
+        j["share_percent"] = x.share_percent;
+        j["tag"] = x.tag;
+        j["weight"] = x.weight;
+    }
+
+    inline void from_json(const json & j, OutboundGroup& x) {
+        x.members = j.at("members").get<std::vector<RoutingTestOutboundGroupMemberElement>>();
+        x.strategy = j.at("strategy").get<Strategy>();
+        x.tag = j.at("tag").get<std::string>();
+    }
+
+    inline void to_json(json & j, const OutboundGroup & x) {
+        j = json::object();
+        j["members"] = x.members;
+        j["strategy"] = x.strategy;
+        j["tag"] = x.tag;
+    }
+
     inline void from_json(const json & j, RoutingTestEntry& x) {
         x.actual_outbound = j.at("actual_outbound").get<std::string>();
         x.criteria_match = get_stack_optional<bool>(j, "criteria_match");
+        x.default_gateway = get_stack_optional<RoutingTestDefaultGateway>(j, "default_gateway");
         x.expected_outbound = j.at("expected_outbound").get<std::string>();
         x.ip = j.at("ip").get<std::string>();
         x.list_match = get_stack_optional<ListMatch>(j, "list_match");
         x.matched_rule_index = get_stack_optional<int64_t>(j, "matched_rule_index");
         x.missing_criteria = get_stack_optional<std::vector<MissingCriterion>>(j, "missing_criteria");
         x.ok = j.at("ok").get<bool>();
+        x.outbound_group = get_stack_optional<OutboundGroup>(j, "outbound_group");
         x.undetermined_reason = get_stack_optional<UndeterminedReason>(j, "undetermined_reason");
         x.undetermined_rule_index = get_stack_optional<int64_t>(j, "undetermined_rule_index");
     }
@@ -3087,12 +3197,14 @@ namespace api {
         j = json::object();
         j["actual_outbound"] = x.actual_outbound;
         j["criteria_match"] = x.criteria_match;
+        j["default_gateway"] = x.default_gateway;
         j["expected_outbound"] = x.expected_outbound;
         j["ip"] = x.ip;
         j["list_match"] = x.list_match;
         j["matched_rule_index"] = x.matched_rule_index;
         j["missing_criteria"] = x.missing_criteria;
         j["ok"] = x.ok;
+        j["outbound_group"] = x.outbound_group;
         j["undetermined_reason"] = x.undetermined_reason;
         j["undetermined_rule_index"] = x.undetermined_rule_index;
     }
@@ -3408,7 +3520,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesOdAvQi& x) {
+    inline void from_json(const json & j, KeenPbrTypesDm1VXw& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -3486,9 +3598,13 @@ namespace api {
         x.routing_health_response = get_stack_optional<RoutingHealthResponse>(j, "RoutingHealthResponse");
         x.routing_health_warning = get_stack_optional<RoutingHealthWarningElement>(j, "RoutingHealthWarning");
         x.routing_health_warning_code = get_stack_optional<RoutingHealthWarningCode>(j, "RoutingHealthWarningCode");
+        x.routing_test_default_gateway = get_stack_optional<RoutingTestDefaultGateway>(j, "RoutingTestDefaultGateway");
+        x.routing_test_default_gateway_bypass = get_stack_optional<Bypass>(j, "RoutingTestDefaultGatewayBypass");
         x.routing_test_dns = get_stack_optional<RoutingTestDns>(j, "RoutingTestDns");
         x.routing_test_entry = get_stack_optional<RoutingTestEntry>(j, "RoutingTestEntry");
         x.routing_test_list_match = get_stack_optional<ListMatch>(j, "RoutingTestListMatch");
+        x.routing_test_outbound_group = get_stack_optional<OutboundGroup>(j, "RoutingTestOutboundGroup");
+        x.routing_test_outbound_group_member = get_stack_optional<RoutingTestOutboundGroupMemberElement>(j, "RoutingTestOutboundGroupMember");
         x.routing_test_request = get_stack_optional<RoutingTestRequest>(j, "RoutingTestRequest");
         x.routing_test_response = get_stack_optional<RoutingTestResponse>(j, "RoutingTestResponse");
         x.routing_test_rule_diagnostic = get_stack_optional<RoutingTestRuleDiagnosticElement>(j, "RoutingTestRuleDiagnostic");
@@ -3517,7 +3633,7 @@ namespace api {
         x.xt_extension_health = get_stack_optional<XtExtensionHealthElement>(j, "XtExtensionHealth");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesOdAvQi & x) {
+    inline void to_json(json & j, const KeenPbrTypesDm1VXw & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -3596,9 +3712,13 @@ namespace api {
         j["RoutingHealthResponse"] = x.routing_health_response;
         j["RoutingHealthWarning"] = x.routing_health_warning;
         j["RoutingHealthWarningCode"] = x.routing_health_warning_code;
+        j["RoutingTestDefaultGateway"] = x.routing_test_default_gateway;
+        j["RoutingTestDefaultGatewayBypass"] = x.routing_test_default_gateway_bypass;
         j["RoutingTestDns"] = x.routing_test_dns;
         j["RoutingTestEntry"] = x.routing_test_entry;
         j["RoutingTestListMatch"] = x.routing_test_list_match;
+        j["RoutingTestOutboundGroup"] = x.routing_test_outbound_group;
+        j["RoutingTestOutboundGroupMember"] = x.routing_test_outbound_group_member;
         j["RoutingTestRequest"] = x.routing_test_request;
         j["RoutingTestResponse"] = x.routing_test_response;
         j["RoutingTestRuleDiagnostic"] = x.routing_test_rule_diagnostic;
@@ -3807,23 +3927,23 @@ namespace api {
         }
     }
 
-    inline void from_json(const json & j, Source & x) {
-        if (j == "dns") x = Source::DNS;
-        else if (j == "http") x = Source::HTTP;
-        else if (j == "marker") x = Source::MARKER;
-        else if (j == "quic") x = Source::QUIC;
-        else if (j == "sni") x = Source::SNI;
-        else { throw std::runtime_error("Cannot deserialize to enumeration \"Source\""); }
+    inline void from_json(const json & j, DnsTestInterceptEventSource & x) {
+        if (j == "dns") x = DnsTestInterceptEventSource::DNS;
+        else if (j == "http") x = DnsTestInterceptEventSource::HTTP;
+        else if (j == "marker") x = DnsTestInterceptEventSource::MARKER;
+        else if (j == "quic") x = DnsTestInterceptEventSource::QUIC;
+        else if (j == "sni") x = DnsTestInterceptEventSource::SNI;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"DnsTestInterceptEventSource\""); }
     }
 
-    inline void to_json(json & j, const Source & x) {
+    inline void to_json(json & j, const DnsTestInterceptEventSource & x) {
         switch (x) {
-            case Source::DNS: j = "dns"; break;
-            case Source::HTTP: j = "http"; break;
-            case Source::MARKER: j = "marker"; break;
-            case Source::QUIC: j = "quic"; break;
-            case Source::SNI: j = "sni"; break;
-            default: throw std::runtime_error("Unexpected value in enumeration \"Source\": " + std::to_string(static_cast<int>(x)));
+            case DnsTestInterceptEventSource::DNS: j = "dns"; break;
+            case DnsTestInterceptEventSource::HTTP: j = "http"; break;
+            case DnsTestInterceptEventSource::MARKER: j = "marker"; break;
+            case DnsTestInterceptEventSource::QUIC: j = "quic"; break;
+            case DnsTestInterceptEventSource::SNI: j = "sni"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"DnsTestInterceptEventSource\": " + std::to_string(static_cast<int>(x)));
         }
     }
 
@@ -4332,6 +4452,22 @@ namespace api {
             case RoutingHealthWarningCode::RP_FILTER_STRICT: j = "rp_filter_strict"; break;
             case RoutingHealthWarningCode::STALE_POLICY_RULE: j = "stale_policy_rule"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"RoutingHealthWarningCode\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, RoutingTestDefaultGatewayBypassSource & x) {
+        if (j == "address") x = RoutingTestDefaultGatewayBypassSource::ADDRESS;
+        else if (j == "reserved") x = RoutingTestDefaultGatewayBypassSource::RESERVED;
+        else if (j == "route") x = RoutingTestDefaultGatewayBypassSource::ROUTE;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"RoutingTestDefaultGatewayBypassSource\""); }
+    }
+
+    inline void to_json(json & j, const RoutingTestDefaultGatewayBypassSource & x) {
+        switch (x) {
+            case RoutingTestDefaultGatewayBypassSource::ADDRESS: j = "address"; break;
+            case RoutingTestDefaultGatewayBypassSource::RESERVED: j = "reserved"; break;
+            case RoutingTestDefaultGatewayBypassSource::ROUTE: j = "route"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"RoutingTestDefaultGatewayBypassSource\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

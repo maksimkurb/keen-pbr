@@ -110,7 +110,7 @@ In the rule form in the Web UI you can add these conditions: **Lists**, **Protoc
 | `dest_port` | string | no | Only these destination ports (**Destination port**) |
 | `src_addr` | string | no | Only these source addresses: the devices or subnets the traffic comes from (**Source addresses**) |
 | `dest_addr` | string | no | Only these destination addresses (**Destination addresses**) |
-| `default_gateway` | `"ipv4"` or `"ipv6"` | no | {{< only openwrt debian >}} All internet traffic that would otherwise go through the router's main gateway (except local network addresses). In the Web UI: **Rule type** > **IPv4 default gateway** / **IPv6 default gateway**. Put these rules last |
+| `default_gateway` | `"ipv4"` or `"ipv6"` | no | {{< only openwrt debian >}} All internet traffic that would otherwise go through the router's main gateway (except local networks and any network the router has its own route to, such as a VPN subnet; to send such a network through the outbound anyway, add a rule for its addresses above this one). In the Web UI: **Rule type** > **IPv4 default gateway** / **IPv6 default gateway**. Put these rules last |
 
 ## Failover or balancing for all internet traffic {#failover-or-balancing-for-all-internet-traffic}
 

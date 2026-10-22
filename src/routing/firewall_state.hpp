@@ -28,6 +28,9 @@ struct RuleState {
     RuleActionType action_type;
     uint32_t fwmark{0};                 // Only valid if action_type == Mark
     FirewallRuleCriteria criteria;      // Realized selector criteria for live rules
+    // Balance members the applied rule spreads new connections across; empty
+    // for non-balance rules and for config-only states.
+    std::vector<FirewallBalanceCandidate> balance_candidates;
 };
 
 // One successful firewall apply, published as a unit: the desired plan, what

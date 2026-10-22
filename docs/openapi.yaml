@@ -1643,8 +1643,12 @@ components:
         default_gateway:
           $ref: "#/components/schemas/DefaultGateway"
           description: >
-            Match non-local, non-directly-connected default-route traffic for this
-            IP family. Put these catch-all rules last.
+            Match traffic of this IP family that leaves through the default
+            route. Destinations the router reaches some other way are skipped:
+            reserved ranges (loopback, link-local, multicast), every
+            non-default route in the main routing table (VPN subnets, static
+            routes) and the networks of the router's own interface addresses.
+            Put these catch-all rules last.
 
     RouteConfig:
       type: object
@@ -2612,8 +2616,9 @@ components:
             Why undetermined_rule_index could not be evaluated.
             missing_criteria: filling the fields listed in missing_criteria
             would let the rule be evaluated. default_gateway_directness: the
-            rule depends on whether the address is directly connected, which
-            no request field can resolve.
+            rule is a default_gateway rule and keen-pbr could not read the
+            router's routes, so it cannot tell whether the address uses the
+            default gateway; no request field can resolve this.
         missing_criteria:
           type: array
           items:
@@ -2627,6 +2632,111 @@ components:
           type: boolean
           description: true when expected_outbound equals actual_outbound and neither side is unknown.
           example: true
+        default_gateway:
+          $ref: "#/components/schemas/RoutingTestDefaultGateway"
+          description: >
+            How the first default_gateway rule the decision reached treats this
+            address. Absent when no such rule was reached.
+        outbound_group:
+          $ref: "#/components/schemas/RoutingTestOutboundGroup"
+          description: >
+            Present when the outbound the traffic takes is a urltest or
+            icmptest group: its members and which of them carry new
+            connections.
+
+    RoutingTestDefaultGateway:
+      type: object
+      required: [rule_index]
+      properties:
+        rule_index:
+          type: integer
+          minimum: 0
+          description: Index of the default_gateway route rule.
+        uses_default_gateway:
+          type: boolean
+          nullable: true
+          description: >
+            Whether the address goes through the default gateway, judged from
+            the router's routes read for this test. null when they could not
+            be read.
+        bypass:
+          $ref: "#/components/schemas/RoutingTestDefaultGatewayBypass"
+          description: >
+            Why the address does not use the default gateway. Present when
+            uses_default_gateway is false.
+        applied_uses_default_gateway:
+          type: boolean
+          nullable: true
+          description: >
+            The same question answered from the list the firewall applied last.
+            null when no applied rules are available. A different value than
+            uses_default_gateway means the applied rules are out of date.
+
+    RoutingTestDefaultGatewayBypass:
+      type: object
+      required: [cidr, source]
+      properties:
+        cidr:
+          type: string
+          description: Most specific skipped network covering the address.
+          example: "10.8.0.0/24"
+        source:
+          type: string
+          enum: [reserved, route, address]
+          description: >
+            reserved: a reserved range (loopback, link-local, multicast).
+            route: a route in the main routing table. address: the network of
+            one of the router's interface addresses.
+        interface:
+          type: string
+          description: Interface of the route or address. Absent for reserved ranges.
+          example: "wg0"
+
+    RoutingTestOutboundGroup:
+      type: object
+      required: [tag, strategy, members]
+      properties:
+        tag:
+          type: string
+          description: Tag of the urltest or icmptest outbound.
+        strategy:
+          type: string
+          enum: [balance, priority]
+          description: >
+            balance: new connections are spread over the members in use by
+            weight. priority: one member is selected, the others are standby.
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoutingTestOutboundGroupMember"
+          description: Members in configuration order.
+
+    RoutingTestOutboundGroupMember:
+      type: object
+      required: [tag, in_use]
+      properties:
+        tag:
+          type: string
+        interface:
+          type: string
+          description: Interface of the member outbound, when it has one.
+        weight:
+          type: integer
+          minimum: 1
+          description: Configured weight. Balance groups only.
+        share_percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: >
+            Share of new connections, rounded so the members in use sum to 100.
+            0 when the member is not in use. Balance groups only.
+        in_use:
+          type: boolean
+          description: >
+            balance: the member currently takes new connections of this
+            address family. priority: the member is the selected one. When no
+            balance member is in use, traffic takes the group's fallback.
 
     RoutingTestSetWriteEvidence:
       type: object

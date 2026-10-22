@@ -7,7 +7,7 @@
  */
 
 /**
- * Why undetermined_rule_index could not be evaluated. missing_criteria: filling the fields listed in missing_criteria would let the rule be evaluated. default_gateway_directness: the rule depends on whether the address is directly connected, which no request field can resolve.
+ * Why undetermined_rule_index could not be evaluated. missing_criteria: filling the fields listed in missing_criteria would let the rule be evaluated. default_gateway_directness: the rule is a default_gateway rule and keen-pbr could not read the router's routes, so it cannot tell whether the address uses the default gateway; no request field can resolve this.
 
  */
 export type RoutingTestEntryUndeterminedReason = typeof RoutingTestEntryUndeterminedReason[keyof typeof RoutingTestEntryUndeterminedReason];

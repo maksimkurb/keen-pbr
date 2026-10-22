@@ -711,10 +711,38 @@ export const enTranslation = {
             "Rule #{{rule}} (→ {{outbound}}) checks <fields/>. Until that field is filled in, there is no telling whether the traffic matches it.",
           ruleChecks_other:
             "Rule #{{rule}} (→ {{outbound}}) checks <fields/>. Until those fields are filled in, there is no telling whether the traffic matches it.",
-          gateway:
-            "Rule #{{rule}} (→ {{outbound}}) applies to traffic that goes through the default gateway. This check cannot tell whether the address is directly connected.",
-          gatewayAdvice:
-            "No field in the form can settle this, so the rule choice stays unknown.",
+          gateway_one:
+            "Rule #{{rule}} (→ {{outbound}}) applies to traffic that goes through the default gateway. keen-pbr couldn’t read the router’s routes, so it can’t tell whether {{ip}} does.",
+          gateway_other:
+            "Rule #{{rule}} (→ {{outbound}}) applies to traffic that goes through the default gateway. keen-pbr couldn’t read the router’s routes, so it can’t tell whether these addresses do.",
+        },
+        gateway: {
+          uses_one:
+            "Rule #{{rule}} → {{outbound}}: {{ip}} goes through the default gateway",
+          uses_other:
+            "Rule #{{rule}} → {{outbound}}: these addresses go through the default gateway",
+          skippedRoute:
+            "Rule #{{rule}} skipped: {{ip}} has its own route {{cidr}} ({{interface}})",
+          skippedRouteNoInterface:
+            "Rule #{{rule}} skipped: {{ip}} has its own route {{cidr}}",
+          skippedAddress:
+            "Rule #{{rule}} skipped: {{ip}} is in {{cidr}}, the network of {{interface}}",
+          skippedReserved:
+            "Rule #{{rule}} skipped: {{ip}} is in a reserved address range {{cidr}}",
+          appliedStill:
+            "The firewall still treats this address as default-gateway traffic, based on the routes it last applied.",
+          appliedNot:
+            "The firewall does not treat this address as default-gateway traffic yet, based on the routes it last applied.",
+        },
+        group: {
+          balance: "{{tag}} spreads new connections between its members:",
+          priority: "{{tag}} uses {{member}}, the others are on standby:",
+          prioritySkipped: "{{tag}} has no member selected:",
+          weight: "weight {{weight}}",
+          notInUse: "not in use",
+          standby: "standby",
+          balanceNone:
+            "No member is in use, so the group’s fallback applies.",
         },
         firewall: "Firewall check",
         configuredPath: "Current path of the expected outbound",
@@ -738,9 +766,12 @@ export const enTranslation = {
           criteria: {
             title: "The route cannot be determined yet",
             reason:
-              "Packet criteria are incomplete, address families are incompatible, or default-gateway directness cannot be evaluated.",
+              "Packet criteria are incomplete or the address families are incompatible.",
             advice:
-              "Provide source IP, source port and DSCP if required by the rules. This check cannot establish whether an address is directly connected for default-gateway rules.",
+              "Provide source IP, source port and DSCP if required by the rules.",
+          },
+          networkState: {
+            title: "Route depends on the network state",
           },
           firewall: {
             title: "The actual route is unknown",

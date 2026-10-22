@@ -604,8 +604,24 @@ Daemon::make_routing_test_job(const std::string &target,
   Config active_config = config_store_.active_config();
   RoutingDnsResolver dns_resolver =
       dnsmasq_manager_.routing_resolver(active_config);
-  auto realized_rules =
-      runtime_state_store_.snapshot().firewall_state.get_rules();
+  const auto runtime_snapshot = runtime_state_store_.snapshot();
+  auto realized_rules = runtime_snapshot.firewall_state.get_rules();
+  TestRoutingGroupState group_state;
+  group_state.outbound_marks = runtime_snapshot.firewall_state.get_outbound_marks();
+  group_state.urltest_selections =
+      runtime_snapshot.firewall_state.get_urltest_selections();
+  // Fresh read of the main table so default_gateway rules are judged against
+  // the routes the router has right now.  Without it they stay undetermined.
+  std::optional<TestRoutingNetworkSnapshot> network;
+  try {
+    TestRoutingNetworkSnapshot fresh;
+    fresh.main_routes = netlink_.dump_routes_in_table(254);
+    fresh.interfaces = netlink_.dump_interfaces();
+    network = std::move(fresh);
+  } catch (const std::exception &e) {
+    Logger::instance().warn("Routing test: cannot read the network state: {}",
+                            e.what());
+  }
   // Reads the capability snapshot taken at service start; nothing is probed.
   const bool ipv6_enabled = resolve_ipv6_support(active_config).enabled;
   std::shared_ptr<InterceptService> intercept_service;
@@ -620,7 +636,8 @@ Daemon::make_routing_test_job(const std::string &target,
   return [this, active_config = std::move(active_config),
           dns_resolver = std::move(dns_resolver),
           realized_rules = std::move(realized_rules), target, criteria,
-          ipv6_enabled, intercept_service, intercept_snapshot] {
+          ipv6_enabled, intercept_service, intercept_snapshot,
+          network = std::move(network), group_state = std::move(group_state)] {
     return compute_test_routing(
         active_config, list_service_.cache_manager(), target, criteria,
         &realized_rules,
@@ -634,7 +651,8 @@ Daemon::make_routing_test_job(const std::string &target,
               intercept_service->lookup_set_write_evidence(intercept_snapshot,
                                                            set_name, ip));
         },
-        &dns_resolver, ipv6_enabled);
+        &dns_resolver, ipv6_enabled, network ? &*network : nullptr,
+        &group_state);
   };
 }
 

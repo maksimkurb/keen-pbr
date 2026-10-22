@@ -193,6 +193,7 @@ std::vector<RuleState> project_rule_states(
                            std::get_if<BalanceAction>(&rule.action)) {
                 state.action_type = RuleActionType::Mark;
                 state.fwmark = balance->fallback_mark;
+                state.balance_candidates = balance->candidates;
             } else if (const auto* verdict =
                            std::get_if<VerdictAction>(&rule.action)) {
                 state.action_type = *verdict == VerdictAction::drop
