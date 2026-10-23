@@ -75,6 +75,34 @@ bool is_interface_outbound_family_reachable(const Outbound& outbound,
 // not make a gatewayless tunnel capable of carrying arbitrary IPv6 traffic.
 bool interface_has_routed_ipv6(const DumpedInterface& interface);
 
+// Why a destination is excluded from default_gateway rules.
+enum class DefaultGatewayBypassSource : uint8_t {
+    Reserved,  // loopback, link-local, multicast and similar ranges
+    Route,     // a non-default route in the main table
+    Address,   // a network of one of the router's interface addresses
+};
+
+struct DefaultGatewayBypassEntry {
+    std::string cidr;  // as the firewall receives it
+    DefaultGatewayBypassSource source{DefaultGatewayBypassSource::Reserved};
+    std::optional<std::string> interface;
+};
+
+// Destinations a default_gateway rule of `family` skips: traffic to them does
+// not use the default route.  Empty for DefaultGatewayFamily::None.
+std::vector<DefaultGatewayBypassEntry> default_gateway_bypass_entries(
+    DefaultGatewayFamily family,
+    const std::vector<DumpedRoute>& main_routes,
+    const std::vector<DumpedInterface>& interfaces);
+
+// The most specific entry that covers `ip`, nullopt when none does.  The
+// returned cidr is in network form (host bits cleared).
+std::optional<DefaultGatewayBypassEntry> find_default_gateway_bypass(
+    const std::vector<DefaultGatewayBypassEntry>& entries, const std::string& ip);
+
+// "192.168.1.1/24" -> "192.168.1.0/24"; returns the input when it is not a CIDR.
+std::string cidr_network(const std::string& cidr);
+
 // Build the realized firewall selector criteria for a route rule.
 FirewallRuleCriteria build_firewall_rule_criteria(
     const RouteRule& rule,

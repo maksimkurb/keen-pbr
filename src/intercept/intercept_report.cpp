@@ -11,8 +11,8 @@ int64_t load(const std::atomic<uint64_t>& value) {
     return static_cast<int64_t>(value.load(std::memory_order_relaxed));
 }
 
-api::DnsWriteLatency make_write_latency(const WriteLatencyCounters& hist) {
-    api::DnsWriteLatency out;
+api::InterceptWriteLatency make_write_latency(const WriteLatencyCounters& hist) {
+    api::InterceptWriteLatency out;
     out.lt_1_ms = load(hist.buckets[0]);
     out.lt_5_ms = load(hist.buckets[1]);
     out.lt_10_ms = load(hist.buckets[2]);
@@ -55,18 +55,18 @@ const char* intercept_source_name(InterceptSource source) {
     return "dns";
 }
 
-std::vector<api::XtExtensionHealthElement> xt_extension_health(
+std::vector<api::XtExtensionHealth> xt_extension_health(
     const std::vector<const XtExtension*>& missing,
     const std::vector<const XtExtension*>& in_use, bool module_needed) {
     const auto contains = [](const std::vector<const XtExtension*>& list,
                              const XtExtension* extension) {
         return std::find(list.begin(), list.end(), extension) != list.end();
     };
-    std::vector<api::XtExtensionHealthElement> out;
+    std::vector<api::XtExtensionHealth> out;
     for (const auto& extension : routing_xt_extensions()) {
-        api::XtExtensionHealthElement item;
+        api::XtExtensionHealth item;
         item.name = extension.name;
-        item.kind = extension.target ? api::Kind::TARGET : api::Kind::MATCH;
+        item.kind = extension.target ? api::XtExtensionHealthKind::TARGET : api::XtExtensionHealthKind::MATCH;
         item.kernel_module = extension.module;
         item.available = !contains(missing, &extension);
         item.required = module_needed && contains(in_use, &extension);
@@ -75,12 +75,12 @@ std::vector<api::XtExtensionHealthElement> xt_extension_health(
     return out;
 }
 
-api::InterceptHealthClass make_intercept_health(const InterceptEffective& effective,
+api::InterceptHealth make_intercept_health(const InterceptEffective& effective,
                                                 bool running,
                                                 const InterceptCounters* counters,
                                                 uint64_t events_seq,
                                                 bool snapshot_ready) {
-    api::InterceptHealthClass health;
+    api::InterceptHealth health;
     health.enabled = effective.config_enabled;
     health.running = running;
     health.dns_hold_active = running && effective.dns_hold && snapshot_ready;
@@ -96,13 +96,13 @@ api::InterceptHealthClass make_intercept_health(const InterceptEffective& effect
     if (probe.nfqueue.status != nfnl::ProbeStatus::not_run) {
         switch (probe.replacement) {
         case nfnl::ReplacementCapability::supported:
-            health.capabilities.payload_replacement = api::PayloadReplacement::SUPPORTED;
+            health.capabilities.payload_replacement = api::InterceptCapabilitiesHealthPayloadReplacement::SUPPORTED;
             break;
         case nfnl::ReplacementCapability::unsupported:
-            health.capabilities.payload_replacement = api::PayloadReplacement::UNSUPPORTED;
+            health.capabilities.payload_replacement = api::InterceptCapabilitiesHealthPayloadReplacement::UNSUPPORTED;
             break;
         case nfnl::ReplacementCapability::unknown:
-            health.capabilities.payload_replacement = api::PayloadReplacement::UNKNOWN;
+            health.capabilities.payload_replacement = api::InterceptCapabilitiesHealthPayloadReplacement::UNKNOWN;
             break;
         }
     }
@@ -111,9 +111,9 @@ api::InterceptHealthClass make_intercept_health(const InterceptEffective& effect
     }
     if (!probe.kernel_release.empty()) health.kernel_release = probe.kernel_release;
     if (probe.ipset_protocol != 0) health.ipset_protocol = probe.ipset_protocol;
-    std::vector<api::InterceptProbeFeatureElement> probes;
+    std::vector<api::InterceptProbeFeature> probes;
     for (const auto& item : probe.items()) {
-        api::InterceptProbeFeatureElement out;
+        api::InterceptProbeFeature out;
         out.feature = item.feature;
         out.status = probe_status_to_api(item.result.status);
         if (!item.result.reason.empty()) out.reason = item.result.reason;
@@ -152,7 +152,7 @@ api::InterceptHealthClass make_intercept_health(const InterceptEffective& effect
     health.nflog_group = effective.nflog_group;
     health.events_seq = static_cast<int64_t>(events_seq);
     if (counters != nullptr) {
-        api::Counters out;
+        api::InterceptCountersHealth out;
         out.dns_packets = load(counters->dns_packets);
         out.dns_parse_errors = load(counters->dns_parse_errors);
         out.dns_matched = load(counters->dns_matched);
@@ -256,7 +256,7 @@ std::string gap_notice_for_dropped(const std::string& first, const std::string& 
     return event_gap_to_json(EventGap{*from, *to}).dump();
 }
 
-std::optional<api::KernelQueue> parse_nfnetlink_queue(const std::string& text, int queue_num) {
+std::optional<api::InterceptKernelQueue> parse_nfnetlink_queue(const std::string& text, int queue_num) {
     std::istringstream lines(text);
     std::string line;
     while (std::getline(lines, line)) {
@@ -264,7 +264,7 @@ std::optional<api::KernelQueue> parse_nfnetlink_queue(const std::string& text, i
         int64_t number = 0, peer = 0, total = 0, mode = 0, range = 0, dropped = 0, user = 0, seq = 0;
         if (!(cols >> number >> peer >> total >> mode >> range >> dropped >> user >> seq)) continue;
         if (number != queue_num) continue;
-        api::KernelQueue out;
+        api::InterceptKernelQueue out;
         out.queue_total = total;
         out.queue_dropped = dropped;
         out.user_dropped = user;
@@ -274,7 +274,7 @@ std::optional<api::KernelQueue> parse_nfnetlink_queue(const std::string& text, i
     return std::nullopt;
 }
 
-std::optional<api::KernelQueue> read_kernel_queue(int queue_num) {
+std::optional<api::InterceptKernelQueue> read_kernel_queue(int queue_num) {
     std::ifstream in("/proc/net/netfilter/nfnetlink_queue");
     if (!in) return std::nullopt;
     std::ostringstream buf;

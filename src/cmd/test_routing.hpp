@@ -2,11 +2,13 @@
 
 #include "../cache/cache_manager.hpp"
 #include "../config/config.hpp"
+#include "../config/routing_state.hpp"
 #include "../dns/routing_dns_resolver.hpp"
 #include "../routing/firewall_state.hpp"
 
 #include <functional>
 #include <cstdint>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -49,6 +51,47 @@ struct SetWriteEvidence {
 using SetWriteEvidenceLookup =
     std::function<SetWriteEvidence(const std::string& set_name, const std::string& ip)>;
 
+// Main routing table and interfaces read when the test starts.  Without it,
+// default_gateway rules cannot be decided.
+struct TestRoutingNetworkSnapshot {
+    std::vector<DumpedRoute> main_routes;
+    std::vector<DumpedInterface> interfaces;
+};
+
+// Applied state the outbound group breakdown reads.
+struct TestRoutingGroupState {
+    OutboundMarkMap outbound_marks;
+    std::map<std::string, std::string> urltest_selections; // group tag -> applied child
+};
+
+// How the first default_gateway rule the decision reached treats the address.
+struct DefaultGatewayDecision {
+    int rule_index{0};
+    // From the network state read for this test; null without a snapshot.
+    std::optional<bool> uses_default_gateway;
+    // Why the address skips the rule (uses_default_gateway == false).
+    std::optional<DefaultGatewayBypassEntry> bypass;
+    // From the bypass list the firewall last applied; null without live rules.
+    std::optional<bool> applied_uses_default_gateway;
+};
+
+struct OutboundGroupMember {
+    std::string tag;
+    std::optional<std::string> interface_name;
+    std::optional<uint32_t> weight;        // balance only
+    std::optional<uint32_t> share_percent; // balance only; 0 when not in use
+    bool in_use{false};
+};
+
+// Members of a urltest/icmptest outbound and which of them carry new
+// connections right now.  Which member a given connection takes is decided
+// per connection, so it is never reported.
+struct OutboundGroupBreakdown {
+    std::string tag;
+    std::string strategy; // "balance" or "priority"
+    std::vector<OutboundGroupMember> members;
+};
+
 struct TestRoutingEntry {
     std::string ip;
     std::optional<ListMatchInfo> list_match;
@@ -67,6 +110,9 @@ struct TestRoutingEntry {
     std::vector<std::string> missing_criteria;
     // True when only default-gateway directness is unknown (no field fixes it).
     bool default_gateway_directness{false};
+    std::optional<DefaultGatewayDecision> default_gateway;
+    // Set when the outbound traffic takes is a urltest/icmptest group.
+    std::optional<OutboundGroupBreakdown> outbound_group;
 };
 
 struct RuleIpDiagnostic {
@@ -143,7 +189,9 @@ TestRoutingResult compute_test_routing(const Config& config,
                                         const std::vector<RuleState>* realized_rule_states = nullptr,
                                         SetWriteEvidenceLookup set_write_evidence_lookup = {},
                                         const RoutingDnsResolver* dns_resolver = nullptr,
-                                        std::optional<bool> ipv6_enabled = std::nullopt);
+                                        std::optional<bool> ipv6_enabled = std::nullopt,
+                                        const TestRoutingNetworkSnapshot* network = nullptr,
+                                        const TestRoutingGroupState* group_state = nullptr);
 
 // Print table and return 0 if all entries match, 1 otherwise.
 int run_test_routing_command(const Config& config,

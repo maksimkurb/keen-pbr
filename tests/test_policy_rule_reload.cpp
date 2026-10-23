@@ -277,14 +277,18 @@ TEST_CASE("probe marks: a strict child or balance candidate is probed with its o
                   return r.fwmark == marks.at("warp");
               }) == 2);  // lookup + guard of its own mark, nothing more
     }
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
+    // Balancing is compiled out on Keenetic, so a balance group is an ordinary
+    // group there and its children keep their probe marks.
     {
         Config cfg = probe_config(false);
         auto& outbounds = *cfg.outbounds;
-        outbounds[2].strategy = api::Strategy::BALANCE;
+        outbounds[2].strategy = api::TestGroupStrategy::BALANCE;
         const auto marks = allocate_outbound_marks(cfg);
         CHECK(marks.count(probe_mark_key("warp")) == 0);
         CHECK(marks.count(probe_mark_key("wan")) == 0);
     }
+#endif
 }
 
 TEST_CASE("probe marks: ipv6 disabled limits the probe rules to IPv4") {

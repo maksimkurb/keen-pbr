@@ -5,7 +5,9 @@
 #include "../routing/target.hpp"
 
 #include <algorithm>
+#include <array>
 #include <arpa/inet.h>
+#include <cctype>
 #include <cstdint>
 #include <cstring>
 #include <set>
@@ -660,6 +662,127 @@ bool interface_has_routed_ipv6(const DumpedInterface& interface) {
         });
 }
 
+namespace {
+
+struct ParsedCidr {
+    int family{0};
+    std::array<uint8_t, 16> bytes{};
+    int prefix{0};
+};
+
+void clear_host_bits(ParsedCidr& cidr) {
+    const int width = cidr.family == AF_INET ? 4 : 16;
+    for (int i = 0; i < width; ++i) {
+        const int bits = cidr.prefix - i * 8;
+        if (bits >= 8) continue;
+        cidr.bytes[i] = bits <= 0 ? 0 : static_cast<uint8_t>(cidr.bytes[i] & (0xFF << (8 - bits)));
+    }
+}
+
+std::optional<ParsedCidr> parse_cidr(const std::string& value) {
+    const auto slash = value.find('/');
+    const std::string address = value.substr(0, slash);
+    ParsedCidr out;
+    if (inet_pton(AF_INET, address.c_str(), out.bytes.data()) == 1) {
+        out.family = AF_INET;
+        out.prefix = 32;
+    } else if (inet_pton(AF_INET6, address.c_str(), out.bytes.data()) == 1) {
+        out.family = AF_INET6;
+        out.prefix = 128;
+    } else {
+        return std::nullopt;
+    }
+    if (slash != std::string::npos) {
+        const std::string length = value.substr(slash + 1);
+        if (length.empty() || length.size() > 3 ||
+            !std::all_of(length.begin(), length.end(),
+                         [](unsigned char ch) { return std::isdigit(ch) != 0; })) {
+            return std::nullopt;
+        }
+        const int parsed = std::stoi(length);
+        if (parsed > out.prefix) return std::nullopt;
+        out.prefix = parsed;
+    }
+    clear_host_bits(out);
+    return out;
+}
+
+std::string format_cidr(const ParsedCidr& cidr) {
+    char buf[INET6_ADDRSTRLEN] = {};
+    if (inet_ntop(cidr.family, cidr.bytes.data(), buf, sizeof(buf)) == nullptr) return {};
+    return std::string(buf) + "/" + std::to_string(cidr.prefix);
+}
+
+bool is_default_destination(const std::string& destination) {
+    return destination.empty() || destination == "default" ||
+           destination == "0.0.0.0/0" || destination == "::/0";
+}
+
+} // namespace
+
+std::string cidr_network(const std::string& cidr) {
+    if (cidr.find('/') == std::string::npos) return cidr;
+    const auto parsed = parse_cidr(cidr);
+    return parsed ? format_cidr(*parsed) : cidr;
+}
+
+std::vector<DefaultGatewayBypassEntry> default_gateway_bypass_entries(
+    DefaultGatewayFamily family,
+    const std::vector<DumpedRoute>& main_routes,
+    const std::vector<DumpedInterface>& interfaces) {
+    std::vector<DefaultGatewayBypassEntry> entries;
+    if (family == DefaultGatewayFamily::None) return entries;
+    const bool ipv6 = family == DefaultGatewayFamily::Ipv6;
+
+    if (ipv6) {
+        for (const auto* destination : {"::/128", "::1/128", "fe80::/10", "ff00::/8"}) {
+            entries.push_back({destination, DefaultGatewayBypassSource::Reserved, std::nullopt});
+        }
+    } else {
+        for (const auto* destination : {"0.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/3"}) {
+            entries.push_back({destination, DefaultGatewayBypassSource::Reserved, std::nullopt});
+        }
+    }
+    for (const auto& route : main_routes) {
+        if (route.family != (ipv6 ? AF_INET6 : AF_INET) ||
+            is_default_destination(route.destination)) {
+            continue;
+        }
+        entries.push_back({route.destination, DefaultGatewayBypassSource::Route, route.interface});
+    }
+    for (const auto& interface : interfaces) {
+        const auto& addresses = ipv6 ? interface.ipv6_addresses : interface.ipv4_addresses;
+        for (const auto& address : addresses) {
+            if (is_default_destination(address)) continue;
+            entries.push_back({address, DefaultGatewayBypassSource::Address, interface.name});
+        }
+    }
+    return entries;
+}
+
+std::optional<DefaultGatewayBypassEntry> find_default_gateway_bypass(
+    const std::vector<DefaultGatewayBypassEntry>& entries, const std::string& ip) {
+    const auto host = parse_cidr(ip);
+    if (!host) return std::nullopt;
+
+    std::optional<DefaultGatewayBypassEntry> best;
+    int best_prefix = -1;
+    for (const auto& entry : entries) {
+        const auto network = parse_cidr(entry.cidr);
+        if (!network || network->family != host->family || network->prefix <= best_prefix) {
+            continue;
+        }
+        ParsedCidr masked = *host;
+        masked.prefix = network->prefix;
+        clear_host_bits(masked);
+        if (masked.bytes != network->bytes) continue;
+        best = entry;
+        best->cidr = format_cidr(*network);
+        best_prefix = network->prefix;
+    }
+    return best;
+}
+
 FirewallRuleCriteria build_firewall_rule_criteria(
     const RouteRule& rule,
     const std::vector<DumpedRoute>& main_routes,
@@ -703,32 +826,9 @@ FirewallRuleCriteria build_firewall_rule_criteria(
         criteria.default_gateway = ipv6 ? DefaultGatewayFamily::Ipv6
                                         : DefaultGatewayFamily::Ipv4;
         std::set<std::string> bypass;
-        const auto add = [&bypass](const std::string& destination) {
-            if (!destination.empty() && destination != "default" &&
-                destination != "0.0.0.0/0" && destination != "::/0") {
-                bypass.insert(destination);
-            }
-        };
-        if (ipv6) {
-            for (const auto* destination : {"::/128", "::1/128", "fe80::/10", "ff00::/8"}) {
-                add(destination);
-            }
-        } else {
-            for (const auto* destination : {"0.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/3"}) {
-                add(destination);
-            }
-        }
-        for (const auto& route : main_routes) {
-            if (route.family == (ipv6 ? AF_INET6 : AF_INET)) {
-                add(route.destination);
-            }
-        }
-        for (const auto& interface : interfaces) {
-            const auto& addresses = ipv6 ? interface.ipv6_addresses
-                                         : interface.ipv4_addresses;
-            for (const auto& address : addresses) {
-                add(address);
-            }
+        for (const auto& entry : default_gateway_bypass_entries(
+                 criteria.default_gateway, main_routes, interfaces)) {
+            bypass.insert(entry.cidr);
         }
         criteria.default_gateway_bypass.assign(bypass.begin(), bypass.end());
     }

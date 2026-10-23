@@ -10,6 +10,7 @@ import type { ReactNode } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import { Link } from "wouter"
 import type {
+  RoutingTestOutboundGroup,
   RoutingTestResponse,
   RuntimeOutboundState,
 } from "@/api/generated/model"
@@ -114,6 +115,57 @@ function IpResultsLabel({
   )
 }
 
+/** Members of a urltest/icmptest outbound as the backend reported them. */
+function OutboundGroupBreakdown({ group }: { group: RoutingTestOutboundGroup }) {
+  const { t } = useTranslation()
+  const balance = group.strategy === "balance"
+  const selected = group.members.find((member) => member.in_use)
+  return (
+    <div className="space-y-1 text-xs" data-testid="outbound-group">
+      <p>
+        {balance
+          ? t("overview.routingDiagnostics.trace.group.balance", {
+              tag: group.tag,
+            })
+          : selected
+            ? t("overview.routingDiagnostics.trace.group.priority", {
+                tag: group.tag,
+                member: selected.tag,
+              })
+            : t("overview.routingDiagnostics.trace.group.prioritySkipped", {
+                tag: group.tag,
+              })}
+      </p>
+      <ul className="space-y-0.5 pl-4">
+        {group.members.map((member) => (
+          <li key={member.tag} className="flex flex-wrap gap-x-2">
+            <span className="font-medium text-foreground">{member.tag}</span>
+            {member.interface ? (
+              <code className="font-mono">{member.interface}</code>
+            ) : null}
+            {balance ? (
+              <span>
+                {t("overview.routingDiagnostics.trace.group.weight", {
+                  weight: member.weight ?? 1,
+                })}
+                {" · "}
+                {member.in_use
+                  ? `${member.share_percent ?? 0}%`
+                  : t("overview.routingDiagnostics.trace.group.notInUse")}
+              </span>
+            ) : !member.in_use ? (
+              <span>{t("overview.routingDiagnostics.trace.group.standby")}</span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      {balance && !selected ? (
+        <p>{t("overview.routingDiagnostics.trace.group.balanceNone")}</p>
+      ) : null}
+    </div>
+  )
+}
+
 const FIELD_LABEL_KEYS: Record<RoutingTestField, string> = {
   src_addr: "overview.routingDiagnostics.conditions.sourceIp",
   src_port: "pages.routingRuleUpsert.fields.sourcePort",
@@ -193,6 +245,7 @@ export function RoutingRouteSummary({
       const components = { fields: <MissingFieldLinks fields={fields} /> }
       return {
         key: JSON.stringify([params.rule, fields]),
+        explainFor: null,
         fill: (
           <Trans
             i18nKey="overview.routingDiagnostics.trace.undetermined.fillFields"
@@ -213,14 +266,39 @@ export function RoutingRouteSummary({
     if (result.undetermined_reason === "default_gateway_directness") {
       return {
         key: JSON.stringify([params.rule, "gateway"]),
-        fill: t("overview.routingDiagnostics.trace.undetermined.gatewayAdvice"),
-        explain: t(
-          "overview.routingDiagnostics.trace.undetermined.gateway",
-          params
-        ),
+        fill: null,
+        explain: null,
+        explainFor: (count: number, ip: string) =>
+          t("overview.routingDiagnostics.trace.undetermined.gateway", {
+            ...params,
+            count,
+            ip,
+          }),
       }
     }
     return null
+  }
+  // How the default_gateway rule treated the address, as one sentence.
+  const gatewaySkipText = (result: RoutingTestResponse["results"][number]) => {
+    const gateway = result.default_gateway
+    if (!gateway || gateway.uses_default_gateway !== false || !gateway.bypass) {
+      return null
+    }
+    const { bypass } = gateway
+    const key =
+      bypass.source === "route"
+        ? bypass.interface
+          ? "skippedRoute"
+          : "skippedRouteNoInterface"
+        : bypass.source === "address"
+          ? "skippedAddress"
+          : "skippedReserved"
+    return t(`overview.routingDiagnostics.trace.gateway.${key}`, {
+      rule: gateway.rule_index + 1,
+      ip: result.ip,
+      cidr: bypass.cidr,
+      interface: bypass.interface ?? "",
+    })
   }
   const dnsMissing =
     diagnostics.is_domain && diagnostics.resolved_ips.length === 0
@@ -246,11 +324,19 @@ export function RoutingRouteSummary({
           .filter((item) => item.rule.enabled !== false)
           .flatMap((item) => item.ip_rows)
           .find((row) => row.ip === result.ip && row.in_lists)?.list_match
+      const issue = getRoutingDiagnosticIssue(diagnostics, result)
       return {
         result,
         rule,
         listMatch,
-        issue: getRoutingDiagnosticIssue(diagnostics, result),
+        issue,
+        // The routes could not be read: a state of the router, not a gap in
+        // the request.
+        displayIssue:
+          issue === "criteria" &&
+          result.undetermined_reason === "default_gateway_directness"
+            ? "networkState"
+            : issue,
         undetermined: undeterminedDetails(result),
         row: rule?.ip_rows.find((row) => row.ip === result.ip),
       }
@@ -270,12 +356,18 @@ export function RoutingRouteSummary({
       entry.rule?.rule_index,
       entry.result.expected_outbound,
       entry.undetermined?.key,
+      entry.result.default_gateway?.uses_default_gateway,
+      entry.result.default_gateway?.bypass,
+      // A skipped rule names the address in its sentence.
+      entry.result.default_gateway?.uses_default_gateway === false
+        ? entry.result.ip
+        : null,
     ])
     listGroups.set(listKey, [...(listGroups.get(listKey) ?? []), entry])
     ruleGroups.set(ruleKey, [...(ruleGroups.get(ruleKey) ?? []), entry])
     if (entry.issue !== "ok")
-      issueGroups.set(entry.issue, [
-        ...(issueGroups.get(entry.issue) ?? []),
+      issueGroups.set(entry.displayIssue, [
+        ...(issueGroups.get(entry.displayIssue) ?? []),
         entry,
       ])
   }
@@ -336,6 +428,8 @@ export function RoutingRouteSummary({
       entry.result.expected_outbound,
       entry.result.actual_outbound,
       entry.issue,
+      entry.result.outbound_group,
+      entry.result.default_gateway?.applied_uses_default_gateway,
     ])
     firewallGroups.set(key, [...(firewallGroups.get(key) ?? []), entry])
   }
@@ -433,11 +527,33 @@ export function RoutingRouteSummary({
                     />
                   </p>
                 ) : null}
+                {!undetermined && gatewaySkipText(result) ? (
+                  <p className="mb-1" data-testid="gateway-skipped">
+                    {gatewaySkipText(result)}
+                  </p>
+                ) : null}
                 {undetermined ? (
                   <div className="space-y-1">
-                    <p>{undetermined.fill}</p>
-                    <p className="text-xs">{undetermined.explain}</p>
+                    {undetermined.explainFor ? (
+                      <p>{undetermined.explainFor(group.length, result.ip)}</p>
+                    ) : (
+                      <>
+                        <p>{undetermined.fill}</p>
+                        <p className="text-xs">{undetermined.explain}</p>
+                      </>
+                    )}
                   </div>
+                ) : rule &&
+                  result.default_gateway?.uses_default_gateway === true &&
+                  result.default_gateway.rule_index === rule.rule_index ? (
+                  <p data-testid="gateway-uses">
+                    {t("overview.routingDiagnostics.trace.gateway.uses", {
+                      rule: rule.rule_index + 1,
+                      outbound: label(result.expected_outbound),
+                      ip: result.ip,
+                      count: group.length,
+                    })}
+                  </p>
                 ) : (
                   <p>
                     {rule
@@ -555,6 +671,22 @@ export function RoutingRouteSummary({
                           </dd>
                         </div>
                       </dl>
+                      {result.outbound_group ? (
+                        <OutboundGroupBreakdown group={result.outbound_group} />
+                      ) : null}
+                      {result.default_gateway?.uses_default_gateway != null &&
+                      result.default_gateway.applied_uses_default_gateway !=
+                        null &&
+                      result.default_gateway.uses_default_gateway !==
+                        result.default_gateway.applied_uses_default_gateway ? (
+                        <p className="text-xs" data-testid="gateway-applied">
+                          {t(
+                            result.default_gateway.applied_uses_default_gateway
+                              ? "overview.routingDiagnostics.trace.gateway.appliedStill"
+                              : "overview.routingDiagnostics.trace.gateway.appliedNot"
+                          )}
+                        </p>
+                      ) : null}
                       {issue !== "ok" && group.some(({ row }) => row) ? (
                         <ul
                           className="list-disc space-y-0.5 pl-4 text-xs"
@@ -614,6 +746,10 @@ export function RoutingRouteSummary({
                 (entry) =>
                   entry.listMatch && entry.listMatch.via !== entry.result.ip
               )
+            // The rule step already explains this once.
+            if (issue === "networkState" && issueGroups.size === 1) {
+              return null
+            }
             return (
               <div key={issue} className="space-y-1">
                 {issueGroups.size > 1 ? (
@@ -631,7 +767,8 @@ export function RoutingRouteSummary({
                     />
                   </p>
                 ) : null}
-                {issue === "criteria" && group[0].undetermined ? (
+                {issue === "networkState" ? null : issue === "criteria" &&
+                  group[0].undetermined ? (
                   <div className="space-y-1">
                     <p>{group[0].undetermined.explain}</p>
                     <p>{group[0].undetermined.fill}</p>

@@ -6,10 +6,6 @@
  * OpenAPI spec version: 3.0.0
  */
 
-/**
- * Why the hold timed out (only with `timed_out`). `budget_spent_by_batch`: the deadline had already passed when the packet started (earlier packets of the round used the shared budget). `admission_blocked`: the deadline passed while waiting for the firewall-apply write pause. `own_write_slow`: the packet's own write ran past the deadline. `late_batch_full`: the adds were dropped because the pending late-write batch was full.
-
- */
 export type DnsTestInterceptEventTimeoutCause = typeof DnsTestInterceptEventTimeoutCause[keyof typeof DnsTestInterceptEventTimeoutCause];
 
 

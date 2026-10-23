@@ -94,7 +94,7 @@ std::string host_warning_title(const HealthWarning& warning, const std::string& 
     return warning.message;
 }
 
-api::HealthIssue make_issue(std::string key, api::Severity severity, api::Code code,
+api::HealthIssue make_issue(std::string key, api::HealthIssueSeverity severity, api::HealthIssueCode code,
                             std::string title) {
     api::HealthIssue issue;
     issue.key = std::move(key);
@@ -116,51 +116,51 @@ std::string describe_member(const api::RuntimeInterfaceState& member) {
     return out;
 }
 
-void collect_kernel_issues(const std::vector<api::KernelCheckElement>& checks,
+void collect_kernel_issues(const std::vector<api::KernelCheck>& checks,
                            std::vector<api::HealthIssue>& issues) {
     for (const auto& check : checks) {
         if (healthy_status(check.status)) continue;
         const bool failed = check.status == "error" || check.status == "unsupported";
-        const auto severity = failed && !check.advisory ? api::Severity::ERROR
-                                                        : api::Severity::WARNING;
+        const auto severity = failed && !check.advisory ? api::HealthIssueSeverity::ERROR
+                                                        : api::HealthIssueSeverity::WARNING;
         if (check.kind == "extension") {
             const std::string kind = check.extension_kind.value_or("match");
             const std::string module = check.kernel_module.value_or("");
             auto issue = make_issue(
-                check.key, severity, api::Code::XT_EXTENSION,
+                check.key, severity, api::HealthIssueCode::XT_EXTENSION,
                 keen_pbr3::format("iptables {} {} ({})", kind, check.feature, module));
             issue.params = {{"kind", kind}, {"name", check.feature}, {"module", module}};
             if (!check.advisory) {
-                issue.detail_code = api::DetailCode::XT_EXTENSION_REQUIRED;
+                issue.detail_code = api::HealthIssueDetailCode::XT_EXTENSION_REQUIRED;
                 issue.detail = "Kernel module is missing and the current rules need it: "
                                "the firewall rules cannot be applied";
             } else if (check.feature == "addrtype") {
                 // Without addrtype the skip rules fall back to plain address matches.
-                issue.detail_code = api::DetailCode::CAPABILITY_FALLBACK;
+                issue.detail_code = api::HealthIssueDetailCode::CAPABILITY_FALLBACK;
                 issue.detail = "Not available in the kernel; plain address rules are used instead";
             } else {
-                issue.detail_code = api::DetailCode::XT_EXTENSION_UNUSED;
+                issue.detail_code = api::HealthIssueDetailCode::XT_EXTENSION_UNUSED;
                 issue.detail = "Kernel module is missing; the current rules do not use it";
             }
             issues.push_back(std::move(issue));
         } else if (check.kind == "capability") {
-            auto issue = make_issue(check.key, severity, api::Code::KERNEL_CAPABILITY,
+            auto issue = make_issue(check.key, severity, api::HealthIssueCode::KERNEL_CAPABILITY,
                                     capability_title(check.feature));
             issue.params = {{"feature", check.feature}};
             if (check.advisory) {
-                issue.detail_code = api::DetailCode::CAPABILITY_FALLBACK;
+                issue.detail_code = api::HealthIssueDetailCode::CAPABILITY_FALLBACK;
                 issue.detail = "Not available in the kernel; plain address rules are used instead";
             } else {
-                issue.detail_code = api::DetailCode::CAPABILITY_UNSUPPORTED;
+                issue.detail_code = api::HealthIssueDetailCode::CAPABILITY_UNSUPPORTED;
                 issue.detail = "Not supported by the kernel";
             }
             issues.push_back(std::move(issue));
         } else {
             const std::string reason = check.reason.value_or(check.status);
-            auto issue = make_issue(check.key, severity, api::Code::KERNEL_PROBE,
+            auto issue = make_issue(check.key, severity, api::HealthIssueCode::KERNEL_PROBE,
                                     humanize_feature(check.feature));
             issue.params = {{"feature", check.feature}, {"reason", reason}};
-            issue.detail_code = api::DetailCode::KERNEL_CHECK_FAILED;
+            issue.detail_code = api::HealthIssueDetailCode::KERNEL_CHECK_FAILED;
             issue.detail = "Kernel check failed: " + reason;
             issues.push_back(std::move(issue));
         }
@@ -170,8 +170,8 @@ void collect_kernel_issues(const std::vector<api::KernelCheckElement>& checks,
 void collect_routing_issues(const RoutingHealthReport& report,
                             std::vector<api::HealthIssue>& issues) {
     if (!report.error.empty()) {
-        auto issue = make_issue("routing-error", api::Severity::ERROR,
-                                api::Code::ROUTING_CHECK_FAILED, "Routing checks failed");
+        auto issue = make_issue("routing-error", api::HealthIssueSeverity::ERROR,
+                                api::HealthIssueCode::ROUTING_CHECK_FAILED, "Routing checks failed");
         issue.detail = report.error;
         issues.push_back(std::move(issue));
         return;
@@ -180,14 +180,14 @@ void collect_routing_issues(const RoutingHealthReport& report,
     const auto& chain = report.firewall_chain;
     if (chain.verification_state != VerificationState::unavailable) {
         if (!chain.chain_present) {
-            auto issue = make_issue("firewall-chain", api::Severity::ERROR,
-                                    api::Code::FIREWALL_CHAIN_MISSING,
+            auto issue = make_issue("firewall-chain", api::HealthIssueSeverity::ERROR,
+                                    api::HealthIssueCode::FIREWALL_CHAIN_MISSING,
                                     "Firewall chain is missing");
             issue.detail = chain.detail;
             issues.push_back(std::move(issue));
         } else if (!chain.prerouting_hook_present) {
-            auto issue = make_issue("firewall-prerouting", api::Severity::ERROR,
-                                    api::Code::FIREWALL_PREROUTING_MISSING,
+            auto issue = make_issue("firewall-prerouting", api::HealthIssueSeverity::ERROR,
+                                    api::HealthIssueCode::FIREWALL_PREROUTING_MISSING,
                                     "Firewall chain is not hooked into PREROUTING");
             issue.detail = chain.detail;
             issues.push_back(std::move(issue));
@@ -202,7 +202,7 @@ void collect_routing_issues(const RoutingHealthReport& report,
     }
     if (!bad_rules.empty()) {
         const auto count = std::to_string(bad_rules.size());
-        auto issue = make_issue("firewall-rules", api::Severity::ERROR, api::Code::FIREWALL_RULES,
+        auto issue = make_issue("firewall-rules", api::HealthIssueSeverity::ERROR, api::HealthIssueCode::FIREWALL_RULES,
                                 "Firewall rules do not match: " + count);
         issue.params = {{"count", count}};
         set_list(issue, std::move(bad_rules));
@@ -217,7 +217,7 @@ void collect_routing_issues(const RoutingHealthReport& report,
     }
     if (!bad_routes.empty()) {
         const auto count = std::to_string(bad_routes.size());
-        auto issue = make_issue("route-tables", api::Severity::ERROR, api::Code::ROUTE_TABLES,
+        auto issue = make_issue("route-tables", api::HealthIssueSeverity::ERROR, api::HealthIssueCode::ROUTE_TABLES,
                                 "Routing tables do not match: " + count);
         issue.params = {{"count", count}};
         set_list(issue, std::move(bad_routes));
@@ -233,7 +233,7 @@ void collect_routing_issues(const RoutingHealthReport& report,
     }
     if (!bad_policies.empty()) {
         const auto count = std::to_string(bad_policies.size());
-        auto issue = make_issue("policy-rules", api::Severity::ERROR, api::Code::POLICY_RULES,
+        auto issue = make_issue("policy-rules", api::HealthIssueSeverity::ERROR, api::HealthIssueCode::POLICY_RULES,
                                 "Policy rules do not match: " + count);
         issue.params = {{"count", count}};
         set_list(issue, std::move(bad_policies));
@@ -249,7 +249,7 @@ void collect_routing_issues(const RoutingHealthReport& report,
         auto issue = make_issue(
             "host-warning-" + code + "-" +
                 warning.interface.value_or(std::to_string(index)),
-            api::Severity::WARNING, api::Code::HOST_WARNING,
+            api::HealthIssueSeverity::WARNING, api::HealthIssueCode::HOST_WARNING,
             host_warning_title(warning, interface));
         issue.params = {{"warning", code}, {"interface", interface}};
         issue.detail = warning.message;
@@ -261,9 +261,9 @@ void collect_routing_issues(const RoutingHealthReport& report,
 void collect_dnsmasq_issues(const api::DnsmasqHealth& dnsmasq,
                             const std::string& setup_docs_url,
                             std::vector<api::HealthIssue>& issues) {
-    if (dnsmasq.mode != api::ResolverIntegration::DNSMASQ) return;
-    if (dnsmasq.state == api::State::ERROR) {
-        auto issue = make_issue("dnsmasq", api::Severity::ERROR, api::Code::DNSMASQ_ERROR,
+    if (dnsmasq.mode != api::ResolverIntegrationMode::DNSMASQ) return;
+    if (dnsmasq.state == api::DnsmasqHealthState::ERROR) {
+        auto issue = make_issue("dnsmasq", api::HealthIssueSeverity::ERROR, api::HealthIssueCode::DNSMASQ_ERROR,
                                 "dnsmasq does not serve the DNS rules");
         if (dnsmasq.error_code && *dnsmasq.error_code == "DNSMASQ_NOT_INSTALLED") {
             // `keen-pbr status` shows this text; the web UI has its own help.
@@ -272,26 +272,26 @@ void collect_dnsmasq_issues(const api::DnsmasqHealth& dnsmasq,
             issue.detail = dnsmasq.last_error;
         } else if (dnsmasq.repair_reason) {
             issue.detail = dnsmasq.repair_reason;
-        } else if (dnsmasq.dnsmasq_alive == api::DnsmasqAlive::DEAD) {
-            issue.detail_code = api::DetailCode::DNSMASQ_DEAD;
+        } else if (dnsmasq.dnsmasq_alive == api::DnsmasqHealthDnsmasqAlive::DEAD) {
+            issue.detail_code = api::HealthIssueDetailCode::DNSMASQ_DEAD;
             issue.detail = "dnsmasq is not running";
         }
         issues.push_back(std::move(issue));
-    } else if (dnsmasq.state == api::State::RECONCILING) {
-        auto issue = make_issue("dnsmasq", api::Severity::WARNING,
-                                api::Code::DNSMASQ_RECONCILING, "DNS rules are being repaired");
+    } else if (dnsmasq.state == api::DnsmasqHealthState::RECONCILING) {
+        auto issue = make_issue("dnsmasq", api::HealthIssueSeverity::WARNING,
+                                api::HealthIssueCode::DNSMASQ_RECONCILING, "DNS rules are being repaired");
         issue.detail = dnsmasq.repair_reason;
         issues.push_back(std::move(issue));
     }
 }
 
-void collect_outbound_issues(const std::vector<api::RuntimeOutboundStateElement>& outbounds,
+void collect_outbound_issues(const std::vector<api::RuntimeOutboundState>& outbounds,
                              std::vector<api::HealthIssue>& issues) {
     for (const auto& outbound : outbounds) {
         std::vector<std::string> failing;
         for (const auto& member : outbound.interfaces) {
-            if (member.status == api::RuntimeInterfaceStatusEnum::DEGRADED ||
-                member.status == api::RuntimeInterfaceStatusEnum::UNAVAILABLE) {
+            if (member.status == api::RuntimeInterfaceStatus::DEGRADED ||
+                member.status == api::RuntimeInterfaceStatus::UNAVAILABLE) {
                 failing.push_back(describe_member(member));
             }
         }
@@ -299,14 +299,14 @@ void collect_outbound_issues(const std::vector<api::RuntimeOutboundStateElement>
             outbound.type == api::OutboundType::URLTEST ||
             outbound.type == api::OutboundType::ICMPTEST;
 
-        if (outbound.status == api::RuntimeOutboundStatusEnum::UNAVAILABLE ||
-            outbound.status == api::RuntimeOutboundStatusEnum::DEGRADED) {
+        if (outbound.status == api::RuntimeOutboundStatus::UNAVAILABLE ||
+            outbound.status == api::RuntimeOutboundStatus::DEGRADED) {
             const bool unavailable =
-                outbound.status == api::RuntimeOutboundStatusEnum::UNAVAILABLE;
+                outbound.status == api::RuntimeOutboundStatus::UNAVAILABLE;
             auto issue = make_issue(
                 "outbound-" + outbound.tag,
-                unavailable ? api::Severity::ERROR : api::Severity::WARNING,
-                unavailable ? api::Code::OUTBOUND_UNAVAILABLE : api::Code::OUTBOUND_DEGRADED,
+                unavailable ? api::HealthIssueSeverity::ERROR : api::HealthIssueSeverity::WARNING,
+                unavailable ? api::HealthIssueCode::OUTBOUND_UNAVAILABLE : api::HealthIssueCode::OUTBOUND_DEGRADED,
                 outbound.tag + (unavailable ? " is unavailable" : " is degraded"));
             issue.params = {{"tag", outbound.tag}};
             issue.outbound = outbound.tag;
@@ -324,7 +324,7 @@ void collect_outbound_issues(const std::vector<api::RuntimeOutboundStateElement>
         if (is_group && !failing.empty()) {
             const auto count = std::to_string(failing.size());
             auto issue = make_issue("outbound-" + outbound.tag + "-members",
-                                    api::Severity::WARNING, api::Code::GROUP_MEMBERS_FAILING,
+                                    api::HealthIssueSeverity::WARNING, api::HealthIssueCode::GROUP_MEMBERS_FAILING,
                                     outbound.tag + ": failing members: " + count);
             issue.params = {{"tag", outbound.tag}, {"count", count}};
             issue.outbound = outbound.tag;
@@ -391,15 +391,15 @@ std::vector<DnsServerFailure> collect_dns_server_failures(const DnsBalancerStats
     return failures;
 }
 
-std::vector<api::KernelCheckElement> collect_kernel_checks(
-    const api::InterceptHealthClass& intercept, bool requested_dns, bool requested_l7) {
-    std::vector<api::KernelCheckElement> checks;
+std::vector<api::KernelCheck> collect_kernel_checks(
+    const api::InterceptHealth& intercept, bool requested_dns, bool requested_l7) {
+    std::vector<api::KernelCheck> checks;
     const auto& capabilities = intercept.capabilities;
 
     const auto add_capability = [&](const std::string& name, bool supported, bool relevant,
                                     bool advisory) {
         if (!relevant) return;
-        api::KernelCheckElement check;
+        api::KernelCheck check;
         check.key = "capability:" + name;
         check.kind = "capability";
         check.feature = name;
@@ -420,9 +420,9 @@ std::vector<api::KernelCheckElement> collect_kernel_checks(
     // iptables extensions of the routing rules: a missing one the current rules
     // use fails the firewall apply (error); an unused one only warns.
     for (const auto& extension :
-         capabilities.xt_extensions.value_or(std::vector<api::XtExtensionHealthElement>{})) {
+         capabilities.xt_extensions.value_or(std::vector<api::XtExtensionHealth>{})) {
         const std::string kind = enum_name(extension.kind);
-        api::KernelCheckElement check;
+        api::KernelCheck check;
         check.key = "extension:" + kind + ":" + extension.name;
         check.kind = "extension";
         check.feature = extension.name;
@@ -434,7 +434,7 @@ std::vector<api::KernelCheckElement> collect_kernel_checks(
     }
 
     for (const auto& probe :
-         intercept.probes.value_or(std::vector<api::InterceptProbeFeatureElement>{})) {
+         intercept.probes.value_or(std::vector<api::InterceptProbeFeature>{})) {
         const bool own_capability = probe.feature == "nfqueue" || probe.feature == "nflog" ||
                                     probe.feature == "connbytes";
         const bool relevant =
@@ -445,7 +445,7 @@ std::vector<api::KernelCheckElement> collect_kernel_checks(
         // (in place needs Linux 6.12+), so it is neither a check nor an
         // issue; the startup log keeps its result.
         if (!relevant || probe.feature == "nft_timeout_update") continue;
-        api::KernelCheckElement check;
+        api::KernelCheck check;
         check.key = "probe:" + probe.feature;
         check.kind = "probe";
         check.feature = probe.feature;
@@ -484,7 +484,7 @@ api::HealthIssuesResponse collect_health_issues(const HealthIssueInputs& inputs)
         if (inputs.intercept->enabled) {
             for (std::size_t index = 0; index < inputs.intercept->reasons.size(); ++index) {
                 auto issue = make_issue("intercept-reason-" + std::to_string(index),
-                                        api::Severity::WARNING, api::Code::INTERCEPT_LIMITED,
+                                        api::HealthIssueSeverity::WARNING, api::HealthIssueCode::INTERCEPT_LIMITED,
                                         "Traffic interception is limited");
                 issue.detail = inputs.intercept->reasons[index];
                 issues.push_back(std::move(issue));
@@ -493,7 +493,7 @@ api::HealthIssuesResponse collect_health_issues(const HealthIssueInputs& inputs)
         const auto warnings = inputs.intercept->warnings.value_or(std::vector<std::string>{});
         for (std::size_t index = 0; index < warnings.size(); ++index) {
             auto issue = make_issue("intercept-warning-" + std::to_string(index),
-                                    api::Severity::WARNING, api::Code::INTERCEPT_WARNING,
+                                    api::HealthIssueSeverity::WARNING, api::HealthIssueCode::INTERCEPT_WARNING,
                                     "Traffic interception warning");
             issue.detail = warnings[index];
             issues.push_back(std::move(issue));
@@ -506,15 +506,15 @@ api::HealthIssuesResponse collect_health_issues(const HealthIssueInputs& inputs)
     }
     if (inputs.outbounds) collect_outbound_issues(*inputs.outbounds, issues);
     if (inputs.doh_ca_missing) {
-        auto issue = make_issue("doh", api::Severity::ERROR, api::Code::DOH_UNAVAILABLE,
+        auto issue = make_issue("doh", api::HealthIssueSeverity::ERROR, api::HealthIssueCode::DOH_UNAVAILABLE,
                                 "DNS-over-HTTPS servers are not used");
-        issue.detail_code = api::DetailCode::DOH_NO_CERTIFICATES;
+        issue.detail_code = api::HealthIssueDetailCode::DOH_NO_CERTIFICATES;
         issue.detail = "no CA certificates found to verify the servers";
         issues.push_back(std::move(issue));
     }
     for (const auto& list : inputs.undownloaded_lists) {
-        auto issue = make_issue("list-" + list.name, api::Severity::WARNING,
-                                api::Code::LIST_NOT_DOWNLOADED,
+        auto issue = make_issue("list-" + list.name, api::HealthIssueSeverity::WARNING,
+                                api::HealthIssueCode::LIST_NOT_DOWNLOADED,
                                 "List '" + list.name + "' is not downloaded yet");
         issue.params = {{"list", list.name}, {"url", list.url}};
         if (list.detour) issue.params["detour"] = *list.detour;
@@ -531,8 +531,8 @@ api::HealthIssuesResponse collect_health_issues(const HealthIssueInputs& inputs)
             at += 2;
         }
         auto issue = make_issue("dns-server-" + failure.address + "-" + failure.detour,
-                                failure.group_down ? api::Severity::ERROR : api::Severity::WARNING,
-                                api::Code::DNS_SERVER_FAILING,
+                                failure.group_down ? api::HealthIssueSeverity::ERROR : api::HealthIssueSeverity::WARNING,
+                                api::HealthIssueCode::DNS_SERVER_FAILING,
                                 "DNS server '" + display + "' is not answering");
         issue.params = {{"tag", display},
                         {"address", failure.address},
@@ -549,8 +549,8 @@ api::HealthIssuesResponse collect_health_issues(const HealthIssueInputs& inputs)
         issues.push_back(std::move(issue));
     }
     if (inputs.dns_upstream_missing) {
-        auto issue = make_issue("dns-upstream", api::Severity::WARNING,
-                                api::Code::DNS_UPSTREAM_MISSING,
+        auto issue = make_issue("dns-upstream", api::HealthIssueSeverity::WARNING,
+                                api::HealthIssueCode::DNS_UPSTREAM_MISSING,
                                 "No main DNS servers are specified");
         issue.detail = "domains that match no DNS rule may be resolved through the default DNS servers";
         issues.push_back(std::move(issue));
@@ -561,8 +561,8 @@ api::HealthIssuesResponse collect_health_issues(const HealthIssueInputs& inputs)
             if (!tags.empty()) tags += ", ";
             tags += tag;
         }
-        auto issue = make_issue("doh-bootstrap", api::Severity::WARNING,
-                                api::Code::DOH_BOOTSTRAP_MISSING,
+        auto issue = make_issue("doh-bootstrap", api::HealthIssueSeverity::WARNING,
+                                api::HealthIssueCode::DOH_BOOTSTRAP_MISSING,
                                 "No bootstrap DNS servers for the DoH servers " + tags);
         issue.params = {{"tags", tags}};
         issue.detail = "the DoH servers have no IP address, and the bootstrap servers that look it up are not specified";

@@ -13,7 +13,7 @@ namespace keen_pbr3 {
 
 // `intercept` object of /api/health/service.  `counters` may be null (service
 // not running).  Parts are reported active only while the service runs.
-api::InterceptHealthClass make_intercept_health(const InterceptEffective& effective,
+api::InterceptHealth make_intercept_health(const InterceptEffective& effective,
                                                 bool running,
                                                 const InterceptCounters* counters,
                                                 uint64_t events_seq,
@@ -22,7 +22,7 @@ api::InterceptHealthClass make_intercept_health(const InterceptEffective& effect
 // `capabilities.xt_extensions`: every routing iptables extension with its
 // startup availability; `required` when the current rules use it and
 // `module_needed` (legacy iptables needs the xt module for every extension).
-std::vector<api::XtExtensionHealthElement> xt_extension_health(
+std::vector<api::XtExtensionHealth> xt_extension_health(
     const std::vector<const XtExtension*>& missing,
     const std::vector<const XtExtension*>& in_use, bool module_needed);
 
@@ -58,9 +58,9 @@ std::string gap_notice_for_dropped(const std::string& first, const std::string& 
 // Parse /proc/net/netfilter/nfnetlink_queue text; returns the line for
 // `queue_num` (columns: queue_number peer_portid queue_total copy_mode
 // copy_range queue_dropped user_dropped id_sequence 1).
-std::optional<api::KernelQueue> parse_nfnetlink_queue(const std::string& text, int queue_num);
+std::optional<api::InterceptKernelQueue> parse_nfnetlink_queue(const std::string& text, int queue_num);
 
 // Reads the proc file; nullopt if missing or no line for the queue.
-std::optional<api::KernelQueue> read_kernel_queue(int queue_num);
+std::optional<api::InterceptKernelQueue> read_kernel_queue(int queue_num);
 
 } // namespace keen_pbr3

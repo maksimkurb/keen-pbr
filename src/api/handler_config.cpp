@@ -96,7 +96,7 @@ Config make_config_defaults() {
     dns.enabled = d::intercept_dns_enabled;
     dns.queue_num = d::intercept_dns_queue_num;
     dns.hold_timeout_ms = d::intercept_dns_hold_timeout_ms;
-    api::Marker& marker = dns.marker.emplace();
+    api::InterceptMarkerConfig& marker = dns.marker.emplace();
     marker.domain = std::string(d::intercept_marker_domain);
     marker.answer_ipv4 = std::string(d::intercept_marker_answer_ipv4);
     InterceptL7Config& l7 = intercept.l7.emplace();
@@ -184,7 +184,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         ctx.stage_config(std::move(staged));
 
         api::ConfigUpdateResponse resp;
-        resp.status = api::ConfigUpdateResponseStatus::OK;
+        resp.status = api::OkResponseStatus::OK;
         resp.message = "Config staged in memory";
         return nlohmann::json(resp).dump();
     });
@@ -198,7 +198,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         ctx.clear_staged_config();
 
         api::ConfigUpdateResponse resp;
-        resp.status = api::ConfigUpdateResponseStatus::OK;
+        resp.status = api::OkResponseStatus::OK;
         resp.message = "Staged config discarded";
         return nlohmann::json(resp).dump();
     });

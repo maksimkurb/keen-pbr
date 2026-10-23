@@ -442,15 +442,41 @@ struct UndeterminedCriteria {
     }
 };
 
+// Bypass lists of a default_gateway decision (per address family) and what the
+// decision found.  Without a list for the rule's family the rule stays
+// undetermined.
+struct DefaultGatewayEval {
+    const std::vector<DefaultGatewayBypassEntry>* ipv4_entries{nullptr};
+    const std::vector<DefaultGatewayBypassEntry>* ipv6_entries{nullptr};
+    // Output
+    bool evaluated{false};  // a default_gateway selector was decided for this address
+    bool relevant{false};   // ...and the rule's other criteria did not rule it out
+    std::optional<bool> uses_default_gateway;
+    std::optional<DefaultGatewayBypassEntry> bypass;
+};
+
+std::vector<DefaultGatewayBypassEntry> applied_bypass_entries(const RuleState& state) {
+    std::vector<DefaultGatewayBypassEntry> entries;
+    entries.reserve(state.criteria.default_gateway_bypass.size());
+    for (const auto& cidr : state.criteria.default_gateway_bypass) {
+        entries.push_back({cidr, DefaultGatewayBypassSource::Reserved, std::nullopt});
+    }
+    return entries;
+}
+
 std::optional<bool> match_rule_criteria(const RouteRule& rule,
                                         const std::string& ip,
                                         const TestRoutingCriteria& packet,
-                                        UndeterminedCriteria* undetermined = nullptr) {
-    if (!packet.has_any()) return std::nullopt;
+                                        UndeterminedCriteria* undetermined = nullptr,
+                                        DefaultGatewayEval* gateway = nullptr) {
+    // Callers decide whether a request without packet fields is evaluated at
+    // all (see target_only_rule_evaluable); the absent fields are only read by
+    // criteria that target-only rules never carry.
     if (!route_rule_enabled(rule)) return false;
 
     const FirewallRuleCriteria criteria = build_firewall_rule_criteria(rule);
     std::optional<bool> result = true;
+    bool gateway_bypassed = false;
 
     if (criteria.default_gateway != DefaultGatewayFamily::None) {
         const bool packet_v4 = !ip.empty() && is_ipv4_address(ip);
@@ -458,10 +484,19 @@ std::optional<bool> match_rule_criteria(const RouteRule& rule,
         if (!ip.empty() && packet_v4 != gateway_v4) {
             return false;
         }
-        // Directness depends on the current main-table route and cannot be
-        // established from a synthetic packet alone.
-        result = combine_match(result, std::nullopt);
-        if (undetermined != nullptr) undetermined->default_gateway = true;
+        const auto* entries = gateway == nullptr ? nullptr
+            : (gateway_v4 ? gateway->ipv4_entries : gateway->ipv6_entries);
+        if (entries != nullptr && !ip.empty()) {
+            gateway->evaluated = true;
+            gateway->bypass = find_default_gateway_bypass(*entries, ip);
+            gateway->uses_default_gateway = !gateway->bypass.has_value();
+            gateway_bypassed = gateway->bypass.has_value();
+        } else {
+            // Without the router's routes, directness cannot be established
+            // from a synthetic packet alone.
+            result = combine_match(result, std::nullopt);
+            if (undetermined != nullptr) undetermined->default_gateway = true;
+        }
     }
 
     if (criteria.proto != L4Proto::Any || !criteria.src_port.empty() ||
@@ -547,7 +582,38 @@ std::optional<bool> match_rule_criteria(const RouteRule& rule,
         result = combine_match(result, *criteria.dscp == packet.dscp.value_or(0));
     }
 
+    if (gateway != nullptr && gateway->evaluated) {
+        gateway->relevant = !result.has_value() || *result;
+    }
+    if (gateway_bypassed) return false;
     return result;
+}
+
+// A request that carries no packet fields (target-only) skips every rule
+// without lists, except a rule whose criteria depend on the destination alone:
+// default_gateway and/or dest_addr, and no proto, port, source address or DSCP.
+// Such a rule is decided like in packet mode.  A default_gateway rule needs the
+// router's routes for its address family; without them the rule stays ignored,
+// as it always was in target-only mode, rather than turning the row unknown.
+bool target_only_rule_evaluable(const RouteRule& rule,
+                                const std::string& ip,
+                                const DefaultGatewayEval* gateway_lists) {
+    if (ip.empty() || !route_rule_enabled(rule) || !route_rule_lists(rule).empty()) {
+        return false;
+    }
+    const FirewallRuleCriteria criteria = build_firewall_rule_criteria(rule);
+    if (criteria.proto != L4Proto::Any || !criteria.src_port.empty() ||
+        !criteria.dst_port.empty() || !criteria.src_addr.empty() ||
+        criteria.dscp.has_value()) {
+        return false;
+    }
+    if (criteria.default_gateway == DefaultGatewayFamily::None) {
+        return !criteria.dst_addr.empty();
+    }
+    if (gateway_lists == nullptr) return false;
+    return (criteria.default_gateway == DefaultGatewayFamily::Ipv4
+                ? gateway_lists->ipv4_entries
+                : gateway_lists->ipv6_entries) != nullptr;
 }
 
 struct ExpectedRoutingMatch {
@@ -559,6 +625,8 @@ struct ExpectedRoutingMatch {
     std::optional<int> undetermined_rule_index;
     std::vector<std::string> missing_criteria;
     bool default_gateway_directness{false};
+    // First default_gateway rule the walk decided for this address.
+    std::optional<DefaultGatewayDecision> default_gateway;
 };
 
 std::vector<std::string> sorted_missing_criteria(const std::vector<std::string>& missing) {
@@ -572,11 +640,19 @@ std::vector<std::string> sorted_missing_criteria(const std::vector<std::string>&
     return out;
 }
 
-ExpectedRoutingMatch find_expected_outbound(const Config& config,
+std::optional<ListMatchInfo> find_rule_match(const RouteRule& rule,
+                                             const ListLookupData& lookups,
+                                             const std::string& ip,
+                                             const std::vector<std::string>& domain_cands);
+
+ExpectedRoutingMatch find_expected_outbound_walk(
+                                            std::optional<DefaultGatewayDecision>& gateway_decision,
+                                            const Config& config,
                                             const ListLookupData& lookups,
                                             const std::string& ip,
                                             const std::vector<std::string>& domain_cands,
-                                            const TestRoutingCriteria& packet) {
+                                            const TestRoutingCriteria& packet,
+                                            const DefaultGatewayEval* gateway_lists = nullptr) {
     const auto& route_rules =
         config.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
 
@@ -585,13 +661,29 @@ ExpectedRoutingMatch find_expected_outbound(const Config& config,
         if (!route_rule_enabled(rule)) {
             continue;
         }
-        if (!packet.has_any() && route_rule_lists(rule).empty()) {
+        const bool target_only_rule =
+            !packet.has_any() && target_only_rule_evaluable(rule, ip, gateway_lists);
+        if (!packet.has_any() && route_rule_lists(rule).empty() && !target_only_rule) {
             continue;
         }
         UndeterminedCriteria undetermined;
-        const auto criteria_match = packet.has_any()
-            ? match_rule_criteria(rule, ip, packet, &undetermined)
+        DefaultGatewayEval gateway;
+        if (gateway_lists != nullptr) {
+            gateway.ipv4_entries = gateway_lists->ipv4_entries;
+            gateway.ipv6_entries = gateway_lists->ipv6_entries;
+        }
+        const auto criteria_match = (packet.has_any() || target_only_rule)
+            ? match_rule_criteria(rule, ip, packet, &undetermined, &gateway)
             : std::optional<bool>{true};
+        if (gateway.relevant && !gateway_decision.has_value() &&
+            (route_rule_lists(rule).empty() ||
+             find_rule_match(rule, lookups, ip, domain_cands).has_value())) {
+            DefaultGatewayDecision decision;
+            decision.rule_index = static_cast<int>(index);
+            decision.uses_default_gateway = gateway.uses_default_gateway;
+            decision.bypass = gateway.bypass;
+            gateway_decision = std::move(decision);
+        }
         if (criteria_match.has_value() && !*criteria_match) {
             continue;
         }
@@ -641,10 +733,24 @@ ExpectedRoutingMatch find_expected_outbound(const Config& config,
     return {};
 }
 
+ExpectedRoutingMatch find_expected_outbound(const Config& config,
+                                            const ListLookupData& lookups,
+                                            const std::string& ip,
+                                            const std::vector<std::string>& domain_cands,
+                                            const TestRoutingCriteria& packet,
+                                            const DefaultGatewayEval* gateway_lists = nullptr) {
+    std::optional<DefaultGatewayDecision> decision;
+    auto match = find_expected_outbound_walk(decision, config, lookups, ip,
+                                             domain_cands, packet, gateway_lists);
+    match.default_gateway = std::move(decision);
+    return match;
+}
+
 void apply_undetermined(TestRoutingEntry& entry, const ExpectedRoutingMatch& expected) {
     entry.undetermined_rule_index = expected.undetermined_rule_index;
     entry.missing_criteria = expected.missing_criteria;
     entry.default_gateway_directness = expected.default_gateway_directness;
+    entry.default_gateway = expected.default_gateway;
 }
 
 std::optional<ListMatchInfo> find_rule_match(const RouteRule& rule,
@@ -704,27 +810,48 @@ std::optional<bool> test_rule_ipset_membership(const KernelSetTester& set_tester
     return false;
 }
 
+// Criteria results for the actual side, keyed by rule index, where they differ
+// from the expected side (default_gateway rules judged by the applied bypass
+// list).
+using ActualCriteriaOverride = std::map<size_t, std::optional<bool>>;
+
 std::string find_actual_outbound(
     const std::vector<RuleState>& rule_states,
     const std::vector<RuleIpDiagnostic>& rule_ip_diagnostics,
     bool have_realized_rules,
-    bool use_packet_criteria) {
+    bool use_packet_criteria,
+    const ActualCriteriaOverride& criteria_override = {}) {
     if (!use_packet_criteria) {
         // Preserve the target-only diagnostic's historical list-membership
         // behavior: an unavailable earlier set does not mask a later set
-        // membership that can be checked.
+        // membership that can be checked.  List-less rules appear in the
+        // override only when the expected side evaluates them too
+        // (destination-only rules, see target_only_rule_evaluable).
         bool any_answer = false;
+        bool unknown_answer = false;
         for (const auto& rs : rule_states) {
             if (rs.action_type == RuleActionType::Skip ||
-                rs.rule_index >= rule_ip_diagnostics.size() ||
-                rs.list_names.empty()) {
+                rs.rule_index >= rule_ip_diagnostics.size()) {
+                continue;
+            }
+            if (rs.list_names.empty()) {
+                const auto override_it = criteria_override.find(rs.rule_index);
+                if (override_it == criteria_override.end()) continue;
+                if (!override_it->second.has_value()) {
+                    unknown_answer = true;
+                } else if (*override_it->second) {
+                    if (!unknown_answer) return rs.outbound_tag;
+                } else {
+                    any_answer = true;
+                }
                 continue;
             }
             const auto& membership = rule_ip_diagnostics[rs.rule_index].in_ipset;
             if (!membership.has_value()) continue;
             any_answer = true;
-            if (*membership) return rs.outbound_tag;
+            if (*membership && !unknown_answer) return rs.outbound_tag;
         }
+        if (unknown_answer) return "(unknown)";
         return any_answer ? "(default)" : "(unknown)";
     }
 
@@ -739,11 +866,16 @@ std::string find_actual_outbound(
         }
 
         const auto& diagnostic = rule_ip_diagnostics[rs.rule_index];
-        if (diagnostic.criteria_match.has_value() && !*diagnostic.criteria_match) {
+        std::optional<bool> criteria_match = diagnostic.criteria_match;
+        if (const auto override_it = criteria_override.find(rs.rule_index);
+            override_it != criteria_override.end()) {
+            criteria_match = override_it->second;
+        }
+        if (criteria_match.has_value() && !*criteria_match) {
             known_no_match = true;
             continue;
         }
-        if (!diagnostic.criteria_match.has_value() &&
+        if (!criteria_match.has_value() &&
             diagnostic.in_ipset.has_value()) {
             // A null criteria result can mean an omitted packet field or an
             // untestable default-gateway selector. Never infer a live hit.
@@ -756,8 +888,7 @@ std::string find_actual_outbound(
         }
 
         if (rs.list_names.empty()) {
-            if (have_realized_rules && diagnostic.criteria_match.has_value() &&
-                *diagnostic.criteria_match) {
+            if (have_realized_rules && criteria_match.has_value() && *criteria_match) {
                 if (!unknown_answer) return rs.outbound_tag;
             } else {
                 unknown_answer = true;
@@ -778,6 +909,103 @@ std::string find_actual_outbound(
 
     if (unknown_answer) return "(unknown)";
     return any_answer || known_no_match ? "(default)" : "(unknown)";
+}
+
+const Outbound* find_config_outbound(const Config& config, const std::string& tag) {
+    if (!config.outbounds.has_value()) return nullptr;
+    const auto& outbounds = *config.outbounds;
+    const auto it = std::find_if(outbounds.begin(), outbounds.end(),
+                                 [&tag](const Outbound& outbound) { return outbound.tag == tag; });
+    return it == outbounds.end() ? nullptr : &*it;
+}
+
+// Largest-remainder split of 100 over `weights`; the shares always sum to 100.
+std::vector<uint32_t> split_shares(const std::vector<uint32_t>& weights) {
+    std::vector<uint32_t> shares(weights.size(), 0);
+    uint64_t total = 0;
+    for (const auto weight : weights) total += weight;
+    if (total == 0) return shares;
+    std::vector<std::pair<uint64_t, size_t>> remainders;
+    uint32_t assigned = 0;
+    for (size_t i = 0; i < weights.size(); ++i) {
+        shares[i] = static_cast<uint32_t>(weights[i] * 100ULL / total);
+        assigned += shares[i];
+        remainders.emplace_back(weights[i] * 100ULL % total, i);
+    }
+    std::stable_sort(remainders.begin(), remainders.end(),
+                     [](const auto& a, const auto& b) { return a.first > b.first; });
+    for (size_t i = 0; assigned < 100 && i < remainders.size(); ++i, ++assigned) {
+        ++shares[remainders[i].second];
+    }
+    return shares;
+}
+
+// `rule_state` is the applied rule serving the traffic (balance candidates).
+std::optional<OutboundGroupBreakdown> build_outbound_group(
+    const Config& config,
+    const std::string& tag,
+    const TestRoutingGroupState& group_state,
+    const RuleState* rule_state,
+    bool have_realized_rules,
+    bool ipv4) {
+    const Outbound* group = find_config_outbound(config, tag);
+    if (group == nullptr ||
+        (group->type != OutboundType::URLTEST && group->type != OutboundType::ICMPTEST)) {
+        return std::nullopt;
+    }
+    const bool balance = outbound_uses_balance(*group);
+    if (balance && (!have_realized_rules || rule_state == nullptr)) return std::nullopt;
+
+    OutboundGroupBreakdown breakdown;
+    breakdown.tag = tag;
+    breakdown.strategy = balance ? "balance" : "priority";
+
+    std::string selected;
+    if (!balance) {
+        const auto it = group_state.urltest_selections.find(tag);
+        if (it != group_state.urltest_selections.end()) selected = it->second;
+    }
+
+    std::vector<uint32_t> in_use_weights;
+    std::vector<size_t> in_use_members;
+    for (const auto& tier : group->outbound_groups.value_or(std::vector<OutboundGroup>{})) {
+        for (const auto& member_tag : outbound_group_tags(tier)) {
+            OutboundGroupMember member;
+            member.tag = member_tag;
+            if (const Outbound* child = find_config_outbound(config, member_tag);
+                child != nullptr && child->interface.has_value()) {
+                member.interface_name = *child->interface;
+            }
+            if (balance) {
+                member.weight = outbound_group_balance_weight(tier, member_tag);
+                const auto mark = group_state.outbound_marks.find(member_tag);
+                if (mark != group_state.outbound_marks.end()) {
+                    member.in_use = std::any_of(
+                        rule_state->balance_candidates.begin(),
+                        rule_state->balance_candidates.end(),
+                        [&](const FirewallBalanceCandidate& candidate) {
+                            return candidate.fwmark == mark->second &&
+                                   (ipv4 ? candidate.ipv4 : candidate.ipv6);
+                        });
+                }
+                if (member.in_use) {
+                    in_use_members.push_back(breakdown.members.size());
+                    in_use_weights.push_back(*member.weight);
+                }
+                member.share_percent = 0;
+            } else {
+                member.in_use = !selected.empty() && member_tag == selected;
+            }
+            breakdown.members.push_back(std::move(member));
+        }
+    }
+    if (balance) {
+        const auto shares = split_shares(in_use_weights);
+        for (size_t i = 0; i < in_use_members.size(); ++i) {
+            breakdown.members[in_use_members[i]].share_percent = shares[i];
+        }
+    }
+    return breakdown;
 }
 
 // Kernel membership checks invoke nft/ipset subprocesses. Keep the per-request
@@ -819,7 +1047,9 @@ TestRoutingResult compute_test_routing(const Config& config,
                                         const std::vector<RuleState>* realized_rule_states,
                                         SetWriteEvidenceLookup set_write_evidence_lookup,
                                         const RoutingDnsResolver* dns_resolver,
-                                        std::optional<bool> ipv6_enabled) {
+                                        std::optional<bool> ipv6_enabled,
+                                        const TestRoutingNetworkSnapshot* network,
+                                        const TestRoutingGroupState* group_state) {
     TestRoutingResult result;
     result.target = target;
     result.is_domain = !is_ip_address(target);
@@ -859,6 +1089,20 @@ TestRoutingResult compute_test_routing(const Config& config,
     const auto& route_rules =
         config.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
 
+    // default_gateway rules are decided against the routes read for this test;
+    // built once, every address reuses them.
+    std::vector<DefaultGatewayBypassEntry> ipv4_bypass;
+    std::vector<DefaultGatewayBypassEntry> ipv6_bypass;
+    DefaultGatewayEval gateway_lists;
+    if (network != nullptr) {
+        ipv4_bypass = default_gateway_bypass_entries(
+            DefaultGatewayFamily::Ipv4, network->main_routes, network->interfaces);
+        ipv6_bypass = default_gateway_bypass_entries(
+            DefaultGatewayFamily::Ipv6, network->main_routes, network->interfaces);
+        gateway_lists.ipv4_entries = &ipv4_bypass;
+        gateway_lists.ipv6_entries = &ipv6_bypass;
+    }
+
     std::optional<KernelSetTester> set_tester;
     try {
         set_tester.emplace(resolve_firewall_backend(firewall_backend_preference(config)));
@@ -871,7 +1115,8 @@ TestRoutingResult compute_test_routing(const Config& config,
     if (ips.empty() && result.is_domain) {
         TestRoutingEntry entry;
         entry.ip = "(no IPs resolved)";
-        auto expected = find_expected_outbound(config, lookups, "", domain_cands, packet);
+        auto expected = find_expected_outbound(config, lookups, "", domain_cands, packet,
+                                             &gateway_lists);
         entry.expected_outbound = expected.outbound;
         entry.list_match = expected.list_match;
         entry.matched_rule_index = expected.rule_index;
@@ -925,7 +1170,8 @@ TestRoutingResult compute_test_routing(const Config& config,
             return;
         }
 
-        auto expected = find_expected_outbound(config, lookups, ip, domain_cands, packet);
+        auto expected = find_expected_outbound(config, lookups, ip, domain_cands, packet,
+                                               &gateway_lists);
         per_ip.entry.expected_outbound = expected.outbound;
         per_ip.entry.list_match = std::move(expected.list_match);
         per_ip.entry.matched_rule_index = expected.rule_index;
@@ -938,6 +1184,8 @@ TestRoutingResult compute_test_routing(const Config& config,
             per_ip.entry.criteria_match.reset();
         }
 
+        ActualCriteriaOverride actual_criteria;
+        std::map<size_t, std::optional<bool>> applied_uses_gateway;
         per_ip.rule_ip_diagnostics.reserve(result.rule_diagnostics.size());
         for (size_t idx = 0; idx < result.rule_diagnostics.size(); ++idx) {
             RuleIpDiagnostic ip_diag;
@@ -945,12 +1193,55 @@ TestRoutingResult compute_test_routing(const Config& config,
             ip_diag.list_match = find_rule_match(
                 route_rules[idx], lookups, ip, domain_cands);
             ip_diag.in_lists = ip_diag.list_match.has_value();
+            DefaultGatewayEval expected_gateway = gateway_lists;
             ip_diag.criteria_match = packet.has_any()
-                ? match_rule_criteria(route_rules[idx], ip, packet)
+                ? match_rule_criteria(route_rules[idx], ip, packet, nullptr,
+                                      &expected_gateway)
                 : std::nullopt;
             const auto state_it = std::find_if(
                 rule_states.begin(), rule_states.end(),
                 [idx](const RuleState& state) { return state.rule_index == idx; });
+            const bool target_only_rule =
+                !packet.has_any() &&
+                target_only_rule_evaluable(route_rules[idx], ip, &gateway_lists);
+            if (target_only_rule && state_it != rule_states.end() &&
+                state_it->action_type != RuleActionType::Skip) {
+                // Judged like in packet mode, but kept out of the per-rule
+                // diagnostic (criteria_match stays null for target-only).
+                DefaultGatewayEval applied;
+                const auto family =
+                    build_firewall_rule_criteria(route_rules[idx]).default_gateway;
+                const auto applied_entries = applied_bypass_entries(*state_it);
+                if (family != DefaultGatewayFamily::None) {
+                    (family == DefaultGatewayFamily::Ipv4 ? applied.ipv4_entries
+                                                          : applied.ipv6_entries) =
+                        &applied_entries;
+                }
+                if (family != DefaultGatewayFamily::None && !have_realized_rules) {
+                    actual_criteria[idx] = std::nullopt;
+                } else {
+                    actual_criteria[idx] =
+                        match_rule_criteria(route_rules[idx], ip, packet, nullptr, &applied);
+                    if (applied.evaluated) applied_uses_gateway[idx] = applied.uses_default_gateway;
+                }
+            }
+            if (have_realized_rules && packet.has_any() && state_it != rule_states.end() &&
+                state_it->action_type != RuleActionType::Skip &&
+                build_firewall_rule_criteria(route_rules[idx]).default_gateway !=
+                    DefaultGatewayFamily::None) {
+                // The firewall decides these against the bypass list it last
+                // applied, which may differ from the routes read just now.
+                const auto applied_entries = applied_bypass_entries(*state_it);
+                DefaultGatewayEval applied;
+                if (state_it->criteria.default_gateway == DefaultGatewayFamily::Ipv4) {
+                    applied.ipv4_entries = &applied_entries;
+                } else if (state_it->criteria.default_gateway == DefaultGatewayFamily::Ipv6) {
+                    applied.ipv6_entries = &applied_entries;
+                }
+                actual_criteria[idx] =
+                    match_rule_criteria(route_rules[idx], ip, packet, nullptr, &applied);
+                if (applied.evaluated) applied_uses_gateway[idx] = applied.uses_default_gateway;
+            }
             if (set_write_evidence_lookup) {
                 ip_diag.set_write_evidence = set_write_evidence_for_rule(
                     state_it != rule_states.end() ? &*state_it : nullptr,
@@ -968,9 +1259,43 @@ TestRoutingResult compute_test_routing(const Config& config,
         // remain unknown because their in-set membership is then null.
         per_ip.entry.actual_outbound = find_actual_outbound(
             rule_states, per_ip.rule_ip_diagnostics,
-            have_realized_rules, packet.has_any());
+            have_realized_rules, packet.has_any(), actual_criteria);
         per_ip.entry.ok = per_ip.entry.expected_outbound != "(unknown)" &&
                           per_ip.entry.expected_outbound == per_ip.entry.actual_outbound;
+
+        if (per_ip.entry.default_gateway.has_value()) {
+            const auto applied_it = applied_uses_gateway.find(
+                static_cast<size_t>(per_ip.entry.default_gateway->rule_index));
+            if (applied_it != applied_uses_gateway.end()) {
+                per_ip.entry.default_gateway->applied_uses_default_gateway = applied_it->second;
+            }
+        }
+
+        if (group_state != nullptr) {
+            const auto known = [](const std::string& tag) {
+                return tag != "(unknown)" && tag != "(default)";
+            };
+            const std::string& served = known(per_ip.entry.actual_outbound)
+                ? per_ip.entry.actual_outbound : per_ip.entry.expected_outbound;
+            if (known(served)) {
+                const RuleState* serving = nullptr;
+                for (const auto& state : rule_states) {
+                    if (state.action_type == RuleActionType::Skip ||
+                        state.outbound_tag != served) {
+                        continue;
+                    }
+                    if (serving == nullptr) serving = &state;
+                    if (per_ip.entry.matched_rule_index.has_value() &&
+                        state.rule_index == static_cast<size_t>(*per_ip.entry.matched_rule_index)) {
+                        serving = &state;
+                        break;
+                    }
+                }
+                per_ip.entry.outbound_group = build_outbound_group(
+                    config, served, *group_state, serving, have_realized_rules,
+                    is_ipv4_address(ip));
+            }
+        }
     };
 
     const size_t worker_count = std::min(kTestRoutingMaxConcurrentIps, eval_ips.size());
@@ -1039,6 +1364,110 @@ std::string describe_packet_criteria(const TestRoutingCriteria& criteria) {
         out += part;
     }
     return out;
+}
+
+std::string describe_bypass(const std::string& ip, const DefaultGatewayBypassEntry& bypass) {
+    switch (bypass.source) {
+    case DefaultGatewayBypassSource::Route:
+        return ip + " has its own route " + bypass.cidr +
+               (bypass.interface ? " (" + *bypass.interface + ")" : std::string());
+    case DefaultGatewayBypassSource::Address:
+        return ip + " is in " + bypass.cidr + ", the network of " +
+               bypass.interface.value_or("a router interface");
+    case DefaultGatewayBypassSource::Reserved:
+        break;
+    }
+    return ip + " is in a reserved address range " + bypass.cidr;
+}
+
+// Lines that explain a row beyond the table: how a default_gateway rule
+// treated the address, rules that could not be evaluated, and how a group
+// outbound spreads traffic.  Empty when there is nothing to explain.
+std::vector<std::string> describe_entry_details(const TestRoutingEntry& entry) {
+    std::vector<std::string> lines;
+    const auto rule_label = [](int index) { return "Rule #" + std::to_string(index + 1); };
+
+    if (entry.default_gateway) {
+        const auto& dg = *entry.default_gateway;
+        const std::string label = rule_label(dg.rule_index) + " (default gateway)";
+        if (dg.uses_default_gateway.has_value() && *dg.uses_default_gateway) {
+            const bool taken = entry.matched_rule_index &&
+                               *entry.matched_rule_index == dg.rule_index;
+            lines.push_back(label + (taken ? " -> " + entry.expected_outbound : std::string()) +
+                            ": no own route, uses the default gateway");
+        } else if (dg.uses_default_gateway.has_value() && dg.bypass) {
+            lines.push_back(label + " skipped: " + describe_bypass(entry.ip, *dg.bypass));
+        }
+        if (dg.uses_default_gateway.has_value() &&
+            dg.applied_uses_default_gateway.has_value() &&
+            *dg.uses_default_gateway != *dg.applied_uses_default_gateway) {
+            lines.push_back(*dg.applied_uses_default_gateway
+                ? "Firewall: still treats " + entry.ip +
+                      " as default-gateway traffic (last applied routes)"
+                : "Firewall: does not treat " + entry.ip +
+                      " as default-gateway traffic yet (last applied routes)");
+        }
+    }
+
+    if (entry.undetermined_rule_index) {
+        const std::string label = rule_label(*entry.undetermined_rule_index);
+        if (!entry.missing_criteria.empty()) {
+            std::string fields;
+            for (const auto& field : entry.missing_criteria) {
+                if (!fields.empty()) fields += ", ";
+                fields += field;
+            }
+            lines.push_back(label + " cannot be evaluated: missing " + fields);
+        } else if (entry.default_gateway_directness) {
+            lines.push_back(label + " (default gateway) cannot be evaluated: the router's "
+                            "routes could not be read");
+        } else {
+            lines.push_back(label + " cannot be evaluated");
+        }
+    }
+
+    if (!lines.empty() && entry.expected_outbound == "(default)") {
+        lines.push_back("No rule matched, the system route is used");
+    }
+
+    if (entry.outbound_group) {
+        const auto& group = *entry.outbound_group;
+        const bool balance = group.strategy == "balance";
+        size_t width = 0;
+        for (const auto& member : group.members) width = std::max(width, member.tag.size());
+        if (balance) {
+            lines.push_back(group.tag + " (balance), each new connection uses one of:");
+        } else {
+            std::string selected;
+            for (const auto& member : group.members) {
+                if (member.in_use) selected = member.tag;
+            }
+            lines.push_back(group.tag + " (priority): " +
+                            (selected.empty() ? std::string("no member is selected")
+                                              : "uses " + selected));
+        }
+        bool any_in_use = false;
+        for (const auto& member : group.members) {
+            any_in_use = any_in_use || member.in_use;
+            std::string line = "  " + member.tag +
+                               std::string(width - member.tag.size() + 2, ' ');
+            if (balance) {
+                line += "weight " + std::to_string(member.weight.value_or(1)) + "  " +
+                        (member.in_use
+                             ? std::to_string(member.share_percent.value_or(0)) + "%"
+                             : std::string("not in use"));
+            } else if (!member.in_use) {
+                line += "standby";
+            } else {
+                line += "selected";
+            }
+            lines.push_back(std::move(line));
+        }
+        if (balance && !any_in_use) {
+            lines.push_back("  No member is in use, the group's fallback is used");
+        }
+    }
+    return lines;
 }
 
 int render_test_routing_result(const TestRoutingResult& result,
@@ -1111,6 +1540,15 @@ int render_test_routing_result(const TestRoutingResult& result,
                                  entry.expected_outbound, outbound_w,
                                  entry.actual_outbound, outbound_w,
                                  status);
+    }
+
+    for (const auto& entry : result.entries) {
+        const auto details = describe_entry_details(entry);
+        if (details.empty()) continue;
+        std::cout << "\n" << entry.ip << "\n";
+        for (const auto& line : details) {
+            std::cout << "  " << line << "\n";
+        }
     }
 
     return all_ok ? 0 : 1;

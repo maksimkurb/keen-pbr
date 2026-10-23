@@ -31,7 +31,7 @@ ApiContext make_test_api_context(
         []() { return RoutingHealthReport{}; },
         []() { return api::RuntimeOutboundsResponse{}; },
         [runtime_interfaces]() { return runtime_interfaces; },
-        [](const Config&) { return std::map<std::string, api::ListRefreshStateValue>{}; },
+        [](const Config&) { return std::map<std::string, api::ListRefreshState>{}; },
         [](const std::string&) { return TestRoutingResult{}; },
         []() {},
         []() {},
@@ -50,7 +50,7 @@ TEST_CASE("register_runtime_interfaces_handler: GET /api/runtime/interfaces retu
     api::RuntimeInterfaceInventoryEntry entry;
     entry.name = "br0";
     entry.description = std::string("Home network");
-    entry.status = api::RuntimeInterfaceInventoryStatusEnum::UP;
+    entry.status = api::RuntimeInterfaceInventoryStatus::UP;
     entry.admin_up = true;
     entry.oper_state = std::string("up");
     entry.carrier = true;

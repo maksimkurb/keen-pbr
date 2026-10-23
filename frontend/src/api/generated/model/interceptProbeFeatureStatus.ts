@@ -6,10 +6,6 @@
  * OpenAPI spec version: 3.0.0
  */
 
-/**
- * `ok` accepted by the kernel; `unsupported` rejected (EINVAL / EOPNOTSUPP); `error` failed for another reason (timeout, EPERM, busy); `skipped` nothing to test against; `not_run` not attempted.
-
- */
 export type InterceptProbeFeatureStatus = typeof InterceptProbeFeatureStatus[keyof typeof InterceptProbeFeatureStatus];
 
 

@@ -60,9 +60,9 @@ namespace {
 
 OutboundGroup members_of(std::initializer_list<const char*> tags) {
     OutboundGroup group;
-    std::vector<api::OutboundGroupMemberElement> members;
+    std::vector<api::OutboundGroupMember> members;
     for (const char* tag : tags) {
-        api::OutboundGroupMemberElement member;
+        api::OutboundGroupMember member;
         member.outbound = tag;
         members.push_back(member);
     }
@@ -82,7 +82,7 @@ Outbound balance_group(const char* tag, std::initializer_list<const char*> tags)
     Outbound outbound;
     outbound.type = OutboundType::URLTEST;
     outbound.tag = tag;
-    outbound.strategy = api::Strategy::BALANCE;
+    outbound.strategy = api::TestGroupStrategy::BALANCE;
     outbound.outbound_groups = std::vector<OutboundGroup>{members_of(tags)};
     return outbound;
 }

@@ -46,7 +46,7 @@ void register_lists_refresh_handler(ApiServer& server, ApiContext& ctx) {
         const auto result = ctx.refresh_lists(requested_name);
 
         api::ListRefreshResponse response;
-        response.status = api::ConfigUpdateResponseStatus::OK;
+        response.status = api::OkResponseStatus::OK;
         response.message = result.message;
         response.refreshed_lists = result.refreshed_lists;
         response.changed_lists = result.changed_lists;

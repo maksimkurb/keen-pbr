@@ -501,7 +501,7 @@ std::vector<BalanceCandidate> balance_candidate_interfaces(const Config& config)
         if (!outbound_uses_balance(group)) continue;
         std::vector<std::string> tags;
         for (const auto& g : group.outbound_groups.value_or(
-                 std::vector<api::OutboundGroupElement>{})) {
+                 std::vector<api::OutboundGroup>{})) {
             for (const auto& member : outbound_group_members(g)) {
                 tags.push_back(member.outbound);
             }

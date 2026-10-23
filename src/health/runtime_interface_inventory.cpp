@@ -8,10 +8,10 @@ namespace keen_pbr3 {
 
 namespace {
 
-api::RuntimeInterfaceInventoryStatusEnum map_interface_status(bool admin_up) {
+api::RuntimeInterfaceInventoryStatus map_interface_status(bool admin_up) {
     return admin_up
-        ? api::RuntimeInterfaceInventoryStatusEnum::UP
-        : api::RuntimeInterfaceInventoryStatusEnum::DOWN;
+        ? api::RuntimeInterfaceInventoryStatus::UP
+        : api::RuntimeInterfaceInventoryStatus::DOWN;
 }
 
 api::RuntimeInterfaceInventoryEntry build_runtime_interface_inventory_entry(

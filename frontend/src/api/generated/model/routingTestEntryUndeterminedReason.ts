@@ -6,10 +6,6 @@
  * OpenAPI spec version: 3.0.0
  */
 
-/**
- * Why undetermined_rule_index could not be evaluated. missing_criteria: filling the fields listed in missing_criteria would let the rule be evaluated. default_gateway_directness: the rule depends on whether the address is directly connected, which no request field can resolve.
-
- */
 export type RoutingTestEntryUndeterminedReason = typeof RoutingTestEntryUndeterminedReason[keyof typeof RoutingTestEntryUndeterminedReason];
 
 

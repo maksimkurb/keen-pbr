@@ -10,7 +10,7 @@ namespace keen_pbr3 {
 namespace {
 std::string success_response(const std::string& message) {
     api::ReloadResponse resp;
-    resp.status = api::ConfigUpdateResponseStatus::OK;
+    resp.status = api::OkResponseStatus::OK;
     resp.message = message;
     return nlohmann::json(resp).dump();
 }

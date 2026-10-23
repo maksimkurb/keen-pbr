@@ -8,6 +8,8 @@
 
 #include <sys/socket.h>
 
+#include <set>
+
 using namespace keen_pbr3;
 
 namespace {
@@ -1217,4 +1219,74 @@ TEST_CASE("populate_routing_state: test group selects a child reachable through 
                           return rule.fwmark == marks.at("lb") &&
                                  rule.action == RuleAction::lookup && rule.table == 100;
                       }));
+}
+
+TEST_CASE("default_gateway_bypass_entries: criteria list keeps the same destinations") {
+    DumpedRoute route;
+    route.destination = "10.8.0.0/24";
+    route.interface = "wg0";
+    route.family = AF_INET;
+    DumpedRoute default_route;
+    default_route.destination = "default";
+    default_route.family = AF_INET;
+    DumpedRoute v6_route;
+    v6_route.destination = "fd00::/64";
+    v6_route.family = AF_INET6;
+    DumpedInterface lan;
+    lan.name = "br0";
+    lan.ipv4_addresses = {"192.168.1.1/24", "0.0.0.0/0"};
+    lan.ipv6_addresses = {"fd01::1/64"};
+    const std::vector<DumpedRoute> routes{route, default_route, v6_route};
+    const std::vector<DumpedInterface> interfaces{lan};
+
+    const auto entries = default_gateway_bypass_entries(
+        DefaultGatewayFamily::Ipv4, routes, interfaces);
+    std::set<std::string> from_entries;
+    for (const auto& entry : entries) from_entries.insert(entry.cidr);
+    const std::set<std::string> expected{
+        "0.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/3",
+        "10.8.0.0/24", "192.168.1.1/24"};
+    CHECK(from_entries == expected);
+
+    RouteRule rule;
+    rule.outbound = "vpn";
+    rule.default_gateway = api::DefaultGateway::IPV4;
+    const auto criteria = build_firewall_rule_criteria(rule, routes, interfaces);
+    CHECK(criteria.default_gateway_bypass ==
+          std::vector<std::string>(expected.begin(), expected.end()));
+
+    CHECK(default_gateway_bypass_entries(DefaultGatewayFamily::None, routes, interfaces).empty());
+}
+
+TEST_CASE("find_default_gateway_bypass: longest prefix wins and the network form is returned") {
+    const std::vector<DefaultGatewayBypassEntry> entries{
+        {"10.0.0.0/8", DefaultGatewayBypassSource::Route, std::string("wg0")},
+        {"10.8.0.1/24", DefaultGatewayBypassSource::Address, std::string("wg1")},
+        {"192.168.1.0/24", DefaultGatewayBypassSource::Route, std::nullopt},
+        {"fd00::/8", DefaultGatewayBypassSource::Route, std::string("wg2")},
+        {"fe80::/10", DefaultGatewayBypassSource::Reserved, std::nullopt}};
+
+    const auto specific = find_default_gateway_bypass(entries, "10.8.0.5");
+    REQUIRE(specific.has_value());
+    CHECK(specific->cidr == "10.8.0.0/24");
+    CHECK(specific->source == DefaultGatewayBypassSource::Address);
+    CHECK(specific->interface == std::optional<std::string>("wg1"));
+
+    const auto broad = find_default_gateway_bypass(entries, "10.9.0.5");
+    REQUIRE(broad.has_value());
+    CHECK(broad->cidr == "10.0.0.0/8");
+
+    CHECK_FALSE(find_default_gateway_bypass(entries, "1.2.3.4").has_value());
+    CHECK_FALSE(find_default_gateway_bypass(entries, "not-an-ip").has_value());
+
+    const auto v6 = find_default_gateway_bypass(entries, "fd00::1234");
+    REQUIRE(v6.has_value());
+    CHECK(v6->cidr == "fd00::/8");
+    CHECK(find_default_gateway_bypass(entries, "fe80::1")->source ==
+          DefaultGatewayBypassSource::Reserved);
+    // An IPv4 address never matches an IPv6 entry.
+    CHECK_FALSE(find_default_gateway_bypass({entries[3]}, "10.8.0.5").has_value());
+
+    CHECK(cidr_network("192.168.1.1/24") == "192.168.1.0/24");
+    CHECK(cidr_network("10.0.0.1") == "10.0.0.1");
 }
