@@ -24,6 +24,7 @@
 #include "cmd/resolver_config.hpp"
 #include "cmd/status.hpp"
 #include "cmd/test_routing.hpp"
+#include "util/term.hpp"
 #include "crash/crash_diagnostics.hpp"
 #include "daemon/daemon.hpp"
 #include "http/curl_runtime.hpp"
@@ -76,6 +77,8 @@ struct CliOptions {
   bool resolver_config_hash{false};
   bool run_status{false};
   bool json_output{false};
+  bool verbose{false};
+  bool short_v{false};
   bool run_resolver_detect{false};
   bool resolver_usage_error{false};
   std::vector<std::string> detect_args;
@@ -121,7 +124,7 @@ void print_usage(const char *argv0) {
                "status and exit\n"
             << "  download [--reload] [--json]       Download all configured "
                "lists to cache and exit\n"
-            << "  test-routing <ip-or-domain> [packet options] [--json]\n"
+            << "  test-routing <ip-or-domain> [packet options] [--json] [-v|--verbose]\n"
             << "                                     Test expected vs actual "
                "routing for an IP or domain\n"
             << "      --proto <tcp|udp|other>        Packet protocol\n"
@@ -129,6 +132,7 @@ void print_usage(const char *argv0) {
             << "      --src-port <port>              Packet source port\n"
             << "      --dest-port <port>             Packet destination port\n"
             << "      --dscp <0-63>                  Packet DSCP (default: 0)\n"
+            << "      -v, --verbose                  Also print the per-rule table\n"
             << "  resolver dnsmasq print-config      Print the dnsmasq config generated "
                "from dns.rules/dns.fallback (cached lists only; used as "
                "dnsmasq conf-script, always exits 0)\n"
@@ -195,9 +199,14 @@ CliOptions parse_args(int argc, char *argv[]) {
     } else if (std::strcmp(argv[i], "--help") == 0 ||
                std::strcmp(argv[i], "-h") == 0) {
       opts.show_help = true;
-    } else if (std::strcmp(argv[i], "--version") == 0 ||
-               std::strcmp(argv[i], "-v") == 0) {
+    } else if (std::strcmp(argv[i], "--version") == 0) {
       opts.show_version = true;
+    } else if (std::strcmp(argv[i], "--verbose") == 0) {
+      opts.verbose = true;
+    } else if (std::strcmp(argv[i], "-v") == 0) {
+      // --version everywhere except test-routing, where it means --verbose;
+      // settled once the command is known.
+      opts.short_v = true;
     } else if (std::strcmp(argv[i], "service") == 0) {
       opts.run_service = true;
     } else if (std::strcmp(argv[i], "status") == 0) {
@@ -291,6 +300,17 @@ CliOptions parse_args(int argc, char *argv[]) {
       print_usage(argv[0]);
       std::exit(1);
     }
+  }
+  if (opts.short_v) {
+    (opts.run_test_routing ? opts.verbose : opts.show_version) = true;
+  }
+  if (opts.verbose && !opts.run_test_routing) {
+    std::cerr << "Error: --verbose is only supported with test-routing\n";
+    std::exit(1);
+  }
+  if (opts.json_output && opts.verbose) {
+    std::cerr << "Error: --json and --verbose cannot be combined\n";
+    std::exit(1);
   }
   if (opts.json_output && !opts.run_status && !opts.download_lists &&
       !opts.run_test_routing) {
@@ -533,6 +553,11 @@ int main(int argc, char *argv[]) {
                   << '\n';
         return response.value("ok", false) ? 0 : 1;
       }
+      if (opts.download_lists && response.contains("result")) {
+        std::cout << keen_pbr3::format_download_text(response.at("result"),
+                                                     keen_pbr3::term::stdout_style());
+        return response.value("ok", false) ? 0 : 1;
+      }
       if (!response.value("ok", false)) {
         const auto& error = response.value("error", nlohmann::json::object());
         std::cerr << "keen-pbr " << operation << ": "
@@ -540,13 +565,9 @@ int main(int argc, char *argv[]) {
                   << error.value("message", "control request failed") << '\n';
         return 1;
       }
-      if (opts.download_lists) {
-        std::cout << response.dump() << '\n';
-        return 0;
-      }
       if (opts.run_test_routing) {
         return keen_pbr3::run_test_routing_command(
-            response, opts.test_routing_criteria, {opts.json_output});
+            response, opts.test_routing_criteria, {opts.json_output, opts.verbose});
       }
       const auto &state = response.at("result");
       const auto config_path = state.value(

@@ -180,6 +180,16 @@ struct TestRoutingResult {
     std::optional<TestRoutingDnsInfo> dns;   // set for domain targets
 };
 
+// The rule an entry's expected outbound came from; null when none.
+const RuleDiagnostic* find_expected_rule(const TestRoutingResult& result,
+                                         const TestRoutingEntry& entry);
+
+// "proto=tcp dest_port=443 ..." for the packet fields a request carried.
+std::string describe_packet_criteria(const TestRoutingCriteria& criteria);
+
+// Why a default_gateway rule skips `ip`: "10.8.0.5 has its own route ...".
+std::string describe_bypass(const std::string& ip, const DefaultGatewayBypassEntry& bypass);
+
 // Wire name of a diagnosis code ("missing_ipset", ...).
 const char* routing_diagnosis_name(RoutingDiagnosis diagnosis);
 
@@ -220,6 +230,8 @@ TestRoutingResult compute_test_routing(const Config& config,
 struct TestRoutingOutputOptions {
     // Print the RoutingTestResponse JSON instead of the human-readable report.
     bool json{false};
+    // Also print the per-rule table after the step report.
+    bool verbose{false};
 };
 
 // Print table and return 0 if all entries match, 1 otherwise.

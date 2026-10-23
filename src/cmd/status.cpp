@@ -10,6 +10,7 @@
 #include "../util/format_compat.hpp"
 #include "../util/firewall_backend_utils.hpp"
 #include "../util/ipv6_support.hpp"
+#include "../util/term.hpp"
 
 #include <netinet/in.h>
 #include <charconv>
@@ -39,13 +40,37 @@ std::string fwmark_hex(uint32_t v) {
     return keen_pbr3::format("0x{:08x}", v);
 }
 
+// Colors the status word at the start of a check's result ("OK [v4+v6]").
+std::string paint_status(const std::string& text) {
+    const auto& style = term::stdout_style();
+    if (!style.color) return text;
+    const auto word_end = text.find(' ');
+    const std::string word = text.substr(0, word_end);
+    const std::string rest = word_end == std::string::npos ? "" : text.substr(word_end);
+    if (word == "OK" || word == "HEALTHY" || word == "ACTIVE") {
+        return style.paint(term::Color::Green, word) + rest;
+    }
+    if (word == "MISSING" || word == "MISMATCH" || word == "ERROR" || word == "FAILED" ||
+        word == "UNHEALTHY") {
+        return style.paint(term::Color::Red, word) + rest;
+    }
+    if (word == "DEGRADED" || word == "WARN" || word == "UNAVAILABLE") {
+        return style.paint(term::Color::Yellow, word) + rest;
+    }
+    if (word == "SKIPPED" || word == "NOT" || word == "STANDBY" || word == "BACKUP") {
+        return style.paint(term::Color::Dim, word) + rest;
+    }
+    return text;
+}
+
 std::string pad_dots(const std::string& prefix,
                      const std::string& suffix,
                      size_t width = 72) {
     if (prefix.size() + suffix.size() + 1 >= width) {
-        return prefix + " " + suffix;
+        return prefix + " " + paint_status(suffix);
     }
-    return prefix + " " + std::string(width - prefix.size() - suffix.size() - 1, '.') + " " + suffix;
+    return prefix + " " + std::string(width - prefix.size() - suffix.size() - 1, '.') + " " +
+           paint_status(suffix);
 }
 
 std::string outbound_type_label(OutboundType t) {
@@ -648,7 +673,10 @@ void print_issues_section(const api::HealthIssuesResponse& issues) {
     if (issues.issues.empty()) return;
     std::cout << "\nIssues:\n";
     for (const auto& issue : issues.issues) {
-        const char* label = issue.severity == api::HealthIssueSeverity::ERROR ? "ERROR" : "WARN ";
+        const bool is_error = issue.severity == api::HealthIssueSeverity::ERROR;
+        const auto& style = term::stdout_style();
+        const std::string label = is_error ? style.paint(term::Color::Red, "ERROR")
+                                           : style.paint(term::Color::Yellow, "WARN") + " ";
         std::cout << "  " << label << "  " << issue.title << "\n";
         if (issue.entries && !issue.entries->empty()) {
             for (const auto& entry : *issue.entries) {
@@ -702,13 +730,15 @@ void print_overall_summary(const RoutingHealthReport& report,
         summary += (summary.empty() ? "" : ", ") + part;
     }
 
+    const auto& style = term::stdout_style();
     std::cout << "\nOverall: ";
     if (!report.error.empty()) {
-        std::cout << "ERROR\n";
+        std::cout << style.paint(term::Color::Red, "ERROR") << "\n";
     } else if (failed == 0 && issues.errors == 0) {
-        std::cout << "OK" << (summary.empty() ? "" : " (" + summary + ")") << "\n";
+        std::cout << style.paint(term::Color::Green, "OK")
+                  << (summary.empty() ? "" : " (" + summary + ")") << "\n";
     } else {
-        std::cout << "DEGRADED (" << summary << ")\n";
+        std::cout << style.paint(term::Color::Red, "DEGRADED") << " (" << summary << ")\n";
     }
 }
 

@@ -32,13 +32,14 @@ Commands:
   service                            Start the routing service (foreground)
   status [--json]                    Show routing/firewall status and exit
   download [--reload] [--json]       Download all configured lists to cache and exit
-  test-routing <ip-or-domain> [packet options] [--json]
+  test-routing <ip-or-domain> [packet options] [--json] [-v|--verbose]
                                      Test expected vs actual routing for an IP or domain
       --proto <tcp|udp|other>        Packet protocol
       --src-addr <ip>                Packet source address
       --src-port <port>              Packet source port
       --dest-port <port>             Packet destination port
       --dscp <0-63>                  Packet DSCP (default: 0)
+      -v, --verbose                  Also print the per-rule table
   resolver dnsmasq print-config      Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
   resolver dnsmasq detect [--json]   List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
   hash-password [--update]           Generate an authentication password hash; --update writes config.json
@@ -102,7 +103,7 @@ ip6tables -t raw -S
 
 ### `resolver dnsmasq print-config`
 
-Когда включена `dns.resolver_integration: "dnsmasq"`, эта команда печатает конфигурацию dnsmasq, которую собрал keen-pbr. Списки берутся только из кэша, ничего не скачивается. В ней соответствия «домен → сервер», исключения защиты от {{< term "DNS rebinding" >}} и резервные (`fallback`) серверы.
+Когда включена `dns.resolver_integration: "dnsmasq"`, эта команда печатает конфигурацию dnsmasq, которую собрал keen-pbr. Списки берутся только из кэша, ничего не скачивается. В ней соответствия «домен -> сервер», исключения защиты от {{< term "DNS rebinding" >}} и резервные (`fallback`) серверы.
 
 **Использование:**
 
@@ -181,6 +182,12 @@ Selection: uci:cfg01411c (adopted)
 - Код возврата `0`, если экземпляр выбран и проблем нет, иначе `1`.
 - Если выбор неоднозначен, в конце выводится подсказка задать `dns.dnsmasq_instance`.
 
+## Цвета {#cli-colors}
+
+Если вывод идёт в терминал, `keen-pbr` раскрашивает его: зелёным отмечено хорошее, жёлтым предупреждения, красным ошибки. Цвета выключены, когда вывод перенаправлен в файл или конвейер, когда переменная `TERM` не задана или равна `dumb`, и когда переменная `NO_COLOR` задана непустым значением.
+
+Вывод состоит только из ASCII-символов. Отметки состояния печатаются как `[ok]`, `[!!]` и `[xx]`. В выводе `--json` цветов нет.
+
 ## Сигналы
 
 Запущенным сервисом `keen-pbr` можно управлять сигналами:
@@ -255,13 +262,15 @@ Status values: OK / MISSING / MISMATCH / ERROR
 keen-pbr download
 ```
 
-Команда печатает ответ сервиса одной строкой JSON. В `refreshed_lists` перечислены обновлённые списки, в `changed_lists` те, у которых изменилось содержимое:
+Команда печатает по строке на каждый список и итог. У списка, который не скачался, указана причина; тогда команда завершается с кодом 1:
 
 ```text
-{"ok":true,"protocol_version":2,"request_id":"cli-download","result":{"changed_lists":["google"],"failed_lists":[],"failure_messages":{},"refreshed_lists":["google"],"unchanged_lists":[],"reloaded":false}}
-```
+[ok] google  updated
+- apple   unchanged
+[xx] broken  HTTP 503
 
-Если какой-то список не скачался, команда напишет ошибку и завершится с кодом 1.
+3 lists: 1 updated, 1 unchanged, 1 failed
+```
 
 С `--json` команда печатает один объект с итогом по каждому списку; у списка, который не скачался, указана причина. Код завершения тот же: при ошибках объект всё равно выводится, а код равен 1:
 
@@ -289,17 +298,45 @@ keen-pbr download --json
 keen-pbr test-routing google.com
 ```
 
-Пример вывода:
+Результат показывает те же шаги, что и проверка маршрутизации в веб-интерфейсе: вывод, разрешение DNS, попадание в списки, выбор правила и проверку firewall. Если все адреса идут как ожидалось, каждый шаг занимает одну строку:
 
 ```text
-Target: google.com
-Resolved IPs: 2001:4860:4860::8888, 142.250.74.14
+[ok] The routes match the rules - google.com
 
-IP                        | List Match               | Expected Outbound  | Actual Outbound    | Status
----------------------------------------------------------------------------------------------------
-2001:4860:4860::8888      | google (via google.com)  | corp_vpn           | corp_vpn           | OK
-142.250.74.14             | google (via google.com)  | corp_vpn           | corp_vpn           | OK
+  [ok] DNS resolution - 2001:4860:4860::8888  142.250.74.14
+  [ok] List matching - google (entry google.com)
+  [ok] Rule selection - Rule #1 -> corp_vpn
+  [ok] Firewall check - 2 of 2 IPs match - corp_vpn
+
+  This checks the route from firewall state, not website connectivity.
 ```
+
+Если что-то не так, шаги раскрываются, адреса с одинаковым исходом объединяются в группу, а в конце идут объяснение и что делать:
+
+```text
+[!!] IP not in the expected ipset - yandex.ru
+
+  [ok] DNS resolution
+      77.88.44.55  77.88.55.88  5.255.255.77
+      Resolved by dnsmasq 127.0.0.1:53 (uci:cfg01411c)
+      This check uses the router's DNS. Devices that use DoH, DoT or their own DNS server may get different addresses.
+  [ok] List matching
+      russia (entry ru)
+  [ok] Rule selection
+      Rule #8 -> home_auto
+  [!!] Firewall check - 0 of 3 IPs match
+      Expected  home_auto
+      Actual    wan_loadbalance  balance: wan1 83% - wan2 17%
+      - The IPs are not in this rule's ipset.
+      - keen-pbr has no record of adding them.
+
+  The domain is in the list, but its IPs are not in the rule's ipset yet. keen-pbr adds addresses when a client looks the domain up through the router's DNS.
+    1. Open this site on the client device and run the check again.
+    2. Still missing - clear the DNS cache on the device and in the browser, then try again.
+    3. Still missing - make sure the device does not use third-party DNS (DoH, DoT or its own DNS server) that keen-pbr cannot intercept. ...
+```
+
+Вывод команды на английском. С `-v` или `--verbose` после него печатается ещё и таблица со строкой на каждый адрес и подробностями о правилах и группах outbound'ов.
 
 По умолчанию проверяется только попадание в списки. Чтобы учесть и правила с портами, протоколом, адресом источника или DSCP, опишите пакет:
 
@@ -310,9 +347,10 @@ IP                        | List Match               | Expected Outbound  | Actu
 | `--src-port <port>` | Порт источника. |
 | `--dest-port <port>` | Порт назначения. |
 | `--dscp <0-63>` | Значение DSCP. Без `--dscp` пакет считается с DSCP 0. |
+| `-v`, `--verbose` | Дополнительно печатает таблицу со строкой на каждый адрес. |
 
 ```bash {filename="bash"}
 keen-pbr test-routing google.com --proto tcp --dest-port 443 --src-addr 192.168.1.10
 ```
 
-Если правило зависит от поля, которое вы не указали (например, `src_addr`), для этого IP будет `(unknown)`.
+Если правило зависит от поля, которое вы не указали (например, `src_addr`), проверка сообщит, что маршрут пока определить нельзя, и назовёт нужный флаг.

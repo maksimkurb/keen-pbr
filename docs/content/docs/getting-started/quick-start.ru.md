@@ -107,7 +107,7 @@ Outbound `wan` уже существует: это обычный выход в 
 keen-pbr test-routing ifconfig.co
 ```
 
-В таблице результата столбцы `Expected Outbound` и `Actual Outbound` должны показывать `vpn`, а в последнем столбце должно быть `OK`.
+В первой строке результата должно быть написано, что маршрут соответствует правилу (`The route matches the rule`), а в шаге `Firewall check` должен быть `vpn`.
 
 {{% /steps %}}
 
@@ -226,7 +226,7 @@ systemctl restart keen-pbr
 keen-pbr test-routing ifconfig.co
 ```
 
-В столбцах `Expected Outbound` и `Actual Outbound` должен быть `vpn`, а в последнем столбце — `OK`.
+В первой строке результата должно быть написано, что маршрут соответствует правилу (`The route matches the rule`), а в шаге `Firewall check` должен быть `vpn`.
 
 Для более общей проверки выполните `keen-pbr status`.
 

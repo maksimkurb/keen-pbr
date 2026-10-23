@@ -301,6 +301,7 @@ set(SOURCES
   src/cmd/status.cpp
   src/cmd/test_routing.cpp
   src/cmd/test_routing_json.cpp
+  src/cmd/test_routing_report.cpp
   src/routing/target.cpp
   src/routing/netlink.cpp
   src/routing/interface_monitor.cpp
@@ -403,6 +404,7 @@ set(SOURCES
   src/util/ipv6_support.cpp
   src/util/kernel_capabilities.cpp
   src/util/system_info.cpp
+  src/util/term.cpp
   src/util/traced_mutex.cpp
   src/main.cpp
 )

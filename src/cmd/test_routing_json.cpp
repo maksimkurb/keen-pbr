@@ -415,7 +415,47 @@ TestRoutingResult test_routing_result_from_json(const nlohmann::json& value) {
         }
         result.entries.push_back(std::move(entry));
     }
-    // Rule diagnostics are not rendered by the CLI; they stay in the API body.
+    for (const auto& item : resp.rule_diagnostics) {
+        RuleDiagnostic rule_diag;
+        rule_diag.rule_index = static_cast<int>(item.rule_index);
+        rule_diag.rule = item.rule;
+        rule_diag.outbound = item.outbound;
+        rule_diag.interface_name = item.interface_name;
+        rule_diag.target_in_lists = item.target_in_lists;
+        if (item.target_match) {
+            rule_diag.target_match = list_match_from_api(*item.target_match);
+        }
+        for (const auto& row : item.ip_rows) {
+            RuleIpDiagnostic ip_diag;
+            ip_diag.ip = row.ip;
+            ip_diag.in_lists = row.in_lists;
+            if (row.list_match) {
+                ip_diag.list_match = list_match_from_api(*row.list_match);
+            }
+            ip_diag.in_ipset = row.in_ipset;
+            ip_diag.criteria_match = row.criteria_match;
+            if (row.set_write_evidence) {
+                SetWriteEvidence evidence;
+                switch (row.set_write_evidence->status) {
+                case api::RoutingTestSetWriteEvidenceStatus::RECORDED:
+                    evidence.status = SetWriteEvidenceStatus::Recorded;
+                    break;
+                case api::RoutingTestSetWriteEvidenceStatus::NO_RECORD:
+                    evidence.status = SetWriteEvidenceStatus::NoRecord;
+                    break;
+                case api::RoutingTestSetWriteEvidenceStatus::NOT_TRACKED:
+                    evidence.status = SetWriteEvidenceStatus::NotTracked;
+                    break;
+                }
+                if (row.set_write_evidence->age_seconds) {
+                    evidence.age_seconds = static_cast<uint64_t>(*row.set_write_evidence->age_seconds);
+                }
+                ip_diag.set_write_evidence = evidence;
+            }
+            rule_diag.ip_rows.push_back(std::move(ip_diag));
+        }
+        result.rule_diagnostics.push_back(std::move(rule_diag));
+    }
     return result;
 }
 

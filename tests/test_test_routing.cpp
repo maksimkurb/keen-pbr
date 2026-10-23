@@ -820,8 +820,10 @@ TEST_CASE("compute_test_routing keeps unknown set membership from proving absenc
     std::filesystem::remove_all(temp_dir);
 }
 
-TEST_CASE("daemon test-routing response is rendered as a human-readable table") {
-    const nlohmann::json response = {
+namespace {
+
+nlohmann::json ok_daemon_response() {
+    return {
         {"ok", true},
         {"result",
          {{"target", "example.com"},
@@ -839,25 +841,56 @@ TEST_CASE("daemon test-routing response is rendered as a human-readable table") 
              {"ok", true},
              {"diagnosis", "ok"},
              {"list_match", {{"list", "domains"}, {"via", "example.com"}}}}}}}}};
+}
 
+struct CommandOutput {
+    int exit_code{0};
+    std::string out;
+    std::string err;
+};
+
+CommandOutput run_command_capturing(const nlohmann::json& response,
+                                    const TestRoutingCriteria& criteria,
+                                    const TestRoutingOutputOptions& options) {
     std::ostringstream stdout_capture;
     std::ostringstream stderr_capture;
     auto* previous_stdout = std::cout.rdbuf(stdout_capture.rdbuf());
     auto* previous_stderr = std::cerr.rdbuf(stderr_capture.rdbuf());
+    CommandOutput output;
+    output.exit_code = run_test_routing_command(response, criteria, options);
+    std::cout.rdbuf(previous_stdout);
+    std::cerr.rdbuf(previous_stderr);
+    output.out = stdout_capture.str();
+    output.err = stderr_capture.str();
+    return output;
+}
+
+} // namespace
+
+TEST_CASE("daemon test-routing response is rendered as the step report") {
     TestRoutingCriteria criteria;
     criteria.proto = "tcp";
     criteria.dest_port = 443;
-    const int exit_code = run_test_routing_command(response, criteria);
-    std::cout.rdbuf(previous_stdout);
-    std::cerr.rdbuf(previous_stderr);
+    const auto output = run_command_capturing(ok_daemon_response(), criteria, {});
 
-    CHECK(exit_code == 0);
-    CHECK(stderr_capture.str().empty());
-    CHECK(stdout_capture.str().find("Target: example.com") != std::string::npos);
-    CHECK(stdout_capture.str().find("Packet: proto=tcp dest_port=443") != std::string::npos);
-    CHECK(stdout_capture.str().find("Expected Outbound") != std::string::npos);
-    CHECK(stdout_capture.str().find("domains (via example.com)") != std::string::npos);
-    CHECK(stdout_capture.str().find("{\"") == std::string::npos);
+    CHECK(output.exit_code == 0);
+    CHECK(output.err.empty());
+    CHECK(output.out.find("The route matches the rule") != std::string::npos);
+    CHECK(output.out.find("Packet: proto=tcp dest_port=443") != std::string::npos);
+    CHECK(output.out.find("domains (entry example.com)") != std::string::npos);
+    CHECK(output.out.find("Expected Outbound") == std::string::npos);
+    CHECK(output.out.find("{\"") == std::string::npos);
+    // The test runs without a terminal: nothing is colored.
+    CHECK(output.out.find('\033') == std::string::npos);
+}
+
+TEST_CASE("test-routing --verbose adds the per-rule table") {
+    const auto output = run_command_capturing(ok_daemon_response(), {}, {false, true});
+
+    CHECK(output.exit_code == 0);
+    CHECK(output.out.find("The route matches the rule") != std::string::npos);
+    CHECK(output.out.find("Expected Outbound") != std::string::npos);
+    CHECK(output.out.find("domains (via example.com)") != std::string::npos);
 }
 
 TEST_CASE("compute_test_routing matches domains through DomainIndex semantics") {

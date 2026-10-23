@@ -112,7 +112,7 @@ A banner appears at the top of the page: "Configuration was changed. Save it to 
 keen-pbr test-routing ifconfig.co
 ```
 
-In the result table, the `Expected Outbound` and `Actual Outbound` columns should show `vpn`, and the last column should show `OK`.
+The first line of the result should say that the route matches the rule, and the `Firewall check` step should show `vpn`.
 
 {{% /steps %}}
 
@@ -231,7 +231,7 @@ Clear the DNS cache on your device (`ipconfig /flushdns` on Windows, `sudo resol
 keen-pbr test-routing ifconfig.co
 ```
 
-The `Expected Outbound` and `Actual Outbound` columns should show `vpn`, and the last column should show `OK`.
+The first line of the result should say that the route matches the rule, and the `Firewall check` step should show `vpn`.
 
 For a broader check, run `keen-pbr status`.
 

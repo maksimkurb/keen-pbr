@@ -32,13 +32,14 @@ Commands:
   service                            Start the routing service (foreground)
   status [--json]                    Show routing/firewall status and exit
   download [--reload] [--json]       Download all configured lists to cache and exit
-  test-routing <ip-or-domain> [packet options] [--json]
+  test-routing <ip-or-domain> [packet options] [--json] [-v|--verbose]
                                      Test expected vs actual routing for an IP or domain
       --proto <tcp|udp|other>        Packet protocol
       --src-addr <ip>                Packet source address
       --src-port <port>              Packet source port
       --dest-port <port>             Packet destination port
       --dscp <0-63>                  Packet DSCP (default: 0)
+      -v, --verbose                  Also print the per-rule table
   resolver dnsmasq print-config      Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
   resolver dnsmasq detect [--json]   List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
   hash-password [--update]           Generate an authentication password hash; --update writes config.json
@@ -181,6 +182,12 @@ Selection: uci:cfg01411c (adopted)
 - Exit code `0` when an instance is selected and has no problem, `1` otherwise.
 - If the choice is ambiguous, the output ends with a hint to set `dns.dnsmasq_instance`.
 
+## Colors {#cli-colors}
+
+When the output goes to a terminal, `keen-pbr` colors it: green for good, yellow for warnings, red for errors. Colors are off when the output is piped or redirected, when `TERM` is not set or is `dumb`, and when the `NO_COLOR` variable is set to a non-empty value.
+
+The output is plain ASCII. Status marks are written as `[ok]`, `[!!]` and `[xx]`. `--json` output never contains colors.
+
 ## Signals
 
 You can control the running `keen-pbr` service with signals:
@@ -255,13 +262,15 @@ Download all URL-backed lists:
 keen-pbr download
 ```
 
-The command prints the service's answer as one JSON line. `refreshed_lists` holds the lists that were updated, `changed_lists` those whose content changed:
+The command prints one line per list and a summary. A list that failed shows the reason; in that case the command exits with code 1:
 
 ```text
-{"ok":true,"protocol_version":2,"request_id":"cli-download","result":{"changed_lists":["google"],"failed_lists":[],"failure_messages":{},"refreshed_lists":["google"],"unchanged_lists":[],"reloaded":false}}
-```
+[ok] google  updated
+- apple   unchanged
+[xx] broken  HTTP 503
 
-If a list fails to download, the command prints an error and exits with code 1.
+3 lists: 1 updated, 1 unchanged, 1 failed
+```
 
 With `--json` the command prints one object with the outcome of every list; a failed list also gets the reason. The exit code is the same, so with failures the object is printed and the code is 1:
 
@@ -289,17 +298,45 @@ Compare expected and actual routing:
 keen-pbr test-routing google.com
 ```
 
-Example output:
+The result is a trace of the same steps as the routing test in the web interface: the verdict, DNS resolution, list matching, rule selection and the firewall check. When every address routes as expected, each step takes one line:
 
 ```text
-Target: google.com
-Resolved IPs: 2001:4860:4860::8888, 142.250.74.14
+[ok] The routes match the rules - google.com
 
-IP                        | List Match               | Expected Outbound  | Actual Outbound    | Status
----------------------------------------------------------------------------------------------------
-2001:4860:4860::8888      | google (via google.com)  | corp_vpn           | corp_vpn           | OK
-142.250.74.14             | google (via google.com)  | corp_vpn           | corp_vpn           | OK
+  [ok] DNS resolution - 2001:4860:4860::8888  142.250.74.14
+  [ok] List matching - google (entry google.com)
+  [ok] Rule selection - Rule #1 -> corp_vpn
+  [ok] Firewall check - 2 of 2 IPs match - corp_vpn
+
+  This checks the route from firewall state, not website connectivity.
 ```
+
+When something is wrong, the steps are expanded, addresses with the same outcome are grouped, and the output ends with an explanation and what to do:
+
+```text
+[!!] IP not in the expected ipset - yandex.ru
+
+  [ok] DNS resolution
+      77.88.44.55  77.88.55.88  5.255.255.77
+      Resolved by dnsmasq 127.0.0.1:53 (uci:cfg01411c)
+      This check uses the router's DNS. Devices that use DoH, DoT or their own DNS server may get different addresses.
+  [ok] List matching
+      russia (entry ru)
+  [ok] Rule selection
+      Rule #8 -> home_auto
+  [!!] Firewall check - 0 of 3 IPs match
+      Expected  home_auto
+      Actual    wan_loadbalance  balance: wan1 83% - wan2 17%
+      - The IPs are not in this rule's ipset.
+      - keen-pbr has no record of adding them.
+
+  The domain is in the list, but its IPs are not in the rule's ipset yet. keen-pbr adds addresses when a client looks the domain up through the router's DNS.
+    1. Open this site on the client device and run the check again.
+    2. Still missing - clear the DNS cache on the device and in the browser, then try again.
+    3. Still missing - make sure the device does not use third-party DNS (DoH, DoT or its own DNS server) that keen-pbr cannot intercept. ...
+```
+
+Add `-v` or `--verbose` to also print the table with one row per address and the details of the rules and outbound groups.
 
 By default only list membership is checked. To also match rules that use ports, protocol, source address or DSCP, describe the packet:
 
@@ -310,9 +347,10 @@ By default only list membership is checked. To also match rules that use ports, 
 | `--src-port <port>` | Source port. |
 | `--dest-port <port>` | Destination port. |
 | `--dscp <0-63>` | DSCP value. A packet without `--dscp` is treated as DSCP 0. |
+| `-v`, `--verbose` | Also print the table with one row per address. |
 
 ```bash {filename="bash"}
 keen-pbr test-routing google.com --proto tcp --dest-port 443 --src-addr 192.168.1.10
 ```
 
-If a rule depends on a field you did not give (for example `src_addr`), that IP shows `(unknown)`.
+If a rule depends on a field you did not give (for example `src_addr`), the check says the route cannot be determined yet and names the flag to pass.

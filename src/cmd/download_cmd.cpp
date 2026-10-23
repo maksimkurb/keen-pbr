@@ -58,4 +58,45 @@ nlohmann::json format_download_json(const nlohmann::json& result) {
             {"reloaded", result.value("reloaded", false)}};
 }
 
+std::string format_download_text(const nlohmann::json& result, const term::Style& style) {
+    const auto json = format_download_json(result);
+    const auto& lists = json.at("lists");
+    const auto& summary = json.at("summary");
+    if (lists.empty()) return "No lists with a URL to download.\n";
+
+    size_t width = 0;
+    for (const auto& item : lists) {
+        width = std::max(width, item.at("list").get<std::string>().size());
+    }
+    std::string out;
+    for (const auto& item : lists) {
+        const std::string name = item.at("list").get<std::string>();
+        const std::string status = item.at("status").get<std::string>();
+        std::string mark;
+        std::string text;
+        if (status == "failed") {
+            mark = term::painted_glyph(style, term::Glyph::Error);
+            text = style.paint(term::Color::Red, item.value("error", std::string("unknown error")));
+        } else if (status == "changed") {
+            mark = term::painted_glyph(style, term::Glyph::Ok);
+            text = "updated";
+        } else {
+            mark = term::painted_glyph(style, term::Glyph::Dot);
+            text = style.paint(term::Color::Dim, "unchanged");
+        }
+        out += mark + " " + name + std::string(width - name.size() + 2, ' ') + text + "\n";
+    }
+
+    const int failed = summary.at("failed").get<int>();
+    const int total = summary.at("refreshed").get<int>();
+    out += "\n" + std::to_string(total) + (total == 1 ? " list: " : " lists: ") +
+           std::to_string(summary.at("changed").get<int>()) + " updated, " +
+           std::to_string(summary.at("unchanged").get<int>()) + " unchanged, " +
+           (failed > 0 ? style.paint(term::Color::Red, std::to_string(failed) + " failed")
+                       : std::to_string(failed) + " failed") +
+           "\n";
+    if (json.at("reloaded").get<bool>()) out += "The service is using the updated lists.\n";
+    return out;
+}
+
 } // namespace keen_pbr3

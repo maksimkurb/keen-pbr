@@ -42,3 +42,30 @@ TEST_CASE("download --json copes with an answer from a daemon without the new fi
     CHECK(json.at("reloaded") == false);
     CHECK(format_download_json(nlohmann::json::object()).at("lists").empty());
 }
+
+TEST_CASE("download prints one line per list and a summary") {
+    const nlohmann::json result = {
+        {"refreshed_lists", {"google", "apple", "broken"}},
+        {"changed_lists", {"google"}},
+        {"failed_lists", {"broken"}},
+        {"failure_messages", {{"broken", "HTTP 503"}}},
+        {"reloaded", true}};
+
+    keen_pbr3::term::Style plain;
+    CHECK(format_download_text(result, plain) ==
+          "[ok] google  updated\n"
+          "- apple   unchanged\n"
+          "[xx] broken  HTTP 503\n"
+          "\n"
+          "3 lists: 1 updated, 1 unchanged, 1 failed\n"
+          "The service is using the updated lists.\n");
+
+    keen_pbr3::term::Style colored;
+    colored.color = true;
+    const auto text = format_download_text(result, colored);
+    CHECK(text.find("\033[32m[ok]\033[0m google") == 0);
+    CHECK(text.find("\033[31mHTTP 503\033[0m") != std::string::npos);
+
+    CHECK(format_download_text(nlohmann::json::object(), plain) ==
+          "No lists with a URL to download.\n");
+}

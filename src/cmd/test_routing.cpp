@@ -1,5 +1,6 @@
 #include "test_routing.hpp"
 #include "test_routing_json.hpp"
+#include "test_routing_report.hpp"
 
 #include "../config/routing_state.hpp"
 #include "../dns/dns_client.hpp"
@@ -12,6 +13,7 @@
 #include "../util/ipv6_support.hpp"
 #include "../util/firewall_backend_utils.hpp"
 #include "../util/string_compat.hpp"
+#include "../util/term.hpp"
 
 #include <algorithm>
 #include <arpa/inet.h>
@@ -29,6 +31,7 @@
 #include <netinet/in.h>
 #include <resolv.h>
 #include <set>
+#include <sstream>
 #include <string>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -1043,6 +1046,8 @@ const RuleIpDiagnostic* find_ip_row(const RuleDiagnostic& rule, const std::strin
     return it == rule.ip_rows.end() ? nullptr : &*it;
 }
 
+} // namespace
+
 // The rule the entry's expected outbound came from.
 const RuleDiagnostic* find_expected_rule(const TestRoutingResult& result,
                                          const TestRoutingEntry& entry) {
@@ -1061,8 +1066,6 @@ const RuleDiagnostic* find_expected_rule(const TestRoutingResult& result,
     }
     return first != nullptr && first->outbound == entry.expected_outbound ? first : nullptr;
 }
-
-} // namespace
 
 RoutingDiagnosis diagnose_routing_entry(const TestRoutingResult& result,
                                         const TestRoutingEntry& entry) {
@@ -1451,7 +1454,6 @@ TestRoutingResult compute_test_routing(const Config& config,
     return result;
 }
 
-namespace {
 std::string describe_packet_criteria(const TestRoutingCriteria& criteria) {
     std::vector<std::string> parts;
     if (criteria.proto) parts.push_back("proto=" + *criteria.proto);
@@ -1480,6 +1482,8 @@ std::string describe_bypass(const std::string& ip, const DefaultGatewayBypassEnt
     }
     return ip + " is in a reserved address range " + bypass.cidr;
 }
+
+namespace {
 
 // Lines that explain a row beyond the table: how a default_gateway rule
 // treated the address, rules that could not be evaluated, and how a group
@@ -1571,6 +1575,52 @@ std::vector<std::string> describe_entry_details(const TestRoutingEntry& entry) {
     return lines;
 }
 
+// The per-rule table and the per-IP breakdown, one line per fact.
+std::string format_verbose_table(const TestRoutingResult& result) {
+    std::ostringstream out;
+    constexpr int ip_w        = 25;
+    constexpr int list_w      = 35;
+    constexpr int outbound_w  = 18;
+
+    out << keen_pbr3::format("{:<{}} | {:<{}} | {:<{}} | {:<{}} | {}\n",
+                             "IP", ip_w,
+                             "List Match", list_w,
+                             "Expected Outbound", outbound_w,
+                             "Actual Outbound", outbound_w,
+                             "Status");
+    out << std::string(ip_w + 3 + list_w + 3 + outbound_w + 3 + outbound_w + 3 + 6, '-')
+        << "\n";
+
+    for (const auto& entry : result.entries) {
+        std::string list_str = "-";
+        if (entry.list_match) {
+            list_str = entry.list_match->list_name;
+            if (!entry.list_match->via.empty() && entry.list_match->via != entry.ip) {
+                list_str += " (via " + entry.list_match->via + ")";
+            }
+        }
+
+        const std::string status = entry.ok ? "OK" : "NOK";
+
+        out << keen_pbr3::format("{:<{}} | {:<{}} | {:<{}} | {:<{}} | {}\n",
+                                 entry.ip, ip_w,
+                                 list_str, list_w,
+                                 entry.expected_outbound, outbound_w,
+                                 entry.actual_outbound, outbound_w,
+                                 status);
+    }
+
+    for (const auto& entry : result.entries) {
+        const auto details = describe_entry_details(entry);
+        if (details.empty()) continue;
+        out << "\n" << entry.ip << "\n";
+        for (const auto& line : details) {
+            out << "  " << line << "\n";
+        }
+    }
+    return out.str();
+}
+
 // 0 when the lookup succeeded and every entry routes as expected.
 int test_routing_exit_code(const TestRoutingResult& result) {
     if (result.dns_error.has_value()) return 1;
@@ -1586,7 +1636,6 @@ int render_test_routing_result(const TestRoutingResult& result,
         std::cout << test_routing_result_to_json(result).dump(2) << '\n';
         return test_routing_exit_code(result);
     }
-
     for (const auto& w : result.warnings) {
         std::cerr << "Warning: " << w << "\n";
     }
@@ -1594,76 +1643,10 @@ int render_test_routing_result(const TestRoutingResult& result,
         std::cerr << "DNS error: " << *result.dns_error << "\n";
     }
 
-    std::cout << "Target: " << result.target << "\n";
-    if (criteria.has_any()) {
-        std::cout << "Packet: " << describe_packet_criteria(criteria) << "\n";
+    std::cout << format_test_routing_report(result, criteria, term::stdout_style());
+    if (output.verbose) {
+        std::cout << "\n" << format_verbose_table(result);
     }
-    if (result.is_domain) {
-        if (result.dns && result.dns->resolver == "dnsmasq") {
-            std::cout << "DNS resolver: dnsmasq " << result.dns->endpoint.value_or("")
-                      << (result.dns->instance ? " (" + *result.dns->instance + ")" : std::string())
-                      << "\n";
-        } else {
-            std::cout << "DNS resolver: system resolver\n";
-        }
-        std::cout << "Note: devices that use DoH, DoT or their own DNS server may resolve this domain differently.\n";
-    }
-    if (!result.resolved_ips.empty()) {
-        std::cout << "Resolved IPs: ";
-        for (size_t i = 0; i < result.resolved_ips.size(); ++i) {
-            if (i > 0) std::cout << ", ";
-            std::cout << result.resolved_ips[i];
-            if (!result.ipv6_enabled && !is_ipv4_address(result.resolved_ips[i])) {
-                std::cout << " (IPv6 disabled, not checked)";
-            }
-        }
-        std::cout << "\n";
-    } else if (!result.ipv6_enabled && !result.is_domain && !is_ipv4_address(result.target)) {
-        std::cout << "IPv6 is disabled, " << result.target << " is not checked\n";
-    }
-    std::cout << "\n";
-
-    constexpr int ip_w        = 25;
-    constexpr int list_w      = 35;
-    constexpr int outbound_w  = 18;
-
-    std::cout << keen_pbr3::format("{:<{}} | {:<{}} | {:<{}} | {:<{}} | {}\n",
-                             "IP", ip_w,
-                             "List Match", list_w,
-                             "Expected Outbound", outbound_w,
-                             "Actual Outbound", outbound_w,
-                             "Status");
-    std::cout << std::string(ip_w + 3 + list_w + 3 + outbound_w + 3 + outbound_w + 3 + 6, '-')
-              << "\n";
-
-    for (const auto& entry : result.entries) {
-        std::string list_str = "-";
-        if (entry.list_match) {
-            list_str = entry.list_match->list_name;
-            if (!entry.list_match->via.empty() && entry.list_match->via != entry.ip) {
-                list_str += " (via " + entry.list_match->via + ")";
-            }
-        }
-
-        const std::string status = entry.ok ? "OK" : "NOK";
-
-        std::cout << keen_pbr3::format("{:<{}} | {:<{}} | {:<{}} | {:<{}} | {}\n",
-                                 entry.ip, ip_w,
-                                 list_str, list_w,
-                                 entry.expected_outbound, outbound_w,
-                                 entry.actual_outbound, outbound_w,
-                                 status);
-    }
-
-    for (const auto& entry : result.entries) {
-        const auto details = describe_entry_details(entry);
-        if (details.empty()) continue;
-        std::cout << "\n" << entry.ip << "\n";
-        for (const auto& line : details) {
-            std::cout << "  " << line << "\n";
-        }
-    }
-
     return test_routing_exit_code(result);
 }
 } // namespace

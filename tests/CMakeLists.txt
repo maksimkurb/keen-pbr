@@ -30,6 +30,8 @@ add_executable(keen-pbr-tests
   test_dnsmasq_preflight.cpp
   test_dnsmasq_real.cpp
   test_test_routing.cpp
+  test_term.cpp
+  test_test_routing_report.cpp
   test_keenetic_dns.cpp
   test_dns_balancer.cpp
   test_dns_check.cpp
@@ -186,6 +188,7 @@ add_executable(keen-pbr-tests
   ../src/cmd/download_cmd.cpp
   ../src/cmd/test_routing.cpp
   ../src/cmd/test_routing_json.cpp
+  ../src/cmd/test_routing_report.cpp
   ../src/daemon/list_service.cpp
   ../src/daemon/dnsmasq_manager.cpp
   ../src/daemon/dnsmasq_types.cpp
@@ -227,6 +230,7 @@ add_executable(keen-pbr-tests
   ../src/util/ipv6_support.cpp
   ../src/util/kernel_capabilities.cpp
   ../src/util/system_info.cpp
+  ../src/util/term.cpp
   ../src/util/traced_mutex.cpp
   ../src/routing/policy_rule.cpp
   ../src/routing/routing_reconciler.cpp
