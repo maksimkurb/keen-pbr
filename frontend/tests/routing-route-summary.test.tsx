@@ -28,6 +28,7 @@ const result = {
   expected_outbound: "vpn",
   actual_outbound: "wan",
   ok: false,
+  diagnosis: "missing_ipset" as const,
   list_match: { list: "google", via: "google.com" },
 }
 const rule: RoutingTestRuleDiagnostic = {
@@ -164,7 +165,9 @@ test("summary explains expected route, active candidates and missing-IPSet misma
 test("successful and unknown routes do not claim DNS is pending", () => {
   const success = render({
     ...diagnostics,
-    results: [{ ...result, actual_outbound: "vpn", ok: true }],
+    results: [
+      { ...result, actual_outbound: "vpn", ok: true, diagnosis: "ok" as const },
+    ],
   })
   expect(success).toContain("The route matches the rule")
   expect(success).not.toContain("The device’s DNS query may not have passed")
@@ -185,7 +188,14 @@ test("unavailable outbound is reported separately from a matching firewall route
       <RoutingRouteSummary
         diagnostics={{
           ...diagnostics,
-          results: [{ ...result, actual_outbound: "vpn", ok: true }],
+          results: [
+            {
+              ...result,
+              actual_outbound: "vpn",
+              ok: true,
+              diagnosis: "ok" as const,
+            },
+          ],
         }}
         runtimeOutbounds={[
           {
@@ -220,7 +230,7 @@ test("multiple IPs share one trace and one failed route makes firewall step warn
     ...diagnostics,
     resolved_ips: [result.ip, secondIp],
     results: [
-      { ...result, actual_outbound: "vpn", ok: true },
+      { ...result, actual_outbound: "vpn", ok: true, diagnosis: "ok" as const },
       { ...result, ip: secondIp },
     ],
     rule_diagnostics: [
@@ -277,12 +287,13 @@ test("an uncertain rule for one IP warns at rule selection without blaming DNS",
   const html = render({
     ...diagnostics,
     results: [
-      { ...result, actual_outbound: "vpn", ok: true },
+      { ...result, actual_outbound: "vpn", ok: true, diagnosis: "ok" as const },
       {
         ...result,
         ip: "2001:db8::1",
         expected_outbound: "(unknown)",
         actual_outbound: "(unknown)",
+        diagnosis: "criteria" as const,
       },
     ],
     resolved_ips: [result.ip, "2001:db8::1"],
@@ -353,7 +364,7 @@ const twoFamilies: RoutingTestResponse = {
   ...diagnostics,
   resolved_ips: [result.ip, v6],
   results: [
-    { ...result, actual_outbound: "vpn", ok: true },
+    { ...result, actual_outbound: "vpn", ok: true, diagnosis: "ok" as const },
     { ...result, ip: v6, actual_outbound: "(unknown)", ok: false },
   ],
   rule_diagnostics: [
@@ -442,6 +453,7 @@ test("an unknown rule names the rule and the request fields it needs", () => {
       {
         ...result,
         expected_outbound: "(unknown)",
+        diagnosis: "criteria" as const,
         actual_outbound: "(unknown)",
         undetermined_rule_index: 0,
         undetermined_reason: "missing_criteria",
@@ -472,6 +484,7 @@ test("default-gateway directness is explained without asking for a field", () =>
         {
           ...result,
           expected_outbound: "(unknown)",
+          diagnosis: "network_state" as const,
           actual_outbound: "(unknown)",
           undetermined_rule_index: 0,
           undetermined_reason: "default_gateway_directness",
@@ -562,6 +575,7 @@ test("an unknown rule from an older server keeps the generic wording", () => {
         {
           ...result,
           expected_outbound: "(unknown)",
+          diagnosis: "criteria" as const,
           actual_outbound: "(unknown)",
         },
       ],

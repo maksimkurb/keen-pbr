@@ -837,6 +837,7 @@ TEST_CASE("daemon test-routing response is rendered as a human-readable table") 
              {"expected_outbound", "vpn"},
              {"actual_outbound", "vpn"},
              {"ok", true},
+             {"diagnosis", "ok"},
              {"list_match", {{"list", "domains"}, {"via", "example.com"}}}}}}}}};
 
     std::ostringstream stdout_capture;
@@ -1501,4 +1502,181 @@ TEST_CASE("compute_test_routing: no group state means no outbound group") {
     const auto result = compute_test_routing(config, cache, "203.0.113.10", TestRoutingCriteria{},
                                              &realized);
     CHECK_FALSE(result.entries.front().outbound_group.has_value());
+}
+
+namespace {
+
+// One rule ("vpn", list-backed) with one row for 1.2.3.4, plus an entry the
+// rule selected.
+TestRoutingResult diagnosis_fixture() {
+    TestRoutingResult result;
+    result.target = "example.com";
+    result.is_domain = true;
+    result.resolved_ips = {"1.2.3.4"};
+
+    TestRoutingEntry entry;
+    entry.ip = "1.2.3.4";
+    entry.expected_outbound = "vpn";
+    entry.actual_outbound = "(default)";
+    entry.ok = false;
+    entry.matched_rule_index = 2;
+    result.entries.push_back(entry);
+
+    RuleDiagnostic rule;
+    rule.rule_index = 2;
+    rule.rule.outbound = "vpn";
+    rule.rule.list = std::vector<std::string>{"vpn"};
+    rule.outbound = "vpn";
+    RuleIpDiagnostic row;
+    row.ip = "1.2.3.4";
+    row.in_lists = true;
+    row.in_ipset = false;
+    row.criteria_match = true;
+    rule.ip_rows.push_back(row);
+    result.rule_diagnostics.push_back(rule);
+    return result;
+}
+
+RuleDiagnostic other_rule_holding_ip(int index, const std::string& outbound, bool in_lists) {
+    RuleDiagnostic other;
+    other.rule_index = index;
+    other.rule.outbound = outbound;
+    other.rule.list = std::vector<std::string>{outbound};
+    other.outbound = outbound;
+    RuleIpDiagnostic row;
+    row.ip = "1.2.3.4";
+    row.in_lists = in_lists;
+    row.in_ipset = true;
+    other.ip_rows.push_back(row);
+    return other;
+}
+
+RoutingDiagnosis diagnose(const TestRoutingResult& result) {
+    return diagnose_routing_entry(result, result.entries.front());
+}
+
+} // namespace
+
+TEST_CASE("diagnose_routing_entry: dns when the domain resolved to nothing") {
+    auto result = diagnosis_fixture();
+    result.resolved_ips.clear();
+    result.entries.front().ip = "(no IPs resolved)";
+    result.entries.front().actual_outbound = "(unknown)";
+    CHECK(diagnose(result) == RoutingDiagnosis::Dns);
+
+    // An IP target has nothing to resolve.
+    auto literal = diagnosis_fixture();
+    literal.is_domain = false;
+    literal.resolved_ips.clear();
+    CHECK(diagnose(literal) == RoutingDiagnosis::MissingIpset);
+}
+
+TEST_CASE("diagnose_routing_entry: criteria and network_state for an undecided rule") {
+    auto result = diagnosis_fixture();
+    auto& entry = result.entries.front();
+    entry.expected_outbound = "(unknown)";
+    entry.actual_outbound = "(unknown)";
+    CHECK(diagnose(result) == RoutingDiagnosis::Criteria);
+    entry.default_gateway_directness = true;
+    CHECK(diagnose(result) == RoutingDiagnosis::NetworkState);
+}
+
+TEST_CASE("diagnose_routing_entry: missing_ipset and firewall") {
+    auto result = diagnosis_fixture();
+    CHECK(diagnose(result) == RoutingDiagnosis::MissingIpset);
+
+    // Known absence from the set stays a missing set when the actual outbound
+    // is unknown; only an unanswered membership check is a firewall issue.
+    result.entries.front().actual_outbound = "(unknown)";
+    CHECK(diagnose(result) == RoutingDiagnosis::MissingIpset);
+    result.rule_diagnostics.front().ip_rows.front().in_ipset = std::nullopt;
+    CHECK(diagnose(result) == RoutingDiagnosis::Firewall);
+
+    result.entries.front().actual_outbound = "(default)";
+    CHECK(diagnose(result) == RoutingDiagnosis::Mismatch);
+}
+
+TEST_CASE("diagnose_routing_entry: ok") {
+    auto result = diagnosis_fixture();
+    result.entries.front().actual_outbound = "vpn";
+    result.entries.front().ok = true;
+    CHECK(diagnose(result) == RoutingDiagnosis::Ok);
+
+    TestRoutingResult none;
+    none.target = "1.2.3.4";
+    TestRoutingEntry entry;
+    entry.ip = "1.2.3.4";
+    entry.expected_outbound = "(default)";
+    entry.actual_outbound = "(default)";
+    entry.ok = true;
+    none.entries.push_back(entry);
+    CHECK(diagnose(none) == RoutingDiagnosis::Ok);
+}
+
+TEST_CASE("diagnose_routing_entry: other_ipset and conflicting_ipsets follow the actual outbound") {
+    auto result = diagnosis_fixture();
+    result.entries.front().actual_outbound = "wan";
+    result.rule_diagnostics.insert(result.rule_diagnostics.begin(),
+                                   other_rule_holding_ip(1, "wan", true));
+    CHECK(diagnose(result) == RoutingDiagnosis::OtherIpset);
+
+    // The other rule's packet criteria rule it out as the culprit.
+    result.rule_diagnostics.front().ip_rows.front().criteria_match = false;
+    CHECK(diagnose(result) == RoutingDiagnosis::MissingIpset);
+    result.rule_diagnostics.front().ip_rows.front().criteria_match = std::nullopt;
+
+    // The expected rule's own set holds the address too.
+    result.rule_diagnostics.back().ip_rows.front().in_ipset = true;
+    CHECK(diagnose(result) == RoutingDiagnosis::ConflictingIpsets);
+}
+
+TEST_CASE("diagnose_routing_entry: stale_ipset without a selected rule") {
+    auto result = diagnosis_fixture();
+    auto& entry = result.entries.front();
+    entry.expected_outbound = "(default)";
+    entry.actual_outbound = "wan";
+    entry.matched_rule_index = std::nullopt;
+    result.rule_diagnostics.clear();
+    result.rule_diagnostics.push_back(other_rule_holding_ip(1, "wan", false));
+    CHECK(diagnose(result) == RoutingDiagnosis::StaleIpset);
+
+    result.rule_diagnostics.front().rule.enabled = false;
+    CHECK(diagnose(result) == RoutingDiagnosis::Mismatch);
+}
+
+TEST_CASE("diagnose_routing_entry: expected rule falls back to the first list match") {
+    auto result = diagnosis_fixture();
+    result.entries.front().matched_rule_index = std::nullopt;
+    CHECK(diagnose(result) == RoutingDiagnosis::MissingIpset);
+
+    // A different outbound than the rule's: no rule is credited.
+    result.entries.front().expected_outbound = "other";
+    CHECK(diagnose(result) == RoutingDiagnosis::Mismatch);
+}
+
+TEST_CASE("test-routing JSON carries the diagnosis of every entry") {
+    for (const auto code : {RoutingDiagnosis::Dns, RoutingDiagnosis::Criteria,
+                            RoutingDiagnosis::NetworkState, RoutingDiagnosis::MissingIpset,
+                            RoutingDiagnosis::Firewall, RoutingDiagnosis::Ok,
+                            RoutingDiagnosis::OtherIpset, RoutingDiagnosis::ConflictingIpsets,
+                            RoutingDiagnosis::StaleIpset, RoutingDiagnosis::Mismatch}) {
+        auto result = diagnosis_fixture();
+        result.entries.front().diagnosis = code;
+        const auto json = test_routing_result_to_json(result);
+        CHECK(json.at("results").at(0).at("diagnosis") == routing_diagnosis_name(code));
+        CHECK(test_routing_result_from_json(json).entries.front().diagnosis == code);
+    }
+}
+
+TEST_CASE("compute_test_routing stores the diagnosis on each entry") {
+    ScopedIpv6Capabilities ipv6_capabilities;
+    const auto temp_dir = make_temp_dir();
+    CacheManager cache(temp_dir);
+    cache.ensure_dir();
+
+    const auto result = compute_test_routing(build_test_config(), cache, "example.invalid");
+    REQUIRE(result.entries.size() == 1);
+    CHECK(result.entries.front().diagnosis == RoutingDiagnosis::Dns);
+
+    std::filesystem::remove_all(temp_dir);
 }

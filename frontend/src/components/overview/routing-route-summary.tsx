@@ -28,7 +28,6 @@ import {
 import {
   getExpectedRoutingRule,
   getRuleConditions,
-  getRoutingDiagnosticIssue,
 } from "./routing-diagnostics-utils"
 
 type StepTone = "ok" | "warn" | "neutral"
@@ -324,19 +323,13 @@ export function RoutingRouteSummary({
           .filter((item) => item.rule.enabled !== false)
           .flatMap((item) => item.ip_rows)
           .find((row) => row.ip === result.ip && row.in_lists)?.list_match
-      const issue = getRoutingDiagnosticIssue(diagnostics, result)
+      // The daemon decides the verdict; the UI only words it.
+      const issue = result.diagnosis
       return {
         result,
         rule,
         listMatch,
         issue,
-        // The routes could not be read: a state of the router, not a gap in
-        // the request.
-        displayIssue:
-          issue === "criteria" &&
-          result.undetermined_reason === "default_gateway_directness"
-            ? "networkState"
-            : issue,
         undetermined: undeterminedDetails(result),
         row: rule?.ip_rows.find((row) => row.ip === result.ip),
       }
@@ -366,14 +359,17 @@ export function RoutingRouteSummary({
     listGroups.set(listKey, [...(listGroups.get(listKey) ?? []), entry])
     ruleGroups.set(ruleKey, [...(ruleGroups.get(ruleKey) ?? []), entry])
     if (entry.issue !== "ok")
-      issueGroups.set(entry.displayIssue, [
-        ...(issueGroups.get(entry.displayIssue) ?? []),
+      issueGroups.set(entry.issue, [
+        ...(issueGroups.get(entry.issue) ?? []),
         entry,
       ])
   }
   const allOk =
     entries.length > 0 && entries.every((entry) => entry.issue === "ok")
-  const ruleUnknown = entries.some((entry) => entry.issue === "criteria")
+  // Both leave the rule undecided: missing request fields, or unreadable routes.
+  const ruleUndecided = (entry: (typeof entries)[number]) =>
+    entry.issue === "criteria" || entry.issue === "network_state"
+  const ruleUnknown = entries.some(ruleUndecided)
   const nothingChecked = ipv6Off && entries.length === 0 && !dnsMissing
   const heading = nothingChecked
     ? t("overview.routingDiagnostics.trace.ipv6Disabled.title")
@@ -589,7 +585,7 @@ export function RoutingRouteSummary({
       title: t("overview.routingDiagnostics.trace.firewall"),
       tone: allOk
         ? "ok"
-        : dnsMissing || entries.every((entry) => entry.issue === "criteria")
+        : dnsMissing || entries.every(ruleUndecided)
           ? "neutral"
           : "warn",
       content: (
@@ -747,7 +743,7 @@ export function RoutingRouteSummary({
                   entry.listMatch && entry.listMatch.via !== entry.result.ip
               )
             // The rule step already explains this once.
-            if (issue === "networkState" && issueGroups.size === 1) {
+            if (issue === "network_state" && issueGroups.size === 1) {
               return null
             }
             return (
@@ -767,7 +763,7 @@ export function RoutingRouteSummary({
                     />
                   </p>
                 ) : null}
-                {issue === "networkState" ? null : issue === "criteria" &&
+                {issue === "network_state" ? null : issue === "criteria" &&
                   group[0].undetermined ? (
                   <div className="space-y-1">
                     <p>{group[0].undetermined.explain}</p>

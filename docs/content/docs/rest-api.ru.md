@@ -615,6 +615,7 @@ curl -X POST http://127.0.0.1:12121/api/routing/test \
       "expected_outbound": "vpn",
       "actual_outbound": "vpn",
       "ok": true,
+      "diagnosis": "ok",
       "list_match": { "list": "my_domains", "via": "domain" }
     }
   ],
@@ -625,6 +626,7 @@ curl -X POST http://127.0.0.1:12121/api/routing/test \
 ```
 
 - `ok` — ожидаемый и фактический outbound совпали. Вместо имени outbound может быть `(default)` (ни одно правило не подошло, трафик идёт по умолчанию) или `(unknown)` (определить не удалось).
+- `diagnosis` — вывод по адресу: `ok`, `dns` (домен не разрешился), `missing_ipset` (адрес есть в списке, но ещё не попал в набор правила), `other_ipset`, `conflicting_ipsets`, `stale_ipset`, `mismatch`, `firewall` (состояние firewall не удалось прочитать), `criteria` (правилу нужно больше полей запроса) или `network_state` (не удалось прочитать маршруты роутера).
 - `warnings` — некритичные предупреждения, например об ошибке DNS. `rule_diagnostics` — разбор по каждому правилу (его показывает веб-интерфейс). `no_matching_rule` — `true`, если ни одно правило не подошло.
 
 ---

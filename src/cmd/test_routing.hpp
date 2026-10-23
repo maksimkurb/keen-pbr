@@ -92,6 +92,21 @@ struct OutboundGroupBreakdown {
     std::vector<OutboundGroupMember> members;
 };
 
+// What went wrong (or right) for one address, decided once by the backend so
+// the web UI and the CLI only choose words for it.
+enum class RoutingDiagnosis : uint8_t {
+    Dns,               // a domain resolved to no addresses
+    Criteria,          // a rule's packet criteria could not be evaluated
+    NetworkState,      // default_gateway directness unknown: routes unreadable
+    MissingIpset,      // in the lists, but not in the rule's set
+    Firewall,          // live firewall state could not be read
+    Ok,
+    OtherIpset,        // not in the rule's set, but in another rule's set
+    ConflictingIpsets, // in the rule's set and in another rule's set
+    StaleIpset,        // no list matches any more, but a set still holds it
+    Mismatch,          // none of the above
+};
+
 struct TestRoutingEntry {
     std::string ip;
     std::optional<ListMatchInfo> list_match;
@@ -113,6 +128,7 @@ struct TestRoutingEntry {
     std::optional<DefaultGatewayDecision> default_gateway;
     // Set when the outbound traffic takes is a urltest/icmptest group.
     std::optional<OutboundGroupBreakdown> outbound_group;
+    RoutingDiagnosis diagnosis{RoutingDiagnosis::Mismatch};
 };
 
 struct RuleIpDiagnostic {
@@ -163,6 +179,14 @@ struct TestRoutingResult {
     std::vector<std::string> warnings;
     std::optional<TestRoutingDnsInfo> dns;   // set for domain targets
 };
+
+// Wire name of a diagnosis code ("missing_ipset", ...).
+const char* routing_diagnosis_name(RoutingDiagnosis diagnosis);
+
+// Classifies one entry of `result` from its rule diagnostics. compute_test_routing
+// stores the answer in TestRoutingEntry::diagnosis.
+RoutingDiagnosis diagnose_routing_entry(const TestRoutingResult& result,
+                                        const TestRoutingEntry& entry);
 
 // Default when the caller has no resolver: system if the integration is off,
 // otherwise Dnsmasq with `unavailable` set.

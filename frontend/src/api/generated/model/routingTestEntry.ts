@@ -6,6 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 import type { RoutingTestDefaultGateway } from './routingTestDefaultGateway';
+import type { RoutingTestDiagnosis } from './routingTestDiagnosis';
 import type { RoutingTestEntryMissingCriteriaItem } from './routingTestEntryMissingCriteriaItem';
 import type { RoutingTestEntryUndeterminedReason } from './routingTestEntryUndeterminedReason';
 import type { RoutingTestListMatch } from './routingTestListMatch';
@@ -50,4 +51,7 @@ export interface RoutingTestEntry {
   /** Present when the outbound the traffic takes is a urltest or icmptest group: its members and which of them carry new connections.
    */
   outbound_group?: RoutingTestOutboundGroup;
+  /** Verdict for this address, decided by the daemon from the rule diagnostics. Clients choose the wording; they do not re-derive it.
+   */
+  diagnosis: RoutingTestDiagnosis;
 }

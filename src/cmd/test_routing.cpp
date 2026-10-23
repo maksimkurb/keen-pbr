@@ -1019,6 +1019,103 @@ struct PerIpRoutingResult {
 
 } // namespace
 
+const char* routing_diagnosis_name(RoutingDiagnosis diagnosis) {
+    switch (diagnosis) {
+    case RoutingDiagnosis::Dns: return "dns";
+    case RoutingDiagnosis::Criteria: return "criteria";
+    case RoutingDiagnosis::NetworkState: return "network_state";
+    case RoutingDiagnosis::MissingIpset: return "missing_ipset";
+    case RoutingDiagnosis::Firewall: return "firewall";
+    case RoutingDiagnosis::Ok: return "ok";
+    case RoutingDiagnosis::OtherIpset: return "other_ipset";
+    case RoutingDiagnosis::ConflictingIpsets: return "conflicting_ipsets";
+    case RoutingDiagnosis::StaleIpset: return "stale_ipset";
+    case RoutingDiagnosis::Mismatch: return "mismatch";
+    }
+    return "mismatch";
+}
+
+namespace {
+
+const RuleIpDiagnostic* find_ip_row(const RuleDiagnostic& rule, const std::string& ip) {
+    const auto it = std::find_if(rule.ip_rows.begin(), rule.ip_rows.end(),
+                                 [&](const RuleIpDiagnostic& row) { return row.ip == ip; });
+    return it == rule.ip_rows.end() ? nullptr : &*it;
+}
+
+// The rule the entry's expected outbound came from.
+const RuleDiagnostic* find_expected_rule(const TestRoutingResult& result,
+                                         const TestRoutingEntry& entry) {
+    if (entry.matched_rule_index.has_value()) {
+        for (const auto& rule : result.rule_diagnostics) {
+            if (rule.rule_index == *entry.matched_rule_index) return &rule;
+        }
+        return nullptr;
+    }
+    const RuleDiagnostic* first = nullptr;
+    for (const auto& rule : result.rule_diagnostics) {
+        if (!route_rule_enabled(rule.rule)) continue;
+        const RuleIpDiagnostic* row = find_ip_row(rule, entry.ip);
+        if (row == nullptr || !row->in_lists || row->criteria_match == false) continue;
+        if (first == nullptr || rule.rule_index < first->rule_index) first = &rule;
+    }
+    return first != nullptr && first->outbound == entry.expected_outbound ? first : nullptr;
+}
+
+} // namespace
+
+RoutingDiagnosis diagnose_routing_entry(const TestRoutingResult& result,
+                                        const TestRoutingEntry& entry) {
+    if (result.is_domain && result.resolved_ips.empty()) return RoutingDiagnosis::Dns;
+    if (entry.expected_outbound == "(unknown)") {
+        // The routes could not be read: a state of the router, not a gap in
+        // the request.
+        return entry.default_gateway_directness ? RoutingDiagnosis::NetworkState
+                                                : RoutingDiagnosis::Criteria;
+    }
+
+    const RuleDiagnostic* rule = find_expected_rule(result, entry);
+    const RuleIpDiagnostic* row = rule != nullptr ? find_ip_row(*rule, entry.ip) : nullptr;
+
+    std::vector<const RuleDiagnostic*> other_set_rules;
+    for (const auto& item : result.rule_diagnostics) {
+        if (!route_rule_enabled(item.rule) || route_rule_lists(item.rule).empty() ||
+            (rule != nullptr && item.rule_index == rule->rule_index) ||
+            item.outbound != entry.actual_outbound) {
+            continue;
+        }
+        const RuleIpDiagnostic* item_row = find_ip_row(item, entry.ip);
+        if (item_row != nullptr && item_row->in_ipset == true &&
+            item_row->criteria_match != false) {
+            other_set_rules.push_back(&item);
+        }
+    }
+
+    // "Not in the set" is a definite answer even when the actual outbound is
+    // unknown: report the missing set, not a failed check.
+    const bool in_lists_not_in_set =
+        row != nullptr && row->in_lists && row->in_ipset == false;
+    if (entry.actual_outbound == "(unknown)") {
+        return in_lists_not_in_set ? RoutingDiagnosis::MissingIpset
+                                   : RoutingDiagnosis::Firewall;
+    }
+    if (entry.ok) return RoutingDiagnosis::Ok;
+    if (in_lists_not_in_set) {
+        return other_set_rules.empty() ? RoutingDiagnosis::MissingIpset
+                                       : RoutingDiagnosis::OtherIpset;
+    }
+    if (row != nullptr && row->in_ipset == true && !other_set_rules.empty()) {
+        return RoutingDiagnosis::ConflictingIpsets;
+    }
+    if (entry.expected_outbound == "(default)") {
+        for (const RuleDiagnostic* other : other_set_rules) {
+            const RuleIpDiagnostic* other_row = find_ip_row(*other, entry.ip);
+            if (other_row != nullptr && !other_row->in_lists) return RoutingDiagnosis::StaleIpset;
+        }
+    }
+    return RoutingDiagnosis::Mismatch;
+}
+
 RoutingDnsResolver default_routing_dns_resolver(const Config& config) {
     RoutingDnsResolver r;
     if (effective_resolver_integration(config) != ResolverIntegrationMode::DNSMASQ) return r;
@@ -1340,6 +1437,10 @@ TestRoutingResult compute_test_routing(const Config& config,
             result.warnings.push_back(
                 "Some route-rule packet criteria or live firewall checks could not be evaluated because the request was incomplete, address families were incompatible, directness was unknown, or firewall state was unavailable.");
         }
+    }
+
+    for (auto& entry : result.entries) {
+        entry.diagnosis = diagnose_routing_entry(result, entry);
     }
 
     result.no_matching_rule = std::none_of(

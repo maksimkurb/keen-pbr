@@ -2644,7 +2644,7 @@ components:
 
     RoutingTestEntry:
       type: object
-      required: [ip, expected_outbound, actual_outbound, ok]
+      required: [ip, expected_outbound, actual_outbound, ok, diagnosis]
       properties:
         ip:
           type: string
@@ -2716,6 +2716,37 @@ components:
             Present when the outbound the traffic takes is a urltest or
             icmptest group: its members and which of them carry new
             connections.
+        diagnosis:
+          $ref: "#/components/schemas/RoutingTestDiagnosis"
+          description: >
+            Verdict for this address, decided by the daemon from the rule
+            diagnostics. Clients choose the wording; they do not re-derive it.
+
+    RoutingTestDiagnosis:
+      type: string
+      enum:
+        - dns
+        - criteria
+        - network_state
+        - missing_ipset
+        - firewall
+        - ok
+        - other_ipset
+        - conflicting_ipsets
+        - stale_ipset
+        - mismatch
+      description: >
+        dns: the domain resolved to no addresses. criteria: a route rule's
+        packet criteria could not be evaluated for lack of request fields.
+        network_state: a default_gateway rule could not be evaluated because
+        the router's routes could not be read. missing_ipset: the address
+        matches the rule's lists but is not in the rule's set. firewall: the
+        live firewall state could not be read. ok: the firewall routes the
+        address as expected. other_ipset: not in the rule's set, but in the set
+        of another rule. conflicting_ipsets: in the rule's set and in the set
+        of another rule. stale_ipset: no list matches the address any more,
+        but a set still holds it. mismatch: the outcome differs for a reason
+        none of the other codes names.
 
     RoutingTestEntryUndeterminedReason:
       type: string

@@ -801,7 +801,7 @@ export const ruTranslation = {
             advice:
               "Уточните IP источника, порт источника и DSCP, если правила используют их.",
           },
-          networkState: {
+          network_state: {
             title: "Маршрут зависит от состояния сети",
           },
           firewall: {

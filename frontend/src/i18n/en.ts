@@ -770,7 +770,7 @@ export const enTranslation = {
             advice:
               "Provide source IP, source port and DSCP if required by the rules.",
           },
-          networkState: {
+          network_state: {
             title: "Route depends on the network state",
           },
           firewall: {

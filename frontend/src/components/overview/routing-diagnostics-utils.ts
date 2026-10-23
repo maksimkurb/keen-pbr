@@ -2,7 +2,6 @@ import type {
   RouteRule,
   RoutingTestRuleDiagnostic,
   RoutingTestEntry,
-  RoutingTestResponse,
 } from "@/api/generated/model"
 
 export type RuleCondition = {
@@ -15,53 +14,6 @@ export type RuleCondition = {
     | "destinationPort"
     | "dscp"
   value: string
-}
-
-export function getRoutingDiagnosticIssue(
-  diagnostics: RoutingTestResponse,
-  result: RoutingTestEntry
-) {
-  if (diagnostics.is_domain && diagnostics.resolved_ips.length === 0)
-    return "dns"
-  if (result.expected_outbound === "(unknown)") return "criteria"
-  const rule = getExpectedRoutingRule(diagnostics.rule_diagnostics, result)
-  const row = rule?.ip_rows.find((row) => row.ip === result.ip)
-  const otherSetRules = diagnostics.rule_diagnostics.filter(
-    (item) =>
-      item.rule.enabled !== false &&
-      item.rule.list?.length &&
-      item.rule_index !== rule?.rule_index &&
-      item.outbound === result.actual_outbound &&
-      item.ip_rows.some(
-        (row) =>
-          row.ip === result.ip &&
-          row.in_ipset === true &&
-          row.criteria_match !== false
-      )
-  )
-  // "Not in the set" is a definite answer even when the actual outbound is
-  // unknown: report the missing set, not a failed check.
-  if (
-    result.actual_outbound === "(unknown)" &&
-    row?.in_lists &&
-    row.in_ipset === false
-  )
-    return "missing_ipset"
-  if (result.actual_outbound === "(unknown)") return "firewall"
-  if (result.ok) return "ok"
-  if (row?.in_lists && row.in_ipset === false) {
-    return otherSetRules.length ? "other_ipset" : "missing_ipset"
-  }
-  if (row?.in_ipset === true && otherSetRules.length)
-    return "conflicting_ipsets"
-  if (
-    result.expected_outbound === "(default)" &&
-    otherSetRules.some((rule) =>
-      rule.ip_rows.some((row) => row.ip === result.ip && !row.in_lists)
-    )
-  )
-    return "stale_ipset"
-  return "mismatch"
 }
 
 export function getExpectedRoutingRule(

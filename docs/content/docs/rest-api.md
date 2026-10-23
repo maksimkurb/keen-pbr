@@ -615,6 +615,7 @@ address, or {{< term "DSCP" >}}. Without them, only list membership of the targe
       "expected_outbound": "vpn",
       "actual_outbound": "vpn",
       "ok": true,
+      "diagnosis": "ok",
       "list_match": { "list": "my_domains", "via": "domain" }
     }
   ],
@@ -625,6 +626,7 @@ address, or {{< term "DSCP" >}}. Without them, only list membership of the targe
 ```
 
 - `ok` means the expected and actual outbound match. Instead of an outbound name you may see `(default)` (no rule matched, traffic uses the default) or `(unknown)` (could not be determined).
+- `diagnosis` is the verdict for the address: `ok`, `dns` (the domain did not resolve), `missing_ipset` (the address is in the list but not in the rule's set yet), `other_ipset`, `conflicting_ipsets`, `stale_ipset`, `mismatch`, `firewall` (the firewall state could not be read), `criteria` (a rule needs more request fields) or `network_state` (the router's routes could not be read).
 - `warnings` holds non-fatal warnings, for example a DNS error. `rule_diagnostics` is a per-rule breakdown (shown in the web interface). `no_matching_rule` is `true` when no rule matched.
 
 ---

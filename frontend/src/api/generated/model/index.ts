@@ -124,6 +124,7 @@ export * from './routingHealthWarningCode';
 export * from './routingTestDefaultGateway';
 export * from './routingTestDefaultGatewayBypass';
 export * from './routingTestDefaultGatewayBypassSource';
+export * from './routingTestDiagnosis';
 export * from './routingTestDns';
 export * from './routingTestDnsAddressStatus';
 export * from './routingTestDnsResolver';

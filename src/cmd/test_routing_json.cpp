@@ -76,6 +76,38 @@ std::optional<std::string> dns_status_from_api(const std::optional<api::RoutingT
     return std::nullopt;
 }
 
+api::RoutingTestDiagnosis diagnosis_to_api(RoutingDiagnosis in) {
+    switch (in) {
+    case RoutingDiagnosis::Dns: return api::RoutingTestDiagnosis::DNS;
+    case RoutingDiagnosis::Criteria: return api::RoutingTestDiagnosis::CRITERIA;
+    case RoutingDiagnosis::NetworkState: return api::RoutingTestDiagnosis::NETWORK_STATE;
+    case RoutingDiagnosis::MissingIpset: return api::RoutingTestDiagnosis::MISSING_IPSET;
+    case RoutingDiagnosis::Firewall: return api::RoutingTestDiagnosis::FIREWALL;
+    case RoutingDiagnosis::Ok: return api::RoutingTestDiagnosis::OK;
+    case RoutingDiagnosis::OtherIpset: return api::RoutingTestDiagnosis::OTHER_IPSET;
+    case RoutingDiagnosis::ConflictingIpsets: return api::RoutingTestDiagnosis::CONFLICTING_IPSETS;
+    case RoutingDiagnosis::StaleIpset: return api::RoutingTestDiagnosis::STALE_IPSET;
+    case RoutingDiagnosis::Mismatch: return api::RoutingTestDiagnosis::MISMATCH;
+    }
+    return api::RoutingTestDiagnosis::MISMATCH;
+}
+
+RoutingDiagnosis diagnosis_from_api(api::RoutingTestDiagnosis in) {
+    switch (in) {
+    case api::RoutingTestDiagnosis::DNS: return RoutingDiagnosis::Dns;
+    case api::RoutingTestDiagnosis::CRITERIA: return RoutingDiagnosis::Criteria;
+    case api::RoutingTestDiagnosis::NETWORK_STATE: return RoutingDiagnosis::NetworkState;
+    case api::RoutingTestDiagnosis::MISSING_IPSET: return RoutingDiagnosis::MissingIpset;
+    case api::RoutingTestDiagnosis::FIREWALL: return RoutingDiagnosis::Firewall;
+    case api::RoutingTestDiagnosis::OK: return RoutingDiagnosis::Ok;
+    case api::RoutingTestDiagnosis::OTHER_IPSET: return RoutingDiagnosis::OtherIpset;
+    case api::RoutingTestDiagnosis::CONFLICTING_IPSETS: return RoutingDiagnosis::ConflictingIpsets;
+    case api::RoutingTestDiagnosis::STALE_IPSET: return RoutingDiagnosis::StaleIpset;
+    case api::RoutingTestDiagnosis::MISMATCH: return RoutingDiagnosis::Mismatch;
+    }
+    return RoutingDiagnosis::Mismatch;
+}
+
 api::RoutingTestListMatch list_match_to_api(const ListMatchInfo& match) {
     api::RoutingTestListMatch out;
     out.list = match.list_name;
@@ -244,6 +276,7 @@ nlohmann::json test_routing_result_to_json(const TestRoutingResult& result) {
         e.actual_outbound   = entry.actual_outbound;
         e.matched_rule_index = entry.matched_rule_index;
         e.criteria_match = entry.criteria_match;
+        e.diagnosis = diagnosis_to_api(entry.diagnosis);
         if (entry.undetermined_rule_index) {
             e.undetermined_rule_index = *entry.undetermined_rule_index;
             if (entry.default_gateway_directness) {
@@ -357,6 +390,7 @@ TestRoutingResult test_routing_result_from_json(const nlohmann::json& value) {
             ? std::optional<int>(static_cast<int>(*item.matched_rule_index))
             : std::nullopt;
         entry.criteria_match = item.criteria_match;
+        entry.diagnosis = diagnosis_from_api(item.diagnosis);
         if (item.undetermined_rule_index) {
             entry.undetermined_rule_index = static_cast<int>(*item.undetermined_rule_index);
         }

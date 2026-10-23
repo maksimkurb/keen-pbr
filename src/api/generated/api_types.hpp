@@ -856,6 +856,8 @@ namespace api {
         std::optional<bool> uses_default_gateway;
     };
 
+    enum class RoutingTestDiagnosis : int { CONFLICTING_IPSETS, CRITERIA, DNS, FIREWALL, MISMATCH, MISSING_IPSET, NETWORK_STATE, OK, OTHER_IPSET, STALE_IPSET };
+
     enum class RoutingTestDnsAddressStatus : int { MALFORMED, NETWORK_ERROR, NODATA, NXDOMAIN, OK, RCODE, REFUSED, SERVFAIL, TIMEOUT };
 
     enum class RoutingTestDnsResolver : int { DNSMASQ, SYSTEM, TEST };
@@ -896,6 +898,7 @@ namespace api {
         std::string actual_outbound;
         std::optional<bool> criteria_match;
         std::optional<RoutingTestDefaultGateway> default_gateway;
+        RoutingTestDiagnosis diagnosis;
         std::string expected_outbound;
         std::string ip;
         std::optional<RoutingTestListMatch> list_match;
@@ -1191,6 +1194,7 @@ namespace api {
         std::optional<RoutingTestDefaultGateway> routing_test_default_gateway;
         std::optional<RoutingTestDefaultGatewayBypass> routing_test_default_gateway_bypass;
         std::optional<RoutingTestDefaultGatewayBypassSource> routing_test_default_gateway_bypass_source;
+        std::optional<RoutingTestDiagnosis> routing_test_diagnosis;
         std::optional<RoutingTestDns> routing_test_dns;
         std::optional<RoutingTestDnsAddressStatus> routing_test_dns_address_status;
         std::optional<RoutingTestDnsResolver> routing_test_dns_resolver;
@@ -1676,6 +1680,9 @@ namespace api {
 
     void from_json(const json & j, RoutingTestDefaultGatewayBypassSource & x);
     void to_json(json & j, const RoutingTestDefaultGatewayBypassSource & x);
+
+    void from_json(const json & j, RoutingTestDiagnosis & x);
+    void to_json(json & j, const RoutingTestDiagnosis & x);
 
     void from_json(const json & j, RoutingTestDnsAddressStatus & x);
     void to_json(json & j, const RoutingTestDnsAddressStatus & x);
@@ -3232,6 +3239,7 @@ namespace api {
         x.actual_outbound = j.at("actual_outbound").get<std::string>();
         x.criteria_match = get_stack_optional<bool>(j, "criteria_match");
         x.default_gateway = get_stack_optional<RoutingTestDefaultGateway>(j, "default_gateway");
+        x.diagnosis = j.at("diagnosis").get<RoutingTestDiagnosis>();
         x.expected_outbound = j.at("expected_outbound").get<std::string>();
         x.ip = j.at("ip").get<std::string>();
         x.list_match = get_stack_optional<RoutingTestListMatch>(j, "list_match");
@@ -3248,6 +3256,7 @@ namespace api {
         j["actual_outbound"] = x.actual_outbound;
         j["criteria_match"] = x.criteria_match;
         j["default_gateway"] = x.default_gateway;
+        j["diagnosis"] = x.diagnosis;
         j["expected_outbound"] = x.expected_outbound;
         j["ip"] = x.ip;
         j["list_match"] = x.list_match;
@@ -3683,6 +3692,7 @@ namespace api {
         x.routing_test_default_gateway = get_stack_optional<RoutingTestDefaultGateway>(j, "RoutingTestDefaultGateway");
         x.routing_test_default_gateway_bypass = get_stack_optional<RoutingTestDefaultGatewayBypass>(j, "RoutingTestDefaultGatewayBypass");
         x.routing_test_default_gateway_bypass_source = get_stack_optional<RoutingTestDefaultGatewayBypassSource>(j, "RoutingTestDefaultGatewayBypassSource");
+        x.routing_test_diagnosis = get_stack_optional<RoutingTestDiagnosis>(j, "RoutingTestDiagnosis");
         x.routing_test_dns = get_stack_optional<RoutingTestDns>(j, "RoutingTestDns");
         x.routing_test_dns_address_status = get_stack_optional<RoutingTestDnsAddressStatus>(j, "RoutingTestDnsAddressStatus");
         x.routing_test_dns_resolver = get_stack_optional<RoutingTestDnsResolver>(j, "RoutingTestDnsResolver");
@@ -3847,6 +3857,7 @@ namespace api {
         j["RoutingTestDefaultGateway"] = x.routing_test_default_gateway;
         j["RoutingTestDefaultGatewayBypass"] = x.routing_test_default_gateway_bypass;
         j["RoutingTestDefaultGatewayBypassSource"] = x.routing_test_default_gateway_bypass_source;
+        j["RoutingTestDiagnosis"] = x.routing_test_diagnosis;
         j["RoutingTestDns"] = x.routing_test_dns;
         j["RoutingTestDnsAddressStatus"] = x.routing_test_dns_address_status;
         j["RoutingTestDnsResolver"] = x.routing_test_dns_resolver;
@@ -4618,6 +4629,36 @@ namespace api {
             case RoutingTestDefaultGatewayBypassSource::RESERVED: j = "reserved"; break;
             case RoutingTestDefaultGatewayBypassSource::ROUTE: j = "route"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"RoutingTestDefaultGatewayBypassSource\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, RoutingTestDiagnosis & x) {
+        if (j == "conflicting_ipsets") x = RoutingTestDiagnosis::CONFLICTING_IPSETS;
+        else if (j == "criteria") x = RoutingTestDiagnosis::CRITERIA;
+        else if (j == "dns") x = RoutingTestDiagnosis::DNS;
+        else if (j == "firewall") x = RoutingTestDiagnosis::FIREWALL;
+        else if (j == "mismatch") x = RoutingTestDiagnosis::MISMATCH;
+        else if (j == "missing_ipset") x = RoutingTestDiagnosis::MISSING_IPSET;
+        else if (j == "network_state") x = RoutingTestDiagnosis::NETWORK_STATE;
+        else if (j == "ok") x = RoutingTestDiagnosis::OK;
+        else if (j == "other_ipset") x = RoutingTestDiagnosis::OTHER_IPSET;
+        else if (j == "stale_ipset") x = RoutingTestDiagnosis::STALE_IPSET;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"RoutingTestDiagnosis\""); }
+    }
+
+    inline void to_json(json & j, const RoutingTestDiagnosis & x) {
+        switch (x) {
+            case RoutingTestDiagnosis::CONFLICTING_IPSETS: j = "conflicting_ipsets"; break;
+            case RoutingTestDiagnosis::CRITERIA: j = "criteria"; break;
+            case RoutingTestDiagnosis::DNS: j = "dns"; break;
+            case RoutingTestDiagnosis::FIREWALL: j = "firewall"; break;
+            case RoutingTestDiagnosis::MISMATCH: j = "mismatch"; break;
+            case RoutingTestDiagnosis::MISSING_IPSET: j = "missing_ipset"; break;
+            case RoutingTestDiagnosis::NETWORK_STATE: j = "network_state"; break;
+            case RoutingTestDiagnosis::OK: j = "ok"; break;
+            case RoutingTestDiagnosis::OTHER_IPSET: j = "other_ipset"; break;
+            case RoutingTestDiagnosis::STALE_IPSET: j = "stale_ipset"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"RoutingTestDiagnosis\": " + std::to_string(static_cast<int>(x)));
         }
     }
 
