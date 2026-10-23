@@ -24,14 +24,15 @@ Options:
   --no-api           Disable REST API at runtime
   --use-raw-prerouting  Use raw PREROUTING for IPv4 forwarded traffic (iptables only)
   --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only)
+  --json             Print JSON on stdout instead of text (status, download, test-routing)
   --version          Show version and exit
   --help             Show this help and exit
 
 Commands:
   service                            Start the routing service (foreground)
-  status                             Show routing/firewall status and exit
-  download                           Download all configured lists to cache and exit
-  test-routing <ip-or-domain> [packet options]
+  status [--json]                    Show routing/firewall status and exit
+  download [--reload] [--json]       Download all configured lists to cache and exit
+  test-routing <ip-or-domain> [packet options] [--json]
                                      Test expected vs actual routing for an IP or domain
       --proto <tcp|udp|other>        Packet protocol
       --src-addr <ip>                Packet source address
@@ -57,6 +58,7 @@ The config file is usually `/etc/keen-pbr/config.json` on OpenWrt and Debian, an
 | `--no-api` | Disable the REST API even if enabled in config. |
 | `--use-raw-prerouting` | {{< only iptables >}} Opt in to raw-table IPv4 forwarded-traffic classification. |
 | `--use-raw6-prerouting` | {{< only iptables >}} Opt in to raw-table IPv6 forwarded-traffic classification. |
+| `--json` | Print the result as JSON on stdout instead of text. Works with `status`, `download` and `test-routing`; exit codes stay the same. |
 | `--version` | Print version and exit. |
 | `--help` | Print help and exit. |
 
@@ -256,10 +258,30 @@ keen-pbr download
 The command prints the service's answer as one JSON line. `refreshed_lists` holds the lists that were updated, `changed_lists` those whose content changed:
 
 ```text
-{"ok":true,"protocol_version":2,"request_id":"cli-download","result":{"changed_lists":["google"],"failed_lists":[],"refreshed_lists":["google"],"reloaded":false}}
+{"ok":true,"protocol_version":2,"request_id":"cli-download","result":{"changed_lists":["google"],"failed_lists":[],"failure_messages":{},"refreshed_lists":["google"],"unchanged_lists":[],"reloaded":false}}
 ```
 
 If a list fails to download, the command prints an error and exits with code 1.
+
+With `--json` the command prints one object with the outcome of every list; a failed list also gets the reason. The exit code is the same, so with failures the object is printed and the code is 1:
+
+```bash {filename="bash"}
+keen-pbr download --json
+```
+
+```json
+{
+  "lists": [
+    {"list": "google", "status": "changed"},
+    {"list": "apple", "status": "unchanged"},
+    {"list": "broken", "status": "failed", "error": "HTTP 503"}
+  ],
+  "summary": {"refreshed": 3, "changed": 1, "unchanged": 1, "failed": 1},
+  "reloaded": false
+}
+```
+
+`status --json` prints the service state, outbounds, issues and routing health, in the same shape as the REST endpoints `GET /api/health/service`, `GET /api/runtime/outbounds`, `GET /api/health/issues` and `GET /api/health/routing`. `test-routing --json` prints the same body as the routing test in the REST API. Messages for people go to stderr, so stdout can be piped to `jq`.
 
 Compare expected and actual routing:
 

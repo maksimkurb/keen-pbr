@@ -290,6 +290,9 @@ RemoteListsRefreshResult ListService::download_remote_lists(const Config& config
 
             if (download_result.failed()) {
                 result.failed_lists.push_back(name);
+                result.failure_messages[name] = download_result.error_message.empty()
+                    ? std::string("unknown error")
+                    : download_result.error_message;
                 Logger::instance().warn("List '{}': failed to refresh {}: {}",
                                         name,
                                         *list_cfg.url,

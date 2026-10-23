@@ -217,14 +217,21 @@ TestRoutingResult compute_test_routing(const Config& config,
                                         const TestRoutingNetworkSnapshot* network = nullptr,
                                         const TestRoutingGroupState* group_state = nullptr);
 
+struct TestRoutingOutputOptions {
+    // Print the RoutingTestResponse JSON instead of the human-readable report.
+    bool json{false};
+};
+
 // Print table and return 0 if all entries match, 1 otherwise.
 int run_test_routing_command(const Config& config,
                               const CacheManager& cache,
-                              const std::string& target);
+                              const std::string& target,
+                              const TestRoutingOutputOptions& output = {});
 
 // Render a test-routing response obtained from the daemon control socket.
 // criteria are the packet fields the request carried, echoed in the header.
 int run_test_routing_command(const nlohmann::json& response,
-                             const TestRoutingCriteria& criteria = {});
+                             const TestRoutingCriteria& criteria = {},
+                             const TestRoutingOutputOptions& output = {});
 
 } // namespace keen_pbr3

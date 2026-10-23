@@ -20,6 +20,7 @@
 #include "config/config_writer.hpp"
 #include "auth/password.hpp"
 #include "cmd/dnsmasq_cmd.hpp"
+#include "cmd/download_cmd.hpp"
 #include "cmd/resolver_config.hpp"
 #include "cmd/status.hpp"
 #include "cmd/test_routing.hpp"
@@ -74,6 +75,7 @@ struct CliOptions {
   bool download_reload{false};
   bool resolver_config_hash{false};
   bool run_status{false};
+  bool json_output{false};
   bool run_resolver_detect{false};
   bool resolver_usage_error{false};
   std::vector<std::string> detect_args;
@@ -107,17 +109,19 @@ void print_usage(const char *argv0) {
                "traffic (iptables only)\n"
             << "  --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded "
                "traffic (iptables only)\n"
+            << "  --json             Print JSON on stdout instead of text (status, "
+               "download, test-routing)\n"
             << "  --version          Show version and exit\n"
             << "  --help             Show this help and exit\n"
             << "\n"
             << "Commands:\n"
             << "  service                            Start the routing service "
                "(foreground)\n"
-            << "  status                             Show routing/firewall "
+            << "  status [--json]                    Show routing/firewall "
                "status and exit\n"
-            << "  download                           Download all configured "
+            << "  download [--reload] [--json]       Download all configured "
                "lists to cache and exit\n"
-            << "  test-routing <ip-or-domain> [packet options]\n"
+            << "  test-routing <ip-or-domain> [packet options] [--json]\n"
             << "                                     Test expected vs actual "
                "routing for an IP or domain\n"
             << "      --proto <tcp|udp|other>        Packet protocol\n"
@@ -180,6 +184,8 @@ CliOptions parse_args(int argc, char *argv[]) {
         std::exit(1);
       }
       opts.crash_report_path = argv[++i];
+    } else if (std::strcmp(argv[i], "--json") == 0) {
+      opts.json_output = true;
     } else if (std::strcmp(argv[i], "--no-api") == 0) {
       opts.no_api = true;
     } else if (std::strcmp(argv[i], "--use-raw-prerouting") == 0) {
@@ -285,6 +291,12 @@ CliOptions parse_args(int argc, char *argv[]) {
       print_usage(argv[0]);
       std::exit(1);
     }
+  }
+  if (opts.json_output && !opts.run_status && !opts.download_lists &&
+      !opts.run_test_routing) {
+    std::cerr << "Error: --json is only supported with status, download and "
+                 "test-routing\n";
+    std::exit(1);
   }
   if (!opts.test_routing_packet.empty() && !opts.run_test_routing) {
     std::cerr << "Error: --proto, --src-addr, --src-port, --dest-port and "
@@ -515,6 +527,12 @@ int main(int argc, char *argv[]) {
                        {{"routing_test", test_routing_request_body(opts)}},
                        kTestRoutingReadTimeoutMs)
                  : request_control_state(operation));
+      if (opts.download_lists && opts.json_output && response.contains("result")) {
+        // Some lists failing is still a complete answer: report every list.
+        std::cout << keen_pbr3::format_download_json(response.at("result")).dump(2)
+                  << '\n';
+        return response.value("ok", false) ? 0 : 1;
+      }
       if (!response.value("ok", false)) {
         const auto& error = response.value("error", nlohmann::json::object());
         std::cerr << "keen-pbr " << operation << ": "
@@ -527,13 +545,22 @@ int main(int argc, char *argv[]) {
         return 0;
       }
       if (opts.run_test_routing) {
-        return keen_pbr3::run_test_routing_command(response,
-                                                   opts.test_routing_criteria);
+        return keen_pbr3::run_test_routing_command(
+            response, opts.test_routing_criteria, {opts.json_output});
       }
       const auto &state = response.at("result");
       const auto config_path = state.value(
           "config_path", std::string(KEEN_PBR_DEFAULT_CONFIG_PATH));
       const auto config = load_committed_config(config_path);
+      if (opts.json_output) {
+        if (!state.contains("routing_health") || state.at("routing_health").is_null()) {
+          std::cerr << "keen-pbr status: the daemon did not report routing health; "
+                       "--json needs a current daemon\n";
+          return 1;
+        }
+        return keen_pbr3::run_status_json_command(config, state.at("routing_health"),
+                                                  state);
+      }
       if (!state.contains("routing_health") || state.at("routing_health").is_null()) {
         return keen_pbr3::run_status_command(config, config_path, nullptr);
       }

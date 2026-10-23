@@ -1571,8 +1571,22 @@ std::vector<std::string> describe_entry_details(const TestRoutingEntry& entry) {
     return lines;
 }
 
+// 0 when the lookup succeeded and every entry routes as expected.
+int test_routing_exit_code(const TestRoutingResult& result) {
+    if (result.dns_error.has_value()) return 1;
+    const bool all_ok = std::all_of(result.entries.begin(), result.entries.end(),
+                                    [](const TestRoutingEntry& entry) { return entry.ok; });
+    return all_ok ? 0 : 1;
+}
+
 int render_test_routing_result(const TestRoutingResult& result,
-                               const TestRoutingCriteria& criteria = {}) {
+                               const TestRoutingCriteria& criteria = {},
+                               const TestRoutingOutputOptions& output = {}) {
+    if (output.json) {
+        std::cout << test_routing_result_to_json(result).dump(2) << '\n';
+        return test_routing_exit_code(result);
+    }
+
     for (const auto& w : result.warnings) {
         std::cerr << "Warning: " << w << "\n";
     }
@@ -1622,7 +1636,6 @@ int render_test_routing_result(const TestRoutingResult& result,
     std::cout << std::string(ip_w + 3 + list_w + 3 + outbound_w + 3 + outbound_w + 3 + 6, '-')
               << "\n";
 
-    bool all_ok = !result.dns_error.has_value();
     for (const auto& entry : result.entries) {
         std::string list_str = "-";
         if (entry.list_match) {
@@ -1633,7 +1646,6 @@ int render_test_routing_result(const TestRoutingResult& result,
         }
 
         const std::string status = entry.ok ? "OK" : "NOK";
-        if (!entry.ok) all_ok = false;
 
         std::cout << keen_pbr3::format("{:<{}} | {:<{}} | {:<{}} | {:<{}} | {}\n",
                                  entry.ip, ip_w,
@@ -1652,20 +1664,29 @@ int render_test_routing_result(const TestRoutingResult& result,
         }
     }
 
-    return all_ok ? 0 : 1;
+    return test_routing_exit_code(result);
 }
 } // namespace
 
 int run_test_routing_command(const Config& config,
                               const CacheManager& cache,
-                              const std::string& target) {
-    return render_test_routing_result(compute_test_routing(config, cache, target));
+                              const std::string& target,
+                              const TestRoutingOutputOptions& output) {
+    return render_test_routing_result(compute_test_routing(config, cache, target), {}, output);
 }
 
 int run_test_routing_command(const nlohmann::json& response,
-                             const TestRoutingCriteria& criteria) {
+                             const TestRoutingCriteria& criteria,
+                             const TestRoutingOutputOptions& output) {
+    if (output.json) {
+        // The daemon's body is already the RoutingTestResponse; pass it through
+        // untouched so rule_diagnostics survive.
+        const auto& body = response.at("result");
+        std::cout << body.dump(2) << '\n';
+        return test_routing_exit_code(test_routing_result_from_json(body));
+    }
     return render_test_routing_result(
-        test_routing_result_from_json(response.at("result")), criteria);
+        test_routing_result_from_json(response.at("result")), criteria, output);
 }
 
 } // namespace keen_pbr3

@@ -26,6 +26,8 @@ struct RemoteListsRefreshResult {
     std::vector<std::string> unchanged_lists;
     std::vector<std::string> relevant_changed_lists;
     std::vector<std::string> failed_lists;
+    // Why each list in failed_lists failed.
+    std::map<std::string, std::string> failure_messages;
 
     bool any_refreshed() const {
         return !refreshed_lists.empty();

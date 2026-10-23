@@ -712,17 +712,30 @@ void print_overall_summary(const RoutingHealthReport& report,
     }
 }
 
+std::vector<DisplayFirewallRule> display_firewall_rules_for(const Config& config,
+                                                           const OutboundMarkMap& marks,
+                                                           const RoutingHealthReport& report) {
+    if (report.firewall_rules.empty() && firewall_verification_unavailable(report)) {
+        return build_unavailable_firewall_rules(config, marks, report.firewall_chain.detail);
+    }
+    return build_display_firewall_rules(config, marks, report.firewall_rules, report.policy_rules);
+}
+
+// 1 when any check failed or any issue is an error.
+int status_exit_code(const RoutingHealthReport& report,
+                     const std::vector<DisplayFirewallRule>& firewall_rules,
+                     const DaemonHealthDetails* details) {
+    const bool failed = count_failed_checks(report, firewall_rules) != 0 ||
+                        count_issues(details).errors != 0;
+    return failed ? 1 : 0;
+}
+
 int render_status_report(const Config& config,
                          const std::string& config_path,
                          const RoutingHealthReport& report,
                          const DaemonHealthDetails* details = nullptr) {
     auto marks = allocate_outbound_marks(config);
-    auto display_firewall_rules =
-        build_display_firewall_rules(config, marks, report.firewall_rules, report.policy_rules);
-    if (report.firewall_rules.empty() && firewall_verification_unavailable(report)) {
-        display_firewall_rules = build_unavailable_firewall_rules(
-            config, marks, report.firewall_chain.detail);
-    }
+    const auto display_firewall_rules = display_firewall_rules_for(config, marks, report);
 
     print_header(report, config_path, details);
     print_outbound_section(config, marks, report, details);
@@ -738,9 +751,7 @@ int render_status_report(const Config& config,
         print_warnings_section(report);
     }
     print_overall_summary(report, display_firewall_rules, details);
-    const bool failed = count_failed_checks(report, display_firewall_rules) != 0 ||
-                        count_issues(details).errors != 0;
-    return failed ? 1 : 0;
+    return status_exit_code(report, display_firewall_rules, details);
 }
 
 CheckStatus check_status_from_api(api::CheckStatus status) {
@@ -940,6 +951,30 @@ int run_status_command(const Config& config, const std::string& config_path,
     details.issues = optional_from_json<api::HealthIssuesResponse>(daemon_state, "issues");
     return render_status_report(config, config_path,
                                 routing_health_report_from_json(routing_health), &details);
+}
+
+int run_status_json_command(const Config& config, const nlohmann::json& routing_health,
+                            const nlohmann::json& daemon_state) {
+    DaemonHealthDetails details;
+    details.service = optional_from_json<api::HealthResponse>(daemon_state, "service");
+    details.outbounds =
+        optional_from_json<api::RuntimeOutboundsResponse>(daemon_state, "outbounds");
+    details.issues = optional_from_json<api::HealthIssuesResponse>(daemon_state, "issues");
+    const auto report = routing_health_report_from_json(routing_health);
+
+    // Each member is the body of the matching REST endpoint: /api/health/service,
+    // /api/runtime/outbounds, /api/health/issues and /api/health/routing.
+    nlohmann::json out = nlohmann::json::object();
+    for (const char* key : {"service", "outbounds", "issues"}) {
+        if (daemon_state.contains(key) && !daemon_state.at(key).is_null()) {
+            out[key] = daemon_state.at(key);
+        }
+    }
+    out["routing_health"] = routing_health;
+    std::cout << out.dump(2) << '\n';
+    return status_exit_code(
+        report, display_firewall_rules_for(config, allocate_outbound_marks(config), report),
+        &details);
 }
 
 int run_status_command(const Config& config, const std::string& config_path,

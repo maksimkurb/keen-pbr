@@ -25,6 +25,12 @@ int run_status_command(const Config& config, const std::string& config_path,
                        const nlohmann::json& routing_health,
                        const nlohmann::json& daemon_state);
 
+// Print the daemon's status response as JSON instead of the report. The
+// members are the bodies of the matching REST endpoints (service, outbounds,
+// issues, routing_health). The exit code is the one the report would give.
+int run_status_json_command(const Config& config, const nlohmann::json& routing_health,
+                            const nlohmann::json& daemon_state);
+
 // A daemon from before canonical control health was available has no report;
 // retain the useful offline route/policy display and mark firewall health
 // unavailable instead of rejecting the response.

@@ -1680,3 +1680,32 @@ TEST_CASE("compute_test_routing stores the diagnosis on each entry") {
 
     std::filesystem::remove_all(temp_dir);
 }
+
+TEST_CASE("test-routing --json passes the daemon response through and keeps the exit code") {
+    const nlohmann::json body = {
+        {"target", "203.0.113.10"},
+        {"is_domain", false},
+        {"no_matching_rule", false},
+        {"ipv6_enabled", true},
+        {"resolved_ips", nlohmann::json::array()},
+        {"warnings", {"kept"}},
+        {"rule_diagnostics", nlohmann::json::array()},
+        {"results",
+         {{{"ip", "203.0.113.10"},
+           {"expected_outbound", "vpn"},
+           {"actual_outbound", "wan"},
+           {"ok", false},
+           {"diagnosis", "missing_ipset"}}}}};
+
+    std::ostringstream stdout_capture;
+    std::ostringstream stderr_capture;
+    auto* previous_stdout = std::cout.rdbuf(stdout_capture.rdbuf());
+    auto* previous_stderr = std::cerr.rdbuf(stderr_capture.rdbuf());
+    const int exit_code = run_test_routing_command({{"ok", true}, {"result", body}}, {}, {true});
+    std::cout.rdbuf(previous_stdout);
+    std::cerr.rdbuf(previous_stderr);
+
+    CHECK(exit_code == 1);
+    CHECK(stderr_capture.str().empty());
+    CHECK(nlohmann::json::parse(stdout_capture.str()) == body);
+}

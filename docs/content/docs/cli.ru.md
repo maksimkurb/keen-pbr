@@ -24,14 +24,15 @@ Options:
   --no-api           Disable REST API at runtime
   --use-raw-prerouting  Use raw PREROUTING for IPv4 forwarded traffic (iptables only)
   --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only)
+  --json             Print JSON on stdout instead of text (status, download, test-routing)
   --version          Show version and exit
   --help             Show this help and exit
 
 Commands:
   service                            Start the routing service (foreground)
-  status                             Show routing/firewall status and exit
-  download                           Download all configured lists to cache and exit
-  test-routing <ip-or-domain> [packet options]
+  status [--json]                    Show routing/firewall status and exit
+  download [--reload] [--json]       Download all configured lists to cache and exit
+  test-routing <ip-or-domain> [packet options] [--json]
                                      Test expected vs actual routing for an IP or domain
       --proto <tcp|udp|other>        Packet protocol
       --src-addr <ip>                Packet source address
@@ -57,6 +58,7 @@ Commands:
 | `--no-api` | Отключить REST API, даже если он включён в конфиге. |
 | `--use-raw-prerouting` | {{< only iptables >}} Использовать raw {{< term "PREROUTING" >}} для классификации пересылаемого IPv4-трафика. |
 | `--use-raw6-prerouting` | {{< only iptables >}} Использовать raw PREROUTING для классификации пересылаемого IPv6-трафика. |
+| `--json` | Вывести результат в stdout в виде JSON вместо текста. Работает с `status`, `download` и `test-routing`; коды завершения не меняются. |
 | `--version` | Вывести версию и выйти. |
 | `--help` | Вывести справку и выйти. |
 
@@ -256,10 +258,30 @@ keen-pbr download
 Команда печатает ответ сервиса одной строкой JSON. В `refreshed_lists` перечислены обновлённые списки, в `changed_lists` те, у которых изменилось содержимое:
 
 ```text
-{"ok":true,"protocol_version":2,"request_id":"cli-download","result":{"changed_lists":["google"],"failed_lists":[],"refreshed_lists":["google"],"reloaded":false}}
+{"ok":true,"protocol_version":2,"request_id":"cli-download","result":{"changed_lists":["google"],"failed_lists":[],"failure_messages":{},"refreshed_lists":["google"],"unchanged_lists":[],"reloaded":false}}
 ```
 
 Если какой-то список не скачался, команда напишет ошибку и завершится с кодом 1.
+
+С `--json` команда печатает один объект с итогом по каждому списку; у списка, который не скачался, указана причина. Код завершения тот же: при ошибках объект всё равно выводится, а код равен 1:
+
+```bash {filename="bash"}
+keen-pbr download --json
+```
+
+```json
+{
+  "lists": [
+    {"list": "google", "status": "changed"},
+    {"list": "apple", "status": "unchanged"},
+    {"list": "broken", "status": "failed", "error": "HTTP 503"}
+  ],
+  "summary": {"refreshed": 3, "changed": 1, "unchanged": 1, "failed": 1},
+  "reloaded": false
+}
+```
+
+`status --json` печатает состояние сервиса, outbound'ы, проблемы и состояние маршрутизации в том же виде, что и REST-методы `GET /api/health/service`, `GET /api/runtime/outbounds`, `GET /api/health/issues` и `GET /api/health/routing`. `test-routing --json` печатает то же тело, что и проверка маршрутизации в REST API. Сообщения для людей идут в stderr, поэтому stdout можно передать в `jq`.
 
 Сравнить ожидаемую и фактическую маршрутизацию:
 

@@ -1242,6 +1242,8 @@ void Daemon::handle_ipc_control_socket() {
                        {{"refreshed_lists", refresh.refreshed_lists},
                         {"changed_lists", refresh.changed_lists},
                         {"failed_lists", refresh.failed_lists},
+                        {"unchanged_lists", refresh.unchanged_lists},
+                        {"failure_messages", refresh.failure_messages},
                         {"reloaded", reloaded}}}};
         }
       }

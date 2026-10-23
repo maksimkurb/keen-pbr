@@ -24,6 +24,7 @@ add_executable(keen-pbr-tests
   test_dnsmasq_proc.cpp
   test_dnsmasq_conf.cpp
   test_dnsmasq_cmd.cpp
+  test_download_cmd.cpp
   test_dnsmasq_detector.cpp
   test_dnsmasq_capability.cpp
   test_dnsmasq_preflight.cpp
@@ -182,6 +183,7 @@ add_executable(keen-pbr-tests
   ../src/lists/list_set_usage.cpp
   ../src/lists/domain_index.cpp
   ../src/config/list_parser.cpp
+  ../src/cmd/download_cmd.cpp
   ../src/cmd/test_routing.cpp
   ../src/cmd/test_routing_json.cpp
   ../src/daemon/list_service.cpp

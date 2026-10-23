@@ -296,6 +296,7 @@ set(SOURCES
   src/lists/domain_index.cpp
   src/cache/cache_manager.cpp
   src/cmd/dnsmasq_cmd.cpp
+  src/cmd/download_cmd.cpp
   src/cmd/resolver_config.cpp
   src/cmd/status.cpp
   src/cmd/test_routing.cpp

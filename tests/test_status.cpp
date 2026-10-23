@@ -172,3 +172,41 @@ TEST_CASE("status shows daemon issues, kernel checks and service state") {
     CHECK(output.find("WARN   eth1: no NAT") != std::string::npos);
     CHECK(output.find("Overall: DEGRADED (1 error(s), 1 warning(s))") != std::string::npos);
 }
+
+TEST_CASE("status --json prints the REST bodies and keeps the exit code") {
+    const nlohmann::json state = {
+        {"runtime_generation", 7},
+        {"issues",
+         {{"issues",
+           {{{"key", "outbound-vpn"},
+             {"severity", "error"},
+             {"code", "outbound_unavailable"},
+             {"params", {{"tag", "vpn"}}},
+             {"title", "vpn is unavailable"}}}},
+          {"kernel_checks", nlohmann::json::array()}}}};
+    const auto health = health_response("nftables", true, true);
+
+    int result = 0;
+    std::string output;
+    {
+        CoutCapture capture;
+        result = run_status_json_command(Config{}, health, state);
+        output = capture.output.str();
+    }
+    const auto printed = nlohmann::json::parse(output);
+
+    CHECK(result == 1);
+    CHECK(printed.at("routing_health") == health);
+    CHECK(printed.at("issues") == state.at("issues"));
+    // Only members that have a REST equivalent are printed.
+    CHECK_FALSE(printed.contains("runtime_generation"));
+    CHECK_FALSE(printed.contains("service"));
+    CHECK(output.find("Overall:") == std::string::npos);
+
+    int healthy = 1;
+    {
+        CoutCapture capture;
+        healthy = run_status_json_command(Config{}, health, nlohmann::json::object());
+    }
+    CHECK(healthy == 0);
+}
