@@ -2,6 +2,9 @@
 
 #include "dns_server.hpp"
 #include "../http/http_client.hpp"
+#ifdef USE_KEENETIC_API
+#include "../keenetic/rci_client.hpp"
+#endif
 
 #include <nlohmann/json.hpp>
 
@@ -16,7 +19,7 @@ namespace keen_pbr3 {
 
 namespace {
 
-constexpr const char* kRciDnsProxyEndpoint = "http://127.0.0.1:79/rci/show/dns-proxy";
+constexpr const char* kRciDnsProxyPath = "show/dns-proxy";
 constexpr auto kKeeneticDnsCacheTtl = std::chrono::minutes(5);
 
 struct KeeneticDnsCacheState {
@@ -38,10 +41,12 @@ using FetchFn = std::function<std::string()>;
 using NowFn = std::function<std::chrono::steady_clock::time_point()>;
 
 FetchFn& keenetic_dns_fetch_fn() {
-    static FetchFn fetch_fn = []() {
-        HttpClient client;
-        client.set_timeout(std::chrono::seconds(3));
-        return client.download(kRciDnsProxyEndpoint);
+    static FetchFn fetch_fn = []() -> std::string {
+#ifdef USE_KEENETIC_API
+        return rci_get(kRciDnsProxyPath);
+#else
+        throw KeeneticDnsError("Keenetic RCI support is not built in");
+#endif
     };
     return fetch_fn;
 }
@@ -463,9 +468,7 @@ void reset_keenetic_dns_test_state() {
     std::lock_guard<std::mutex> lock(keenetic_dns_cache_mutex());
     keenetic_dns_cache_state() = KeeneticDnsCacheState{};
     keenetic_dns_fetch_fn() = []() {
-        HttpClient client;
-        client.set_timeout(std::chrono::seconds(3));
-        return client.download(kRciDnsProxyEndpoint);
+        return rci_get(kRciDnsProxyPath);
     };
     keenetic_dns_now_fn() = []() {
         return std::chrono::steady_clock::now();

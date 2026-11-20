@@ -26,6 +26,11 @@
 #include "crash/crash_diagnostics.hpp"
 #include "daemon/daemon.hpp"
 #include "http/curl_runtime.hpp"
+#ifdef USE_KEENETIC_API
+#include <filesystem>
+
+#include "keenetic/rci_client.hpp"
+#endif
 #include "ipc/control_client.hpp"
 #include "log/logger.hpp"
 #include "util/daemon_signals.hpp"
@@ -540,6 +545,15 @@ int main(int argc, char *argv[]) {
       return keen_pbr3::run_status_command(config, config_path,
                                            state.at("routing_health"), state);
     }
+
+    // Only the service creates RCI access tokens; it keeps them next to the
+    // config.  Set before anything queries RCI (config validation may).
+#ifdef USE_KEENETIC_API
+    if (opts.run_service) {
+      keen_pbr3::configure_rci_token_file(
+          (std::filesystem::path(opts.config_path).parent_path() / "rci-token").string());
+    }
+#endif
 
     // Parse directly from the file and destroy the stream before the daemon is
     // constructed, keeping neither raw JSON nor the stream buffer alive.

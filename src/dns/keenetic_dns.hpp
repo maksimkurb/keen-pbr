@@ -34,7 +34,7 @@ struct KeeneticDnsSnapshot {
 };
 
 // RCI endpoint used as source of truth for the built-in DNS proxy:
-// GET http://127.0.0.1:79/rci/show/dns-proxy
+// GET /rci/show/dns-proxy (see keenetic/rci_client.hpp)
 //
 // We read proxy-status entry with proxy-name == "System" and only consider
 // unscoped "dns_server = ..." directives. Domain-scoped entries are ignored.

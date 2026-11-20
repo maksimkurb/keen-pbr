@@ -1,6 +1,9 @@
 #include "system_info.hpp"
 
 #include "../http/http_client.hpp"
+#ifdef USE_KEENETIC_API
+#include "../keenetic/rci_client.hpp"
+#endif
 #include "../log/logger.hpp"
 
 #include <nlohmann/json.hpp>
@@ -169,18 +172,22 @@ std::optional<bool> keenetic_version_supports_encrypted_dns(const std::string& v
 }
 
 std::optional<std::string> detect_keenetic_version() {
+#ifndef USE_KEENETIC_API
+    // Built without Keenetic RCI: the firmware version stays unknown.
+    return std::nullopt;
+#else
     try {
-        HttpClient client;
-        client.set_timeout(std::chrono::seconds(2));
-        client.set_max_response_size(2048);
-        return parse_keenetic_version_from_rci_response(
-            client.download("http://127.0.0.1:79/rci/show/version"));
+        RciRequestLimits limits;
+        limits.timeout = std::chrono::seconds(2);
+        limits.max_response_size = std::size_t{64} * 1024U;
+        return parse_keenetic_version_from_rci_response(rci_get("show/version", limits));
     } catch (const HttpError& error) {
         Logger::instance().warn(
             "Keenetic RCI is unavailable; unable to detect KeeneticOS version: {}",
             error.what());
         return std::nullopt;
     }
+#endif
 }
 
 SystemInfo detect_system_info() {

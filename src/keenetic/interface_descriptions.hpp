@@ -11,8 +11,14 @@ namespace keen_pbr3 {
 // valid interface snapshot. Successful partial mappings are preserved.
 // Populate entries from the two-minute on-demand cache. A failed refresh
 // leaves a previously successful map available to callers.
+#ifdef USE_KEENETIC_API
 void populate_keenetic_interface_descriptions(
     api::RuntimeInterfaceInventoryResponse& response);
+#else
+// Built without Keenetic RCI: interfaces keep their Linux names only.
+inline void populate_keenetic_interface_descriptions(
+    api::RuntimeInterfaceInventoryResponse& /*response*/) {}
+#endif
 
 #ifdef KEEN_PBR3_TESTING
 using KeeneticInterfaceFetchFn = std::function<std::string(
