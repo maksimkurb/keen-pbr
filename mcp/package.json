@@ -1,0 +1,35 @@
+{
+  "name": "keen-pbr-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Model Context Protocol server for the keen-pbr REST API",
+  "type": "module",
+  "bin": {
+    "keen-pbr-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "api:generate": "openapi-typescript ../docs/openapi.yaml -o src/generated/api-types.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "openapi-typescript": "^7.13.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.1"
+  }
+}
