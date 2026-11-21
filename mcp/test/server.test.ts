@@ -3,7 +3,10 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { KeenPbrClient } from "../src/client.js";
 import { createServer } from "../src/server.js";
+import type { DraftConfig } from "../src/types.js";
 import {
+  baseConfig,
+  configState,
   healthyHealth,
   healthyInterfaces,
   healthyIssues,
@@ -19,13 +22,15 @@ afterEach(async () => {
   closeServer = undefined;
 });
 
-async function connect(allowWrite: boolean): Promise<Client> {
+async function connect(allowWrite: boolean, config: DraftConfig = baseConfig()): Promise<Client> {
   const mock = new MockHttp()
     .onJson("GET", "/api/health/service", 200, healthyHealth())
     .onJson("GET", "/api/health/routing", 200, healthyRouting())
     .onJson("GET", "/api/health/issues", 200, healthyIssues())
     .onJson("GET", "/api/runtime/outbounds", 200, healthyOutbounds())
-    .onJson("GET", "/api/runtime/interfaces", 200, healthyInterfaces());
+    .onJson("GET", "/api/runtime/interfaces", 200, healthyInterfaces())
+    .onJson("GET", "/api/config", 200, configState(config))
+    .onJson("POST", "/api/config", 200, { status: "ok", message: "Config staged in memory" });
   const pbr = new KeenPbrClient(
     { baseUrl: "http://router.test:12121", token: "test-token", timeoutMs: 5_000 },
     mock.fetch,
@@ -96,6 +101,30 @@ describe("MCP server registration", () => {
     expect(result.isError).toBe(true);
     const content = result.content as Array<{ type: string; text?: string }>;
     expect(content[0]?.text).toContain("KEEN_PBR_ALLOW_WRITE=1");
+  });
+
+  it("accepts null for optional update_rule fields through the MCP schema", async () => {
+    const config = baseConfig();
+    config.route = {
+      rules: [{ enabled: true, outbound: "vpn", list: ["existing"], default_gateway: "ipv4" }],
+    };
+    const client = await connect(true, config);
+
+    const result = await client.callTool({
+      name: "update_rule",
+      arguments: { index: 0, default_gateway: null },
+    });
+    expect(result.isError, JSON.stringify(result.content)).toBeFalsy();
+    const content = result.content as Array<{ type: string; text?: string }>;
+    const update = JSON.parse(content[0]?.text ?? "{}") as {
+      change_summary?: { before?: string; after?: string };
+      changes?: Array<{ path: string; before?: unknown; after?: unknown }>;
+    };
+    expect(update.change_summary?.before).toContain("default gateway ipv4");
+    expect(update.change_summary?.after).not.toContain("default gateway");
+    expect(update.changes).toEqual(
+      expect.arrayContaining([{ path: "route.rules[0].default_gateway", before: "ipv4" }]),
+    );
   });
 
   it("does not expose secrets or forbidden service/auth endpoints", async () => {
