@@ -19,208 +19,16 @@
 #include <sys/stat.h>
 #include <vector>
 #include <string>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <thread>
 #include <unistd.h>
 
 using namespace keen_pbr3;
-using rci_detail::build_scgi_request;
-using rci_detail::parse_scgi_response;
-
-namespace {
-
-std::string nul_pairs(std::initializer_list<std::pair<const char*, const char*>> vars) {
-    std::string out;
-    for (const auto& [name, value] : vars) {
-        out += name;
-        out.push_back('\0');
-        out += value;
-        out.push_back('\0');
-    }
-    return out;
-}
-
-// One-shot SCGI server on a unix socket: records the request, answers with a
-// canned response, then closes (optionally with a reset, as NDM does).
-class FakeScgiServer {
-public:
-    FakeScgiServer(std::string response, bool reset_after)
-        : response_(std::move(response)), reset_after_(reset_after) {
-        char pattern[] = "/tmp/keen-pbr-rci-XXXXXX";
-        REQUIRE(::mkdtemp(pattern) != nullptr);
-        dir_ = pattern;
-        path_ = dir_ + "/ndm.scgi.socket";
-        listen_fd_ = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
-        REQUIRE(listen_fd_ >= 0);
-        sockaddr_un addr{};
-        addr.sun_family = AF_UNIX;
-        std::strncpy(addr.sun_path, path_.c_str(), sizeof(addr.sun_path) - 1);
-        REQUIRE(::bind(listen_fd_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0);
-        REQUIRE(::listen(listen_fd_, 1) == 0);
-        thread_ = std::thread([this] { serve(); });
-    }
-
-    ~FakeScgiServer() {
-        ::shutdown(listen_fd_, SHUT_RDWR);
-        if (thread_.joinable()) thread_.join();
-        ::close(listen_fd_);
-        std::filesystem::remove_all(dir_);
-    }
-
-    const std::string& path() const { return path_; }
-    std::string request() {
-        if (thread_.joinable()) thread_.join();
-        return request_;
-    }
-
-private:
-    void serve() {
-        const int fd = ::accept(listen_fd_, nullptr, nullptr);
-        if (fd < 0) return;
-        char buffer[4096];
-        for (;;) {
-            const ssize_t n = ::recv(fd, buffer, sizeof(buffer), 0);
-            if (n <= 0) break; // the client half-closes after the request
-            request_.append(buffer, static_cast<size_t>(n));
-        }
-        (void)::send(fd, response_.data(), response_.size(), MSG_NOSIGNAL);
-        if (reset_after_) {
-            linger lg{1, 0};
-            ::setsockopt(fd, SOL_SOCKET, SO_LINGER, &lg, sizeof(lg));
-        }
-        ::close(fd);
-    }
-
-    std::string response_;
-    bool reset_after_;
-    std::string dir_;
-    std::string path_;
-    int listen_fd_{-1};
-    std::thread thread_;
-    std::string request_;
-};
-
-struct RciTestState {
-    RciTestState() {
-        reset_rci_test_state();
-        // Nothing listens on port 1: the HTTP fallback fails fast.
-        set_rci_http_base_for_tests("http://127.0.0.1:1");
-    }
-    ~RciTestState() { reset_rci_test_state(); }
-};
-
-} // namespace
-
-TEST_CASE("RCI SCGI: GET request carries the CGI variables NDM requires") {
-    const std::string request = build_scgi_request("GET", "/rci/show/version", "");
-    const std::string headers = nul_pairs({
-        {"CONTENT_LENGTH", "0"},
-        {"SCGI", "1"},
-        {"REQUEST_METHOD", "GET"},
-        {"REQUEST_URI", "/rci/show/version"},
-        {"NORMALIZED_URI", "/rci/show/version"},
-        {"HTTP_HOST", "127.0.0.1:79"},
-        {"SERVER_NAME", "127.0.0.1"},
-        {"SERVER_PORT", "79"},
-        {"SERVER_PROTOCOL", "HTTP/1.1"},
-        {"REMOTE_ADDR", "127.0.0.1"},
-        {"AUTH_ALLOWED", "1"},
-    });
-    CHECK(request == std::to_string(headers.size()) + ":" + headers + ",");
-}
-
-TEST_CASE("RCI SCGI: POST request appends the body and its content type") {
-    const std::string body = R"({"show":{"version":{}}})";
-    const std::string request = build_scgi_request("POST", "/rci/", body);
-    CHECK(request.find(nul_pairs({{"CONTENT_LENGTH", "23"}})) != std::string::npos);
-    CHECK(request.find(nul_pairs({{"CONTENT_TYPE", "application/json"}})) != std::string::npos);
-    CHECK(request.size() > body.size());
-    CHECK(request.compare(request.size() - body.size() - 1, std::string::npos, "," + body) == 0);
-}
-
-TEST_CASE("RCI SCGI: parses the response NDM sends") {
-    const std::string raw =
-        "Status: 200 OK\r\nContent-Type: application/json\r\nContent-Length: 17\r\n\r\n"
-        "{\"title\":\"5.1.9\"}";
-    const auto parsed = parse_scgi_response(raw, false);
-    REQUIRE(parsed.has_value());
-    CHECK(parsed->status == 200);
-    CHECK(parsed->body == "{\"title\":\"5.1.9\"}");
-
-    CHECK_FALSE(parse_scgi_response(raw.substr(0, raw.size() - 3), false).has_value());
-    CHECK_FALSE(parse_scgi_response("Status: 200 OK\r\nContent-Le", false).has_value());
-}
-
-TEST_CASE("RCI SCGI: keeps the status and X-Detail of an error") {
-    const auto parsed = parse_scgi_response(
-        "Status: 400 Bad Request\r\nX-Detail: 0xcc56, missing host header\r\n"
-        "Content-Length: 4\r\n\r\nnope",
-        false);
-    REQUIRE(parsed.has_value());
-    CHECK(parsed->status == 400);
-    CHECK(parsed->detail == "0xcc56, missing host header");
-}
-
-TEST_CASE("RCI SCGI: a response without Content-Length ends at end of stream") {
-    const std::string raw = "Status: 200 OK\r\n\r\n{}";
-    CHECK_FALSE(parse_scgi_response(raw, false).has_value());
-    const auto parsed = parse_scgi_response(raw, true);
-    REQUIRE(parsed.has_value());
-    CHECK(parsed->body == "{}");
-}
-
-TEST_CASE("RCI client: answers from the SCGI socket, even when NDM resets afterwards") {
-    RciTestState state;
-    FakeScgiServer server(
-        "Status: 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}", true);
-    set_rci_scgi_socket_path_for_tests(server.path());
-
-    CHECK(rci_get("show/dns-proxy") == "{}");
-    const std::string request = server.request();
-    CHECK(request.find(nul_pairs({{"REQUEST_URI", "/rci/show/dns-proxy"}})) != std::string::npos);
-}
-
-TEST_CASE("RCI client: POST goes to /rci/ over the socket") {
-    RciTestState state;
-    FakeScgiServer server("Status: 200 OK\r\nContent-Length: 11\r\n\r\n{\"show\":{}}", false);
-    set_rci_scgi_socket_path_for_tests(server.path());
-
-    CHECK(rci_post(R"({"show":{}})") == "{\"show\":{}}");
-    const std::string request = server.request();
-    CHECK(request.find(nul_pairs({{"REQUEST_METHOD", "POST"}, {"REQUEST_URI", "/rci/"}})) !=
-          std::string::npos);
-    CHECK(request.size() >= 11);
-    CHECK(request.substr(request.size() - 11) == R"({"show":{}})");
-}
-
-TEST_CASE("RCI client: a rejected SCGI request falls back to HTTP and reports both") {
-    RciTestState state;
-    FakeScgiServer server(
-        "Status: 400 Bad Request\r\nX-Detail: 0xcc56, missing host header\r\n"
-        "Content-Length: 0\r\n\r\n",
-        false);
-    set_rci_scgi_socket_path_for_tests(server.path());
-
-    try {
-        (void)rci_get("show/version");
-        FAIL("expected HttpError");
-    } catch (const HttpError& e) {
-        const std::string message = e.what();
-        CHECK(message.find("SCGI socket: status 400 (0xcc56, missing host header)") !=
-              std::string::npos);
-    }
-}
-
-TEST_CASE("RCI client: without the socket only HTTP is tried") {
-    RciTestState state;
-    set_rci_scgi_socket_path_for_tests("/nonexistent/ndm.scgi.socket");
-    try {
-        (void)rci_get("show/version");
-        FAIL("expected HttpError");
-    } catch (const HttpError& e) {
-        CHECK(std::string(e.what()).find("SCGI") == std::string::npos);
-    }
+TEST_CASE("RCI client: an unreachable RCI is reported as HttpError") {
+    reset_rci_test_state();
+    // Nothing listens on port 1.
+    set_rci_http_base_for_tests("http://127.0.0.1:1");
+    CHECK_THROWS_AS((void)rci_get("show/version"), HttpError);
+    reset_rci_test_state();
 }
 
 // ------------------------------------------------------------ access tokens
@@ -309,7 +117,6 @@ struct TokenTest {
         reset_rci_test_state();
         transport = std::make_shared<FakeTransport>();
         set_rci_http_transport_for_tests(transport);
-        set_rci_scgi_socket_path_for_tests("/nonexistent/ndm.scgi.socket");
         set_rci_ndmc_for_tests([this](const std::vector<std::string>& args) {
             ndmc_calls.push_back(args.at(2));
             return ndmc_handler(args.at(2));
@@ -426,7 +233,7 @@ TEST_CASE("RCI tokens: a rejected saved token falls back to tokenless HTTP") {
     CHECK(test.ndmc_calls.empty());
 }
 
-TEST_CASE("RCI tokens: firmware without tokens falls through to the SCGI socket once") {
+TEST_CASE("RCI tokens: firmware without tokens reports the refusal and creates none") {
     TokenTest test;
     TokenDir dir;
     configure_rci_token_file(dir.file);
@@ -436,20 +243,10 @@ TEST_CASE("RCI tokens: firmware without tokens falls through to the SCGI socket 
     };
     test.transport->handler = [](const HttpTransportRequest&) { return respond(403); };
 
-    {
-        FakeScgiServer server("Status: 200 OK\r\nContent-Length: 2\r\n\r\n{}", true);
-        set_rci_scgi_socket_path_for_tests(server.path());
-        CHECK(rci_get("show/version") == "{}");
-    }
-    const auto http_calls = test.transport->requests.size();
+    CHECK_THROWS_AS((void)rci_get("show/version"), HttpError);
     const auto ndmc_calls = test.ndmc_calls.size();
-    {
-        FakeScgiServer server("Status: 200 OK\r\nContent-Length: 2\r\n\r\n[]", true);
-        set_rci_scgi_socket_path_for_tests(server.path());
-        CHECK(rci_get("show/dns-proxy") == "[]");
-    }
-    CHECK(test.transport->requests.size() == http_calls);
-    CHECK(test.ndmc_calls.size() == ndmc_calls);
+    CHECK_THROWS_AS((void)rci_get("show/dns-proxy"), HttpError);
+    CHECK(test.ndmc_calls.size() == ndmc_calls); // blocked for this run
     CHECK_FALSE(std::filesystem::exists(dir.file));
 }
 
@@ -589,7 +386,6 @@ TEST_CASE("RCI tokens: commands that may not create tokens use the saved token o
         test.ndmc_calls.push_back(args.at(2));
         return RciNdmcResult{};
     });
-    set_rci_scgi_socket_path_for_tests("/nonexistent/ndm.scgi.socket");
     configure_rci_token_file(dir.file, false);
     CHECK_THROWS_AS((void)rci_get("show/version"), HttpError);
     CHECK(test.ndmc_calls.empty());
@@ -612,7 +408,7 @@ TEST_CASE("RCI tokens: a timeout on the working token neither searches nor creat
     fail = true;
     test.transport->requests.clear();
     CHECK_THROWS_AS((void)rci_get("show/version"), HttpError);
-    CHECK(test.transport->requests.size() == 1); // no plain/SCGI search
+    CHECK(test.transport->requests.size() == 1); // no new search
     CHECK(test.ndmc_calls.empty());
 
     fail = false;

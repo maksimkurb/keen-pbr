@@ -22,9 +22,6 @@ namespace keen_pbr3 {
 //      is closing that access;
 //   3. on 401/403: create a token with
 //      `ndmc -c 'authentication token generate keen-pbr'`, save it and retry;
-//   4. the NDM SCGI socket /var/run/ndm.scgi.socket.  KeeneticOS 5.1.9 refuses
-//      every HTTP request ("403, X-Detail: 0x1867") and has no tokens, but
-//      the socket still answers there.
 // When the way in that worked stops working (token revoked, firmware
 // changed), the search runs again.
 //
@@ -47,21 +44,6 @@ std::string rci_post(const std::string& json_body, const RciRequestLimits& limit
 void configure_rci_token_file(const std::string& path, bool allow_create = true);
 
 namespace rci_detail {
-
-// SCGI request: netstring of NUL-separated CGI variables, then the body.
-std::string build_scgi_request(const std::string& method, const std::string& uri,
-                               const std::string& body);
-
-struct ScgiResponse {
-    int status{0};
-    std::string detail; // X-Detail header, when NDM sends one
-    std::string body;
-};
-
-// Parse "Status: 200 OK\r\n<headers>\r\n\r\n<body>".  Returns no value while
-// the headers, or the Content-Length bytes of the body, are not complete.  A
-// response without Content-Length is complete only at end of stream.
-std::optional<ScgiResponse> parse_scgi_response(const std::string& raw, bool at_eof);
 
 struct GeneratedToken {
     std::string id;
@@ -87,7 +69,6 @@ using RciNdmcFn = std::function<RciNdmcResult(const std::vector<std::string>& ar
 #ifdef KEEN_PBR3_TESTING
 class HttpTransport;
 
-void set_rci_scgi_socket_path_for_tests(const std::string& path);
 void set_rci_http_base_for_tests(const std::string& base);
 void set_rci_http_transport_for_tests(std::shared_ptr<HttpTransport> transport);
 void set_rci_ndmc_for_tests(RciNdmcFn ndmc);

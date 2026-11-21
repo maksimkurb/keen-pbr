@@ -16,13 +16,9 @@
 #include <fcntl.h>
 #include <fstream>
 #include <mutex>
-#include <poll.h>
 #include <sstream>
 #include <stdexcept>
-#include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/un.h>
 #include <unistd.h>
 #include <utility>
 
@@ -30,17 +26,14 @@ namespace keen_pbr3 {
 
 namespace {
 
-constexpr const char* kDefaultScgiSocket = "/var/run/ndm.scgi.socket";
 constexpr const char* kDefaultHttpBase = "http://127.0.0.1:79";
 constexpr const char* kTokenHeader = "X-Ndma-Tkn";
 // user-data of the tokens this service creates; stale ones are deleted by it.
 constexpr const char* kTokenName = "keen-pbr";
-// Room for the status line and headers on top of the body limit.
-constexpr std::size_t kScgiHeaderAllowance = std::size_t{16} * 1024U;
 // A failed token creation is not retried sooner than this.
 constexpr auto kProvisionRetryInterval = std::chrono::minutes(10);
 
-enum class RciMode { kUnknown, kHttpPlain, kHttpToken, kScgi };
+enum class RciMode { kUnknown, kHttpPlain, kHttpToken };
 
 RciNdmcResult run_ndmc(const std::vector<std::string>& args) {
     SafeExecTimeouts timeouts;
@@ -54,7 +47,6 @@ RciNdmcResult run_ndmc(const std::vector<std::string>& args) {
 // Where requests go and how.  Copied out of the state so no lock is held
 // while a request or a process runs.
 struct RciEnv {
-    std::string scgi_socket;
     std::string http_base;
     std::shared_ptr<HttpTransport> transport;
     RciNdmcFn ndmc;
@@ -72,7 +64,6 @@ struct RciState {
 
     RciMode mode{RciMode::kUnknown}; // [shared]
     std::string token;               // [shared]
-    std::string scgi_socket{kDefaultScgiSocket}; // [shared]
     std::string http_base{kDefaultHttpBase};     // [shared]
     std::shared_ptr<HttpTransport> transport;    // [shared]
     RciNdmcFn ndmc{run_ndmc};                    // [shared]
@@ -95,7 +86,7 @@ Snapshot take_snapshot(RciState& state) {
     std::lock_guard<std::mutex> lock(state.mutex);
     if (!state.transport) state.transport = default_http_transport();
     return {state.mode, state.token,
-            {state.scgi_socket, state.http_base, state.transport, state.ndmc}};
+            {state.http_base, state.transport, state.ndmc}};
 }
 
 void publish_mode(RciState& state, RciMode mode) {
@@ -162,126 +153,14 @@ std::optional<int> parse_status_code(const std::string& text) {
 
 bool is_auth_failure(long status) { return status == 401 || status == 403; }
 
-// ---------------------------------------------------------------- SCGI
-
-// The socket does not exist: not an error worth reporting.
-class ScgiUnavailable : public std::runtime_error {
-public:
-    using std::runtime_error::runtime_error;
-};
-
-class ScgiError : public std::runtime_error {
-public:
-    using std::runtime_error::runtime_error;
-};
-
-class Fd {
-public:
-    explicit Fd(int fd) : fd_(fd) {}
-    ~Fd() {
-        if (fd_ >= 0) ::close(fd_);
-    }
-    Fd(const Fd&) = delete;
-    Fd& operator=(const Fd&) = delete;
-    int get() const { return fd_; }
-
-private:
-    int fd_;
-};
-
 std::string errno_text(const char* what) {
     return std::string(what) + ": " + std::strerror(errno);
-}
-
-int remaining_ms(std::chrono::steady_clock::time_point deadline) {
-    const auto left = std::chrono::duration_cast<std::chrono::milliseconds>(
-        deadline - std::chrono::steady_clock::now());
-    return left.count() > 0 ? static_cast<int>(left.count()) : 0;
-}
-
-void wait_for(int fd, short events, std::chrono::steady_clock::time_point deadline) {
-    for (;;) {
-        const int timeout = remaining_ms(deadline);
-        if (timeout == 0) throw ScgiError("timed out");
-        pollfd pfd{fd, events, 0};
-        const int rc = ::poll(&pfd, 1, timeout);
-        if (rc > 0) return;
-        if (rc == 0) throw ScgiError("timed out");
-        if (errno != EINTR) throw ScgiError(errno_text("poll"));
-    }
-}
-
-rci_detail::ScgiResponse scgi_request(const std::string& socket_path, const std::string& method,
-                                      const std::string& uri, const std::string& body,
-                                      const RciRequestLimits& limits) {
-    struct stat st{};
-    if (::stat(socket_path.c_str(), &st) != 0 || !S_ISSOCK(st.st_mode)) {
-        throw ScgiUnavailable("no socket at " + socket_path);
-    }
-    sockaddr_un addr{};
-    if (socket_path.size() >= sizeof(addr.sun_path)) throw ScgiError("socket path is too long");
-    addr.sun_family = AF_UNIX;
-    std::memcpy(addr.sun_path, socket_path.c_str(), socket_path.size() + 1);
-
-    const auto deadline = std::chrono::steady_clock::now() + limits.timeout;
-    Fd fd(::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0));
-    if (fd.get() < 0) throw ScgiError(errno_text("socket"));
-
-    // A blocking unix-socket connect waits at most SO_SNDTIMEO.
-    timeval tv{};
-    tv.tv_sec = static_cast<time_t>(limits.timeout.count());
-    ::setsockopt(fd.get(), SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
-    if (::connect(fd.get(), reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) != 0) {
-        throw ScgiError(errno_text("connect"));
-    }
-    const int flags = ::fcntl(fd.get(), F_GETFL, 0);
-    if (flags < 0 || ::fcntl(fd.get(), F_SETFL, flags | O_NONBLOCK) != 0) {
-        throw ScgiError(errno_text("fcntl"));
-    }
-
-    const std::string request = rci_detail::build_scgi_request(method, uri, body);
-    std::size_t sent = 0;
-    while (sent < request.size()) {
-        const ssize_t n = ::send(fd.get(), request.data() + sent, request.size() - sent, MSG_NOSIGNAL);
-        if (n > 0) {
-            sent += static_cast<std::size_t>(n);
-        } else if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-            wait_for(fd.get(), POLLOUT, deadline);
-        } else if (n < 0 && errno != EINTR) {
-            throw ScgiError(errno_text("send"));
-        }
-    }
-    // Half-close like socat does; NDM reads the request to its end.
-    ::shutdown(fd.get(), SHUT_WR);
-
-    std::string raw;
-    std::vector<char> buffer(std::size_t{16} * 1024U);
-    for (;;) {
-        if (auto parsed = rci_detail::parse_scgi_response(raw, false)) return std::move(*parsed);
-        const ssize_t n = ::recv(fd.get(), buffer.data(), buffer.size(), 0);
-        if (n > 0) {
-            raw.append(buffer.data(), static_cast<std::size_t>(n));
-            if (raw.size() > limits.max_response_size + kScgiHeaderAllowance) {
-                throw ScgiError("response exceeds " + std::to_string(limits.max_response_size) + " bytes");
-            }
-        } else if (n == 0 || errno == ECONNRESET) {
-            // End of stream; NDM may reset the connection after the response.
-            break;
-        } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            wait_for(fd.get(), POLLIN, deadline);
-        } else if (errno != EINTR) {
-            throw ScgiError(errno_text("recv"));
-        }
-    }
-    if (auto parsed = rci_detail::parse_scgi_response(raw, true)) return std::move(*parsed);
-    throw ScgiError(raw.empty() ? "empty response" : "incomplete response");
 }
 
 // ---------------------------------------------------------------- attempts
 
 struct Attempt {
     bool ok{false};
-    bool unavailable{false}; // SCGI only: there is no socket
     long status{0};          // 0: no HTTP status (transport failure)
     std::string body;
     std::string error;
@@ -316,27 +195,6 @@ Attempt http_attempt(const RciEnv& env, const std::string& method, const std::st
             attempt.error += " (" + detail->second + ")";
         }
     } catch (const HttpTransportError& e) {
-        attempt.error = e.what();
-    }
-    return attempt;
-}
-
-Attempt scgi_attempt(const RciEnv& env, const std::string& method, const std::string& uri,
-                     const std::string& body, const RciRequestLimits& limits) {
-    Attempt attempt;
-    try {
-        auto response = scgi_request(env.scgi_socket, method, uri, body, limits);
-        if (response.status == 200 && nlohmann::json::accept(response.body)) {
-            attempt.ok = true;
-            attempt.body = std::move(response.body);
-            return attempt;
-        }
-        attempt.error = response.status == 200 ? "status 200 without a JSON body"
-                                                : "status " + std::to_string(response.status);
-        if (!response.detail.empty()) attempt.error += " (" + response.detail + ")";
-    } catch (const ScgiUnavailable&) {
-        attempt.unavailable = true;
-    } catch (const std::exception& e) {
         attempt.error = e.what();
     }
     return attempt;
@@ -534,11 +392,6 @@ std::optional<std::string> try_known_way(const Snapshot& snap, const std::string
             if (!is_auth_failure(attempt.status)) throw_attempt(attempt);
             return std::nullopt;
         }
-        case RciMode::kScgi: {
-            auto attempt = scgi_attempt(snap.env, method, uri, body, limits);
-            if (attempt.ok) return std::move(attempt.body);
-            return std::nullopt;
-        }
         case RciMode::kUnknown:
             return std::nullopt;
     }
@@ -552,7 +405,6 @@ std::string search_way_in(RciState& state, const std::string& method, const std:
     Snapshot snap = take_snapshot(state);
     const RciEnv& env = snap.env;
     std::string token = snap.token;
-    const RciMode previous = snap.mode;
     publish_mode(state, RciMode::kUnknown);
 
     std::vector<std::string> errors;
@@ -636,19 +488,6 @@ std::string search_way_in(RciState& state, const std::string& method, const std:
         }
     }
 
-    {
-        auto attempt = scgi_attempt(env, method, uri, body, limits);
-        if (attempt.ok) {
-            publish_mode(state, RciMode::kScgi);
-            if (previous != RciMode::kScgi) {
-                Logger::instance().verbose("Keenetic RCI: HTTP refused ({}); using the SCGI socket",
-                                           errors.empty() ? "no answer" : errors.back());
-            }
-            return std::move(attempt.body);
-        }
-        if (!attempt.unavailable) errors.push_back("SCGI socket: " + attempt.error);
-    }
-
     std::string message;
     for (const auto& error : errors) {
         if (error.empty()) continue;
@@ -681,100 +520,6 @@ std::string rci_request(const std::string& method, const std::string& uri, const
 // ---------------------------------------------------------------- parsers
 
 namespace rci_detail {
-
-std::string build_scgi_request(const std::string& method, const std::string& uri,
-                               const std::string& body) {
-    // The set that NDM on KeeneticOS 5.1.9 accepts; without HTTP_HOST it answers
-    // "400, X-Detail: 0xcc56, missing host header".  CONTENT_LENGTH must come
-    // first (SCGI spec).
-    std::vector<std::pair<std::string, std::string>> vars = {
-        {"CONTENT_LENGTH", std::to_string(body.size())},
-        {"SCGI", "1"},
-        {"REQUEST_METHOD", method},
-        {"REQUEST_URI", uri},
-        {"NORMALIZED_URI", uri},
-        {"HTTP_HOST", "127.0.0.1:79"},
-        {"SERVER_NAME", "127.0.0.1"},
-        {"SERVER_PORT", "79"},
-        {"SERVER_PROTOCOL", "HTTP/1.1"},
-        {"REMOTE_ADDR", "127.0.0.1"},
-    };
-    if (!body.empty()) vars.emplace_back("CONTENT_TYPE", "application/json");
-    vars.emplace_back("AUTH_ALLOWED", "1");
-
-    std::string headers;
-    for (const auto& [name, value] : vars) {
-        headers += name;
-        headers.push_back('\0');
-        headers += value;
-        headers.push_back('\0');
-    }
-    return std::to_string(headers.size()) + ":" + headers + "," + body;
-}
-
-std::optional<ScgiResponse> parse_scgi_response(const std::string& raw, bool at_eof) {
-    std::size_t header_end = raw.find("\r\n\r\n");
-    std::size_t body_start = header_end == std::string::npos ? std::string::npos : header_end + 4;
-    if (header_end == std::string::npos) {
-        header_end = raw.find("\n\n");
-        if (header_end == std::string::npos) return std::nullopt;
-        body_start = header_end + 2;
-    }
-
-    ScgiResponse response;
-    response.status = 200; // CGI default when no Status header is sent
-    std::optional<std::size_t> content_length;
-    std::size_t pos = 0;
-    bool first = true;
-    while (pos < header_end) {
-        std::size_t eol = raw.find('\n', pos);
-        if (eol == std::string::npos || eol > header_end) eol = header_end;
-        std::string line = raw.substr(pos, eol - pos);
-        if (!line.empty() && line.back() == '\r') line.pop_back();
-        pos = eol + 1;
-
-        if (first && line.rfind("HTTP/", 0) == 0) {
-            const auto space = line.find(' ');
-            const auto code = space == std::string::npos ? std::nullopt
-                                                         : parse_status_code(line.substr(space + 1));
-            if (!code) return ScgiResponse{0, "malformed status line", {}};
-            response.status = *code;
-            first = false;
-            continue;
-        }
-        first = false;
-        const auto colon = line.find(':');
-        if (colon == std::string::npos) continue;
-        const std::string name = lower_copy(trim_copy(line.substr(0, colon)));
-        const std::string value = trim_copy(line.substr(colon + 1));
-        if (name == "status") {
-            const auto code = parse_status_code(value);
-            if (!code) return ScgiResponse{0, "malformed Status header", {}};
-            response.status = *code;
-        } else if (name == "x-detail") {
-            response.detail = value;
-        } else if (name == "content-length") {
-            try {
-                std::size_t used = 0;
-                const unsigned long long parsed = std::stoull(value, &used);
-                if (used != value.size()) throw std::invalid_argument("trailing characters");
-                content_length = static_cast<std::size_t>(parsed);
-            } catch (const std::exception&) {
-                return ScgiResponse{0, "malformed Content-Length", {}};
-            }
-        }
-    }
-
-    const std::size_t available = raw.size() - body_start;
-    if (content_length) {
-        if (available < *content_length) return std::nullopt;
-        response.body = raw.substr(body_start, *content_length);
-        return response;
-    }
-    if (!at_eof) return std::nullopt;
-    response.body = raw.substr(body_start);
-    return response;
-}
 
 std::optional<GeneratedToken> parse_generated_token(const std::string& ndmc_output) {
     std::istringstream stream(ndmc_output);
@@ -858,12 +603,6 @@ void configure_rci_token_file(const std::string& path, bool allow_create) {
 }
 
 #ifdef KEEN_PBR3_TESTING
-void set_rci_scgi_socket_path_for_tests(const std::string& path) {
-    RciState& state = rci_state();
-    std::lock_guard<std::mutex> lock(state.mutex);
-    state.scgi_socket = path;
-}
-
 void set_rci_http_base_for_tests(const std::string& base) {
     RciState& state = rci_state();
     std::lock_guard<std::mutex> lock(state.mutex);
@@ -894,7 +633,6 @@ void reset_rci_test_state() {
     state.firmware_wants_token.reset();
     state.last_provision_attempt.reset();
     state.last_provision_error.clear();
-    state.scgi_socket = kDefaultScgiSocket;
     state.http_base = kDefaultHttpBase;
     state.transport.reset();
     state.ndmc = run_ndmc;
