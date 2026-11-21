@@ -61,6 +61,7 @@ export function DnsRuleUpsertPage({
   if (!loadedConfig) {
     return (
       <UpsertPage
+        backTo={mode === "edit" ? "/dns-rules" : undefined}
         cardDescription={t("pages.dnsRuleUpsert.cardDescription")}
         cardTitle={
           mode === "create"
@@ -194,6 +195,7 @@ function DnsRuleForm({
 
   return (
     <UpsertPage
+      backTo={mode === "edit" ? "/dns-rules" : undefined}
       cardDescription={t("pages.dnsRuleUpsert.cardDescription")}
       cardTitle={
         mode === "create"

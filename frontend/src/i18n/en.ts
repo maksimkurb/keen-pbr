@@ -46,6 +46,7 @@ export const enTranslation = {
     enabled: "Enabled",
     disabled: "Disabled",
     close: "Close",
+    back: "Back",
     cancel: "Cancel",
     copy: "Copy",
     copied: "Copied",

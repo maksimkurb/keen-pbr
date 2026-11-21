@@ -80,10 +80,12 @@ export function ListUpsertPage({
   const { t } = useTranslation()
   const configQuery = useGetConfig()
   const loadedConfig = selectConfig(configQuery.data)
+  const backTo = mode === "edit" ? "/lists" : undefined
 
   if (!loadedConfig) {
     return (
       <UpsertPage
+        backTo={backTo}
         cardDescription={t("pages.listUpsert.cardDescription")}
         cardTitle={
           mode === "create"
@@ -119,6 +121,7 @@ export function ListUpsertPage({
 
   return (
     <UpsertPage
+      backTo={backTo}
       cardDescription={t("pages.listUpsert.cardDescription")}
       cardTitle={
         mode === "create"

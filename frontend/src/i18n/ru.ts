@@ -46,6 +46,7 @@ export const ruTranslation = {
     enabled: "Включено",
     disabled: "Выключено",
     close: "Закрыть",
+    back: "Назад",
     cancel: "Отмена",
     copy: "Копировать",
     copied: "Скопировано",
