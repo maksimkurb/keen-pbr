@@ -1144,7 +1144,7 @@
 					&lt;td&gt;&lt;code&gt;&amp;quot;ipv4&amp;quot;&lt;/code&gt; или &lt;code&gt;&amp;quot;ipv6&amp;quot;&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;нет&lt;/td&gt;
 					&lt;td&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Только для OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
- Весь интернет-трафик, который иначе ушёл бы через основной шлюз роутера (кроме адресов локальной сети). В веб-интерфейсе: &lt;strong&gt;Тип правила&lt;/strong&gt; &amp;gt; &lt;strong&gt;Шлюз по умолчанию IPv4&lt;/strong&gt; / &lt;strong&gt;Шлюз по умолчанию IPv6&lt;/strong&gt;. Ставьте такие правила последними&lt;/td&gt;
+ Весь интернет-трафик, который иначе ушёл бы через основной шлюз роутера (кроме локальных сетей и любых сетей, до которых у роутера есть собственный маршрут, например подсети VPN; чтобы всё равно отправить такую сеть через этот outbound, добавьте выше правило с её адресами). В веб-интерфейсе: &lt;strong&gt;Тип правила&lt;/strong&gt; &amp;gt; &lt;strong&gt;Шлюз по умолчанию IPv4&lt;/strong&gt; / &lt;strong&gt;Шлюз по умолчанию IPv6&lt;/strong&gt;. Ставьте такие правила последними&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;

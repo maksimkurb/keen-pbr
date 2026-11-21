@@ -34,7 +34,7 @@ In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick 
 	<meta itemprop="name" content="Route Rules">
 	<meta itemprop="description" content="A route rule links a condition (“traffic to sites from this list”) with an outbound (“send it through this channel”). An outbound is a channel for traffic: a VPN, your ISP connection or a block; see Outbounds.
 In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick a Rule type, set the conditions and the Outbound, then click Apply in the draft bar. To turn a rule off temporarily, clear the Enable rule switch.">
-	<meta itemprop="wordCount" content="1744">
+	<meta itemprop="wordCount" content="1794">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Route Rules">
 	<meta name="twitter:description" content="A route rule links a condition (“traffic to sites from this list”) with an outbound (“send it through this channel”). An outbound is a channel for traffic: a VPN, your ISP connection or a block; see Outbounds.
@@ -1285,7 +1285,7 @@ In the Web UI: open Routing &gt; Routing rules and click Add routing rule. Pick 
 					<td><code>&quot;ipv4&quot;</code> or <code>&quot;ipv6&quot;</code></td>
 					<td>no</td>
 					<td><span class="only-badges" title="Only for OpenWrt, Debian"><span class="only-badge only-badge--openwrt">OpenWrt</span><span class="only-badge only-badge--debian">Debian</span></span>
- All internet traffic that would otherwise go through the router&rsquo;s main gateway (except local network addresses). In the Web UI: <strong>Rule type</strong> &gt; <strong>IPv4 default gateway</strong> / <strong>IPv6 default gateway</strong>. Put these rules last</td>
+ All internet traffic that would otherwise go through the router&rsquo;s main gateway (except local networks and any network the router has its own route to, such as a VPN subnet; to send such a network through the outbound anyway, add a rule for its addresses above this one). In the Web UI: <strong>Rule type</strong> &gt; <strong>IPv4 default gateway</strong> / <strong>IPv6 default gateway</strong>. Put these rules last</td>
 			</tr>
 	</tbody>
 </table>

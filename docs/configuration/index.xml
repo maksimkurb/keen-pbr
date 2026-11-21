@@ -1144,7 +1144,7 @@ This strategy spreads load across the working links of the first working tier. A
 					&lt;td&gt;&lt;code&gt;&amp;quot;ipv4&amp;quot;&lt;/code&gt; or &lt;code&gt;&amp;quot;ipv6&amp;quot;&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;no&lt;/td&gt;
 					&lt;td&gt;&lt;span class=&#34;only-badges&#34; title=&#34;Only for OpenWrt, Debian&#34;&gt;&lt;span class=&#34;only-badge only-badge--openwrt&#34;&gt;OpenWrt&lt;/span&gt;&lt;span class=&#34;only-badge only-badge--debian&#34;&gt;Debian&lt;/span&gt;&lt;/span&gt;
- All internet traffic that would otherwise go through the router&amp;rsquo;s main gateway (except local network addresses). In the Web UI: &lt;strong&gt;Rule type&lt;/strong&gt; &amp;gt; &lt;strong&gt;IPv4 default gateway&lt;/strong&gt; / &lt;strong&gt;IPv6 default gateway&lt;/strong&gt;. Put these rules last&lt;/td&gt;
+ All internet traffic that would otherwise go through the router&amp;rsquo;s main gateway (except local networks and any network the router has its own route to, such as a VPN subnet; to send such a network through the outbound anyway, add a rule for its addresses above this one). In the Web UI: &lt;strong&gt;Rule type&lt;/strong&gt; &amp;gt; &lt;strong&gt;IPv4 default gateway&lt;/strong&gt; / &lt;strong&gt;IPv6 default gateway&lt;/strong&gt;. Put these rules last&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;

@@ -30,13 +30,23 @@
 	<meta itemprop="name" content="keen-pbr">
 	<meta itemprop="description" content="Выборочная маршрутизация для Linux-роутеров Направляйте нужный трафик через VPN, провайдера или свои каналы. Работает на роутерах Keenetic®, NetCraze®, OpenWrt и на Debian. Начало работы Выборочная маршрутизация Маршрутизация трафика на основе списков доменов, IP-адресов, портов и адресов. Правила проверяются по порядку; трафик, не попавший ни под одно правило, идёт через обычную системную маршрутизацию.
 google.com internal.site WAN Corp VPN Веб-интерфейс Управление правилами маршрутизации, мониторинг состояния outbounds и перезагрузка конфигурации через браузер — без SSH.
-keen-pbr.local keen-pbr Get packets sorted Панель управления Состояние сервиса, проверки DNS и активные маршруты running Core сервис Проверка DNS Состояние outbounds">
+keen-pbr.local keen-pbr Get packets sorted Панель управления Состояние сервиса, проверки DNS и активные маршруты running Core сервис Проверка DNS Состояние outbounds Failover и проверки состояния Типы urltest и icmptest проверяют каналы и выбирает канал с самой низкой задержкой (в пределах допуска) или распределяет между ними соединения. Нестабильный канал временно исключается, чтобы трафик не метался между каналами.
+urltest outbound eth0 87ms BEST wlan0 142ms BEST Несколько типов outbound Трафик можно направить в конкретный интерфейс, в обычный выход через провайдера или заблокировать. Типы urltest и icmptest сами выбирают лучший из нескольких каналов.
+Интеграция с DNS Настраивать DNS-сервер не нужно: keen-pbr узнаёт адреса сайтов из списков по DNS-ответам и по соединениям, которые проходят через роутер.
+Два firewall-бэкенда Сам определяет, что использовать, nftables или iptables. Работает на новых и старых прошивках без дополнительной настройки.
+REST API Встроенный HTTP API: проверка состояния, проверка маршрутов и перезагрузка конфигурации без перезапуска сервиса.
+Автообновление списков Списки доменов и IP загружаются по ссылке при запуске и обновляются по расписанию. Если источник недоступен, используется сохранённая копия.">
 	<meta itemprop="wordCount" content="238">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="keen-pbr">
 	<meta name="twitter:description" content="Выборочная маршрутизация для Linux-роутеров Направляйте нужный трафик через VPN, провайдера или свои каналы. Работает на роутерах Keenetic®, NetCraze®, OpenWrt и на Debian. Начало работы Выборочная маршрутизация Маршрутизация трафика на основе списков доменов, IP-адресов, портов и адресов. Правила проверяются по порядку; трафик, не попавший ни под одно правило, идёт через обычную системную маршрутизацию.
 google.com internal.site WAN Corp VPN Веб-интерфейс Управление правилами маршрутизации, мониторинг состояния outbounds и перезагрузка конфигурации через браузер — без SSH.
-keen-pbr.local keen-pbr Get packets sorted Панель управления Состояние сервиса, проверки DNS и активные маршруты running Core сервис Проверка DNS Состояние outbounds">
+keen-pbr.local keen-pbr Get packets sorted Панель управления Состояние сервиса, проверки DNS и активные маршруты running Core сервис Проверка DNS Состояние outbounds Failover и проверки состояния Типы urltest и icmptest проверяют каналы и выбирает канал с самой низкой задержкой (в пределах допуска) или распределяет между ними соединения. Нестабильный канал временно исключается, чтобы трафик не метался между каналами.
+urltest outbound eth0 87ms BEST wlan0 142ms BEST Несколько типов outbound Трафик можно направить в конкретный интерфейс, в обычный выход через провайдера или заблокировать. Типы urltest и icmptest сами выбирают лучший из нескольких каналов.
+Интеграция с DNS Настраивать DNS-сервер не нужно: keen-pbr узнаёт адреса сайтов из списков по DNS-ответам и по соединениям, которые проходят через роутер.
+Два firewall-бэкенда Сам определяет, что использовать, nftables или iptables. Работает на новых и старых прошивках без дополнительной настройки.
+REST API Встроенный HTTP API: проверка состояния, проверка маршрутов и перезагрузка конфигурации без перезапуска сервиса.
+Автообновление списков Списки доменов и IP загружаются по ссылке при запуске и обновляются по расписанию. Если источник недоступен, используется сохранённая копия.">
 
     <link rel="preload" href="/css/compiled/main.min.7372d4b22f6a6d90c9a6e7f7e460935371fca41badf794afe84e391983d262c6.css" as="style" integrity="sha256-c3LUsi9qbZDJpuf35GCTU3H8pBut95Sv6E45GYPSYsY=" />
     <link href="/css/compiled/main.min.7372d4b22f6a6d90c9a6e7f7e460935371fca41badf794afe84e391983d262c6.css" rel="stylesheet" integrity="sha256-c3LUsi9qbZDJpuf35GCTU3H8pBut95Sv6E45GYPSYsY=" />
@@ -54,7 +64,7 @@ keen-pbr.local keen-pbr Get packets sorted Панель управления С�
   
   
 
-	<meta name="generator" content="Hugo 0.168.0">
+	<meta name="generator" content="Hugo 0.170.1">
 </head>
 <body>
     <a href="#content" class="hx:sr-only hx:focus-visible:not-sr-only hx:focus-visible:fixed hx:focus-visible:z-50 hx:focus-visible:top-2 hx:focus-visible:left-2 hx:focus-visible:bg-primary-500 hx:focus-visible:text-white hx:focus-visible:px-4 hx:focus-visible:py-2 hx:focus-visible:rounded-md hx:focus-visible:text-sm hx:focus-visible:font-medium">Перейти к содержимому</a><div class="hextra-nav-container hx:sticky hx:top-0 hx:z-20 hx:w-full hx:bg-transparent hx:print:hidden">

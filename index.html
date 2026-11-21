@@ -30,13 +30,23 @@
 	<meta itemprop="name" content="keen-pbr">
 	<meta itemprop="description" content="Policy-based routing for Linux routers Send selected traffic through a VPN, your provider, or your own channels. Works on Keenetic®, NetCraze®, OpenWrt routers and on Debian. Get Started Selective Routing Route traffic based on domain lists, IP CIDRs, ports, and addresses. First-match rule evaluation with normal system routing for unmatched traffic.
 google.com internal.site WAN Corp VPN Web Interface Manage routing rules, monitor outbound health, and reload configuration from a clean browser-based dashboard — no SSH required.
-keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks and active routes running Core service DNS check Outbounds health">
+keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks and active routes running Core service DNS check Outbounds health Failover &amp; Health Checks The urltest and icmptest types check your channels and picks the one with the lowest latency (within tolerance) or spreads connections between them. An unstable channel is temporarily excluded so traffic does not jump back and forth.
+urltest outbound eth0 87ms BEST wlan0 142ms BEST Multiple Outbound Types Send traffic to a specific interface, through the normal provider connection, or block it. The urltest and icmptest types pick the best of several channels on its own.
+DNS Integration No DNS server setup needed: keen-pbr learns the addresses of listed sites from DNS replies and from connections passing through the router.
+Dual Firewall Backend Picks nftables or iptables on its own. Works on new and old firmware without extra setup.
+REST API Built-in HTTP API: status checks, route checks and config reloads without restarting the service.
+Auto-updating lists Domain and IP lists are downloaded from a URL at startup and refreshed on a schedule. If the source is unavailable, the saved copy is used.">
 	<meta itemprop="wordCount" content="263">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="keen-pbr">
 	<meta name="twitter:description" content="Policy-based routing for Linux routers Send selected traffic through a VPN, your provider, or your own channels. Works on Keenetic®, NetCraze®, OpenWrt routers and on Debian. Get Started Selective Routing Route traffic based on domain lists, IP CIDRs, ports, and addresses. First-match rule evaluation with normal system routing for unmatched traffic.
 google.com internal.site WAN Corp VPN Web Interface Manage routing rules, monitor outbound health, and reload configuration from a clean browser-based dashboard — no SSH required.
-keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks and active routes running Core service DNS check Outbounds health">
+keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks and active routes running Core service DNS check Outbounds health Failover &amp; Health Checks The urltest and icmptest types check your channels and picks the one with the lowest latency (within tolerance) or spreads connections between them. An unstable channel is temporarily excluded so traffic does not jump back and forth.
+urltest outbound eth0 87ms BEST wlan0 142ms BEST Multiple Outbound Types Send traffic to a specific interface, through the normal provider connection, or block it. The urltest and icmptest types pick the best of several channels on its own.
+DNS Integration No DNS server setup needed: keen-pbr learns the addresses of listed sites from DNS replies and from connections passing through the router.
+Dual Firewall Backend Picks nftables or iptables on its own. Works on new and old firmware without extra setup.
+REST API Built-in HTTP API: status checks, route checks and config reloads without restarting the service.
+Auto-updating lists Domain and IP lists are downloaded from a URL at startup and refreshed on a schedule. If the source is unavailable, the saved copy is used.">
 
     <link rel="preload" href="/css/compiled/main.min.7372d4b22f6a6d90c9a6e7f7e460935371fca41badf794afe84e391983d262c6.css" as="style" integrity="sha256-c3LUsi9qbZDJpuf35GCTU3H8pBut95Sv6E45GYPSYsY=" />
     <link href="/css/compiled/main.min.7372d4b22f6a6d90c9a6e7f7e460935371fca41badf794afe84e391983d262c6.css" rel="stylesheet" integrity="sha256-c3LUsi9qbZDJpuf35GCTU3H8pBut95Sv6E45GYPSYsY=" />
@@ -54,7 +64,7 @@ keen-pbr.local keen-pbr Get packets sorted Dashboard Service health, DNS checks 
   
   
 
-	<meta name="generator" content="Hugo 0.168.0">
+	<meta name="generator" content="Hugo 0.170.1">
 </head>
 <body>
     <a href="#content" class="hx:sr-only hx:focus-visible:not-sr-only hx:focus-visible:fixed hx:focus-visible:z-50 hx:focus-visible:top-2 hx:focus-visible:left-2 hx:focus-visible:bg-primary-500 hx:focus-visible:text-white hx:focus-visible:px-4 hx:focus-visible:py-2 hx:focus-visible:rounded-md hx:focus-visible:text-sm hx:focus-visible:font-medium">Skip to content</a><div class="hextra-nav-container hx:sticky hx:top-0 hx:z-20 hx:w-full hx:bg-transparent hx:print:hidden">
