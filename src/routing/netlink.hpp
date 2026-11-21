@@ -113,6 +113,7 @@ struct DumpedRule {
     uint32_t table{0};
     int family{0};              // AF_INET or AF_INET6
     RuleAction action{RuleAction::lookup};
+    bool invert{false};         // "not fwmark ...": FIB_RULE_INVERT
 };
 
 // A network interface dumped from the kernel (read-only snapshot)

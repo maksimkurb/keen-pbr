@@ -14,7 +14,7 @@
   visible, so ignore this warning if NAT is configured there.
 - nat_partial: only restricted NAT rules (source/destination or other
   matches such as mark or protocol) cover the interface
-- rp_filter_strict: effective IPv4 rp_filter on the interface is 1 (strict) - fwmark_mask_conflict: a foreign iptables MARK/CONNMARK rule (mangle/raw, iptables backend only) or `ip rule` writes or matches mark bits overlapping `fwmark.mask` - stale_policy_rule: an `ip rule` inside keen-pbr's priority block, fwmark.mask and table range that the active configuration no longer uses is still installed after an apply (the apply removes such rules, so this means the cleanup failed)
+- rp_filter_strict: effective IPv4 rp_filter on the interface is 1 (strict) - fwmark_mask_conflict: a foreign iptables MARK/CONNMARK rule (mangle/raw, iptables backend only) or `ip rule` writes or matches mark bits overlapping `fwmark.mask` - stale_policy_rule: an `ip rule` inside keen-pbr's priority block, fwmark.mask and table range that the active configuration no longer uses is still installed after an apply (the apply removes such rules, so this means the cleanup failed) - foreign_rule_precedence: a foreign `ip rule` with a lower priority number than keen-pbr's rules matches packets keen-pbr marked (for example `not fwmark X`), so that traffic is routed by the foreign rule's table first
 
  */
 export type RoutingHealthWarningCode = typeof RoutingHealthWarningCode[keyof typeof RoutingHealthWarningCode];
@@ -26,4 +26,5 @@ export const RoutingHealthWarningCode = {
   rp_filter_strict: 'rp_filter_strict',
   fwmark_mask_conflict: 'fwmark_mask_conflict',
   stale_policy_rule: 'stale_policy_rule',
+  foreign_rule_precedence: 'foreign_rule_precedence',
 } as const;

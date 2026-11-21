@@ -92,20 +92,48 @@ struct ForeignMarkRule {
 std::vector<ForeignMarkRule> find_foreign_mark_overlaps(
     const std::string& iptables_text, std::uint32_t fwmark_mask);
 
-// A foreign `ip rule` whose fwmark mask overlaps the keen-pbr fwmark mask.
+// A foreign `ip rule` with a fwmark selector, as reported in the two ip rule
+// warnings below.
 struct ForeignPolicyRule {
     std::uint32_t priority{0};
     std::uint32_t fwmark{0};
     std::uint32_t fwmask{0};
+    bool invert{false};  // "not fwmark ..."
+    std::uint32_t table{0};
+    RuleAction action{RuleAction::lookup};
+    // fwmask & keen-pbr's mask: the mark bits of ours the rule looks at.
     std::uint32_t overlap{0};
+    // Outbounds whose mark the rule matches (see matches below).
+    std::vector<std::string> matched_outbounds;
+    // Whether the rule matches every mark keen-pbr assigns.
+    bool matches_all_outbounds{false};
 };
 
-// Pure: rules matching one of `own_rules` (priority, fwmark, mask, table) are
+// Pure. `outbound_marks` are the marks keen-pbr assigns (outbound tag -> mark,
+// inside `fwmark_mask`).  A rule matches a packet marked K when
+// ((K & fwmask) == (fwmark & fwmask)) XOR invert; bits of the packet outside
+// `fwmark_mask` are taken as 0, as on a packet before keen-pbr marks it.
+// Rules matching one of `own_rules` (priority, fwmark, mask, table) are
 // keen-pbr's and skipped, as are rules inside `ns` (stale keen-pbr rules, see
-// find_stale_policy_rules); rules without a fwmark match are ignored.
+// find_stale_policy_rules) and rules without a fwmark selector.
+
+// Rules that disagree with keen-pbr about the mark bits themselves: they
+// expect their own values inside our bits (fwmark & fwmask & mask != 0), or
+// they treat some of our outbound marks differently from the others.  Moving
+// fwmark.start/fwmark.mask helps here.
 std::vector<ForeignPolicyRule> find_foreign_policy_rule_overlaps(
     const std::vector<DumpedRule>& dumped, const std::vector<RuleSpec>& own_rules,
-    std::uint32_t fwmark_mask, const RuleNamespace& ns = {});
+    std::uint32_t fwmark_mask, const RuleNamespace& ns = {},
+    const OutboundMarkMap& outbound_marks = {});
+
+// Rules evaluated before keen-pbr's own rules (lower priority number than the
+// lowest of `own_rules`) that match at least one outbound mark, whatever bits
+// they look at: a "not fwmark X" rule catches every marked packet.  Moving
+// bits does not help here; the rule priorities do.
+std::vector<ForeignPolicyRule> find_foreign_policy_rule_precedence(
+    const std::vector<DumpedRule>& dumped, const std::vector<RuleSpec>& own_rules,
+    std::uint32_t fwmark_mask, const RuleNamespace& ns = {},
+    const OutboundMarkMap& outbound_marks = {});
 
 // Pure: rules inside keen-pbr's namespace that match none of `own_rules`, one
 // entry per (priority, fwmark, mask, table, action) across both families.
@@ -114,13 +142,14 @@ std::vector<DumpedRule> find_stale_policy_rules(const std::vector<DumpedRule>& d
                                                 const std::vector<RuleSpec>& own_rules,
                                                 const RuleNamespace& ns);
 
-// Builds fwmark_mask_conflict warnings. `iptables_texts` pairs a label such as
-// "mangle" with its `iptables -S` text; identical sources fold into one warning.
+// Builds fwmark_mask_conflict and foreign_rule_precedence warnings.
+// `iptables_texts` pairs a label such as "mangle" with its `iptables -S` text;
+// identical sources fold into one warning.  A foreign ip rule can raise both.
 std::vector<HealthWarning> evaluate_fwmark_conflict_warnings(
     const std::vector<std::pair<std::string, std::string>>& iptables_texts,
     const std::vector<DumpedRule>& dumped_rules,
     const std::vector<RuleSpec>& own_rules, std::uint32_t fwmark_mask,
-    const RuleNamespace& ns = {});
+    const RuleNamespace& ns = {}, const OutboundMarkMap& outbound_marks = {});
 
 // Builds stale_policy_rule warnings from find_stale_policy_rules.
 std::vector<HealthWarning> evaluate_stale_policy_rule_warnings(
@@ -134,6 +163,8 @@ struct HostHealthInputs {
     std::uint32_t fwmark_mask{0};
     // keen-pbr's policy-rule namespace; empty when fwmark is invalid.
     RuleNamespace rule_namespace;
+    // Marks keen-pbr assigns to outbounds; empty when fwmark is invalid.
+    OutboundMarkMap outbound_marks;
 };
 
 // The fwmark overlap check is off on Keenetic (its firmware chains set marks

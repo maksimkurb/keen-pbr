@@ -12,8 +12,12 @@
 #include <netinet/in.h>
 #include <tuple>
 
+#include <linux/fib_rules.h>
+#include <linux/rtnetlink.h>
+#include <netlink/attr.h>
 #include <netlink/cache.h>
 #include <netlink/errno.h>
+#include <netlink/msg.h>
 #include <netlink/netlink.h>
 #include <netlink/route/addr.h>
 #include <netlink/route/link.h>
@@ -32,6 +36,59 @@ int native_rule_action(RuleAction action) {
     case RuleAction::blackhole: return FR_ACT_BLACKHOLE;
     }
     return FR_ACT_TO_TBL;
+}
+
+// libnl's rule object has no accessor for the invert flag ("not fwmark ..."),
+// so it is read from a second dump of the raw RTM_NEWRULE messages.  The rule
+// is matched back to the cache entry by this key.
+struct InvertedRuleKey {
+    int family{0};
+    uint32_t priority{0};
+    uint32_t fwmark{0};
+    uint32_t fwmask{0};
+    uint32_t table{0};
+    bool operator==(const InvertedRuleKey& other) const {
+        return family == other.family && priority == other.priority &&
+               fwmark == other.fwmark && fwmask == other.fwmask && table == other.table;
+    }
+};
+
+int collect_inverted_rule(struct nl_msg* msg, void* arg) {
+    auto* out = static_cast<std::vector<InvertedRuleKey>*>(arg);
+    struct nlmsghdr* header = nlmsg_hdr(msg);
+    if (header->nlmsg_type != RTM_NEWRULE) return NL_OK;
+    const auto* rule = static_cast<const struct fib_rule_hdr*>(nlmsg_data(header));
+    if ((rule->flags & FIB_RULE_INVERT) == 0) return NL_OK;
+    struct nlattr* attrs[FRA_MAX + 1] = {};
+    if (nlmsg_parse(header, static_cast<int>(sizeof(*rule)), attrs, FRA_MAX, nullptr) < 0) {
+        return NL_OK;
+    }
+    InvertedRuleKey key;
+    key.family = rule->family;
+    key.priority = attrs[FRA_PRIORITY] != nullptr ? nla_get_u32(attrs[FRA_PRIORITY]) : 0U;
+    key.fwmark = attrs[FRA_FWMARK] != nullptr ? nla_get_u32(attrs[FRA_FWMARK]) : 0U;
+    key.fwmask = attrs[FRA_FWMASK] != nullptr ? nla_get_u32(attrs[FRA_FWMASK]) : 0U;
+    key.table = attrs[FRA_TABLE] != nullptr ? nla_get_u32(attrs[FRA_TABLE]) : rule->table;
+    out->push_back(key);
+    return NL_OK;
+}
+
+// Best effort: without the flag a "not" rule looks like a plain one.
+std::vector<InvertedRuleKey> dump_inverted_rules(struct nl_sock* sock, int family) {
+    std::vector<InvertedRuleKey> out;
+    struct nl_cb* callbacks = nl_cb_alloc(NL_CB_DEFAULT);
+    if (callbacks == nullptr) return out;
+    nl_cb_set(callbacks, NL_CB_VALID, NL_CB_CUSTOM, collect_inverted_rule, &out);
+    struct rtgenmsg request{};
+    request.rtgen_family = static_cast<unsigned char>(family);
+    int err = nl_send_simple(sock, RTM_GETRULE, NLM_F_DUMP, &request, sizeof(request));
+    if (err >= 0) err = nl_recvmsgs(sock, callbacks);
+    if (err < 0) {
+        Logger::instance().debug("Cannot read ip rule invert flags: {}", nl_geterror(err));
+        out.clear();
+    }
+    nl_cb_put(callbacks);
+    return out;
 }
 
 RuleAction dumped_rule_action(int action) {
@@ -570,6 +627,12 @@ std::vector<DumpedRule> NetlinkManager::dump_policy_rules(int family) {
 
         out->push_back(dr);
     }, &result);
+
+    const auto inverted = dump_inverted_rules(impl_->sock, family);
+    for (auto& dr : result) {
+        const InvertedRuleKey key{dr.family, dr.priority, dr.fwmark, dr.fwmask, dr.table};
+        dr.invert = std::find(inverted.begin(), inverted.end(), key) != inverted.end();
+    }
 
     error_counter.success();
     return result;

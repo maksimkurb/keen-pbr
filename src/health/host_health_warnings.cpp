@@ -305,20 +305,75 @@ bool is_own_policy_rule(const DumpedRule& r, const std::vector<RuleSpec>& own_ru
 
 }  // namespace
 
-std::vector<ForeignPolicyRule> find_foreign_policy_rule_overlaps(
+namespace {
+
+bool rule_matches_mark(const DumpedRule& r, std::uint32_t mark) {
+    return ((mark & r.fwmask) == (r.fwmark & r.fwmask)) != r.invert;
+}
+
+// Foreign rules with a fwmark selector, one entry per (priority, fwmark,
+// fwmask, invert) across both families, with how they treat our marks.
+std::vector<ForeignPolicyRule> foreign_fwmark_rules(
     const std::vector<DumpedRule>& dumped, const std::vector<RuleSpec>& own_rules,
-    std::uint32_t fwmark_mask, const RuleNamespace& ns) {
+    std::uint32_t fwmark_mask, const RuleNamespace& ns,
+    const OutboundMarkMap& outbound_marks) {
     std::vector<ForeignPolicyRule> out;
     for (const auto& r : dumped) {
         if (r.fwmask == 0) continue;  // no fwmark selector
         if (is_own_policy_rule(r, own_rules) || rule_in_namespace(r, ns)) continue;
-        const std::uint32_t overlap = r.fwmask & fwmark_mask;
-        if (overlap == 0) continue;
         const bool dup = std::any_of(out.begin(), out.end(), [&](const auto& x) {
             return x.priority == r.priority && x.fwmark == r.fwmark &&
-                   x.fwmask == r.fwmask;
+                   x.fwmask == r.fwmask && x.invert == r.invert;
         });
-        if (!dup) out.push_back({r.priority, r.fwmark, r.fwmask, overlap});
+        if (dup) continue;
+        ForeignPolicyRule rule;
+        rule.priority = r.priority;
+        rule.fwmark = r.fwmark;
+        rule.fwmask = r.fwmask;
+        rule.invert = r.invert;
+        rule.table = r.table;
+        rule.action = r.action;
+        rule.overlap = r.fwmask & fwmark_mask;
+        for (const auto& [tag, mark] : outbound_marks) {
+            if (rule_matches_mark(r, mark & fwmark_mask)) rule.matched_outbounds.push_back(tag);
+        }
+        rule.matches_all_outbounds = rule.matched_outbounds.size() == outbound_marks.size();
+        out.push_back(std::move(rule));
+    }
+    return out;
+}
+
+}  // namespace
+
+std::vector<ForeignPolicyRule> find_foreign_policy_rule_overlaps(
+    const std::vector<DumpedRule>& dumped, const std::vector<RuleSpec>& own_rules,
+    std::uint32_t fwmark_mask, const RuleNamespace& ns,
+    const OutboundMarkMap& outbound_marks) {
+    std::vector<ForeignPolicyRule> out;
+    for (auto& rule :
+         foreign_fwmark_rules(dumped, own_rules, fwmark_mask, ns, outbound_marks)) {
+        if (rule.overlap == 0) continue;
+        const bool expects_own_values = (rule.fwmark & rule.overlap) != 0;
+        const bool splits_outbounds =
+            !rule.matched_outbounds.empty() && !rule.matches_all_outbounds;
+        if (expects_own_values || splits_outbounds) out.push_back(std::move(rule));
+    }
+    return out;
+}
+
+std::vector<ForeignPolicyRule> find_foreign_policy_rule_precedence(
+    const std::vector<DumpedRule>& dumped, const std::vector<RuleSpec>& own_rules,
+    std::uint32_t fwmark_mask, const RuleNamespace& ns,
+    const OutboundMarkMap& outbound_marks) {
+    std::vector<ForeignPolicyRule> out;
+    if (own_rules.empty()) return out;
+    std::uint32_t lowest = own_rules.front().priority;
+    for (const auto& own : own_rules) lowest = std::min(lowest, own.priority);
+    for (auto& rule :
+         foreign_fwmark_rules(dumped, own_rules, fwmark_mask, ns, outbound_marks)) {
+        if (rule.priority < lowest && !rule.matched_outbounds.empty()) {
+            out.push_back(std::move(rule));
+        }
     }
     return out;
 }
@@ -360,11 +415,35 @@ std::vector<HealthWarning> evaluate_stale_policy_rule_warnings(
     return warnings;
 }
 
+namespace {
+
+// "fwmark 0x0001bd00/0xffffffff", with "not " in front for an inverted rule.
+std::string foreign_rule_selector(const ForeignPolicyRule& r) {
+    return std::string(r.invert ? "not " : "") + "fwmark " + hex_bits(r.fwmark) + "/" +
+           hex_bits(r.fwmask);
+}
+
+std::string matched_outbounds_text(const ForeignPolicyRule& r) {
+    if (r.matches_all_outbounds) return "all outbounds";
+    constexpr std::size_t kShown = 6;
+    std::string text = "outbounds: ";
+    for (std::size_t i = 0; i < r.matched_outbounds.size() && i < kShown; ++i) {
+        if (i != 0) text += ", ";
+        text += r.matched_outbounds[i];
+    }
+    if (r.matched_outbounds.size() > kShown) {
+        text += " and " + std::to_string(r.matched_outbounds.size() - kShown) + " more";
+    }
+    return text;
+}
+
+}  // namespace
+
 std::vector<HealthWarning> evaluate_fwmark_conflict_warnings(
     const std::vector<std::pair<std::string, std::string>>& iptables_texts,
     const std::vector<DumpedRule>& dumped_rules,
     const std::vector<RuleSpec>& own_rules, std::uint32_t fwmark_mask,
-    const RuleNamespace& ns) {
+    const RuleNamespace& ns, const OutboundMarkMap& outbound_marks) {
     std::vector<HealthWarning> warnings;
     std::set<std::string> seen;
     const std::string advice =
@@ -381,14 +460,36 @@ std::vector<HealthWarning> evaluate_fwmark_conflict_warnings(
             warnings.push_back(std::move(w));
         }
     }
-    for (const auto& r :
-         find_foreign_policy_rule_overlaps(dumped_rules, own_rules, fwmark_mask, ns)) {
+    for (const auto& r : find_foreign_policy_rule_overlaps(
+             dumped_rules, own_rules, fwmark_mask, ns, outbound_marks)) {
         HealthWarning w;
         w.code = HealthWarningCode::fwmark_mask_conflict;
-        w.message = "Foreign ip rule priority " + std::to_string(r.priority) +
-                    " fwmark " + hex_bits(r.fwmark) + "/" + hex_bits(r.fwmask) +
-                    " matches mark bits " + hex_bits(r.overlap) +
+        w.message = "Foreign ip rule priority " + std::to_string(r.priority) + " " +
+                    foreign_rule_selector(r) + " matches mark bits " + hex_bits(r.overlap) +
                     " that overlap fwmark.mask " + hex_bits(fwmark_mask) + advice;
+        warnings.push_back(std::move(w));
+    }
+    for (const auto& r : find_foreign_policy_rule_precedence(
+             dumped_rules, own_rules, fwmark_mask, ns, outbound_marks)) {
+        HealthWarning w;
+        w.code = HealthWarningCode::foreign_rule_precedence;
+        const std::string target =
+            r.action == RuleAction::lookup
+                ? "lookup " + std::to_string(r.table)
+                : (r.action == RuleAction::unreachable ? "unreachable" : "blackhole");
+        w.message = "Foreign ip rule priority " + std::to_string(r.priority) + " \"" +
+                    foreign_rule_selector(r) + " " + target +
+                    "\" is evaluated before keen-pbr rules and also matches packets "
+                    "keen-pbr marked (" + matched_outbounds_text(r) + "); ";
+        if (r.action == RuleAction::lookup) {
+            w.message += "such traffic uses table " + std::to_string(r.table) +
+                         " first and follows keen-pbr only if that table has no route";
+        } else {
+            w.message += "such traffic is handled by that rule and never reaches "
+                         "keen-pbr's routing";
+        }
+        w.message +=
+            ". Raise keen-pbr's rule priority above it or check what that rule does";
         warnings.push_back(std::move(w));
     }
     return warnings;
@@ -603,6 +704,7 @@ HostHealthInputs host_health_inputs(const Config& config) {
     try {
         inputs.fwmark_mask = fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{}));
         inputs.rule_namespace = policy_rule_namespace(config);
+        inputs.outbound_marks = allocate_outbound_marks(config);
     } catch (const std::exception& e) {
         Logger::instance().debug("fwmark overlap check skipped: {}", e.what());
     }
@@ -665,7 +767,7 @@ void collect_fwmark_conflicts(const HostHealthInputs& inputs,
     }
     auto found = evaluate_fwmark_conflict_warnings(
         texts, policy_rules.dumped, policy_rules.own, inputs.fwmark_mask,
-        inputs.rule_namespace);
+        inputs.rule_namespace, inputs.outbound_marks);
     warnings.insert(warnings.end(), found.begin(), found.end());
 }
 

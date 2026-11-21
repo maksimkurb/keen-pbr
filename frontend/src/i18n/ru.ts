@@ -290,6 +290,8 @@ export const ruTranslation = {
         fwmark_mask_conflict:
           "Стороннее правило использует биты метки пакета, зарезервированные keen-pbr",
         stale_policy_rule: "keen-pbr не удалил устаревшее правило ip rule",
+        foreign_rule_precedence:
+          "Стороннее правило ip rule срабатывает раньше keen-pbr и перехватывает его трафик",
       },
     },
     healthy: {

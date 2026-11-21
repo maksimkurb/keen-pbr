@@ -284,6 +284,8 @@ export const enTranslation = {
         fwmark_mask_conflict:
           "A foreign rule uses packet mark bits reserved for keen-pbr",
         stale_policy_rule: "keen-pbr did not remove an outdated ip rule",
+        foreign_rule_precedence:
+          "A foreign ip rule runs before keen-pbr rules and catches its traffic",
       },
     },
     healthy: {

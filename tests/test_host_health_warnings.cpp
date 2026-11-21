@@ -330,6 +330,143 @@ TEST_CASE("fwmark overlap: foreign ip rules") {
     CHECK(w[0].message.find("0x00080000/0x00ff0000") != std::string::npos);
 }
 
+namespace {
+
+// Marks 0x01000000..0x15000000 in mask 0xff000000, own lowest priority 401.
+struct ForeignRuleFixture {
+    OutboundMarkMap marks;
+    std::vector<RuleSpec> own;
+    static constexpr std::uint32_t kMask = 0xFF000000U;
+
+    ForeignRuleFixture() {
+        for (std::uint32_t i = 1; i <= 0x15; ++i) {
+            marks["out" + std::to_string(i)] = i << 24U;
+        }
+        RuleSpec spec;
+        spec.priority = 401;
+        spec.fwmark = 0x01000000U;
+        spec.fwmask = kMask;
+        spec.table = 150;
+        own.push_back(spec);
+    }
+
+    static DumpedRule rule(std::uint32_t priority, std::uint32_t fwmark,
+                           std::uint32_t fwmask, bool invert, std::uint32_t table = 7120) {
+        DumpedRule r;
+        r.priority = priority;
+        r.fwmark = fwmark;
+        r.fwmask = fwmask;
+        r.invert = invert;
+        r.table = table;
+        return r;
+    }
+
+    std::vector<HealthWarning> warnings(const DumpedRule& foreign) const {
+        return evaluate_fwmark_conflict_warnings({}, {foreign}, own, kMask, {}, marks);
+    }
+};
+
+bool has_code(const std::vector<HealthWarning>& warnings, HealthWarningCode code) {
+    return std::any_of(warnings.begin(), warnings.end(),
+                       [code](const HealthWarning& w) { return w.code == code; });
+}
+
+}  // namespace
+
+TEST_CASE("foreign ip rule: not fwmark with a full mask is a precedence issue only") {
+    ForeignRuleFixture f;
+    const auto w = f.warnings(ForeignRuleFixture::rule(110, 0x1bd00, 0xffffffffU, true));
+    REQUIRE(w.size() == 1);
+    CHECK(w[0].code == HealthWarningCode::foreign_rule_precedence);
+    CHECK(w[0].message.find("priority 110") != std::string::npos);
+    CHECK(w[0].message.find("not fwmark 0x0001bd00/0xffffffff lookup 7120") != std::string::npos);
+    CHECK(w[0].message.find("all outbounds") != std::string::npos);
+    CHECK(w[0].message.find("table 7120 first") != std::string::npos);
+    CHECK(w[0].message.find("fwmark.start") == std::string::npos);
+}
+
+TEST_CASE("foreign ip rule: a plain fwmark rule that cannot match our marks is ignored") {
+    ForeignRuleFixture f;
+    CHECK(f.warnings(ForeignRuleFixture::rule(110, 0x1bd00, 0xffffffffU, false)).empty());
+}
+
+TEST_CASE("foreign ip rule: a not-rule after keen-pbr's rules is ignored") {
+    ForeignRuleFixture f;
+    CHECK(f.warnings(ForeignRuleFixture::rule(500, 0x1bd00, 0xffffffffU, true)).empty());
+}
+
+TEST_CASE("foreign ip rule: our own mark value before our rules is both issues") {
+    ForeignRuleFixture f;
+    const auto w = f.warnings(ForeignRuleFixture::rule(100, 0x0a000000U, 0xff000000U, false));
+    REQUIRE(w.size() == 2);
+    CHECK(has_code(w, HealthWarningCode::fwmark_mask_conflict));
+    CHECK(has_code(w, HealthWarningCode::foreign_rule_precedence));
+    const auto& precedence = w[0].code == HealthWarningCode::foreign_rule_precedence ? w[0] : w[1];
+    CHECK(precedence.message.find("outbounds: out10") != std::string::npos);
+    CHECK(precedence.message.find("out11") == std::string::npos);
+    const auto& conflict = w[0].code == HealthWarningCode::fwmark_mask_conflict ? w[0] : w[1];
+    CHECK(conflict.message.find("fwmark.start/fwmark.mask") != std::string::npos);
+}
+
+TEST_CASE("foreign ip rule: our own mark value after our rules is a bit conflict only") {
+    ForeignRuleFixture f;
+    const auto w = f.warnings(ForeignRuleFixture::rule(30000, 0x0a000000U, 0xff000000U, false));
+    REQUIRE(w.size() == 1);
+    CHECK(w[0].code == HealthWarningCode::fwmark_mask_conflict);
+}
+
+TEST_CASE("foreign ip rule: expecting a value in our bits is a bit conflict") {
+    ForeignRuleFixture f;
+    const auto w = f.warnings(ForeignRuleFixture::rule(30000, 0x80000000U, 0x80000000U, false));
+    REQUIRE(w.size() == 1);
+    CHECK(w[0].code == HealthWarningCode::fwmark_mask_conflict);
+}
+
+TEST_CASE("foreign ip rule: telling our outbounds apart is a bit conflict") {
+    ForeignRuleFixture f;
+    // Matches 0x10000000 only among marks 0x01..0x15 (low nibble 0).
+    const auto w = f.warnings(ForeignRuleFixture::rule(30000, 0x0, 0x0f000000U, false));
+    REQUIRE(w.size() == 1);
+    CHECK(w[0].code == HealthWarningCode::fwmark_mask_conflict);
+}
+
+TEST_CASE("foreign ip rule: bits outside ours that match everything are only a precedence issue") {
+    ForeignRuleFixture f;
+    const auto w = f.warnings(ForeignRuleFixture::rule(100, 0x0, 0x00ff0000U, false));
+    REQUIRE(w.size() == 1);
+    CHECK(w[0].code == HealthWarningCode::foreign_rule_precedence);
+}
+
+TEST_CASE("foreign ip rule: a rule without a fwmark selector is ignored") {
+    ForeignRuleFixture f;
+    CHECK(f.warnings(ForeignRuleFixture::rule(100, 0x0, 0x0, false)).empty());
+    CHECK(f.warnings(ForeignRuleFixture::rule(100, 0x0, 0x0, true)).empty());
+}
+
+TEST_CASE("foreign ip rule: inverted and plain rules with the same values are separate") {
+    ForeignRuleFixture f;
+    const auto w = evaluate_fwmark_conflict_warnings(
+        {},
+        {ForeignRuleFixture::rule(110, 0x1bd00, 0xffffffffU, true),
+         ForeignRuleFixture::rule(110, 0x1bd00, 0xffffffffU, false),
+         ForeignRuleFixture::rule(110, 0x1bd00, 0xffffffffU, true)},
+        f.own, ForeignRuleFixture::kMask, {}, f.marks);
+    REQUIRE(w.size() == 1);
+    CHECK(w[0].code == HealthWarningCode::foreign_rule_precedence);
+}
+
+TEST_CASE("routing health JSON carries foreign_rule_precedence") {
+    RoutingHealthReport r;
+    r.overall_ok = true;
+    r.firewall_backend = FirewallBackend::iptables;
+    HealthWarning w;
+    w.code = HealthWarningCode::foreign_rule_precedence;
+    w.message = "precedence";
+    r.warnings.push_back(w);
+    CHECK(routing_health_report_to_json(r).at("warnings")[0].at("code") ==
+          "foreign_rule_precedence");
+}
+
 TEST_CASE("routing health JSON serialises fwmark_mask_conflict") {
     RoutingHealthReport r;
     r.overall_ok = true;

@@ -822,7 +822,7 @@ namespace api {
 
     enum class RoutingHealthResponseOverall : int { DEGRADED, ERROR, OK };
 
-    enum class RoutingHealthWarningCode : int { FWMARK_MASK_CONFLICT, NAT_MISSING, NAT_PARTIAL, RP_FILTER_STRICT, STALE_POLICY_RULE };
+    enum class RoutingHealthWarningCode : int { FOREIGN_RULE_PRECEDENCE, FWMARK_MASK_CONFLICT, NAT_MISSING, NAT_PARTIAL, RP_FILTER_STRICT, STALE_POLICY_RULE };
 
     struct RoutingHealthWarning {
         RoutingHealthWarningCode code;
@@ -4586,7 +4586,8 @@ namespace api {
     }
 
     inline void from_json(const json & j, RoutingHealthWarningCode & x) {
-        if (j == "fwmark_mask_conflict") x = RoutingHealthWarningCode::FWMARK_MASK_CONFLICT;
+        if (j == "foreign_rule_precedence") x = RoutingHealthWarningCode::FOREIGN_RULE_PRECEDENCE;
+        else if (j == "fwmark_mask_conflict") x = RoutingHealthWarningCode::FWMARK_MASK_CONFLICT;
         else if (j == "nat_missing") x = RoutingHealthWarningCode::NAT_MISSING;
         else if (j == "nat_partial") x = RoutingHealthWarningCode::NAT_PARTIAL;
         else if (j == "rp_filter_strict") x = RoutingHealthWarningCode::RP_FILTER_STRICT;
@@ -4596,6 +4597,7 @@ namespace api {
 
     inline void to_json(json & j, const RoutingHealthWarningCode & x) {
         switch (x) {
+            case RoutingHealthWarningCode::FOREIGN_RULE_PRECEDENCE: j = "foreign_rule_precedence"; break;
             case RoutingHealthWarningCode::FWMARK_MASK_CONFLICT: j = "fwmark_mask_conflict"; break;
             case RoutingHealthWarningCode::NAT_MISSING: j = "nat_missing"; break;
             case RoutingHealthWarningCode::NAT_PARTIAL: j = "nat_partial"; break;

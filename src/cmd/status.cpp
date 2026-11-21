@@ -857,6 +857,8 @@ RoutingHealthReport routing_health_report_from_api(
                 warning.code = HealthWarningCode::fwmark_mask_conflict; break;
             case api::RoutingHealthWarningCode::STALE_POLICY_RULE:
                 warning.code = HealthWarningCode::stale_policy_rule; break;
+            case api::RoutingHealthWarningCode::FOREIGN_RULE_PRECEDENCE:
+                warning.code = HealthWarningCode::foreign_rule_precedence; break;
         }
         warning.interface = item.interface;
         warning.outbound = item.outbound;
