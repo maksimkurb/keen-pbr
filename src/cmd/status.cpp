@@ -426,7 +426,7 @@ void print_header(const RoutingHealthReport& report, const std::string& config_p
     }
 }
 
-void print_outbound_runtime(const api::RuntimeOutboundStateElement& state) {
+void print_outbound_runtime(const api::RuntimeOutboundState& state) {
     std::string desc = "state";
     if (state.detail && !state.detail->empty()) desc += "   " + *state.detail;
     std::cout << "    " << pad_dots(desc, upper(api_enum_name(state.status))) << "\n";
@@ -592,7 +592,7 @@ void print_firewall_section(const std::vector<DisplayFirewallRule>& firewall_rul
     }
 }
 
-std::string kernel_check_label(const api::KernelCheckElement& check) {
+std::string kernel_check_label(const api::KernelCheck& check) {
     if (check.status == "ok") return "OK";
     if (check.status == "skipped") return "SKIPPED";
     if (check.status == "not_run") return "NOT RUN";
@@ -634,7 +634,7 @@ void print_services_section(const DaemonHealthDetails& details) {
                       << ", L7 " << (intercept.l7_active ? "active" : "inactive") << "\n";
         }
     }
-    if (service.dnsmasq && service.dnsmasq->mode == api::ResolverIntegration::DNSMASQ) {
+    if (service.dnsmasq && service.dnsmasq->mode == api::ResolverIntegrationMode::DNSMASQ) {
         const auto& dnsmasq = *service.dnsmasq;
         std::cout << "dnsmasq: " << api_enum_name(dnsmasq.state);
         if (dnsmasq.dnsmasq_alive) std::cout << ", " << api_enum_name(*dnsmasq.dnsmasq_alive);
@@ -648,7 +648,7 @@ void print_issues_section(const api::HealthIssuesResponse& issues) {
     if (issues.issues.empty()) return;
     std::cout << "\nIssues:\n";
     for (const auto& issue : issues.issues) {
-        const char* label = issue.severity == api::Severity::ERROR ? "ERROR" : "WARN ";
+        const char* label = issue.severity == api::HealthIssueSeverity::ERROR ? "ERROR" : "WARN ";
         std::cout << "  " << label << "  " << issue.title << "\n";
         if (issue.entries && !issue.entries->empty()) {
             for (const auto& entry : *issue.entries) {
@@ -679,7 +679,7 @@ IssueCounts count_issues(const DaemonHealthDetails* details) {
     IssueCounts counts;
     if (!details || !details->issues) return counts;
     for (const auto& issue : details->issues->issues) {
-        if (issue.severity == api::Severity::ERROR) {
+        if (issue.severity == api::HealthIssueSeverity::ERROR) {
             ++counts.errors;
         } else {
             ++counts.warnings;
@@ -772,12 +772,12 @@ uint32_t uint32_from_api(int64_t value, const char* field_name) {
     return static_cast<uint32_t>(value);
 }
 
-std::string expected_action_from_api(const std::optional<api::ExpectedAction>& action) {
+std::string expected_action_from_api(const std::optional<api::PolicyRuleCheckExpectedAction>& action) {
     if (!action.has_value()) return "lookup";
     switch (*action) {
-        case api::ExpectedAction::BLACKHOLE: return "blackhole";
-        case api::ExpectedAction::LOOKUP: return "lookup";
-        case api::ExpectedAction::UNREACHABLE: return "unreachable";
+        case api::PolicyRuleCheckExpectedAction::BLACKHOLE: return "blackhole";
+        case api::PolicyRuleCheckExpectedAction::LOOKUP: return "lookup";
+        case api::PolicyRuleCheckExpectedAction::UNREACHABLE: return "unreachable";
     }
     throw std::runtime_error("unknown API expected action");
 }
@@ -794,9 +794,9 @@ RoutingHealthReport routing_health_report_from_api(
     report.firewall_chain.prerouting_hook_present =
         health.firewall.prerouting_hook_present;
     report.firewall_chain.verification_state =
-        health.firewall.verification_state == api::VerificationState::VERIFIED
+        health.firewall.verification_state == api::FirewallChainVerificationState::VERIFIED
             ? VerificationState::verified
-            : (health.firewall.verification_state == api::VerificationState::UNAVAILABLE
+            : (health.firewall.verification_state == api::FirewallChainVerificationState::UNAVAILABLE
                    ? VerificationState::unavailable
                    : VerificationState::failed);
     report.firewall_chain.detail = health.firewall.detail.value_or("");
@@ -844,7 +844,7 @@ RoutingHealthReport routing_health_report_from_api(
         report.policy_rules.push_back(std::move(check));
     }
     for (const auto& item : health.warnings.value_or(
-             std::vector<api::RoutingHealthWarningElement>{})) {
+             std::vector<api::RoutingHealthWarning>{})) {
         HealthWarning warning;
         switch (item.code) {
             case api::RoutingHealthWarningCode::NAT_MISSING:

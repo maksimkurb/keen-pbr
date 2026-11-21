@@ -21,6 +21,7 @@ await i18n.init({
   lng: "en",
   resources: { en: { translation: enTranslation } },
   fallbackLng: false,
+  interpolation: { escapeValue: false },
 })
 const result = {
   ip: "1.2.3.4",
@@ -480,10 +481,77 @@ test("default-gateway directness is explained without asking for a field", () =>
       rule_diagnostics: [{ ...rule, rule_index: 0 }],
     })
   )
-  expect(text).toContain(
-    "cannot tell whether the address is directly connected"
-  )
+  expect(text).toContain("couldn’t read the router’s routes")
+  expect(text).toContain("whether 1.2.3.4 does")
+  expect(text).toContain("Route depends on the network state")
+  expect(text).not.toContain("cannot be determined yet")
+  expect(text).not.toContain("No field in the form")
   expect(text).not.toContain("Fill in the")
+  // Said once, in the rule step.
+  expect(text.split("couldn’t read the router’s routes").length - 1).toBe(1)
+})
+
+test("a default-gateway rule that skips an address names the reason", () => {
+  const text = stripTags(
+    render({
+      ...diagnostics,
+      results: [
+        {
+          ...result,
+          ip: "10.8.0.5",
+          expected_outbound: "(default)",
+          actual_outbound: "(default)",
+          ok: true,
+          default_gateway: {
+            rule_index: 13,
+            uses_default_gateway: false,
+            applied_uses_default_gateway: true,
+            bypass: { cidr: "10.8.0.0/24", source: "route", interface: "wg0" },
+          },
+        },
+      ],
+      rule_diagnostics: [],
+    })
+  )
+  expect(text).toContain(
+    "Rule #14 skipped: 10.8.0.5 has its own route 10.8.0.0/24 (wg0)"
+  )
+  expect(text).toContain("still treats this address as default-gateway traffic")
+})
+
+test("a default-gateway rule that takes an address says so, with the group split", () => {
+  const text = stripTags(
+    render({
+      ...diagnostics,
+      results: [
+        {
+          ...result,
+          expected_outbound: "lb",
+          actual_outbound: "lb",
+          ok: true,
+          matched_rule_index: 13,
+          default_gateway: { rule_index: 13, uses_default_gateway: true },
+          outbound_group: {
+            tag: "lb",
+            strategy: "balance",
+            members: [
+              { tag: "wan1", weight: 3, share_percent: 75, in_use: true },
+              { tag: "wan2", weight: 1, share_percent: 25, in_use: true },
+              { tag: "wan3", weight: 1, share_percent: 0, in_use: false },
+            ],
+          },
+        },
+      ],
+      rule_diagnostics: [
+        { ...rule, rule_index: 13, outbound: "lb", rule: { outbound: "lb" } },
+      ],
+    })
+  )
+  expect(text).toContain(
+    "Rule #14 → lb: 1.2.3.4 goes through the default gateway"
+  )
+  expect(text).toContain("weight 3 · 75%")
+  expect(text).toContain("weight 1 · not in use")
 })
 
 test("an unknown rule from an older server keeps the generic wording", () => {

@@ -6,10 +6,6 @@
  * OpenAPI spec version: 3.0.0
  */
 
-/**
- * - ok: all checks passed - degraded: one or more checks failed - error: an exception prevented checks from completing
-
- */
 export type RoutingHealthResponseOverall = typeof RoutingHealthResponseOverall[keyof typeof RoutingHealthResponseOverall];
 
 

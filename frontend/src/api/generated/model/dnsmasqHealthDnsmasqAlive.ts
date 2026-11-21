@@ -6,11 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 
-/**
- * Last answer of the platform hook `alive` (whether the service manager says dnsmasq is running); asked only when dnsmasq does not answer the config check. Null if never asked.
-
- */
-export type DnsmasqHealthDnsmasqAlive = typeof DnsmasqHealthDnsmasqAlive[keyof typeof DnsmasqHealthDnsmasqAlive] | null;
+export type DnsmasqHealthDnsmasqAlive = typeof DnsmasqHealthDnsmasqAlive[keyof typeof DnsmasqHealthDnsmasqAlive];
 
 
 export const DnsmasqHealthDnsmasqAlive = {

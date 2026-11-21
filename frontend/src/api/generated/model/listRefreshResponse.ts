@@ -5,10 +5,10 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
-import type { ListRefreshResponseStatus } from './listRefreshResponseStatus';
+import type { OkResponseStatus } from './okResponseStatus';
 
 export interface ListRefreshResponse {
-  status: ListRefreshResponseStatus;
+  status: OkResponseStatus;
   message: string;
   /** URL-backed lists that were refreshed. */
   refreshed_lists: string[];

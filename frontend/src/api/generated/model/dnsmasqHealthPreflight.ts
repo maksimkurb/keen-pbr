@@ -6,7 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 
-export type DnsmasqHealthPreflight = typeof DnsmasqHealthPreflight[keyof typeof DnsmasqHealthPreflight] | null;
+export type DnsmasqHealthPreflight = typeof DnsmasqHealthPreflight[keyof typeof DnsmasqHealthPreflight];
 
 
 export const DnsmasqHealthPreflight = {

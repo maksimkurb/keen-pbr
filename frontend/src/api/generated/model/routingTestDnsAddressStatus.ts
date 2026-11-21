@@ -6,10 +6,10 @@
  * OpenAPI spec version: 3.0.0
  */
 
-export type RoutingTestDnsAaaaStatus = typeof RoutingTestDnsAaaaStatus[keyof typeof RoutingTestDnsAaaaStatus] | null;
+export type RoutingTestDnsAddressStatus = typeof RoutingTestDnsAddressStatus[keyof typeof RoutingTestDnsAddressStatus];
 
 
-export const RoutingTestDnsAaaaStatus = {
+export const RoutingTestDnsAddressStatus = {
   ok: 'ok',
   nodata: 'nodata',
   nxdomain: 'nxdomain',

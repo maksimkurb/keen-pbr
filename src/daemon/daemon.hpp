@@ -303,7 +303,7 @@ private:
   void retry_intercept_snapshot_build(
       std::shared_ptr<const InterceptSnapshotJob> job, unsigned attempt);
   InterceptEffective intercept_effective_snapshot() const;
-  api::InterceptHealthClass build_intercept_health() const;
+  api::InterceptHealth build_intercept_health() const;
   void pump_intercept_events();
   // Control thread: notices a dead NFQUEUE/NFLOG listener and re-binds it
   // through apply_firewall() with backoff (see rebind_backoff.hpp).

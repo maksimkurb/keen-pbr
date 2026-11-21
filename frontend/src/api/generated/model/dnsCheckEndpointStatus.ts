@@ -6,10 +6,6 @@
  * OpenAPI spec version: 3.0.0
  */
 
-/**
- * `ok` (asked), `skipped` (not asked, for example an IPv6 address while IPv6 is disabled) or `unavailable` (cannot be asked, for example DNS-over-HTTPS without CA certificates).
-
- */
 export type DnsCheckEndpointStatus = typeof DnsCheckEndpointStatus[keyof typeof DnsCheckEndpointStatus];
 
 

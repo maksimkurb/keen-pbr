@@ -260,10 +260,10 @@ static api::CheckStatus to_api_check_status(CheckStatus s) {
     return api::CheckStatus::MISSING;
 }
 
-static api::ExpectedAction to_api_expected_action(const std::string& action) {
-    if (action == "blackhole") return api::ExpectedAction::BLACKHOLE;
-    if (action == "unreachable") return api::ExpectedAction::UNREACHABLE;
-    return api::ExpectedAction::LOOKUP;
+static api::PolicyRuleCheckExpectedAction to_api_expected_action(const std::string& action) {
+    if (action == "blackhole") return api::PolicyRuleCheckExpectedAction::BLACKHOLE;
+    if (action == "unreachable") return api::PolicyRuleCheckExpectedAction::UNREACHABLE;
+    return api::PolicyRuleCheckExpectedAction::LOOKUP;
 }
 
 static api::RoutingHealthResponseFirewallBackend to_api_firewall_backend(FirewallBackend backend) {
@@ -277,13 +277,13 @@ static api::RoutingHealthResponseFirewallBackend to_api_firewall_backend(Firewal
     throw std::runtime_error("Unexpected firewall backend value");
 }
 
-static api::VerificationState to_api_verification_state(VerificationState state) {
+static api::FirewallChainVerificationState to_api_verification_state(VerificationState state) {
     switch (state) {
-        case VerificationState::verified:   return api::VerificationState::VERIFIED;
-        case VerificationState::unavailable: return api::VerificationState::UNAVAILABLE;
-        case VerificationState::failed:     return api::VerificationState::FAILED;
+        case VerificationState::verified:   return api::FirewallChainVerificationState::VERIFIED;
+        case VerificationState::unavailable: return api::FirewallChainVerificationState::UNAVAILABLE;
+        case VerificationState::failed:     return api::FirewallChainVerificationState::FAILED;
     }
-    return api::VerificationState::FAILED;
+    return api::FirewallChainVerificationState::FAILED;
 }
 
 nlohmann::json routing_health_report_to_json(const RoutingHealthReport& r) {
@@ -354,9 +354,9 @@ nlohmann::json routing_health_report_to_json(const RoutingHealthReport& r) {
     }
 
     {
-        std::vector<api::RoutingHealthWarningElement> warnings;
+        std::vector<api::RoutingHealthWarning> warnings;
         for (const auto& w : r.warnings) {
-            api::RoutingHealthWarningElement aw;
+            api::RoutingHealthWarning aw;
             switch (w.code) {
                 case HealthWarningCode::nat_missing:
                     aw.code = api::RoutingHealthWarningCode::NAT_MISSING; break;

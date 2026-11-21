@@ -106,12 +106,12 @@ bool route_matches_outbound(const DumpedRoute& route, const Outbound& outbound) 
     return !route.gateway.has_value();
 }
 
-api::RuntimeInterfaceStatusEnum map_urltest_child_status(
+api::RuntimeInterfaceStatus map_urltest_child_status(
     const Outbound& child,
     bool is_active,
     const std::optional<UrltestState>& urltest_state) {
     if (!urltest_state.has_value()) {
-        return api::RuntimeInterfaceStatusEnum::UNKNOWN;
+        return api::RuntimeInterfaceStatus::UNKNOWN;
     }
 
     const auto result_it = urltest_state->last_results.find(child.tag);
@@ -121,60 +121,60 @@ api::RuntimeInterfaceStatusEnum map_urltest_child_status(
         breaker_it->second.state(child.tag) == CircuitState::open;
 
     if (breaker_open) {
-        return api::RuntimeInterfaceStatusEnum::UNAVAILABLE;
+        return api::RuntimeInterfaceStatus::UNAVAILABLE;
     }
 
     if (result_it == urltest_state->last_results.end()) {
-        return api::RuntimeInterfaceStatusEnum::UNKNOWN;
+        return api::RuntimeInterfaceStatus::UNKNOWN;
     }
 
     if (result_it->second.success) {
         return is_active
-            ? api::RuntimeInterfaceStatusEnum::ACTIVE
-            : api::RuntimeInterfaceStatusEnum::BACKUP;
+            ? api::RuntimeInterfaceStatus::ACTIVE
+            : api::RuntimeInterfaceStatus::BACKUP;
     }
 
-    return api::RuntimeInterfaceStatusEnum::DEGRADED;
+    return api::RuntimeInterfaceStatus::DEGRADED;
 }
 
-api::RuntimeOutboundStatusEnum derive_overall_status(
+api::RuntimeOutboundStatus derive_overall_status(
     const std::vector<api::RuntimeInterfaceState>& interfaces,
     bool has_active_interface,
     bool has_live_route) {
     if (has_active_interface) {
-        return api::RuntimeOutboundStatusEnum::HEALTHY;
+        return api::RuntimeOutboundStatus::HEALTHY;
     }
 
     bool has_backup = false;
     bool has_degraded = false;
 
     for (const auto& interface_state : interfaces) {
-        if (interface_state.status == api::RuntimeInterfaceStatusEnum::BACKUP) {
+        if (interface_state.status == api::RuntimeInterfaceStatus::BACKUP) {
             has_backup = true;
-        } else if (interface_state.status == api::RuntimeInterfaceStatusEnum::DEGRADED) {
+        } else if (interface_state.status == api::RuntimeInterfaceStatus::DEGRADED) {
             has_degraded = true;
         }
     }
 
     if (has_live_route && (has_backup || has_degraded)) {
-        return api::RuntimeOutboundStatusEnum::DEGRADED;
+        return api::RuntimeOutboundStatus::DEGRADED;
     }
 
     if (has_backup) {
-        return api::RuntimeOutboundStatusEnum::DEGRADED;
+        return api::RuntimeOutboundStatus::DEGRADED;
     }
 
     if (has_degraded) {
-        return api::RuntimeOutboundStatusEnum::DEGRADED;
+        return api::RuntimeOutboundStatus::DEGRADED;
     }
 
     if (!interfaces.empty()) {
-        return api::RuntimeOutboundStatusEnum::UNAVAILABLE;
+        return api::RuntimeOutboundStatus::UNAVAILABLE;
     }
 
     return has_live_route
-        ? api::RuntimeOutboundStatusEnum::HEALTHY
-        : api::RuntimeOutboundStatusEnum::UNKNOWN;
+        ? api::RuntimeOutboundStatus::HEALTHY
+        : api::RuntimeOutboundStatus::UNKNOWN;
 }
 
 std::optional<uint32_t> outbound_table_id(const OutboundMarkMap& outbound_marks,
@@ -192,12 +192,12 @@ std::optional<uint32_t> outbound_table_id(const OutboundMarkMap& outbound_marks,
     return std::nullopt;
 }
 
-api::RuntimeOutboundStateElement build_interface_outbound_state(const Outbound& outbound,
+api::RuntimeOutboundState build_interface_outbound_state(const Outbound& outbound,
                                                                 const OutboundMarkMap& outbound_marks,
                                                                 const std::vector<RuleSpec>& policy_rules,
                                                                 const std::vector<DumpedRoute>& routes,
                                                                 const std::vector<DumpedRoute>& main_routes) {
-    api::RuntimeOutboundStateElement state;
+    api::RuntimeOutboundState state;
     state.tag = outbound.tag;
     state.type = outbound.type;
 
@@ -210,8 +210,8 @@ api::RuntimeOutboundStateElement build_interface_outbound_state(const Outbound& 
     const bool reachable = is_interface_outbound_reachable(outbound, main_routes);
     const bool active = primary_route != nullptr && route_matches_outbound(*primary_route, outbound);
     interface_state.status = active
-        ? api::RuntimeInterfaceStatusEnum::ACTIVE
-        : api::RuntimeInterfaceStatusEnum::UNAVAILABLE;
+        ? api::RuntimeInterfaceStatus::ACTIVE
+        : api::RuntimeInterfaceStatus::UNAVAILABLE;
 
     if (!reachable) {
         interface_state.detail = std::string("interface is not reachable from the main routing table");
@@ -224,11 +224,11 @@ api::RuntimeOutboundStateElement build_interface_outbound_state(const Outbound& 
     return state;
 }
 
-api::RuntimeOutboundStateElement build_table_outbound_state(const Outbound& outbound,
+api::RuntimeOutboundState build_table_outbound_state(const Outbound& outbound,
                                                             const OutboundMarkMap& outbound_marks,
                                                             const std::vector<RuleSpec>& policy_rules,
                                                             const std::vector<DumpedRoute>& routes) {
-    api::RuntimeOutboundStateElement state;
+    api::RuntimeOutboundState state;
     state.tag = outbound.tag;
     state.type = outbound.type;
 
@@ -236,19 +236,19 @@ api::RuntimeOutboundStateElement build_table_outbound_state(const Outbound& outb
     const DumpedRoute* primary_route = find_primary_default_route(routes, table_id);
 
     state.status = primary_route != nullptr
-        ? api::RuntimeOutboundStatusEnum::HEALTHY
-        : api::RuntimeOutboundStatusEnum::UNKNOWN;
+        ? api::RuntimeOutboundStatus::HEALTHY
+        : api::RuntimeOutboundStatus::UNKNOWN;
     return state;
 }
 
-api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& config,
+api::RuntimeOutboundState build_urltest_outbound_state(const Config& config,
                                                               const Outbound& outbound,
                                                               const OutboundMarkMap& outbound_marks,
                                                               const std::vector<RuleSpec>& policy_rules,
                                                               const std::map<std::string, std::string>& applied_selections,
                                                               const std::vector<DumpedRoute>& routes,
                                                               const UrltestStateLookupFn& urltest_state_lookup) {
-    api::RuntimeOutboundStateElement state;
+    api::RuntimeOutboundState state;
     state.tag = outbound.tag;
     state.type = outbound.type;
 
@@ -320,7 +320,7 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
     const bool has_active_candidate = std::any_of(
         state.interfaces.begin(), state.interfaces.end(),
         [](const api::RuntimeInterfaceState& candidate) {
-            return candidate.status == api::RuntimeInterfaceStatusEnum::ACTIVE;
+            return candidate.status == api::RuntimeInterfaceStatus::ACTIVE;
         });
 
     if (balance) {
@@ -393,10 +393,10 @@ api::RuntimeOutboundsResponse build_runtime_outbounds_response_from_routes(
                 break;
             case OutboundType::BLACKHOLE:
             case OutboundType::IGNORE: {
-                api::RuntimeOutboundStateElement state;
+                api::RuntimeOutboundState state;
                 state.tag = outbound.tag;
                 state.type = outbound.type;
-                state.status = api::RuntimeOutboundStatusEnum::HEALTHY;
+                state.status = api::RuntimeOutboundStatus::HEALTHY;
                 response.outbounds.push_back(std::move(state));
                 break;
             }

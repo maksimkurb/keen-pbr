@@ -17,6 +17,7 @@ export function UpsertPage({
   cardDescription,
   children,
   withCard = false,
+  backTo,
 }: {
   title: ReactNode
   description: string
@@ -24,12 +25,13 @@ export function UpsertPage({
   cardDescription?: string
   children: ReactNode
   withCard?: boolean
+  backTo?: string
 }) {
   const isMobile = useIsMobile()
 
   return (
     <div className="space-y-5 md:space-y-6">
-      <PageHeader description={description} title={title} />
+      <PageHeader backTo={backTo} description={description} title={title} />
       {withCard ? (
         <Card size={isMobile ? "sm" : "default"}>
           {cardTitle || cardDescription ? (

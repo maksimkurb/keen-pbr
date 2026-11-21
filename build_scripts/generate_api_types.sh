@@ -19,6 +19,27 @@ process.stdin.on('end', () => {
   const spec = JSON.parse(d);
   const schemas = spec.components.schemas;
 
+  // Inline enums and objects have no schema name, so QuickType would name
+  // them after the property alone. Require them to be named schemas.
+  const inline = [];
+  function findInline(node, path, top) {
+    if (typeof node !== 'object' || node === null) return;
+    if (node['\$ref']) return;
+    if (!top && (node.enum || node.properties)) inline.push(path);
+    for (const [k, v] of Object.entries(node.properties || {})) findInline(v, path + '.' + k, false);
+    if (node.items) findInline(node.items, path + '[]', false);
+    if (node.additionalProperties) findInline(node.additionalProperties, path + '{}', false);
+    for (const k of ['oneOf', 'anyOf', 'allOf']) {
+      (node[k] || []).forEach((s, i) => findInline(s, path + '/' + k + '[' + i + ']', false));
+    }
+  }
+  for (const [name, schema] of Object.entries(schemas)) findInline(schema, name, true);
+  if (inline.length > 0) {
+    console.error('generate_api_types: inline enums/objects must be moved to components/schemas ' +
+                  'and referenced with \$ref: ' + inline.join(', '));
+    process.exit(1);
+  }
+
   // password_hash is daemon-internal configuration state. Keep it out of the
   // public OpenAPI contract (and therefore out of browser-generated models),
   // while retaining it in the C++ configuration representation.
@@ -43,10 +64,11 @@ process.stdin.on('end', () => {
   }
   clean(schemas);
 
-  // QuickType names a shared enum after its most specific property ("code")
-  // unless the schema carries a title. Pin names that would be too generic.
-  for (const name of ['RoutingHealthWarningCode']) {
-    schemas[name].title = name;
+  // QuickType names a type after the property it is first reached through
+  // (OutboundElement, Bypass, Code, ...) unless the schema carries a title.
+  // Pin every component schema to its OpenAPI name so C++ names match it.
+  for (const [name, schema] of Object.entries(schemas)) {
+    schema.title = name;
   }
 
   // Rewrite \$ref paths from OpenAPI to JSON Schema \$defs format
@@ -84,6 +106,7 @@ npx --yes quicktype \
   --src "$SCHEMA_TMP" \
   --src-lang schema \
   --namespace keen_pbr3::api \
+  --top-level KeenPbrTypes \
   --no-boost \
   --code-format with-struct \
   -o "$TYPES_TMP"
@@ -112,6 +135,17 @@ content = content.replace(
   'j[' + quote + 'detail' + quote + '] = x.detail;\n' +
     '        if (x.interface_name.has_value()) j[' + quote + 'interface_name' + quote + '] = *x.interface_name;'
 );
+
+// Every OpenAPI schema must exist under its own name in the header, so the C++
+// type names stay equal to the schema names.
+const schemaNames = JSON.parse(fs.readFileSync('$SCHEMA_TMP', 'utf8'))['\$defs'];
+const missing = Object.keys(schemaNames).filter(name =>
+  !new RegExp('^ *(struct|enum class) ' + name + '[^A-Za-z0-9_]', 'm').test(content));
+if (missing.length > 0) {
+  console.error('generate_api_types: no generated type named after these OpenAPI schemas: ' +
+                missing.join(', '));
+  process.exit(1);
+}
 
 // Add generation comment at the top
 const header = '// Generated from docs/openapi.yaml via build_scripts/generate_api_types.sh\n' +

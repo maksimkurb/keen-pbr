@@ -66,7 +66,7 @@ struct ApiContext {
     std::function<RoutingHealthReport()> get_routing_health_fn;
     std::function<api::RuntimeOutboundsResponse()> get_runtime_outbounds_fn;
     std::function<api::RuntimeInterfaceInventoryResponse()> get_runtime_interfaces_fn;
-    std::function<std::map<std::string, api::ListRefreshStateValue>(const Config&)>
+    std::function<std::map<std::string, api::ListRefreshState>(const Config&)>
         get_list_refresh_state_map_fn;
     std::function<TestRoutingResult(const std::string&)> compute_test_routing_fn;
 
@@ -156,7 +156,7 @@ struct ApiContext {
         return get_runtime_interfaces_fn();
     }
 
-    std::map<std::string, api::ListRefreshStateValue> get_list_refresh_state_map(
+    std::map<std::string, api::ListRefreshState> get_list_refresh_state_map(
         const Config& config) const {
         return get_list_refresh_state_map_fn(config);
     }

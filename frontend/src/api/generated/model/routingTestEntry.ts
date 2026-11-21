@@ -5,9 +5,11 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { RoutingTestDefaultGateway } from './routingTestDefaultGateway';
 import type { RoutingTestEntryMissingCriteriaItem } from './routingTestEntryMissingCriteriaItem';
 import type { RoutingTestEntryUndeterminedReason } from './routingTestEntryUndeterminedReason';
 import type { RoutingTestListMatch } from './routingTestListMatch';
+import type { RoutingTestOutboundGroup } from './routingTestOutboundGroup';
 
 export interface RoutingTestEntry {
   /** IP address being tested. */
@@ -34,7 +36,7 @@ export interface RoutingTestEntry {
      * @minimum 0
      */
   undetermined_rule_index?: number;
-  /** Why undetermined_rule_index could not be evaluated. missing_criteria: filling the fields listed in missing_criteria would let the rule be evaluated. default_gateway_directness: the rule depends on whether the address is directly connected, which no request field can resolve.
+  /** Why undetermined_rule_index could not be evaluated. missing_criteria: filling the fields listed in missing_criteria would let the rule be evaluated. default_gateway_directness: the rule is a default_gateway rule and keen-pbr could not read the router's routes, so it cannot tell whether the address uses the default gateway; no request field can resolve this.
    */
   undetermined_reason?: RoutingTestEntryUndeterminedReason;
   /** Request fields that, if filled, would let the rule at undetermined_rule_index be evaluated. DSCP is never listed because an absent DSCP is treated as 0.
@@ -42,4 +44,10 @@ export interface RoutingTestEntry {
   missing_criteria?: RoutingTestEntryMissingCriteriaItem[];
   /** true when expected_outbound equals actual_outbound and neither side is unknown. */
   ok: boolean;
+  /** How the first default_gateway rule the decision reached treats this address. Absent when no such rule was reached.
+   */
+  default_gateway?: RoutingTestDefaultGateway;
+  /** Present when the outbound the traffic takes is a urltest or icmptest group: its members and which of them carry new connections.
+   */
+  outbound_group?: RoutingTestOutboundGroup;
 }

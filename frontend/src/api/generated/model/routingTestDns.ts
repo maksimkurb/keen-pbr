@@ -5,15 +5,14 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
-import type { RoutingTestDnsAaaaStatus } from './routingTestDnsAaaaStatus';
-import type { RoutingTestDnsAStatus } from './routingTestDnsAStatus';
+import type { RoutingTestDnsAddressStatus } from './routingTestDnsAddressStatus';
 import type { RoutingTestDnsResolver } from './routingTestDnsResolver';
 
 export interface RoutingTestDns {
   resolver: RoutingTestDnsResolver;
   endpoint?: string | null;
   instance?: string | null;
-  a_status?: RoutingTestDnsAStatus;
-  aaaa_status?: RoutingTestDnsAaaaStatus;
+  a_status?: RoutingTestDnsAddressStatus | null;
+  aaaa_status?: RoutingTestDnsAddressStatus | null;
   cname_chain?: string[];
 }

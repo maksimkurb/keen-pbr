@@ -65,7 +65,7 @@ InterceptEffective resolve_effective_intercept(const Config& config,
     const InterceptConfig ic = config.intercept.value_or(InterceptConfig{});
     const InterceptDnsConfig dns = ic.dns.value_or(InterceptDnsConfig{});
     const InterceptL7Config l7 = ic.l7.value_or(InterceptL7Config{});
-    const auto marker = dns.marker.value_or(api::Marker{});
+    const auto marker = dns.marker.value_or(api::InterceptMarkerConfig{});
 
     eff.config_enabled = ic.enabled.value_or(config_defaults::intercept_enabled);
     eff.dns_requested = dns.enabled.value_or(config_defaults::intercept_dns_enabled);

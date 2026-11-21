@@ -604,8 +604,12 @@ Daemon::make_routing_test_job(const std::string &target,
   Config active_config = config_store_.active_config();
   RoutingDnsResolver dns_resolver =
       dnsmasq_manager_.routing_resolver(active_config);
-  auto realized_rules =
-      runtime_state_store_.snapshot().firewall_state.get_rules();
+  const auto runtime_snapshot = runtime_state_store_.snapshot();
+  auto realized_rules = runtime_snapshot.firewall_state.get_rules();
+  TestRoutingGroupState group_state;
+  group_state.outbound_marks = runtime_snapshot.firewall_state.get_outbound_marks();
+  group_state.urltest_selections =
+      runtime_snapshot.firewall_state.get_urltest_selections();
   // Reads the capability snapshot taken at service start; nothing is probed.
   const bool ipv6_enabled = resolve_ipv6_support(active_config).enabled;
   std::shared_ptr<InterceptService> intercept_service;
@@ -620,7 +624,22 @@ Daemon::make_routing_test_job(const std::string &target,
   return [this, active_config = std::move(active_config),
           dns_resolver = std::move(dns_resolver),
           realized_rules = std::move(realized_rules), target, criteria,
-          ipv6_enabled, intercept_service, intercept_snapshot] {
+          ipv6_enabled, intercept_service, intercept_snapshot,
+          group_state = std::move(group_state)] {
+    // Fresh read of the main table so default_gateway rules are judged against
+    // the routes the router has right now.  Without it they stay undetermined.
+    // Done here, on the executor, so a rejected or queued request costs no
+    // netlink dump and the event loop never waits for one.
+    std::optional<TestRoutingNetworkSnapshot> network;
+    try {
+      TestRoutingNetworkSnapshot fresh;
+      fresh.main_routes = netlink_.dump_routes_in_table(254);
+      fresh.interfaces = netlink_.dump_interfaces();
+      network = std::move(fresh);
+    } catch (const std::exception &e) {
+      Logger::instance().warn("Routing test: cannot read the network state: {}",
+                              e.what());
+    }
     return compute_test_routing(
         active_config, list_service_.cache_manager(), target, criteria,
         &realized_rules,
@@ -634,7 +653,8 @@ Daemon::make_routing_test_job(const std::string &target,
               intercept_service->lookup_set_write_evidence(intercept_snapshot,
                                                            set_name, ip));
         },
-        &dns_resolver, ipv6_enabled);
+        &dns_resolver, ipv6_enabled, network ? &*network : nullptr,
+        &group_state);
   };
 }
 
@@ -671,10 +691,10 @@ api::RuntimeOutboundsResponse Daemon::runtime_outbounds_state() {
     api::RuntimeOutboundsResponse response;
     for (const auto &outbound :
          config_snapshot.outbounds.value_or(std::vector<Outbound>{})) {
-      api::RuntimeOutboundStateElement state;
+      api::RuntimeOutboundState state;
       state.tag = outbound.tag;
       state.type = outbound.type;
-      state.status = api::RuntimeOutboundStatusEnum::UNKNOWN;
+      state.status = api::RuntimeOutboundStatus::UNKNOWN;
       response.outbounds.push_back(std::move(state));
     }
     return response;

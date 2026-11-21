@@ -97,7 +97,7 @@ ipset_hash_net_available() {
 check_netfilter_addons_component() {
     local components component
 
-    if ! components="$(wget -O - localhost:79/rci/show/version/ndw/components 2>/dev/null)"; then
+    if ! components="$("$KEEN_PBR" --config "$CONFIG" --log-target stderr keenetic missing-components)"; then
         log_error "Failed to fetch installed Keenetic components"
         return 0
     fi
@@ -105,23 +105,17 @@ check_netfilter_addons_component() {
     # opkg-kmod-netfilter: Netfilter Subsystem Kernel Modules (nfnetlink_queue,
     # xt_NFQUEUE, xt_NFLOG, xt_connbytes, ...).  opkg-kmod-netfilter-addons:
     # Xtables-addons Extension Package for Netfilter.
-    for component in opkg-kmod-netfilter opkg-kmod-netfilter-addons; do
-        case ",$components," in
-            *,"$component",*)
-                ;;
-            *)
-                log_error "Missing Keenetic component $component"
-                ;;
-        esac
+    for component in $components; do
+        log_error "Missing Keenetic component $component"
     done
     return 0
 }
 
 wait_for_keenetic_rci() {
-    local attempt=1
+    local attempt=1 error=""
 
     while [ "$attempt" -le "$KEENETIC_RCI_STARTUP_ATTEMPTS" ]; do
-        if wget -O /dev/null localhost:79/rci/show/version 2>/dev/null; then
+        if error="$("$KEEN_PBR" --config "$CONFIG" --log-target stderr keenetic rci-ready 2>&1)"; then
             if [ "$attempt" -gt 1 ]; then
                 log "Keenetic RCI became available after $attempt attempts"
             fi
@@ -135,7 +129,7 @@ wait_for_keenetic_rci() {
         attempt=$((attempt + 1))
     done
 
-    log_error "Keenetic RCI is still unavailable after $KEENETIC_RCI_STARTUP_ATTEMPTS attempts; continuing startup"
+    log_error "Keenetic RCI is still unavailable after $KEENETIC_RCI_STARTUP_ATTEMPTS attempts (last error: $(printf %s "$error" | head -n 1)); continuing startup"
     return 0
 }
 

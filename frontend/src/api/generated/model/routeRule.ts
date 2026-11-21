@@ -35,7 +35,7 @@ export interface RouteRule {
   /** Destination CIDR(s) to match. Omit for any destination address. Use a comma-separated list for multiple CIDRs (e.g. "10.0.0.0/8,172.16.0.0/12"). Prefix with "!" to negate the entire spec (e.g. "!10.0.0.0/8" matches traffic NOT destined for 10.0.0.0/8).
    */
   dest_addr?: string;
-  /** Match non-local, non-directly-connected default-route traffic for this IP family. Put these catch-all rules last.
+  /** Match traffic of this IP family that leaves through the default route. Destinations the router reaches some other way are skipped: reserved ranges (loopback, link-local, multicast), every non-default route in the main routing table (VPN subnets, static routes) and the networks of the router's own interface addresses. Put these catch-all rules last.
    */
   default_gateway?: DefaultGateway;
 }

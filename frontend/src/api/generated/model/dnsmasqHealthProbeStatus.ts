@@ -6,11 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 
-/**
- * Result of the last `config-hash.keen.pbr` TXT query to dnsmasq. - not_checked: no query has been made yet - ok: dnsmasq returned a keen-pbr stamp - missing: dnsmasq answered without the stamp (the keen-pbr config is not loaded) - invalid: the TXT record is not a valid keen-pbr stamp - query_failed: dnsmasq did not answer (timeout, refused, malformed reply)
-
- */
-export type DnsmasqHealthProbeStatus = typeof DnsmasqHealthProbeStatus[keyof typeof DnsmasqHealthProbeStatus] | null;
+export type DnsmasqHealthProbeStatus = typeof DnsmasqHealthProbeStatus[keyof typeof DnsmasqHealthProbeStatus];
 
 
 export const DnsmasqHealthProbeStatus = {

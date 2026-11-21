@@ -600,7 +600,7 @@ TEST_CASE("health JSON reports probes, warnings and capability extras") {
     CHECK(by_feature["nflog"]["status"] == "unsupported");
     CHECK(by_feature["set_write"]["status"] == "ok");
     CHECK(by_feature["conntrack"]["status"] == "unsupported");
-    CHECK_NOTHROW(health.get<api::InterceptHealthClass>());
+    CHECK_NOTHROW(health.get<api::InterceptHealth>());
 }
 
 TEST_CASE("health JSON before any probe leaves optional fields out of the picture") {

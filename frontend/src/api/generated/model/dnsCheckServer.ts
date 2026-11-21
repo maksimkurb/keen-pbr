@@ -6,11 +6,11 @@
  * OpenAPI spec version: 3.0.0
  */
 import type { DnsCheckEndpoint } from './dnsCheckEndpoint';
-import type { DnsCheckServerType } from './dnsCheckServerType';
+import type { DnsServerType } from './dnsServerType';
 
 export interface DnsCheckServer {
   tag: string;
-  type: DnsCheckServerType;
+  type: DnsServerType;
   detour?: string;
   /** `keenetic_dns_unavailable` or `invalid_address`. */
   error_code?: string;

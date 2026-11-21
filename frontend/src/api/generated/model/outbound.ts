@@ -8,9 +8,9 @@
 import type { CircuitBreakerConfig } from './circuitBreakerConfig';
 import type { ConntrackOnSwitch } from './conntrackOnSwitch';
 import type { OutboundGroup } from './outboundGroup';
-import type { OutboundStrictEnforcementAction } from './outboundStrictEnforcementAction';
 import type { OutboundType } from './outboundType';
 import type { RetryConfig } from './retryConfig';
+import type { StrictEnforcementAction } from './strictEnforcementAction';
 import type { TestGroupStrategy } from './testGroupStrategy';
 
 export interface Outbound {
@@ -32,7 +32,7 @@ export interface Outbound {
    */
   strict_enforcement?: boolean;
   /** Per-outbound override of daemon.strict_enforcement_action. */
-  strict_enforcement_action?: OutboundStrictEnforcementAction;
+  strict_enforcement_action?: StrictEnforcementAction;
   /** Kernel routing table ID. Required for `table` outbound type.
    */
   table?: number;

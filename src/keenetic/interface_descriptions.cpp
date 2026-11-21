@@ -2,7 +2,7 @@
 
 #include "interface_descriptions.hpp"
 
-#include "../http/http_client.hpp"
+#include "rci_client.hpp"
 #include "../util/system_info.hpp"
 
 #include <arpa/inet.h>
@@ -18,8 +18,8 @@
 namespace keen_pbr3 {
 namespace {
 
-constexpr const char* kInterfacesEndpoint = "http://127.0.0.1:79/rci/show/interface";
-constexpr const char* kRciEndpoint = "http://127.0.0.1:79/rci/";
+constexpr const char* kInterfacesEndpoint = "show/interface";
+constexpr const char* kRciEndpoint = "/rci/";
 constexpr auto kCacheTtl = std::chrono::minutes(2);
 
 struct KeeneticInterface {
@@ -54,10 +54,10 @@ using NowFn = std::function<std::chrono::steady_clock::time_point()>;
 
 FetchFn default_fetcher() {
     return [](const std::string& method, const std::string& url, const std::string& body) {
-        HttpClient client;
-        client.set_timeout(std::chrono::seconds(3));
-        client.set_max_response_size(std::size_t{256} * 1024U);
-        return method == "POST" ? client.post_json(url, body) : client.download(url);
+        RciRequestLimits limits;
+        limits.max_response_size = std::size_t{256} * 1024U;
+        // GET takes an RCI path ("show/interface"); POST always goes to /rci/.
+        return method == "POST" ? rci_post(body, limits) : rci_get(url, limits);
     };
 }
 

@@ -28,7 +28,7 @@ TEST_CASE("build_runtime_interface_inventory_response: admin-up interface maps t
     REQUIRE(response.interfaces.size() == 1);
     const auto& entry = response.interfaces.front();
     CHECK(entry.name == "br0");
-    CHECK(entry.status == api::RuntimeInterfaceInventoryStatusEnum::UP);
+    CHECK(entry.status == api::RuntimeInterfaceInventoryStatus::UP);
     REQUIRE(entry.admin_up.has_value());
     CHECK(*entry.admin_up);
     REQUIRE(entry.oper_state.has_value());
@@ -52,7 +52,7 @@ TEST_CASE("build_runtime_interface_inventory_response: admin-down interface maps
     REQUIRE(response.interfaces.size() == 1);
     const auto& entry = response.interfaces.front();
     CHECK(entry.name == "wg0");
-    CHECK(entry.status == api::RuntimeInterfaceInventoryStatusEnum::DOWN);
+    CHECK(entry.status == api::RuntimeInterfaceInventoryStatus::DOWN);
     REQUIRE(entry.admin_up.has_value());
     CHECK_FALSE(*entry.admin_up);
     CHECK_FALSE(entry.oper_state.has_value());

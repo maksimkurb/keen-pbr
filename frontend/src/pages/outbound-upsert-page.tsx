@@ -152,10 +152,12 @@ export function OutboundUpsertPage({
     mode === "create"
       ? t("pages.outboundUpsert.createTitle")
       : t("pages.outboundUpsert.editTitle")
+  const backTo = mode === "edit" ? "/outbounds" : undefined
 
   if (!loadedConfig) {
     return (
       <UpsertPage
+        backTo={backTo}
         cardDescription={t("pages.outboundUpsert.cardDescription")}
         cardTitle={title}
         description={t("pages.outboundUpsert.description")}
@@ -184,6 +186,7 @@ export function OutboundUpsertPage({
 
   return (
     <UpsertPage
+      backTo={backTo}
       cardDescription={t("pages.outboundUpsert.cardDescription")}
       cardTitle={
         mode === "create"

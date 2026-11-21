@@ -6,7 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 
-export type DnsmasqHealthInstanceSelection = typeof DnsmasqHealthInstanceSelection[keyof typeof DnsmasqHealthInstanceSelection] | null;
+export type DnsmasqHealthInstanceSelection = typeof DnsmasqHealthInstanceSelection[keyof typeof DnsmasqHealthInstanceSelection];
 
 
 export const DnsmasqHealthInstanceSelection = {

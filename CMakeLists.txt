@@ -316,7 +316,6 @@ set(SOURCES
   src/health/health_issues.cpp
   src/health/service_health.cpp
   src/health/runtime_interface_inventory.cpp
-  src/keenetic/interface_descriptions.cpp
   src/routing/urltest_manager.cpp
   src/routing/urltest_selection.cpp
   src/routing/firewall_state.cpp
@@ -435,6 +434,14 @@ if(WITH_API)
     src/api/handler_dns_test.cpp
     src/api/handler_diagnostics.cpp
   )
+endif()
+
+# Keenetic RCI (local router API): only the Keenetic build talks to it.
+if(USE_KEENETIC_API)
+  list(APPEND SOURCES src/keenetic/rci_client.cpp)
+  if(WITH_API)
+    list(APPEND SOURCES src/keenetic/interface_descriptions.cpp)
+  endif()
 endif()
 
 if(WITH_DOH)

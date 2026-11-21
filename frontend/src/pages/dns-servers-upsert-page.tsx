@@ -93,6 +93,7 @@ export function DnsServerUpsertPage({
     () => getDnsServerDraft(existingServer),
     [existingServer]
   )
+  const backTo = mode === "edit" ? "/dns-servers" : undefined
 
   if (mode === "edit" && !existingServer && !configQuery.isLoading) {
     return <Redirect replace to="/dns-servers" />
@@ -100,6 +101,7 @@ export function DnsServerUpsertPage({
 
   return (
     <UpsertPage
+      backTo={backTo}
       cardDescription={t("pages.dnsServerUpsert.cardDescription")}
       cardTitle={
         mode === "create"

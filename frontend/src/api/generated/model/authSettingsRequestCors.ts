@@ -6,6 +6,6 @@
  * OpenAPI spec version: 3.0.0
  */
 
-export type AuthSettingsRequestCors = {
+export interface AuthSettingsRequestCors {
   allowed_origins: string[];
-};
+}

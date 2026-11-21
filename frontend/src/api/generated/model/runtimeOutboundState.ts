@@ -5,14 +5,14 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { OutboundType } from './outboundType';
 import type { RuntimeInterfaceState } from './runtimeInterfaceState';
-import type { RuntimeOutboundStateType } from './runtimeOutboundStateType';
 import type { RuntimeOutboundStatus } from './runtimeOutboundStatus';
 
 export interface RuntimeOutboundState {
   /** Configured outbound tag. */
   tag: string;
-  type: RuntimeOutboundStateType;
+  type: OutboundType;
   status: RuntimeOutboundStatus;
   /** Optional runtime detail for mismatches or degraded state. */
   detail?: string;

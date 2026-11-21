@@ -10,9 +10,9 @@ using namespace keen_pbr3;
 
 namespace {
 
-api::InterceptHealthClass intercept_health(bool nfqueue = true, bool nflog = true,
+api::InterceptHealth intercept_health(bool nfqueue = true, bool nflog = true,
                                            bool connbytes = true) {
-    api::InterceptHealthClass health{};
+    api::InterceptHealth health{};
     health.enabled = true;
     health.running = true;
     health.capabilities.nfqueue = nfqueue;
@@ -22,28 +22,28 @@ api::InterceptHealthClass intercept_health(bool nfqueue = true, bool nflog = tru
     return health;
 }
 
-api::XtExtensionHealthElement extension(const std::string& name, bool available,
+api::XtExtensionHealth extension(const std::string& name, bool available,
                                         bool required) {
-    api::XtExtensionHealthElement ext{};
+    api::XtExtensionHealth ext{};
     ext.name = name;
-    ext.kind = api::Kind::MATCH;
+    ext.kind = api::XtExtensionHealthKind::MATCH;
     ext.kernel_module = "xt_" + name;
     ext.available = available;
     ext.required = required;
     return ext;
 }
 
-api::InterceptProbeFeatureElement probe(const std::string& feature,
+api::InterceptProbeFeature probe(const std::string& feature,
                                         api::InterceptProbeFeatureStatus status,
                                         std::optional<std::string> reason = std::nullopt) {
-    api::InterceptProbeFeatureElement element;
+    api::InterceptProbeFeature element;
     element.feature = feature;
     element.status = status;
     element.reason = std::move(reason);
     return element;
 }
 
-std::vector<std::string> keys(const std::vector<api::KernelCheckElement>& checks) {
+std::vector<std::string> keys(const std::vector<api::KernelCheck>& checks) {
     std::vector<std::string> out;
     for (const auto& check : checks) out.push_back(check.key);
     return out;
@@ -60,7 +60,7 @@ const api::HealthIssue* find_issue(const api::HealthIssuesResponse& response,
 
 TEST_CASE("kernel checks keep only the ones the requested features need") {
     auto health = intercept_health(true, false, true);
-    health.probes = std::vector<api::InterceptProbeFeatureElement>{
+    health.probes = std::vector<api::InterceptProbeFeature>{
         probe("nfqueue", api::InterceptProbeFeatureStatus::OK),
         probe("nflog", api::InterceptProbeFeatureStatus::UNSUPPORTED, "no module"),
         probe("fail_open", api::InterceptProbeFeatureStatus::SKIPPED),
@@ -80,7 +80,7 @@ TEST_CASE("kernel checks keep only the ones the requested features need") {
 
 TEST_CASE("nft_timeout_update is neither a kernel check nor an issue") {
     auto health = intercept_health();
-    health.probes = std::vector<api::InterceptProbeFeatureElement>{
+    health.probes = std::vector<api::InterceptProbeFeature>{
         probe("nft_timeout_update", api::InterceptProbeFeatureStatus::UNSUPPORTED,
               "using delete+add refresh"),
     };
@@ -100,18 +100,18 @@ TEST_CASE("addrtype only warns and the extension list replaces it") {
     auto response = collect_health_issues(inputs);
     REQUIRE(response.issues.size() == 1);
     CHECK(response.issues[0].key == "capability:addrtype");
-    CHECK(response.issues[0].severity == api::Severity::WARNING);
-    CHECK(response.issues[0].detail_code == api::DetailCode::CAPABILITY_FALLBACK);
+    CHECK(response.issues[0].severity == api::HealthIssueSeverity::WARNING);
+    CHECK(response.issues[0].detail_code == api::HealthIssueDetailCode::CAPABILITY_FALLBACK);
 
     health.capabilities.xt_extensions =
-        std::vector<api::XtExtensionHealthElement>{extension("addrtype", true, false)};
+        std::vector<api::XtExtensionHealth>{extension("addrtype", true, false)};
     CHECK(keys(collect_kernel_checks(health, false, false)) ==
           std::vector<std::string>{"extension:match:addrtype"});
 }
 
 TEST_CASE("a missing extension the rules use is an error, an unused one warns") {
     auto health = intercept_health();
-    health.capabilities.xt_extensions = std::vector<api::XtExtensionHealthElement>{
+    health.capabilities.xt_extensions = std::vector<api::XtExtensionHealth>{
         extension("multiport", false, true), extension("dscp", false, false),
         extension("addrtype", false, false), extension("set", true, true)};
     HealthIssueInputs inputs;
@@ -121,14 +121,14 @@ TEST_CASE("a missing extension the rules use is an error, an unused one warns") 
     REQUIRE(response.issues.size() == 3);
     const auto* multiport = find_issue(response, "extension:match:multiport");
     REQUIRE(multiport);
-    CHECK(multiport->severity == api::Severity::ERROR);
-    CHECK(multiport->detail_code == api::DetailCode::XT_EXTENSION_REQUIRED);
+    CHECK(multiport->severity == api::HealthIssueSeverity::ERROR);
+    CHECK(multiport->detail_code == api::HealthIssueDetailCode::XT_EXTENSION_REQUIRED);
     CHECK(multiport->title == "iptables match multiport (xt_multiport)");
     CHECK(multiport->params.at("module") == "xt_multiport");
     CHECK(find_issue(response, "extension:match:dscp")->detail_code ==
-          api::DetailCode::XT_EXTENSION_UNUSED);
+          api::HealthIssueDetailCode::XT_EXTENSION_UNUSED);
     CHECK(find_issue(response, "extension:match:addrtype")->detail_code ==
-          api::DetailCode::CAPABILITY_FALLBACK);
+          api::HealthIssueDetailCode::CAPABILITY_FALLBACK);
 }
 
 TEST_CASE("a stopped service reports only kernel issues") {
@@ -142,8 +142,8 @@ TEST_CASE("a stopped service reports only kernel issues") {
     inputs.routing_health = &routing;
     const auto response = collect_health_issues(inputs);
     REQUIRE(response.issues.size() == 1);
-    CHECK(response.issues[0].code == api::Code::KERNEL_CAPABILITY);
-    CHECK(response.issues[0].severity == api::Severity::ERROR);
+    CHECK(response.issues[0].code == api::HealthIssueCode::KERNEL_CAPABILITY);
+    CHECK(response.issues[0].severity == api::HealthIssueSeverity::ERROR);
 }
 
 TEST_CASE("routing health issues list the failing items") {
@@ -177,7 +177,7 @@ TEST_CASE("routing health issues list the failing items") {
 
     const auto* rules = find_issue(response, "firewall-rules");
     REQUIRE(rules);
-    CHECK(rules->severity == api::Severity::ERROR);
+    CHECK(rules->severity == api::HealthIssueSeverity::ERROR);
     CHECK(rules->title == "Firewall rules do not match: 1");
     CHECK(rules->entries == std::vector<std::string>{"kpbr4_vpn: missing"});
     const auto* routes = find_issue(response, "route-tables");
@@ -186,7 +186,7 @@ TEST_CASE("routing health issues list the failing items") {
           std::vector<std::string>{"vpn (table 402): default route missing"});
     const auto* nat = find_issue(response, "host-warning-nat_missing-eth1");
     REQUIRE(nat);
-    CHECK(nat->severity == api::Severity::WARNING);
+    CHECK(nat->severity == api::HealthIssueSeverity::WARNING);
     CHECK(nat->params.at("warning") == "nat_missing");
 }
 
@@ -200,22 +200,22 @@ TEST_CASE("an unavailable firewall verification is not a missing chain") {
 }
 
 TEST_CASE("outbound issues: unavailable is an error, failing group members warn") {
-    api::RuntimeOutboundStateElement down{};
+    api::RuntimeOutboundState down{};
     down.tag = "vpn";
     down.type = api::OutboundType::INTERFACE;
-    down.status = api::RuntimeOutboundStatusEnum::UNAVAILABLE;
+    down.status = api::RuntimeOutboundStatus::UNAVAILABLE;
 
     api::RuntimeInterfaceState member{};
     member.outbound_tag = "wan2";
-    member.status = api::RuntimeInterfaceStatusEnum::DEGRADED;
+    member.status = api::RuntimeInterfaceStatus::DEGRADED;
     member.detail = "probe timeout";
-    api::RuntimeOutboundStateElement group{};
+    api::RuntimeOutboundState group{};
     group.tag = "balance";
     group.type = api::OutboundType::URLTEST;
-    group.status = api::RuntimeOutboundStatusEnum::HEALTHY;
+    group.status = api::RuntimeOutboundStatus::HEALTHY;
     group.interfaces = {member};
 
-    const std::vector<api::RuntimeOutboundStateElement> outbounds{down, group};
+    const std::vector<api::RuntimeOutboundState> outbounds{down, group};
     HealthIssueInputs inputs;
     inputs.service_running = true;
     inputs.outbounds = &outbounds;
@@ -223,33 +223,33 @@ TEST_CASE("outbound issues: unavailable is an error, failing group members warn"
 
     const auto* vpn = find_issue(response, "outbound-vpn");
     REQUIRE(vpn);
-    CHECK(vpn->severity == api::Severity::ERROR);
+    CHECK(vpn->severity == api::HealthIssueSeverity::ERROR);
     CHECK(vpn->outbound == std::optional<std::string>("vpn"));
     const auto* members = find_issue(response, "outbound-balance-members");
     REQUIRE(members);
-    CHECK(members->severity == api::Severity::WARNING);
+    CHECK(members->severity == api::HealthIssueSeverity::WARNING);
     CHECK(members->entries ==
           std::vector<std::string>{"wan2 · degraded · probe timeout"});
 }
 
 TEST_CASE("a dead dnsmasq without an error message gets a fixed detail") {
     api::DnsmasqHealth dnsmasq{};
-    dnsmasq.mode = api::ResolverIntegration::DNSMASQ;
-    dnsmasq.state = api::State::ERROR;
-    dnsmasq.dnsmasq_alive = api::DnsmasqAlive::DEAD;
+    dnsmasq.mode = api::ResolverIntegrationMode::DNSMASQ;
+    dnsmasq.state = api::DnsmasqHealthState::ERROR;
+    dnsmasq.dnsmasq_alive = api::DnsmasqHealthDnsmasqAlive::DEAD;
     HealthIssueInputs inputs;
     inputs.service_running = true;
     inputs.dnsmasq = &dnsmasq;
     const auto response = collect_health_issues(inputs);
     REQUIRE(response.issues.size() == 1);
-    CHECK(response.issues[0].code == api::Code::DNSMASQ_ERROR);
-    CHECK(response.issues[0].detail_code == api::DetailCode::DNSMASQ_DEAD);
+    CHECK(response.issues[0].code == api::HealthIssueCode::DNSMASQ_ERROR);
+    CHECK(response.issues[0].detail_code == api::HealthIssueDetailCode::DNSMASQ_DEAD);
 }
 
 TEST_CASE("a missing dnsmasq points at the install guide of the OS") {
     api::DnsmasqHealth dnsmasq{};
-    dnsmasq.mode = api::ResolverIntegration::DNSMASQ;
-    dnsmasq.state = api::State::ERROR;
+    dnsmasq.mode = api::ResolverIntegrationMode::DNSMASQ;
+    dnsmasq.state = api::DnsmasqHealthState::ERROR;
     dnsmasq.error_code = "DNSMASQ_NOT_INSTALLED";
     dnsmasq.last_error = "dnsmasq is not installed";
     HealthIssueInputs inputs;
@@ -281,8 +281,8 @@ TEST_CASE("an undownloaded list is a warning with its name, url, detour and erro
     const auto response = collect_health_issues(inputs);
     REQUIRE(response.issues.size() == 1);
     const auto& issue = response.issues[0];
-    CHECK(issue.code == api::Code::LIST_NOT_DOWNLOADED);
-    CHECK(issue.severity == api::Severity::WARNING);
+    CHECK(issue.code == api::HealthIssueCode::LIST_NOT_DOWNLOADED);
+    CHECK(issue.severity == api::HealthIssueSeverity::WARNING);
     CHECK(issue.title == "List 'blocked' is not downloaded yet");
     CHECK(issue.params.at("list") == "blocked");
     CHECK(issue.params.at("detour") == "vpn");
@@ -336,8 +336,8 @@ TEST_CASE("a DNS server that failed ten times in a row is a warning") {
     const auto response = collect_health_issues(inputs);
     REQUIRE(response.issues.size() == 1);
     const auto& issue = response.issues[0];
-    CHECK(issue.code == api::Code::DNS_SERVER_FAILING);
-    CHECK(issue.severity == api::Severity::WARNING);
+    CHECK(issue.code == api::HealthIssueCode::DNS_SERVER_FAILING);
+    CHECK(issue.severity == api::HealthIssueSeverity::WARNING);
     CHECK(issue.title == "DNS server 'dns_a' is not answering");
     CHECK(issue.params.at("tag") == "dns_a");
     CHECK(issue.params.at("address") == "192.0.2.1:53");
@@ -369,7 +369,7 @@ TEST_CASE("when every server of a group fails the issue is an error naming the l
     const auto response = collect_health_issues(inputs);
     REQUIRE(response.issues.size() == 2);
     for (const auto& issue : response.issues) {
-        CHECK(issue.severity == api::Severity::ERROR);
+        CHECK(issue.severity == api::HealthIssueSeverity::ERROR);
         REQUIRE(issue.entries.has_value());
         CHECK(*issue.entries == std::vector<std::string>{"blocked", "video"});
     }
@@ -419,8 +419,8 @@ TEST_CASE("missing main DNS servers are a warning") {
     inputs.dns_upstream_missing = true;
     const auto response = collect_health_issues(inputs);
     REQUIRE(response.issues.size() == 1);
-    CHECK(response.issues[0].code == api::Code::DNS_UPSTREAM_MISSING);
-    CHECK(response.issues[0].severity == api::Severity::WARNING);
+    CHECK(response.issues[0].code == api::HealthIssueCode::DNS_UPSTREAM_MISSING);
+    CHECK(response.issues[0].severity == api::HealthIssueSeverity::WARNING);
 }
 
 TEST_CASE("DoH servers without bootstrap servers are one warning naming them") {
@@ -430,7 +430,7 @@ TEST_CASE("DoH servers without bootstrap servers are one warning naming them") {
     const auto response = collect_health_issues(inputs);
     REQUIRE(response.issues.size() == 1);
     const auto& issue = response.issues[0];
-    CHECK(issue.code == api::Code::DOH_BOOTSTRAP_MISSING);
-    CHECK(issue.severity == api::Severity::WARNING);
+    CHECK(issue.code == api::HealthIssueCode::DOH_BOOTSTRAP_MISSING);
+    CHECK(issue.severity == api::HealthIssueSeverity::WARNING);
     CHECK(issue.params.at("tags") == "doh_google, doh_cf");
 }

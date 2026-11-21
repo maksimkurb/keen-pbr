@@ -87,6 +87,7 @@ export function RoutingRuleUpsertPage({
   if (!loadedConfig) {
     return (
       <UpsertPage
+        backTo={mode === "edit" ? "/routing-rules" : undefined}
         cardDescription={t("pages.routingRuleUpsert.cardDescription")}
         cardTitle={
           mode === "create"
@@ -367,6 +368,7 @@ function RoutingRuleForm({
 
   return (
     <UpsertPage
+      backTo={mode === "edit" ? "/routing-rules" : undefined}
       description={t("pages.routingRuleUpsert.description")}
       title={
         mode === "create" ? (

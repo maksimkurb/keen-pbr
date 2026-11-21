@@ -46,11 +46,11 @@ struct Fixture {
         UrltestState state;
         state.config.type = OutboundType::ICMPTEST;
         OutboundGroup group;
-        api::OutboundGroupMemberElement first;
+        api::OutboundGroupMember first;
         first.outbound = "wan\"a";
-        api::OutboundGroupMemberElement second;
+        api::OutboundGroupMember second;
         second.outbound = "wan_b";
-        group.members = std::vector<api::OutboundGroupMemberElement>{first, second};
+        group.members = std::vector<api::OutboundGroupMember>{first, second};
         state.config.outbound_groups = std::vector<OutboundGroup>{group};
         state.selected_outbound = "wan_b";
         state.selection_changes = 3;

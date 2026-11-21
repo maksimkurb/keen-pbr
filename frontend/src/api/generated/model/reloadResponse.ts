@@ -5,9 +5,9 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
-import type { ReloadResponseStatus } from './reloadResponseStatus';
+import type { OkResponseStatus } from './okResponseStatus';
 
 export interface ReloadResponse {
-  status: ReloadResponseStatus;
+  status: OkResponseStatus;
   message: string;
 }

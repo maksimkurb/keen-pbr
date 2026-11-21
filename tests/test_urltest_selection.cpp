@@ -12,14 +12,14 @@ UrltestState state_for(OutboundType type) {
     OutboundGroup preferred;
     OutboundGroup fallback;
     const auto member = [type](const char* tag, const char* target) {
-        api::OutboundGroupMemberElement value;
+        api::OutboundGroupMember value;
         value.outbound = tag;
         if (type == OutboundType::ICMPTEST) value.target = target;
         return value;
     };
-    preferred.members = std::vector<api::OutboundGroupMemberElement>{
+    preferred.members = std::vector<api::OutboundGroupMember>{
         member("a", "1.1.1.1"), member("b", "8.8.8.8")};
-    fallback.members = std::vector<api::OutboundGroupMemberElement>{member("c", "9.9.9.9")};
+    fallback.members = std::vector<api::OutboundGroupMember>{member("c", "9.9.9.9")};
     state.config.outbound_groups = std::vector<OutboundGroup>{preferred, fallback};
     for (const auto* tag : {"a", "b", "c"}) {
         state.circuit_breakers.emplace(tag, CircuitBreaker(CircuitBreakerConfig{}));

@@ -5,10 +5,10 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
-import type { ConfigUpdateResponseStatus } from './configUpdateResponseStatus';
+import type { OkResponseStatus } from './okResponseStatus';
 
 export interface ConfigUpdateResponse {
-  status: ConfigUpdateResponseStatus;
+  status: OkResponseStatus;
   message: string;
   /** Present for `POST /api/config/save`: server-authoritative Unix timestamp (seconds) when apply started.
    */

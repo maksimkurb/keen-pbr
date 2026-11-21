@@ -28,7 +28,7 @@ ApiContext make_check_context(SseBroadcaster& broadcaster) {
         []() { return RoutingHealthReport{}; },
         []() { return api::RuntimeOutboundsResponse{}; },
         []() { return api::RuntimeInterfaceInventoryResponse{}; },
-        [](const Config&) { return std::map<std::string, api::ListRefreshStateValue>{}; },
+        [](const Config&) { return std::map<std::string, api::ListRefreshState>{}; },
         [](const std::string& target) {
             TestRoutingResult result;
             result.target = target;

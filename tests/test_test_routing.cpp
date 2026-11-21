@@ -1066,3 +1066,439 @@ TEST_CASE("test-routing result survives the API JSON round trip") {
     REQUIRE(back.entries[0].list_match.has_value());
     CHECK(back.entries[0].list_match->via == "example.com");
 }
+
+namespace {
+
+Config default_gateway_config(const std::string& outbound_tag = "vpn") {
+    Config config = build_test_config();
+    Outbound outbound;
+    outbound.tag = outbound_tag;
+    outbound.type = OutboundType::TABLE;
+    outbound.table = 100;
+    config.outbounds = std::vector<Outbound>{outbound};
+    RouteRule rule;
+    rule.outbound = outbound_tag;
+    rule.default_gateway = api::DefaultGateway::IPV4;
+    RouteConfig route;
+    route.rules = std::vector<RouteRule>{rule};
+    config.route = route;
+    return config;
+}
+
+TestRoutingNetworkSnapshot lan_snapshot() {
+    TestRoutingNetworkSnapshot network;
+    DumpedRoute vpn_route;
+    vpn_route.destination = "10.8.0.0/24";
+    vpn_route.interface = "wg0";
+    vpn_route.family = AF_INET;
+    DumpedRoute default_route;
+    default_route.destination = "default";
+    default_route.family = AF_INET;
+    network.main_routes = {vpn_route, default_route};
+    DumpedInterface lan;
+    lan.name = "br0";
+    lan.ipv4_addresses = {"192.168.1.1/24"};
+    network.interfaces = {lan};
+    return network;
+}
+
+RuleState realized_gateway_rule(const std::string& outbound_tag,
+                                std::vector<std::string> bypass) {
+    RuleState state;
+    state.rule_index = 0;
+    state.outbound_tag = outbound_tag;
+    state.action_type = RuleActionType::Mark;
+    state.criteria = build_firewall_rule_criteria(RouteRule{});
+    state.criteria.default_gateway = DefaultGatewayFamily::Ipv4;
+    state.criteria.default_gateway_bypass = std::move(bypass);
+    return state;
+}
+
+TestRoutingResult run_gateway(const Config& config,
+                              const std::string& target,
+                              const TestRoutingNetworkSnapshot* network,
+                              const std::vector<RuleState>* realized = nullptr) {
+    static std::filesystem::path dir = make_temp_dir();
+    CacheManager cache(dir);
+    cache.ensure_dir();
+    TestRoutingCriteria packet;
+    packet.proto = "tcp";
+    return compute_test_routing(config, cache, target, packet, realized, {}, nullptr,
+                                true, network, nullptr);
+}
+
+} // namespace
+
+TEST_CASE("compute_test_routing: public address uses a default_gateway rule") {
+    const Config config = default_gateway_config();
+    const auto network = lan_snapshot();
+    const std::vector<RuleState> realized{realized_gateway_rule(
+        "vpn", {"10.8.0.0/24", "127.0.0.0/8", "192.168.1.0/24"})};
+
+    const auto result = run_gateway(config, "1.2.3.4", &network, &realized);
+    const auto& entry = result.entries.front();
+    CHECK(entry.expected_outbound == "vpn");
+    CHECK(entry.actual_outbound == "vpn");
+    CHECK(entry.ok);
+    CHECK_FALSE(entry.default_gateway_directness);
+    REQUIRE(entry.default_gateway.has_value());
+    CHECK(entry.default_gateway->rule_index == 0);
+    CHECK(entry.default_gateway->uses_default_gateway == std::optional<bool>(true));
+    CHECK_FALSE(entry.default_gateway->bypass.has_value());
+    CHECK(entry.default_gateway->applied_uses_default_gateway == std::optional<bool>(true));
+}
+
+TEST_CASE("compute_test_routing: address with its own route skips a default_gateway rule") {
+    const Config config = default_gateway_config();
+    const auto network = lan_snapshot();
+    const std::vector<RuleState> realized{realized_gateway_rule(
+        "vpn", {"10.8.0.0/24", "192.168.1.0/24"})};
+
+    const auto route = run_gateway(config, "10.8.0.5", &network, &realized);
+    const auto& route_entry = route.entries.front();
+    CHECK(route_entry.expected_outbound == "(default)");
+    CHECK(route_entry.actual_outbound == "(default)");
+    REQUIRE(route_entry.default_gateway.has_value());
+    CHECK(route_entry.default_gateway->uses_default_gateway == std::optional<bool>(false));
+    REQUIRE(route_entry.default_gateway->bypass.has_value());
+    CHECK(route_entry.default_gateway->bypass->cidr == "10.8.0.0/24");
+    CHECK(route_entry.default_gateway->bypass->source == DefaultGatewayBypassSource::Route);
+    CHECK(route_entry.default_gateway->bypass->interface == std::optional<std::string>("wg0"));
+
+    const auto address = run_gateway(config, "192.168.1.50", &network, &realized);
+    REQUIRE(address.entries.front().default_gateway.has_value());
+    const auto& bypass = address.entries.front().default_gateway->bypass;
+    REQUIRE(bypass.has_value());
+    CHECK(bypass->cidr == "192.168.1.0/24");
+    CHECK(bypass->source == DefaultGatewayBypassSource::Address);
+    CHECK(bypass->interface == std::optional<std::string>("br0"));
+
+    const auto reserved = run_gateway(config, "169.254.1.1", &network, &realized);
+    REQUIRE(reserved.entries.front().default_gateway.has_value());
+    const auto& reserved_bypass = reserved.entries.front().default_gateway->bypass;
+    REQUIRE(reserved_bypass.has_value());
+    CHECK(reserved_bypass->cidr == "169.254.0.0/16");
+    CHECK(reserved_bypass->source == DefaultGatewayBypassSource::Reserved);
+}
+
+TEST_CASE("compute_test_routing: default_gateway rule stays unknown without a network snapshot") {
+    const Config config = default_gateway_config();
+    const auto result = run_gateway(config, "1.2.3.4", nullptr);
+    const auto& entry = result.entries.front();
+    CHECK(entry.expected_outbound == "(unknown)");
+    CHECK(entry.default_gateway_directness);
+    CHECK_FALSE(entry.default_gateway.has_value());
+}
+
+TEST_CASE("compute_test_routing: applied bypass list that differs from the routes is reported") {
+    const Config config = default_gateway_config();
+    const auto network = lan_snapshot();
+    // The firewall was applied before the VPN route appeared.
+    const std::vector<RuleState> stale{realized_gateway_rule("vpn", {"192.168.1.0/24"})};
+
+    const auto result = run_gateway(config, "10.8.0.5", &network, &stale);
+    const auto& entry = result.entries.front();
+    CHECK(entry.expected_outbound == "(default)");
+    CHECK(entry.actual_outbound == "vpn");
+    CHECK_FALSE(entry.ok);
+    REQUIRE(entry.default_gateway.has_value());
+    CHECK(entry.default_gateway->uses_default_gateway == std::optional<bool>(false));
+    CHECK(entry.default_gateway->applied_uses_default_gateway == std::optional<bool>(true));
+}
+
+namespace {
+
+TestRoutingResult run_target_only(const Config& config,
+                                  const std::string& target,
+                                  const TestRoutingNetworkSnapshot* network,
+                                  const std::vector<RuleState>* realized = nullptr) {
+    static std::filesystem::path dir = make_temp_dir();
+    CacheManager cache(dir);
+    cache.ensure_dir();
+    return compute_test_routing(config, cache, target, TestRoutingCriteria{}, realized, {},
+                                nullptr, true, network, nullptr);
+}
+
+} // namespace
+
+TEST_CASE("compute_test_routing: target-only request evaluates a default_gateway rule") {
+    const Config config = default_gateway_config();
+    const auto network = lan_snapshot();
+    const std::vector<RuleState> realized{realized_gateway_rule(
+        "vpn", {"10.8.0.0/24", "127.0.0.0/8", "192.168.1.0/24"})};
+
+    const auto result = run_target_only(config, "1.2.3.4", &network, &realized);
+    const auto& entry = result.entries.front();
+    CHECK(entry.expected_outbound == "vpn");
+    CHECK(entry.actual_outbound == "vpn");
+    CHECK(entry.ok);
+    CHECK_FALSE(entry.criteria_match.has_value());
+    REQUIRE(entry.default_gateway.has_value());
+    CHECK(entry.default_gateway->uses_default_gateway == std::optional<bool>(true));
+    CHECK(entry.default_gateway->applied_uses_default_gateway == std::optional<bool>(true));
+
+    // An address with its own route is not carried by the default gateway.
+    const auto lan = run_target_only(config, "192.168.1.50", &network, &realized);
+    CHECK(lan.entries.front().expected_outbound == "(default)");
+    CHECK(lan.entries.front().actual_outbound == "(default)");
+    CHECK(lan.entries.front().ok);
+    REQUIRE(lan.entries.front().default_gateway.has_value());
+    CHECK(lan.entries.front().default_gateway->uses_default_gateway == std::optional<bool>(false));
+}
+
+TEST_CASE("compute_test_routing: target-only default_gateway rule is ignored without routes") {
+    const Config config = default_gateway_config();
+    const auto result = run_target_only(config, "1.2.3.4", nullptr);
+    const auto& entry = result.entries.front();
+    // Without the router's routes the rule cannot be decided; as before, a
+    // target-only request does not turn into an unknown because of it.
+    CHECK(entry.expected_outbound == "(default)");
+    CHECK_FALSE(entry.default_gateway.has_value());
+    CHECK_FALSE(entry.default_gateway_directness);
+}
+
+TEST_CASE("compute_test_routing: target-only request evaluates a dest_addr-only rule") {
+    Config config = default_gateway_config();
+    auto& rule = config.route->rules->front();
+    rule.default_gateway.reset();
+    rule.dest_addr = "1.2.3.0/24";
+    RuleState state = realized_gateway_rule("vpn", {});
+    state.criteria = build_firewall_rule_criteria(rule);
+
+    const std::vector<RuleState> realized{state};
+    const auto hit = run_target_only(config, "1.2.3.4", nullptr, &realized);
+    CHECK(hit.entries.front().expected_outbound == "vpn");
+    CHECK(hit.entries.front().actual_outbound == "vpn");
+    CHECK(hit.entries.front().ok);
+
+    const auto miss = run_target_only(config, "5.6.7.8", nullptr, &realized);
+    CHECK(miss.entries.front().expected_outbound == "(default)");
+    CHECK(miss.entries.front().actual_outbound == "(default)");
+}
+
+TEST_CASE("compute_test_routing: target-only request still skips list-less rules with ports") {
+    Config config = default_gateway_config();
+    config.route->rules->front().dest_port = "443";
+    const auto network = lan_snapshot();
+    RuleState state = realized_gateway_rule("vpn", {});
+    state.criteria = build_firewall_rule_criteria(config.route->rules->front());
+    const std::vector<RuleState> realized{state};
+
+    const auto result = run_target_only(config, "1.2.3.4", &network, &realized);
+    CHECK(result.entries.front().expected_outbound == "(default)");
+    CHECK_FALSE(result.entries.front().default_gateway.has_value());
+}
+
+TEST_CASE("compute_test_routing: default_gateway rule of the other family is skipped") {
+    const Config config = default_gateway_config();
+    const auto network = lan_snapshot();
+    const auto result = run_gateway(config, "2001:db8::10", &network);
+    CHECK(result.entries.front().expected_outbound == "(default)");
+    CHECK_FALSE(result.entries.front().default_gateway.has_value());
+}
+
+TEST_CASE("test routing json round-trips default gateway and outbound group") {
+    TestRoutingResult result;
+    result.target = "1.2.3.4";
+    TestRoutingEntry entry;
+    entry.ip = "1.2.3.4";
+    entry.expected_outbound = "lb";
+    entry.actual_outbound = "lb";
+    entry.ok = true;
+    DefaultGatewayDecision decision;
+    decision.rule_index = 13;
+    decision.uses_default_gateway = false;
+    decision.applied_uses_default_gateway = true;
+    decision.bypass = DefaultGatewayBypassEntry{
+        "10.8.0.0/24", DefaultGatewayBypassSource::Route, std::string("wg0")};
+    entry.default_gateway = decision;
+    OutboundGroupBreakdown group;
+    group.tag = "lb";
+    group.strategy = "balance";
+    group.members.push_back({"wan1", std::string("eth3"), 3u, 75u, true});
+    group.members.push_back({"wan2", std::nullopt, 1u, 0u, false});
+    entry.outbound_group = group;
+    result.entries.push_back(entry);
+
+    const auto json = test_routing_result_to_json(result);
+    const auto& jentry = json.at("results").at(0);
+    CHECK(jentry.at("default_gateway").at("bypass").at("source") == "route");
+    CHECK(jentry.at("outbound_group").at("strategy") == "balance");
+
+    const auto back = test_routing_result_from_json(json).entries.at(0);
+    REQUIRE(back.default_gateway.has_value());
+    CHECK(back.default_gateway->rule_index == 13);
+    CHECK(back.default_gateway->uses_default_gateway == std::optional<bool>(false));
+    CHECK(back.default_gateway->applied_uses_default_gateway == std::optional<bool>(true));
+    REQUIRE(back.default_gateway->bypass.has_value());
+    CHECK(back.default_gateway->bypass->cidr == "10.8.0.0/24");
+    CHECK(back.default_gateway->bypass->interface == std::optional<std::string>("wg0"));
+    REQUIRE(back.outbound_group.has_value());
+    CHECK(back.outbound_group->strategy == "balance");
+    REQUIRE(back.outbound_group->members.size() == 2);
+    CHECK(back.outbound_group->members[0].share_percent == std::optional<uint32_t>(75));
+    CHECK(back.outbound_group->members[0].interface_name == std::optional<std::string>("eth3"));
+    CHECK(back.outbound_group->members[1].in_use == false);
+    CHECK(back.outbound_group->members[1].share_percent == std::optional<uint32_t>(0));
+}
+
+namespace {
+
+// A urltest group "lb" over interface outbounds wan1..wanN with the given
+// weights; one rule sends everything to it.
+Config group_config(const std::vector<uint32_t>& weights, api::TestGroupStrategy strategy) {
+    Config config = build_test_config();
+    std::vector<Outbound> outbounds;
+    OutboundGroup tier;
+    std::vector<api::OutboundGroupMember> members;
+    for (size_t i = 0; i < weights.size(); ++i) {
+        Outbound child;
+        child.tag = "wan" + std::to_string(i + 1);
+        child.type = OutboundType::INTERFACE;
+        child.interface = "eth" + std::to_string(i + 1);
+        outbounds.push_back(child);
+        api::OutboundGroupMember member;
+        member.outbound = child.tag;
+        member.weight = weights[i];
+        members.push_back(member);
+    }
+    tier.members = members;
+    Outbound group;
+    group.tag = "lb";
+    group.type = OutboundType::URLTEST;
+    group.strategy = strategy;
+    group.outbound_groups = std::vector<OutboundGroup>{tier};
+    outbounds.push_back(group);
+    config.outbounds = outbounds;
+    RouteRule rule;
+    rule.outbound = "lb";
+    rule.proto = "tcp";
+    RouteConfig route;
+    route.rules = std::vector<RouteRule>{rule};
+    config.route = route;
+    return config;
+}
+
+TestRoutingGroupState group_state_for(size_t members) {
+    TestRoutingGroupState state;
+    for (size_t i = 0; i < members; ++i) {
+        state.outbound_marks["wan" + std::to_string(i + 1)] = 0x100 + static_cast<uint32_t>(i);
+    }
+    state.outbound_marks["lb"] = 0x200;
+    return state;
+}
+
+RuleState group_rule_state(std::vector<FirewallBalanceCandidate> candidates) {
+    RuleState state;
+    state.rule_index = 0;
+    state.outbound_tag = "lb";
+    state.action_type = RuleActionType::Mark;
+    state.fwmark = 0x200;
+    state.balance_candidates = std::move(candidates);
+    return state;
+}
+
+TestRoutingEntry run_group(const Config& config,
+                           const std::vector<RuleState>& realized,
+                           const TestRoutingGroupState& state,
+                           const std::string& target = "203.0.113.10") {
+    static std::filesystem::path dir = make_temp_dir();
+    CacheManager cache(dir);
+    cache.ensure_dir();
+    TestRoutingCriteria packet;
+    packet.proto = "tcp";
+    return compute_test_routing(config, cache, target, packet, &realized, {}, nullptr,
+                                true, nullptr, &state).entries.front();
+}
+
+} // namespace
+
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
+TEST_CASE("compute_test_routing: balance group shares sum to 100") {
+    struct Case {
+        std::vector<uint32_t> weights;
+        std::vector<uint32_t> shares;
+    };
+    const std::vector<Case> cases{
+        {{1, 1}, {50, 50}}, {{3, 1}, {75, 25}}, {{1, 1, 1}, {34, 33, 33}}};
+    for (const auto& c : cases) {
+        const auto config = group_config(c.weights, api::TestGroupStrategy::BALANCE);
+        std::vector<FirewallBalanceCandidate> candidates;
+        for (size_t i = 0; i < c.weights.size(); ++i) {
+            candidates.push_back({0x100 + static_cast<uint32_t>(i), true, true, c.weights[i]});
+        }
+        const auto entry = run_group(config, {group_rule_state(candidates)},
+                                     group_state_for(c.weights.size()));
+        REQUIRE(entry.outbound_group.has_value());
+        CHECK(entry.outbound_group->strategy == "balance");
+        REQUIRE(entry.outbound_group->members.size() == c.shares.size());
+        uint32_t sum = 0;
+        for (size_t i = 0; i < c.shares.size(); ++i) {
+            const auto& member = entry.outbound_group->members[i];
+            CHECK(member.in_use);
+            CHECK(member.share_percent == std::optional<uint32_t>(c.shares[i]));
+            CHECK(member.weight == std::optional<uint32_t>(c.weights[i]));
+            CHECK(member.interface_name == std::optional<std::string>("eth" + std::to_string(i + 1)));
+            sum += *member.share_percent;
+        }
+        CHECK(sum == 100);
+    }
+}
+
+TEST_CASE("compute_test_routing: balance member missing from the candidates is not in use") {
+    const auto config = group_config({1, 1}, api::TestGroupStrategy::BALANCE);
+    const auto entry = run_group(config, {group_rule_state({{0x100, true, true, 1}})},
+                                 group_state_for(2));
+    REQUIRE(entry.outbound_group.has_value());
+    CHECK(entry.outbound_group->members[0].in_use);
+    CHECK(entry.outbound_group->members[0].share_percent == std::optional<uint32_t>(100));
+    CHECK_FALSE(entry.outbound_group->members[1].in_use);
+    CHECK(entry.outbound_group->members[1].share_percent == std::optional<uint32_t>(0));
+
+    const auto none = run_group(config, {group_rule_state({})}, group_state_for(2));
+    REQUIRE(none.outbound_group.has_value());
+    for (const auto& member : none.outbound_group->members) CHECK_FALSE(member.in_use);
+}
+
+TEST_CASE("compute_test_routing: balance breakdown honours the address family") {
+    const auto config = group_config({1, 1}, api::TestGroupStrategy::BALANCE);
+    const auto realized = group_rule_state(
+        {{0x100, true, false, 1}, {0x101, false, true, 1}});
+
+    const auto v4 = run_group(config, {realized}, group_state_for(2));
+    REQUIRE(v4.outbound_group.has_value());
+    CHECK(v4.outbound_group->members[0].in_use);
+    CHECK_FALSE(v4.outbound_group->members[1].in_use);
+    CHECK(v4.outbound_group->members[0].share_percent == std::optional<uint32_t>(100));
+
+    const auto v6 = run_group(config, {realized}, group_state_for(2), "2001:db8::10");
+    REQUIRE(v6.outbound_group.has_value());
+    CHECK_FALSE(v6.outbound_group->members[0].in_use);
+    CHECK(v6.outbound_group->members[1].in_use);
+}
+#endif
+
+TEST_CASE("compute_test_routing: priority group marks the selected member") {
+    const auto config = group_config({1, 1}, api::TestGroupStrategy::PRIORITY);
+    auto state = group_state_for(2);
+    state.urltest_selections["lb"] = "wan2";
+    const auto entry = run_group(config, {group_rule_state({})}, state);
+    REQUIRE(entry.outbound_group.has_value());
+    CHECK(entry.outbound_group->strategy == "priority");
+    REQUIRE(entry.outbound_group->members.size() == 2);
+    CHECK_FALSE(entry.outbound_group->members[0].in_use);
+    CHECK(entry.outbound_group->members[1].in_use);
+    CHECK_FALSE(entry.outbound_group->members[1].weight.has_value());
+    CHECK_FALSE(entry.outbound_group->members[1].share_percent.has_value());
+}
+
+TEST_CASE("compute_test_routing: no group state means no outbound group") {
+    const auto config = group_config({1, 1}, api::TestGroupStrategy::PRIORITY);
+    static std::filesystem::path dir = make_temp_dir();
+    CacheManager cache(dir);
+    cache.ensure_dir();
+    const std::vector<RuleState> realized{group_rule_state({})};
+    const auto result = compute_test_routing(config, cache, "203.0.113.10", TestRoutingCriteria{},
+                                             &realized);
+    CHECK_FALSE(result.entries.front().outbound_group.has_value());
+}
