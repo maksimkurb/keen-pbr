@@ -467,9 +467,15 @@ void set_keenetic_dns_now_fn_for_tests(KeeneticDnsNowFn now_fn) {
 void reset_keenetic_dns_test_state() {
     std::lock_guard<std::mutex> lock(keenetic_dns_cache_mutex());
     keenetic_dns_cache_state() = KeeneticDnsCacheState{};
+#ifdef USE_KEENETIC_API
     keenetic_dns_fetch_fn() = []() {
         return rci_get(kRciDnsProxyPath);
     };
+#else
+    keenetic_dns_fetch_fn() = []() -> std::string {
+        throw KeeneticDnsError("Keenetic RCI support is not built in");
+    };
+#endif
     keenetic_dns_now_fn() = []() {
         return std::chrono::steady_clock::now();
     };

@@ -40,10 +40,11 @@ std::string rci_get(const std::string& path, const RciRequestLimits& limits = {}
 // POST /rci/ with a JSON body.
 std::string rci_post(const std::string& json_body, const RciRequestLimits& limits = {});
 
-// Let this process create RCI access tokens and keep them in `path`.  Only
-// the service calls it; one-shot CLI commands never create tokens.  Reads the
-// token saved by an earlier run, if any.
-void configure_rci_token_file(const std::string& path);
+// Read the RCI access token saved in `path` by an earlier run, if any.  With
+// `allow_create` this process may also create a token and save it there; only
+// the service does that.  One-shot CLI commands pass false and only use the
+// saved token: they must not create tokens or delete the service's.
+void configure_rci_token_file(const std::string& path, bool allow_create = true);
 
 namespace rci_detail {
 

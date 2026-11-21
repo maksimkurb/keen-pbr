@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <cctype>
 #include <charconv>
 #include <cstdlib>
 #include <cstring>
@@ -87,6 +89,8 @@ struct CliOptions {
   // Optional packet fields for test-routing, in the API request shape.
   nlohmann::json test_routing_packet = nlohmann::json::object();
   keen_pbr3::TestRoutingCriteria test_routing_criteria;
+  // Hidden `keenetic <rci-ready|missing-components>`, used by the init script.
+  std::string keenetic_command;
   bool show_help{false};
   bool show_version{false};
   bool hash_password{false};
@@ -151,6 +155,72 @@ long parse_cli_integer(const char *flag, const char *text, long minimum,
   return value;
 }
 
+// Hidden commands for the init script, so it does not talk to RCI itself:
+//   keenetic rci-ready          exit 0 once RCI answers
+//   keenetic missing-components print required netfilter components that are
+//                               not installed, one per line
+int run_keenetic_command(const std::string &command,
+                         const std::string &config_path) {
+#ifdef USE_KEENETIC_API
+  // Read-only: only the service creates RCI tokens (and deletes older ones).
+  // These run before it starts and use the token it saved, if any.
+  keen_pbr3::configure_rci_token_file(
+      (std::filesystem::path(config_path).parent_path() / "rci-token").string(),
+      false);
+  try {
+    if (command == "rci-ready") {
+      (void)keen_pbr3::rci_get("show/version");
+      return 0;
+    }
+    if (command == "missing-components") {
+      // A JSON string or array naming the installed components.  Anything else
+      // (an error object, an empty answer) is a failure, not "all missing".
+      const auto answer = nlohmann::json::parse(
+          keen_pbr3::rci_get("show/version/ndw/components"));
+      std::string text;
+      if (answer.is_string()) {
+        text = answer.get<std::string>();
+      } else if (answer.is_array()) {
+        for (const auto &item : answer) {
+          if (item.is_string()) text += item.get<std::string>() + ' ';
+        }
+      }
+      if (text.find_first_not_of(" \t\r\n,") == std::string::npos) {
+        throw std::runtime_error("unexpected components answer");
+      }
+      std::vector<std::string> have;
+      std::string token;
+      for (const char c : text + ' ') {
+        if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '-' ||
+            c == '_') {
+          token += c;
+        } else if (!token.empty()) {
+          have.push_back(std::move(token));
+          token.clear();
+        }
+      }
+      for (const char *component :
+           {"opkg-kmod-netfilter", "opkg-kmod-netfilter-addons"}) {
+        if (std::find(have.begin(), have.end(), component) == have.end()) {
+          std::cout << component << '\n';
+        }
+      }
+      return 0;
+    }
+  } catch (const std::exception &e) {
+    std::cerr << "keen-pbr keenetic " << command << ": " << e.what() << '\n';
+    return 1;
+  }
+  std::cerr << "keen-pbr keenetic: unknown subcommand " << command << '\n';
+  return 2;
+#else
+  (void)command;
+  (void)config_path;
+  std::cerr << "keen-pbr keenetic: not available in this build\n";
+  return 1;
+#endif
+}
+
 CliOptions parse_args(int argc, char *argv[]) {
   CliOptions opts;
   for (int i = 1; i < argc; ++i) {
@@ -201,6 +271,12 @@ CliOptions parse_args(int argc, char *argv[]) {
       opts.run_service = true;
     } else if (std::strcmp(argv[i], "status") == 0) {
       opts.run_status = true;
+    } else if (std::strcmp(argv[i], "keenetic") == 0) {
+      if (i + 1 >= argc) {
+        std::cerr << "Error: keenetic requires a subcommand\n";
+        std::exit(2);
+      }
+      opts.keenetic_command = argv[++i];
     } else if (std::strcmp(argv[i], "generate-resolver-config") == 0) {
       // Old spelling of `resolver dnsmasq print-config`. Installed dnsmasq
       // drop-ins call this form (conf-script=... generate-resolver-config
@@ -439,7 +515,8 @@ int main(int argc, char *argv[]) {
     if (!opts.download_lists && !opts.generate_resolver_config &&
         !opts.resolver_config_hash && !opts.run_service && !opts.run_status &&
         !opts.run_test_routing && !opts.hash_password &&
-        !opts.run_resolver_detect && !opts.resolver_usage_error) {
+        !opts.run_resolver_detect && !opts.resolver_usage_error &&
+        opts.keenetic_command.empty()) {
       print_usage(argv[0]);
       return 0;
     }
@@ -495,6 +572,10 @@ int main(int argc, char *argv[]) {
     // Deprecated no-op stub: old installs may still call it.
     if (opts.resolver_config_hash) {
       return 0;
+    }
+
+    if (!opts.keenetic_command.empty()) {
+      return run_keenetic_command(opts.keenetic_command, opts.config_path);
     }
 
     if (opts.run_status || opts.download_lists ||

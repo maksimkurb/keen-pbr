@@ -12,7 +12,9 @@
 #include <fstream>
 #include <functional>
 #include <iterator>
+#include <chrono>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <sys/stat.h>
 #include <vector>
@@ -260,9 +262,13 @@ class FakeTransport : public HttpTransport {
 public:
     std::function<HttpTransportResponse(const HttpTransportRequest&)> handler;
     std::vector<HttpTransportRequest> requests;
+    std::mutex mutex;
 
     HttpTransportResponse perform(const HttpTransportRequest& request) override {
-        requests.push_back(request);
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            requests.push_back(request);
+        }
         return handler(request);
     }
 };
@@ -559,4 +565,163 @@ TEST_CASE("RCI tokens: a token refused right after creation stops further attemp
     CHECK(test.transport->requests.size() == 1);
     CHECK(std::count(test.ndmc_calls.begin(), test.ndmc_calls.end(),
                      "authentication token generate keen-pbr") == 1);
+}
+
+TEST_CASE("RCI tokens: commands that may not create tokens use the saved token only") {
+    TokenTest test;
+    TokenDir dir;
+    {
+        std::ofstream(dir.file) << kSampleToken << "\n";
+    }
+    configure_rci_token_file(dir.file, false);
+    test.transport->handler = [](const HttpTransportRequest& request) {
+        return token_header(request).empty() ? respond(401) : respond(200, "{\"ok\":1}");
+    };
+
+    CHECK(rci_get("show/version") == "{\"ok\":1}");
+    CHECK(test.ndmc_calls.empty());
+
+    // The saved token is revoked: still no token is created.
+    test.transport->handler = [](const HttpTransportRequest&) { return respond(403); };
+    reset_rci_test_state();
+    set_rci_http_transport_for_tests(test.transport);
+    set_rci_ndmc_for_tests([&test](const std::vector<std::string>& args) {
+        test.ndmc_calls.push_back(args.at(2));
+        return RciNdmcResult{};
+    });
+    set_rci_scgi_socket_path_for_tests("/nonexistent/ndm.scgi.socket");
+    configure_rci_token_file(dir.file, false);
+    CHECK_THROWS_AS((void)rci_get("show/version"), HttpError);
+    CHECK(test.ndmc_calls.empty());
+}
+
+TEST_CASE("RCI tokens: a timeout on the working token neither searches nor creates a token") {
+    TokenTest test;
+    TokenDir dir;
+    {
+        std::ofstream(dir.file) << kSampleToken << "\n";
+    }
+    configure_rci_token_file(dir.file);
+    bool fail = false;
+    test.transport->handler = [&fail](const HttpTransportRequest&) -> HttpTransportResponse {
+        if (fail) throw HttpTransportError("timeout");
+        return respond(200, "{}");
+    };
+
+    CHECK(rci_get("show/version") == "{}");
+    fail = true;
+    test.transport->requests.clear();
+    CHECK_THROWS_AS((void)rci_get("show/version"), HttpError);
+    CHECK(test.transport->requests.size() == 1); // no plain/SCGI search
+    CHECK(test.ndmc_calls.empty());
+
+    fail = false;
+    CHECK(rci_get("show/version") == "{}");
+    CHECK(token_header(test.transport->requests.back()) == kSampleToken);
+}
+
+TEST_CASE("RCI tokens: a timeout while proving a fresh token keeps the token") {
+    TokenTest test;
+    TokenDir dir;
+    configure_rci_token_file(dir.file);
+    test.ndmc_handler = [](const std::string& command) {
+        if (command.rfind("authentication token generate", 0) == 0) {
+            return RciNdmcResult{0, generate_output(kSampleToken)};
+        }
+        return RciNdmcResult{0, ""};
+    };
+    test.transport->handler = [](const HttpTransportRequest& request) -> HttpTransportResponse {
+        if (!token_header(request).empty()) throw HttpTransportError("timeout");
+        return is_version(request) ? version_52() : respond(200);
+    };
+
+    CHECK_NOTHROW((void)rci_get("show/dns-proxy"));
+    CHECK(dir.read() == std::string(kSampleToken) + "\n");
+
+    // The next request tries the token again instead of creating another.
+    test.transport->handler = [](const HttpTransportRequest& request) {
+        return token_header(request).empty() ? respond(403) : respond(200, "{\"t\":1}");
+    };
+    CHECK(rci_get("show/dns-proxy") == "{\"t\":1}");
+    CHECK(std::count(test.ndmc_calls.begin(), test.ndmc_calls.end(),
+                     "authentication token generate keen-pbr") == 1);
+}
+
+TEST_CASE("RCI tokens: a failed version probe is retried, not remembered") {
+    TokenTest test;
+    TokenDir dir;
+    configure_rci_token_file(dir.file);
+    test.ndmc_handler = [](const std::string& command) {
+        if (command.rfind("authentication token generate", 0) == 0) {
+            return RciNdmcResult{0, generate_output(kSampleToken)};
+        }
+        return RciNdmcResult{0, ""};
+    };
+    bool probe_fails = true;
+    // The request itself is "show/dns-proxy"; only the probe (show/version) fails.
+    test.transport->handler = [&probe_fails](const HttpTransportRequest& request) -> HttpTransportResponse {
+        if (!token_header(request).empty()) return respond(200, "{\"t\":1}");
+        if (is_version(request)) {
+            if (probe_fails) throw HttpTransportError("timeout");
+            return version_52();
+        }
+        return respond(200, "{}");
+    };
+
+    CHECK(rci_get("show/dns-proxy") == "{}");
+    CHECK(test.ndmc_calls.empty());
+    probe_fails = false;
+    CHECK(rci_get("show/dns-proxy") == "{}"); // asks again, now creates the token
+    CHECK(dir.read() == std::string(kSampleToken) + "\n");
+    CHECK(rci_get("show/dns-proxy") == "{\"t\":1}");
+}
+
+TEST_CASE("RCI tokens: a stale or linked temporary file does not decide the token file") {
+    TokenTest test;
+    TokenDir dir;
+    const std::string outside = dir.dir + "/outside";
+    std::ofstream(outside) << "keep\n";
+    REQUIRE(::symlink(outside.c_str(), (dir.file + ".tmp").c_str()) == 0);
+    configure_rci_token_file(dir.file);
+    test.ndmc_handler = [](const std::string& command) {
+        if (command.rfind("authentication token generate", 0) == 0) {
+            return RciNdmcResult{0, generate_output(kSampleToken)};
+        }
+        return RciNdmcResult{0, ""};
+    };
+    test.transport->handler = [](const HttpTransportRequest& request) {
+        return token_header(request).empty() ? respond(401) : respond(200);
+    };
+
+    CHECK_NOTHROW((void)rci_get("show/version"));
+    CHECK(dir.read() == std::string(kSampleToken) + "\n");
+    std::ifstream untouched(outside);
+    std::string line;
+    std::getline(untouched, line);
+    CHECK(line == "keep");
+    struct stat info {};
+    REQUIRE(::stat(dir.file.c_str(), &info) == 0);
+    CHECK((info.st_mode & 0777) == 0600);
+}
+
+TEST_CASE("RCI client: concurrent requests on a known way in do not wait for each other") {
+    TokenTest test;
+    std::atomic<int> in_flight{0};
+    std::atomic<int> peak{0};
+    test.transport->handler = [&](const HttpTransportRequest&) {
+        const int now = ++in_flight;
+        int seen = peak.load();
+        while (now > seen && !peak.compare_exchange_weak(seen, now)) {}
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        --in_flight;
+        return respond(200, "{}");
+    };
+    CHECK(rci_get("show/version") == "{}"); // finds plain HTTP
+    peak = 0;
+    std::vector<std::thread> threads;
+    for (int i = 0; i < 4; ++i) {
+        threads.emplace_back([] { (void)rci_get("show/dns-proxy"); });
+    }
+    for (auto& thread : threads) thread.join();
+    CHECK(peak.load() > 1);
 }
