@@ -11,14 +11,16 @@
 
  */
 export interface ListConfig {
-  /** HTTP(S) URL to a remote list file to download and cache. */
+  /** HTTP(S) URL to a remote list file to download and cache. An API token with `write:rules` access cannot add or change it.
+   */
   url?: string;
   /** Inline DNS-compatible domain patterns. A leading `*.` is accepted and normalized to the base domain; the same syntax is used for file and URL lists.
    */
   domains?: string[];
   /** Inline list of IP addresses or CIDR ranges. */
   ip_cidrs?: string[];
-  /** Path to a local list file. */
+  /** Path to a local list file. When set or changed through the API it must be an absolute path to a `.lst`, `.txt` or `.list` file inside the directory that holds the config file (`config_dir` in `GET /api/config`) or below it. A path already in the config file is kept as it is.
+   */
   file?: string;
   /**
      * Per-list floor for dynamically learned set entry timeouts, in milliseconds. Omitted, zero, and values below 1000 use `intercept.min_ttl_ms`; otherwise the value is divided by 1000 and truncated to whole seconds. DNS record TTL can raise the timeout above this floor, up to `intercept.max_ttl_ms`. The normalized timeout must fit in an unsigned 32-bit number of seconds.

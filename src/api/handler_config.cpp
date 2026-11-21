@@ -6,39 +6,110 @@
 #include "../auth/password.hpp"
 #include "../config/config.hpp"
 #include "../config/config_defaults.hpp"
+#include "../config/list_file_policy.hpp"
 #include "../util/format_compat.hpp"
 #include <keen-pbr/version.hpp>
 #include <nlohmann/json.hpp>
 
 #include <functional>
+#include <map>
+#include <set>
 #include <string>
 
 namespace keen_pbr3 {
 
 namespace {
 
-nlohmann::json make_validation_error_json(const ConfigValidationError& error) {
-    nlohmann::json issues = nlohmann::json::array();
-    for (const auto& issue : error.issues()) {
-        issues.push_back({
-            {"path", issue.path},
-            {"message", issue.message},
-        });
-    }
-
-    return {
-        {"error", error.what()},
-        {"validation_errors", std::move(issues)},
+[[noreturn]] void refuse_list_field(const std::string& name, const char* field,
+                                    const std::string& message, int status) {
+    const std::string path = "lists." + name + "." + field;
+    const std::string text = path + ": " + message;
+    const nlohmann::json payload = {
+        {"error", text},
+        {"validation_errors", nlohmann::json::array({{{"path", path}, {"message", message}}})},
     };
+    throw ApiError(text, status, payload.dump());
+}
+
+// A list `file` that is new or different from the active config must lie in the
+// configuration directory (see list_file_policy.hpp). A value that is already in
+// the active config is never checked, so hand-edited configs keep working.
+// This applies to every caller of the API: to let only restricted tokens be held
+// to it, return early unless api_caller_rules_only().
+void require_list_files_allowed(const std::string& config_path, const Config& base,
+                                const Config& candidate) {
+    const std::map<std::string, ListConfig> none;
+    const auto& base_lists = base.lists ? *base.lists : none;
+    const auto& candidate_lists = candidate.lists ? *candidate.lists : none;
+    const std::string config_dir = config_directory_of(config_path);
+    // A path already used by the active config stays allowed under any list
+    // name, so renaming a list keeps its file.
+    std::set<std::string> known_files;
+    for (const auto& [name, list] : base_lists) {
+        if (list.file) known_files.insert(*list.file);
+    }
+    for (const auto& [name, list] : candidate_lists) {
+        if (!list.file) continue;
+        if (known_files.count(*list.file) != 0) continue;
+        if (const auto problem = list_file_policy_violation(*list.file, config_dir)) {
+            refuse_list_field(name, "file", problem->message, api_caller_rules_only() ? 403 : 400);
+        }
+    }
+}
+
+// What a token that may only change rules is allowed to do with the lists it
+// adds or changes: a list may hold domains, addresses and a local file. Where
+// the list is fetched from (`url`, `detour`) could make the daemon reach things
+// the token has no business with, so those stay with the administrator.
+void require_rules_only_lists(const Config& base, const Config& candidate) {
+    const std::map<std::string, ListConfig> none;
+    const auto& base_lists = base.lists ? *base.lists : none;
+    const auto& candidate_lists = candidate.lists ? *candidate.lists : none;
+    for (const auto& [name, list] : candidate_lists) {
+        const auto found = base_lists.find(name);
+        const ListConfig* before = found == base_lists.end() ? nullptr : &found->second;
+        if (list.url != (before ? before->url : std::nullopt)) {
+            refuse_list_field(name, "url",
+                              "an API token with only write:rules access cannot add, change or remove the url of a list",
+                              403);
+        }
+        if (list.detour != (before ? before->detour : std::nullopt)) {
+            refuse_list_field(name, "detour",
+                              "an API token with only write:rules access cannot add, change or remove the detour of a list",
+                              403);
+        }
+    }
+}
+
+// A token with `write:rules` but not `write` may change the routing rules and
+// the lists they use, and nothing else.
+void require_rules_only_change(const Config& base, const Config& candidate) {
+    if (!api_caller_rules_only()) return;
+    const auto outside_rules = [](const Config& config) {
+        nlohmann::json json = config;
+        for (const char* key : {"version", "api", "route", "lists"}) json.erase(key);
+        return json;
+    };
+    if (outside_rules(base) != outside_rules(candidate)) {
+        throw ApiError("this token may only change routing rules and lists", 403);
+    }
+    require_rules_only_lists(base, candidate);
 }
 
 } // namespace
 
 // Unset fields stay unset: the web UI saves the document it received, so a
 // default filled in here would end up written to the config file.
+AuthenticationConfig sanitize_authentication_for_response(AuthenticationConfig authentication) {
+    authentication.password_hash.reset();
+    authentication.tokens.reset();
+    return authentication;
+}
+
 Config normalize_config_for_api_response(Config config) {
     if (config.api && config.api->authentication) {
-        config.api->authentication->password_hash.reset();
+        config.api->authentication =
+            sanitize_authentication_for_response(*config.api->authentication);
     }
 
     return config;
@@ -148,6 +219,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         nlohmann::json response = {
             {"config", std::move(draft_config)},
             {"is_draft", is_draft},
+            {"config_dir", config_directory_of(ctx.config_path)},
             {"list_refresh_state", nlohmann::json(list_refresh_state)},
         };
         return response.dump();
@@ -167,6 +239,8 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
             staged.version = KEEN_PBR3_VERSION_STRING;
             const Config visible = ctx.get_visible_config();
             staged.api = visible.api;
+            require_list_files_allowed(ctx.config_path, ctx.get_active_config(), staged);
+            require_rules_only_change(ctx.get_active_config(), staged);
             validate_config(staged, ConfigValidationMode::Runtime,
                             ctx.validation_context());
         } catch (const ConfigValidationError& e) {
@@ -230,12 +304,21 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
             ? visible.api->cors.value_or(CorsConfig{})
             : CorsConfig{};
         const bool password_set = authentication.password_hash.has_value();
-        authentication.password_hash.reset();
-        return nlohmann::json{{"authentication", authentication},
+        authentication = sanitize_authentication_for_response(std::move(authentication));
+        // The serializer writes unset fields as null; neither key belongs in the response.
+        nlohmann::json authentication_json = authentication;
+        authentication_json.erase("password_hash");
+        authentication_json.erase("tokens");
+        return nlohmann::json{{"authentication", std::move(authentication_json)},
                               {"cors", cors},
                               {"password_set", password_set}}
             .dump();
     });
+
+    // The security endpoints below run on the control task through
+    // mutate_api_config and each edit touches only its own fields, so none of
+    // them can undo a concurrent change to the others (a token created or revoked
+    // meanwhile, for example).
 
     // Accept clear text only on this write-only operation and persist the verifier.
     server.post("/api/auth/password", [&ctx](const std::string& body) -> std::string {
@@ -245,17 +328,11 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
                 request["password"].get_ref<const std::string&>().empty()) {
                 throw ApiError("password must not be empty", 400);
             }
-
-            const Config visible = ctx.get_visible_config();
-            AuthenticationConfig authentication = visible.api
-                ? visible.api->authentication.value_or(AuthenticationConfig{})
-                : AuthenticationConfig{};
-            authentication.password_hash =
+            const std::string hash =
                 auth::generate_password_hash(request["password"].get<std::string>());
-            const CorsConfig cors = visible.api
-                ? visible.api->cors.value_or(CorsConfig{})
-                : CorsConfig{};
-            ctx.commit_api_security(std::move(authentication), cors);
+            ctx.mutate_api_config([&hash](ApiConfig& api) {
+                api.authentication->password_hash = hash;
+            });
             return nlohmann::json{{"password_set", true}}.dump();
         } catch (const ApiError&) {
             throw;
@@ -264,7 +341,39 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         }
     });
 
+    server.post("/api/auth/enabled", [&ctx](const std::string& body) -> std::string {
+        api::AuthEnabledRequest request;
+        try {
+            request = nlohmann::json::parse(body).get<api::AuthEnabledRequest>();
+        } catch (const std::exception&) {
+            throw ApiError("invalid request", 400);
+        }
+        bool password_set = false;
+        ctx.mutate_api_config([&](ApiConfig& api) {
+            api.authentication->enabled = request.enabled;
+            password_set = api.authentication->password_hash.has_value();
+        });
+        return nlohmann::json{{"password_set", password_set}}.dump();
+    });
+
+    server.post("/api/auth/cors", [&ctx](const std::string& body) -> std::string {
+        api::AuthCorsRequest request;
+        try {
+            request = nlohmann::json::parse(body).get<api::AuthCorsRequest>();
+        } catch (const std::exception&) {
+            throw ApiError("invalid request", 400);
+        }
+        bool password_set = false;
+        ctx.mutate_api_config([&](ApiConfig& api) {
+            if (!api.cors) api.cors = CorsConfig{};
+            api.cors->allowed_origins = request.allowed_origins;
+            password_set = api.authentication->password_hash.has_value();
+        });
+        return nlohmann::json{{"password_set", password_set}}.dump();
+    });
+
     // Persist API authentication and CORS settings without applying a routing draft.
+    // Only `enabled`, the allowed origins and, when given, the password change.
     server.post("/api/auth/settings", [&ctx](const std::string& body) -> std::string {
         try {
             const auto request = nlohmann::json::parse(body);
@@ -277,24 +386,24 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
                 throw ApiError("invalid security settings", 400);
             }
 
-            AuthenticationConfig next_authentication;
-            next_authentication.enabled = (*authentication)["enabled"].get<bool>();
-            const Config visible = ctx.get_visible_config();
-            if (visible.api && visible.api->authentication) {
-                next_authentication.password_hash = visible.api->authentication->password_hash;
-            }
+            const bool enabled = (*authentication)["enabled"].get<bool>();
+            const auto origins = cors->at("allowed_origins").get<std::vector<std::string>>();
+            std::optional<std::string> password_hash;
             if (const auto password = request.find("password"); password != request.end()) {
                 if (!password->is_string() || password->get_ref<const std::string&>().empty()) {
                     throw ApiError("password must not be empty", 400);
                 }
-                next_authentication.password_hash =
-                    auth::generate_password_hash(password->get<std::string>());
+                password_hash = auth::generate_password_hash(password->get<std::string>());
             }
 
-            CorsConfig next_cors;
-            next_cors.allowed_origins = cors->at("allowed_origins").get<std::vector<std::string>>();
-            const bool password_set = next_authentication.password_hash.has_value();
-            ctx.commit_api_security(std::move(next_authentication), std::move(next_cors));
+            bool password_set = false;
+            ctx.mutate_api_config([&](ApiConfig& api) {
+                api.authentication->enabled = enabled;
+                if (password_hash) api.authentication->password_hash = *password_hash;
+                if (!api.cors) api.cors = CorsConfig{};
+                api.cors->allowed_origins = origins;
+                password_set = api.authentication->password_hash.has_value();
+            });
 
             return nlohmann::json{{"password_set", password_set}}.dump();
         } catch (const ApiError&) {
@@ -312,6 +421,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         if (!staged_snapshot.has_value()) {
             throw ApiError("No staged config to save", 400);
         }
+        require_rules_only_change(ctx.get_active_config(), staged_snapshot->config);
         LifecycleRequest request;
         request.type = LifecycleOperationType::ApplyConfig;
         request.config = std::move(staged_snapshot->config);

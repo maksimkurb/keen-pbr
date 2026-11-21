@@ -266,6 +266,7 @@ endfunction()
 # Sources
 set(SOURCES
   src/auth/password.cpp
+  src/auth/api_scope.cpp
   src/log/logger.cpp
   src/log/trace.cpp
   src/http/http_client.cpp
@@ -276,6 +277,7 @@ set(SOURCES
   src/config/config_writer.cpp
   src/config/routing_state.cpp
   src/config/list_parser.cpp
+  src/config/list_file_policy.cpp
   src/runtime/conntrack_manager.cpp
   src/runtime/runtime_state_machine.cpp
   src/runtime/operation_coordinator.cpp
@@ -425,6 +427,7 @@ if(WITH_API)
     src/api/handler_reload.cpp
     src/api/handler_lists_refresh.cpp
     src/api/handler_config.cpp
+    src/api/handler_tokens.cpp
     src/api/handler_health_routing.cpp
     src/api/handler_runtime_interfaces.cpp
     src/api/handler_runtime_outbounds.cpp

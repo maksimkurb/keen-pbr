@@ -11,9 +11,19 @@
 #include "../src/api/server.hpp"
 #include "../src/api/sse_broadcaster.hpp"
 #include "../src/api/sse_response.hpp"
+#include "../src/auth/api_scope.hpp"
 #include "../src/auth/password.hpp"
 
 namespace keen_pbr3 {
+
+namespace {
+// Built at run time so no Basic credential literal sits in the source.
+std::string basic_admin_with(const std::string& password) {
+    return "Basic " + httplib::detail::base64_encode("admin:" + password);
+}
+std::string basic_admin_secret() { return basic_admin_with("secret"); }
+} // namespace
+
 
 TEST_CASE("Argon2id password verifiers validate and reject other passwords") {
     const auto verifier = auth::generate_password_hash("correct horse");
@@ -325,6 +335,118 @@ TEST_CASE("API exposes the public auth state") {
     server.update_runtime_config(disabled, "Office");
     CHECK_FALSE(server.auth_state().enabled);
     CHECK(server.auth_state().device_name == "Office");
+}
+
+TEST_CASE("X-Auth-Token carries session, Basic and API token credentials") {
+    constexpr int port = 18251;
+    const std::string api_token = auth::generate_api_token();
+    auto config = auth_config(port, "secret");
+    ApiTokenConfig record;
+    record.id = "reader";
+    record.name = "reader";
+    record.scopes = {auth::ApiScope::READ};
+    record.token_hash = auth::blake2b_hex(api_token);
+    record.created_at = 1;
+    config.authentication->tokens = std::vector<ApiTokenConfig>{record};
+    ApiServer server(config);
+    server.get("/api/health/service", [] { return std::string("{\"ok\":true}"); });
+    server.post("/api/protected-write", [](const std::string&) { return std::string("{}"); });
+    server.start();
+    httplib::Client client("127.0.0.1", port);
+    const auto get = [&](const httplib::Headers& headers) {
+        const auto response = client.Get("/api/health/service", headers);
+        REQUIRE(response != nullptr);
+        return response->status;
+    };
+    const auto session = login(client);
+
+    SUBCASE("a session token, bare or with a Bearer prefix, in any header case") {
+        CHECK(get({{"X-Auth-Token", session}}) == 200);
+        CHECK(get({{"X-Auth-Token", "Bearer " + session}}) == 200);
+        CHECK(get({{"x-auth-token", session}}) == 200);
+        CHECK(get({{"X-AUTH-TOKEN", "wrong"}}) == 401);
+    }
+    SUBCASE("Basic credentials") {
+        CHECK(get({{"X-Auth-Token", basic_admin_secret()}}) == 200);
+        CHECK(get({{"X-Auth-Token", basic_admin_with("wrong")}}) == 401);
+    }
+    SUBCASE("an API token keeps its scope") {
+        CHECK(get({{"X-Auth-Token", api_token}}) == 200);
+        CHECK(get({{"X-Auth-Token", "Bearer " + api_token}}) == 200);
+        const auto write = client.Post("/api/protected-write", {{"X-Auth-Token", api_token}},
+                                       "{}", "application/json");
+        REQUIRE(write != nullptr);
+        CHECK(write->status == 403);
+    }
+    SUBCASE("X-Auth-Token alone decides when both headers are sent") {
+        CHECK(get({{"X-Auth-Token", "wrong"}, {"Authorization", "Bearer " + session}}) == 401);
+        CHECK(get({{"X-Auth-Token", "wrong"}, {"Authorization", basic_admin_secret()}}) == 401);
+        CHECK(get({{"X-Auth-Token", session}, {"Authorization", "garbage"}}) == 200);
+        CHECK(get({{"X-Auth-Token", session}, {"Authorization", basic_admin_with("wrong")}}) == 200);
+    }
+    SUBCASE("Authorization keeps working without X-Auth-Token") {
+        CHECK(get({{"Authorization", "Bearer " + session}}) == 200);
+        CHECK(get({{"Authorization", basic_admin_secret()}}) == 200);
+        CHECK(get({{"Authorization", "Bearer " + api_token}}) == 200);
+        CHECK(get({}) == 401);
+    }
+    SUBCASE("the auth status sees the X-Auth-Token credential") {
+        const auto status = client.Get("/api/auth/status", {{"X-Auth-Token", session}});
+        REQUIRE(status != nullptr);
+        CHECK(nlohmann::json::parse(status->body).at("authenticated") == true);
+        const auto bad = client.Get("/api/auth/status", {{"X-Auth-Token", "wrong"},
+                                                         {"Authorization", "Bearer " + session}});
+        REQUIRE(bad != nullptr);
+        CHECK(nlohmann::json::parse(bad->body).at("authenticated") == false);
+    }
+    server.stop();
+}
+
+TEST_CASE("streams opened with X-Auth-Token close when the session ends") {
+    constexpr int port = 18252;
+    SseBroadcaster broadcaster;
+    ApiServer server(auth_config(port, "secret"));
+    register_test_stream(server, broadcaster);
+    server.start();
+    httplib::Client client("127.0.0.1", port);
+
+    SUBCASE("logout closes the stream") {
+        const auto token = login(client);
+        StreamProbe probe(port, {{"X-Auth-Token", token}, {"Authorization", "garbage"}});
+        REQUIRE(probe.wait_open());
+        REQUIRE(client.Post("/api/auth/logout", {{"X-Auth-Token", token}}, "",
+                            "application/json")->status == 204);
+        CHECK(probe.closes_within(kCloseLimit));
+    }
+    SUBCASE("an invalid X-Auth-Token is refused even with a valid Authorization") {
+        StreamProbe probe(port, {{"X-Auth-Token", "wrong"},
+                                 {"Authorization", basic_admin_secret()}});
+        CHECK_FALSE(probe.wait_open());
+        CHECK(probe.closes_within(kCloseLimit));
+    }
+    SUBCASE("a password change closes a Basic stream") {
+        StreamProbe probe(port, {{"X-Auth-Token", basic_admin_secret()}});
+        REQUIRE(probe.wait_open());
+        server.update_runtime_config(auth_config(port, "newsecret"), "Router");
+        CHECK(probe.closes_within(kCloseLimit));
+    }
+    server.stop();
+}
+
+TEST_CASE("CORS preflight advertises X-Auth-Token") {
+    constexpr int port = 18253;
+    auto config = auth_config(port, "secret");
+    config.cors = CorsConfig{};
+    config.cors->allowed_origins = std::vector<std::string>{"https://ui.example"};
+    ApiServer server(config);
+    server.start();
+    httplib::Client client("127.0.0.1", port);
+    const auto response = client.Options("/api/health/service", {{"Origin", "https://ui.example"}});
+    server.stop();
+    REQUIRE(response != nullptr);
+    CHECK(response->status == 204);
+    CHECK(response->get_header_value("Access-Control-Allow-Headers").find("X-Auth-Token") !=
+          std::string::npos);
 }
 
 } // namespace keen_pbr3

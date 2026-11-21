@@ -60,6 +60,7 @@ public:
     void fail_stage(const std::string& id, const std::string& stage_id, std::string detail);
     void skip_stage(const std::string& id, const std::string& stage_id, std::string detail = {});
     void finish(const std::string& id, std::string error = {});
+    bool busy() const;
 
 private:
     void mutate(const std::string& id,
@@ -67,7 +68,7 @@ private:
     static std::int64_t now_seconds();
 
     LifecycleOperationStore& store_;
-    TracedMutex mutex_;
+    mutable TracedMutex mutex_;
     std::optional<LifecycleOperationSnapshot> active_ GUARDED_BY(mutex_);
     std::uint64_t sequence_ GUARDED_BY(mutex_){0};
 };

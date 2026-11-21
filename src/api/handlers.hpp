@@ -17,12 +17,28 @@
 
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace keen_pbr3 {
+
+inline nlohmann::json make_validation_error_json(const ConfigValidationError& error) {
+    nlohmann::json issues = nlohmann::json::array();
+    for (const auto& issue : error.issues()) {
+        issues.push_back({
+            {"path", issue.path},
+            {"message", issue.message},
+        });
+    }
+
+    return {
+        {"error", error.what()},
+        {"validation_errors", std::move(issues)},
+    };
+}
 
 enum class ConfigOperationState : uint8_t {
     Idle = 0,
@@ -84,7 +100,17 @@ struct ApiContext {
     LifecycleOperationCoordinator* lifecycle_operations{nullptr};
     std::function<bool(std::string, std::function<void()>)> enqueue_lifecycle_task_fn;
     std::function<std::string(LifecycleRequest)> submit_lifecycle_operation_fn;
-    std::function<void(AuthenticationConfig, CorsConfig)> commit_api_security_fn;
+    // Edits the `api` section inside the daemon's control task: the edit sees the
+    // latest stored settings (`authentication` is always present), and the result
+    // is validated, written and applied before this returns. Exceptions reach the
+    // caller. Each edit must touch only its own fields, so it cannot undo a
+    // concurrent change to the others.
+    std::function<void(const std::function<void(ApiConfig&)>&)> mutate_api_config_fn;
+    // When each API token last made a request; unset in fixtures without a server.
+    std::function<std::map<std::string, std::int64_t>()> get_token_last_used_fn;
+    // The config the daemon is running, as opposed to the visible (possibly
+    // staged) one. Unset in fixtures that never stage; then visible is used.
+    std::function<Config()> get_active_config_fn;
     std::function<std::string()> get_prometheus_metrics_fn;
     // Optional packet-aware routing test callback. Keep the target-only
     // callback above for API test fixtures and older embedders.
@@ -132,8 +158,30 @@ struct ApiContext {
         stage_config_fn(std::move(config));
     }
 
-    void commit_api_security(AuthenticationConfig authentication, CorsConfig cors) const {
-        commit_api_security_fn(std::move(authentication), std::move(cors));
+    void mutate_api_config(const std::function<void(ApiConfig&)>& edit) const {
+        if (!mutate_api_config_fn) throw ApiError("API settings are unavailable", 503);
+        // The edit is validated as a whole config; a rejection is the caller's
+        // mistake (no password yet, for example), not a server fault.
+        try {
+            mutate_api_config_fn(edit);
+        } catch (const ConfigValidationError& e) {
+            throw ApiError(e.what(), 400, make_validation_error_json(e).dump());
+        } catch (const ConfigError& e) {
+            throw ApiError(e.what(), 400);
+        }
+    }
+
+    void mutate_api_tokens(const std::function<void(std::vector<ApiTokenConfig>&)>& edit) const {
+        mutate_api_config([&edit](ApiConfig& api) {
+            std::vector<ApiTokenConfig> tokens =
+                api.authentication->tokens.value_or(std::vector<ApiTokenConfig>{});
+            edit(tokens);
+            api.authentication->tokens = std::move(tokens);
+        });
+    }
+
+    Config get_active_config() const {
+        return get_active_config_fn ? get_active_config_fn() : get_visible_config_fn();
     }
 
     void validate_candidate_config(const Config& config) const {

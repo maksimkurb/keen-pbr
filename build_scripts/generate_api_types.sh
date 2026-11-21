@@ -45,6 +45,24 @@ process.stdin.on('end', () => {
   // while retaining it in the C++ configuration representation.
   schemas.AuthenticationConfig.properties.password_hash = { type: 'string' };
 
+  // API tokens are stored in the config as hashes. The record (with its hash)
+  // is likewise daemon-internal; the REST contract exposes ApiTokenInfo.
+  schemas.ApiTokenConfig = {
+    type: 'object',
+    properties: {
+      id: { type: 'string' },
+      name: { type: 'string' },
+      scopes: { type: 'array', items: { \$ref: '#/components/schemas/ApiTokenScope' } },
+      token_hash: { type: 'string' },
+      created_at: { type: 'integer' },
+      expires_at: { type: 'integer' }
+    }
+  };
+  schemas.AuthenticationConfig.properties.tokens = {
+    type: 'array',
+    items: { \$ref: '#/components/schemas/ApiTokenConfig' }
+  };
+
   // Remove OpenAPI-specific extensions that QuickType does not understand
   function clean(obj) {
     if (typeof obj !== 'object' || obj === null) return;
@@ -153,4 +171,61 @@ const header = '// Generated from docs/openapi.yaml via build_scripts/generate_a
 content = header + content;
 
 fs.writeFileSync('$REPO_ROOT/src/api/generated/api_types.hpp', content);
+"
+
+# Step 4: Generate the route table (who may call which operation) from the
+# `security` of every operation in docs/openapi.yaml. The daemon enforces API
+# token scopes from this table, so the document is the single source of truth.
+npx --yes js-yaml "$REPO_ROOT/docs/openapi.yaml" \
+  | node -e "
+const fs = require('fs');
+let d = '';
+process.stdin.on('data', c => d += c);
+process.stdin.on('end', () => {
+  const spec = JSON.parse(d);
+  const scopes = { 'read:prometheus': 'READ_PROMETHEUS', 'read': 'READ',
+                   'write:rules': 'WRITE_RULES', 'write': 'WRITE' };
+  const rows = [];
+  for (const [path, item] of Object.entries(spec.paths)) {
+    for (const method of ['get', 'post', 'put', 'patch', 'delete']) {
+      const op = item[method];
+      if (!op) continue;
+      const security = op.security !== undefined ? op.security : spec.security;
+      let access = 'SessionOnly';
+      let scope = 'WRITE';
+      if (!security || security.length === 0) {
+        access = 'Public';
+      } else {
+        const token = security.find(s => s.apiToken !== undefined);
+        if (token) {
+          const names = token.apiToken;
+          if (names.length !== 1 || !(names[0] in scopes)) {
+            console.error('generate_api_types: ' + method + ' ' + path +
+                          ' needs exactly one known apiToken scope');
+            process.exit(1);
+          }
+          access = 'Scope';
+          scope = scopes[names[0]];
+        }
+      }
+      rows.push({ method: method.toUpperCase(), path, access, scope });
+    }
+  }
+  let out = '// Generated from docs/openapi.yaml via build_scripts/generate_api_types.sh\n' +
+            '// Run \"make generate\" to regenerate (requires Node.js).\n\n' +
+            '#pragma once\n\n#include \"api_types.hpp\"\n\n#include <array>\n#include <string_view>\n\n' +
+            'namespace keen_pbr3::api {\n\n' +
+            '// Public: no authentication. SessionOnly: the administrator password or a WebUI\n' +
+            '// session, never an API token. Scope: an API token holding \`scope\` (or wider).\n' +
+            'enum class RouteAccess { Public, SessionOnly, Scope };\n\n' +
+            'struct ApiRoute {\n    std::string_view method;\n    std::string_view path;\n' +
+            '    RouteAccess access;\n    ApiTokenScope scope;\n};\n\n' +
+            'inline constexpr std::array<ApiRoute, ' + rows.length + '> kApiRoutes{{\n';
+  for (const r of rows) {
+    out += '    {\"' + r.method + '\", \"' + r.path + '\", RouteAccess::' + r.access +
+           ', ApiTokenScope::' + r.scope + '},\n';
+  }
+  out += '}};\n\n} // namespace keen_pbr3::api\n';
+  fs.writeFileSync('$REPO_ROOT/src/api/generated/api_routes.hpp', out);
+});
 "

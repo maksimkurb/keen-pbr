@@ -141,7 +141,15 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
             request.config.reset();
 
             start_stage("commit_config");
-            std::string serialized_config = serialize_config_pretty(prepared.config);
+            std::string serialized_config;
+            // The `api` section belongs to the running daemon: security edits
+            // made while this apply was being prepared must survive it, so the
+            // live section replaces whatever the staged config carried. Done on
+            // the control task, where security edits are serialised.
+            enqueue_control_task([this, &prepared, &serialized_config] {
+                prepared.config.api = config_.api;
+                serialized_config = serialize_config_pretty(prepared.config);
+            }, true, "lifecycle:" + id + ":commit-api");
             int previous_fd = ::open(config_path_.c_str(), O_RDONLY | O_CLOEXEC);
             if (previous_fd < 0) {
                 throw DaemonError("Cannot retain previous config for rollback");
@@ -205,6 +213,15 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
                 throw DaemonError("Cannot open restored configuration");
             }
             Config restored = parse_config(restored_stream);
+            // The file may carry an older `api` section; the live one wins.
+            // Security edits are refused while a lifecycle operation runs, so
+            // the live section cannot change under us.
+            enqueue_control_task([this, &restored] {
+                const std::string before = serialize_config_pretty(restored);
+                restored.api = config_.api;
+                const std::string after = serialize_config_pretty(restored);
+                if (before != after) write_config_atomically(config_path_, after);
+            }, true, "lifecycle:" + id + ":restore-api");
             validate_config(restored, ConfigValidationMode::Runtime,
                             validation_context());
             succeed_stage();
@@ -705,29 +722,48 @@ void Daemon::setup_api() {
         [this](LifecycleRequest request) {
             return submit_lifecycle_operation(std::move(request));
         },
-        [this](AuthenticationConfig authentication, CorsConfig cors) {
-            enqueue_control_task([this,
-                                  authentication = std::move(authentication),
-                                  cors = std::move(cors)]() mutable {
-                if (!config_.api) config_.api = ApiConfig{};
-                config_.api->authentication = std::move(authentication);
-                config_.api->cors = std::move(cors);
-                validate_config(config_, ConfigValidationMode::Runtime,
-                            validation_context());
-                write_config_atomically(config_path_, serialize_config_pretty(config_));
+    });
+    api_ctx_->mutate_api_config_fn =
+        [this](const std::function<void(ApiConfig&)>& edit) {
+            // Runs in the control task, so edits are serialised and each one
+            // starts from the latest stored settings.
+            enqueue_control_task([this, &edit] {
+                // An apply or rollback writes the file and installs its own
+                // config; an edit made meanwhile would be overwritten or would
+                // overwrite it.
+                if (lifecycle_operations_.busy() ||
+                    rollback_available_.load(std::memory_order_acquire) ||
+                    operation_coordinator_.busy()) {
+                    throw ApiError("A configuration change is being applied, try again in a moment",
+                                   409);
+                }
+                Config next = config_;
+                if (!next.api) next.api = ApiConfig{};
+                if (!next.api->authentication) next.api->authentication = AuthenticationConfig{};
+                edit(*next.api);
+                if (next.api->authentication && next.api->authentication->tokens &&
+                    next.api->authentication->tokens->empty()) {
+                    next.api->authentication->tokens.reset();
+                }
+                // A no-op edit must not rewrite the config file (flash wear).
+                const std::string serialized_next = serialize_config_pretty(next);
+                if (serialized_next == serialize_config_pretty(config_)) return;
+                validate_config(next, ConfigValidationMode::Runtime, validation_context());
+                write_config_atomically(config_path_, serialized_next);
+                config_ = std::move(next);
 
                 apply_api_runtime_config();
                 config_store_.replace_active(config_, outbound_marks_);
-
                 if (const auto staged = config_store_.staged_snapshot()) {
                     Config updated_staged = staged->config;
                     updated_staged.api = config_.api;
                     config_store_.stage_config(std::move(updated_staged));
                 }
                 if (status_stream_) status_stream_->reconcile(StatusUpdate::Service);
-            }, true, "api-security-update");
-        },
-    });
+            }, true, "api-settings-update");
+        };
+    api_ctx_->get_token_last_used_fn = [this]() { return api_server_->token_last_used(); };
+    api_ctx_->get_active_config_fn = [this]() { return config_store_.active_config(); };
     api_ctx_->get_prometheus_metrics_fn = [this]() {
         const auto snapshot = runtime_state_store_.snapshot();
         ControlRuntimeSnapshot control;

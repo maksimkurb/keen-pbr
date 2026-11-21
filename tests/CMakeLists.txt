@@ -1,5 +1,6 @@
 add_executable(keen-pbr-tests
   ../src/auth/password.cpp
+  ../src/auth/api_scope.cpp
   test_main.cpp
   test_firewall_verifier.cpp
   test_firewall_runtime.cpp
@@ -57,6 +58,7 @@ add_executable(keen-pbr-tests
   test_kernel_capabilities.cpp
   test_list_set_usage.cpp
   test_list_parser.cpp
+  test_list_file_policy.cpp
   test_list_streamer.cpp
   test_list_service.cpp
   test_domain_index.cpp
@@ -85,6 +87,7 @@ add_executable(keen-pbr-tests
   test_api_auth.cpp
   test_prometheus_metrics.cpp
   test_api_config_password.cpp
+  test_api_tokens.cpp
   test_system_info.cpp
   test_safe_exec.cpp
   test_log_escape.cpp
@@ -184,6 +187,7 @@ add_executable(keen-pbr-tests
   ../src/lists/list_set_usage.cpp
   ../src/lists/domain_index.cpp
   ../src/config/list_parser.cpp
+  ../src/config/list_file_policy.cpp
   ../src/cmd/test_routing.cpp
   ../src/cmd/test_routing_json.cpp
   ../src/daemon/list_service.cpp
@@ -323,6 +327,13 @@ if(WITH_API)
     ../src/api/server.cpp
     ../src/api/prometheus_metrics.cpp
     ../src/api/handler_config.cpp
+    ../src/api/handler_tokens.cpp
+    ../src/api/handlers.cpp
+    ../src/api/handler_diagnostics.cpp
+    ../src/api/handler_lists_refresh.cpp
+    ../src/api/handler_reload.cpp
+    ../src/api/handler_health_routing.cpp
+    ../src/api/handler_runtime_outbounds.cpp
     ../src/api/handler_dns_test.cpp
     ../src/api/sse_broadcaster.cpp
     ../src/api/sse_response.cpp

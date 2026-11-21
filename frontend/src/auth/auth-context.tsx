@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const check = async () => {
       const token = sessionStorage.getItem(tokenKey)
       const response = await fetch("/api/auth/status", {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        headers: token ? { "X-Auth-Token": token } : undefined,
       })
       const body = (await response.json()) as { enabled: boolean; authenticated: boolean; device_name: string }
       if (!body.enabled || !body.authenticated) sessionStorage.removeItem(tokenKey)

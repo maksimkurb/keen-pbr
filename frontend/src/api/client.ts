@@ -4,6 +4,15 @@ export type ApiError = {
   details?: unknown
 }
 
+// The message the daemon sent with a failed request, or the fallback.
+export const apiErrorMessage = (error: unknown, fallback: string): string => {
+  if (error && typeof error === "object") {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === "string" && message.length > 0) return message
+  }
+  return fallback
+}
+
 const parseResponsePayload = async (response: Response) => {
   const contentType = response.headers.get("content-type") ?? ""
   if (contentType.includes("application/json")) {
@@ -43,7 +52,7 @@ export const authenticatedFetch = async (
 ): Promise<Response> => {
   const token = sessionStorage.getItem("keen-pbr-auth-token")
   const headers = new Headers(options.headers)
-  if (token) headers.set("Authorization", `Bearer ${token}`)
+  if (token) headers.set("X-Auth-Token", token)
 
   const response = await fetch(url, { ...options, headers })
   if (response.status === 401) {

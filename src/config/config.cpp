@@ -8,6 +8,7 @@
 #include "routing_state.hpp"
 #include "../util/system_info.hpp"
 #include "../util/firewall_backend_utils.hpp"
+#include "../auth/api_scope.hpp"
 #include "../auth/password.hpp"
 
 #include <arpa/inet.h>
@@ -1294,6 +1295,34 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
             if (!verifier || !auth::valid_password_hash(*verifier)) {
                 add_issue(issues, "api.authentication.password_hash",
                           "api.authentication.password_hash must be a valid Argon2id verifier");
+            }
+        }
+        if (cfg.api->authentication && cfg.api->authentication->tokens) {
+            const auto& tokens = *cfg.api->authentication->tokens;
+            if (tokens.size() > auth::kMaxApiTokens) {
+                add_issue(issues, "api.authentication.tokens",
+                          "api.authentication.tokens holds at most " +
+                              std::to_string(auth::kMaxApiTokens) + " tokens");
+            }
+            std::set<std::string> seen_ids;
+            for (std::size_t i = 0; i < tokens.size(); ++i) {
+                const auto& token = tokens[i];
+                const std::string path = "api.authentication.tokens[" + std::to_string(i) + "]";
+                if (!token.id || token.id->empty() || !seen_ids.insert(*token.id).second) {
+                    add_issue(issues, path + ".id", "token id must be unique and not empty");
+                }
+                if (!token.name || token.name->empty() || token.name->size() > 128) {
+                    add_issue(issues, path + ".name", "token name must be 1 to 128 bytes");
+                }
+                if (!token.scopes || token.scopes->empty()) {
+                    add_issue(issues, path + ".scopes", "a token needs at least one scope");
+                }
+                const bool hash_ok = token.token_hash && token.token_hash->size() == 64 &&
+                    token.token_hash->find_first_not_of("0123456789abcdef") == std::string::npos;
+                if (!hash_ok) {
+                    add_issue(issues, path + ".token_hash",
+                              "token_hash must be a 64-character lowercase hex BLAKE2b digest");
+                }
             }
         }
         if (cfg.api->cors) {

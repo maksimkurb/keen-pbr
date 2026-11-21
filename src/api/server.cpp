@@ -6,9 +6,11 @@
 #include "../log/logger.hpp"
 #include "../log/trace.hpp"
 #include "../util/traced_mutex.hpp"
+#include "../auth/api_scope.hpp"
 #include "../auth/password.hpp"
 
 #include <algorithm>
+#include <map>
 #include <array>
 #include <cerrno>
 #include <chrono>
@@ -385,7 +387,61 @@ std::optional<std::string> decode_basic_base64(std::string_view input) {
     return output;
 }
 
+// Who made a request. The administrator password and a WebUI session may do
+// everything; an API token only what its scopes grant.
+struct Principal {
+    bool full{false};
+    std::vector<auth::ApiScope> scopes;
+    std::string token_id;
+    std::string token_hash;
+};
+
+struct TokenRecord {
+    std::string id;
+    std::string hash;
+    std::vector<auth::ApiScope> scopes;
+    std::optional<std::int64_t> expires_at;
+};
+
+std::int64_t unix_now() {
+    return std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+thread_local bool g_caller_rules_only = false;
+
+// Marks the request handled on this thread as made by a token that may only
+// change rules; handlers that take a whole document use it to refuse the rest.
+class CallerScope {
+public:
+    explicit CallerScope(const httplib::Response& res) {
+        const bool* flag = res.user_data.get<bool>("rules_only");
+        g_caller_rules_only = flag != nullptr && *flag;
+    }
+    ~CallerScope() { g_caller_rules_only = false; }
+    CallerScope(const CallerScope&) = delete;
+    CallerScope& operator=(const CallerScope&) = delete;
+};
+
+// The credential of a request, spelled the way an Authorization header would
+// carry it. X-Auth-Token wins and is the only one considered when present (a
+// reverse proxy may have put its own value in Authorization); it holds either
+// a bare token or the same "Bearer ..." / "Basic ..." text.
+std::string request_credential(const httplib::Request& req) {
+    const auto token = req.get_header_value("X-Auth-Token");
+    if (token.empty()) return req.get_header_value("Authorization");
+    const auto starts_with = [&token](std::string_view prefix) {
+        return token.compare(0, prefix.size(), prefix.data(), prefix.size()) == 0;
+    };
+    if (starts_with("Bearer ") || starts_with("Basic ")) return token;
+    return "Bearer " + token;
+}
+
 } // namespace
+
+bool api_caller_rules_only() {
+    return g_caller_rules_only;
+}
 
 struct ApiServer::Impl {
     httplib::Server server;
@@ -410,7 +466,11 @@ struct ApiServer::Impl {
     unsigned failed_logins{0};
     std::chrono::steady_clock::time_point failure_window{};
     std::uint64_t security_generation{0};
-    std::function<bool(const httplib::Request&)> request_authenticated;
+    std::vector<std::pair<std::string, std::string>> routes;
+    std::vector<TokenRecord> tokens;
+    // In memory only: never written to the config, so a quiet token costs no flash writes.
+    std::map<std::string, std::int64_t> token_last_used;
+    std::function<std::optional<Principal>(const httplib::Request&)> authenticate;
 };
 
 ApiServerLimits api_server_limits(const ApiConfig& config) {
@@ -434,30 +494,53 @@ ApiServer::ApiServer(const ApiConfig& config, std::string device_name)
     impl_->server.set_keep_alive_timeout(limits.keep_alive_timeout_seconds);
     update_runtime_config(config, std::move(device_name));
 
-    auto bearer_authenticated = [this](const httplib::Request& req) {
-        const auto header = req.get_header_value("Authorization");
+    auto api_token_principal = [this](std::string_view token) -> std::optional<Principal> {
+        const auto hash = auth::blake2b_hex(token);
+        const auto now = unix_now();
+        const std::lock_guard lock(impl_->auth_mutex);
+        const TokenRecord* match = nullptr;
+        // The whole list is always walked, so timing says nothing about which token matched.
+        for (const auto& record : impl_->tokens) {
+            if (auth::constant_time_equal(hash, record.hash)) match = &record;
+        }
+        if (match == nullptr) return std::nullopt;
+        if (match->expires_at && now >= *match->expires_at) return std::nullopt;
+        impl_->token_last_used[match->id] = now;
+        return Principal{false, match->scopes, match->id, hash};
+    };
+    auto bearer_principal = [this, api_token_principal](const httplib::Request& req)
+        -> std::optional<Principal> {
+        const auto header = request_credential(req);
         constexpr std::string_view prefix = "Bearer ";
-        if (header.compare(0, prefix.size(), prefix.data(), prefix.size()) != 0) return false;
-        const auto hash = auth::blake2b_hex(header.substr(prefix.size()));
+        if (header.compare(0, prefix.size(), prefix.data(), prefix.size()) != 0) return std::nullopt;
+        const std::string_view value = std::string_view(header).substr(prefix.size());
+        if (value.substr(0, auth::kApiTokenPrefix.size()) == auth::kApiTokenPrefix) {
+            return api_token_principal(value);
+        }
+        const auto hash = auth::blake2b_hex(value);
         const std::lock_guard lock(impl_->auth_mutex);
         if (std::chrono::system_clock::now() >= impl_->session_expires) {
             impl_->session_token_hash.clear();
-            return false;
+            return std::nullopt;
         }
-        return !impl_->session_token_hash.empty() &&
-               auth::constant_time_equal(hash, impl_->session_token_hash);
+        if (!impl_->session_token_hash.empty() &&
+            auth::constant_time_equal(hash, impl_->session_token_hash)) {
+            return Principal{true, {}, {}, {}};
+        }
+        return std::nullopt;
     };
-    auto request_authenticated = [this, bearer_authenticated](const httplib::Request& req) {
-        if (bearer_authenticated(req)) return true;
-        const auto header = req.get_header_value("Authorization");
+    auto authenticate = [this, bearer_principal](const httplib::Request& req)
+        -> std::optional<Principal> {
+        if (auto principal = bearer_principal(req)) return principal;
+        const auto header = request_credential(req);
         constexpr std::string_view prefix = "Basic ";
-        if (header.compare(0, prefix.size(), prefix.data(), prefix.size()) != 0) return false;
+        if (header.compare(0, prefix.size(), prefix.data(), prefix.size()) != 0) return std::nullopt;
         const auto header_hash = auth::blake2b_hex(header);
         {
             const std::lock_guard lock(impl_->auth_mutex);
             if (std::chrono::steady_clock::now() < impl_->basic_cache_expires &&
                 auth::constant_time_equal(header_hash, impl_->basic_cache_hash)) {
-                return true;
+                return Principal{true, {}, {}, {}};
             }
         }
         std::string password_hash;
@@ -468,20 +551,21 @@ ApiServer::ApiServer(const ApiConfig& config, std::string device_name)
             security_generation = impl_->security_generation;
         }
         const auto decoded_value = decode_basic_base64(header.substr(prefix.size()));
-        if (!decoded_value) return false;
+        if (!decoded_value) return std::nullopt;
         const auto& decoded = *decoded_value;
         const auto colon = decoded.find(':');
         const bool valid = colon != std::string::npos && decoded.substr(0, colon) == "admin" &&
                            auth::verify_password(decoded.substr(colon + 1), password_hash);
         if (valid) {
             const std::lock_guard lock(impl_->auth_mutex);
-            if (impl_->security_generation != security_generation) return false;
+            if (impl_->security_generation != security_generation) return std::nullopt;
             impl_->basic_cache_hash = header_hash;
             impl_->basic_cache_expires = std::chrono::steady_clock::now() + std::chrono::minutes(5);
         }
-        return valid;
+        if (!valid) return std::nullopt;
+        return Principal{true, {}, {}, {}};
     };
-    impl_->request_authenticated = request_authenticated;
+    impl_->authenticate = authenticate;
     auto apply_cors = [this](const httplib::Request& req, httplib::Response& res) {
         const auto origin = req.get_header_value("Origin");
         if (origin.empty()) return true;
@@ -507,14 +591,14 @@ ApiServer::ApiServer(const ApiConfig& config, std::string device_name)
             res.set_header("Access-Control-Allow-Origin", origin);
             res.set_header("Vary", "Origin");
             res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-            res.set_header("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept");
+            res.set_header("Access-Control-Allow-Headers", "Authorization, X-Auth-Token, Content-Type, Accept");
             res.set_header("Access-Control-Max-Age", "600");
         }
         return true;
     };
 
     impl_->server.set_pre_routing_handler(
-        [this, request_authenticated, apply_cors](const httplib::Request& req,
+        [this, authenticate, apply_cors](const httplib::Request& req,
                                                   httplib::Response& res) {
             if (!apply_cors(req, res)) {
                 res.status = 403;
@@ -527,24 +611,62 @@ ApiServer::ApiServer(const ApiConfig& config, std::string device_name)
             }
             const bool api = req.path == "/metrics" || req.path == "/api" ||
                              req.path.rfind("/api/", 0) == 0;
-            const bool public_auth = req.path == "/api/auth/status" ||
-                                     req.path == "/api/auth/login";
+            // Responses under /api/auth/ can carry secrets (a new token, settings).
+            if (req.path.rfind("/api/auth/", 0) == 0) {
+                res.set_header("Cache-Control", "no-store");
+            }
+            const bool public_auth = auth::is_public_api_route(req.method, req.path);
             bool auth_enabled = false;
             {
                 const std::lock_guard lock(impl_->auth_mutex);
                 auth_enabled = impl_->auth_enabled;
             }
-            if (api && auth_enabled && !public_auth && !request_authenticated(req)) {
-                res.status = 401;
-                res.set_content(make_error_json("authentication required"), "application/json");
-                return httplib::Server::HandlerResponse::Handled;
+            if (api && auth_enabled && !public_auth) {
+                const auto principal = authenticate(req);
+                if (!principal) {
+                    res.status = 401;
+                    res.set_content(make_error_json("authentication required"), "application/json");
+                    return httplib::Server::HandlerResponse::Handled;
+                }
+                if (!principal->full) {
+                    const auto required = auth::required_api_scope(req.method, req.path);
+                    if (!required) {
+                        res.status = 403;
+                        res.set_content(make_error_json(
+                            "this request needs the administrator password or a WebUI session"),
+                                        "application/json");
+                        return httplib::Server::HandlerResponse::Handled;
+                    }
+                    if (!auth::api_scope_grants(principal->scopes, *required)) {
+                        res.status = 403;
+                        res.set_content(make_error_json(std::string("token scope is insufficient: ") +
+                                                        auth::api_scope_name(*required) + " is required"),
+                                        "application/json");
+                        return httplib::Server::HandlerResponse::Handled;
+                    }
+                    const bool rules_only = auth::api_scopes_restricted_to_rules(principal->scopes);
+                    // A rules-only token may use a write:rules route only if that route
+                    // is known to refuse changes outside the rules (fail closed).
+                    if (rules_only && *required == auth::ApiScope::WRITE_RULES &&
+                        !auth::is_rules_only_safe_route(req.method, req.path)) {
+                        res.status = 403;
+                        res.set_content(make_error_json("this token may only change routing rules and lists"),
+                                        "application/json");
+                        return httplib::Server::HandlerResponse::Handled;
+                    }
+                    res.user_data.set("rules_only", rules_only);
+                }
             }
             return httplib::Server::HandlerResponse::Unhandled;
         });
 
-    impl_->server.Get("/api/auth/status", [this, bearer_authenticated](const httplib::Request& req,
+    impl_->routes.emplace_back("GET", "/api/auth/status");
+    impl_->routes.emplace_back("POST", "/api/auth/login");
+    impl_->routes.emplace_back("POST", "/api/auth/logout");
+    impl_->server.Get("/api/auth/status", [this, bearer_principal](const httplib::Request& req,
                                                                         httplib::Response& res) {
-        const bool bearer_valid = bearer_authenticated(req);
+        const auto session = bearer_principal(req);
+        const bool bearer_valid = session && session->full;
         bool enabled = false;
         std::string device_name;
         {
@@ -665,7 +787,28 @@ void ApiServer::update_runtime_config(const ApiConfig& config,
         ? config.cors->allowed_origins.value_or(std::vector<std::string>{})
         : std::vector<std::string>{};
 
+    std::vector<TokenRecord> tokens;
+    if (config.authentication && config.authentication->tokens) {
+        for (const auto& token : *config.authentication->tokens) {
+            if (!token.id || !token.token_hash) continue;
+            TokenRecord record;
+            record.id = *token.id;
+            record.hash = *token.token_hash;
+            for (const auto scope : token.scopes.value_or(std::vector<auth::ApiScope>{})) {
+                record.scopes.push_back(scope);
+            }
+            record.expires_at = token.expires_at;
+            tokens.push_back(std::move(record));
+        }
+    }
+
     const std::lock_guard lock(impl_->auth_mutex);
+    impl_->tokens = std::move(tokens);
+    for (auto it = impl_->token_last_used.begin(); it != impl_->token_last_used.end();) {
+        const bool known = std::any_of(impl_->tokens.begin(), impl_->tokens.end(),
+                                       [&](const TokenRecord& r) { return r.id == it->first; });
+        it = known ? std::next(it) : impl_->token_last_used.erase(it);
+    }
     const bool authentication_changed = impl_->auth_enabled != auth_enabled ||
                                         impl_->password_hash != password_hash;
     impl_->auth_enabled = auth_enabled;
@@ -681,6 +824,15 @@ void ApiServer::update_runtime_config(const ApiConfig& config,
         impl_->failed_logins = 0;
         impl_->failure_window = {};
     }
+}
+
+std::vector<std::pair<std::string, std::string>> ApiServer::registered_routes() const {
+    return impl_->routes;
+}
+
+std::map<std::string, std::int64_t> ApiServer::token_last_used() const {
+    const std::lock_guard lock(impl_->auth_mutex);
+    return impl_->token_last_used;
 }
 
 ApiServer::StreamAuthorization ApiServer::stream_authorization(const httplib::Request& request) {
@@ -700,10 +852,25 @@ ApiServer::StreamAuthorization ApiServer::stream_authorization(const httplib::Re
     }
     // Re-checks what the pre-routing handler checked, using the Basic cache
     // for a cheap answer; false also covers a change racing with this call.
-    if (!impl_->request_authenticated(request)) {
+    const auto principal = impl_->authenticate(request);
+    if (!principal) {
         return [] { return false; };
     }
-    const auto header = request.get_header_value("Authorization");
+    if (!principal->token_id.empty()) {
+        // An API token: the stream ends once it is revoked or expires.
+        return [impl = impl_.get(), id = principal->token_id, hash = principal->token_hash] {
+            const std::lock_guard lock(impl->auth_mutex);
+            if (!impl->auth_enabled) return false;
+            const auto now = unix_now();
+            for (const auto& record : impl->tokens) {
+                if (record.id == id && auth::constant_time_equal(record.hash, hash)) {
+                    return !record.expires_at || now < *record.expires_at;
+                }
+            }
+            return false;
+        };
+    }
+    const auto header = request_credential(request);
     constexpr std::string_view bearer = "Bearer ";
     std::string token_hash;
     if (header.compare(0, bearer.size(), bearer.data(), bearer.size()) == 0) {
@@ -723,12 +890,14 @@ ApiServer::StreamAuthorization ApiServer::stream_authorization(const httplib::Re
 }
 
 void ApiServer::get(const std::string& path, RouteHandler handler) {
+    impl_->routes.emplace_back("GET", path);
     impl_->server.Get(path, [h = std::move(handler)](const httplib::Request& req,
                                                       httplib::Response& res) {
         const auto trace_id = allocate_trace_id();
         ScopedTraceContext trace_scope(trace_id);
         const auto started_at = std::chrono::steady_clock::now();
         log_request_start(req, "api");
+        const CallerScope caller_scope(res);
         try {
             std::string body = h();
             res.set_content(body, "application/json");
@@ -752,12 +921,14 @@ void ApiServer::get(const std::string& path, RouteHandler handler) {
 }
 
 void ApiServer::post(const std::string& path, RouteHandler handler) {
+    impl_->routes.emplace_back("POST", path);
     impl_->server.Post(path, [h = std::move(handler)](const httplib::Request& req,
                                                        httplib::Response& res) {
         const auto trace_id = allocate_trace_id();
         ScopedTraceContext trace_scope(trace_id);
         const auto started_at = std::chrono::steady_clock::now();
         log_request_start(req, "api");
+        const CallerScope caller_scope(res);
         try {
             std::string body = h();
             res.set_content(body, "application/json");
@@ -781,12 +952,14 @@ void ApiServer::post(const std::string& path, RouteHandler handler) {
 }
 
 void ApiServer::post(const std::string& path, BodyRouteHandler handler) {
+    impl_->routes.emplace_back("POST", path);
     impl_->server.Post(path, [h = std::move(handler)](const httplib::Request& req,
                                                        httplib::Response& res) {
         const auto trace_id = allocate_trace_id();
         ScopedTraceContext trace_scope(trace_id);
         const auto started_at = std::chrono::steady_clock::now();
         log_request_start(req, "api");
+        const CallerScope caller_scope(res);
         try {
             std::string result = h(req.body);
             res.set_content(result, "application/json");
@@ -810,12 +983,14 @@ void ApiServer::post(const std::string& path, BodyRouteHandler handler) {
 }
 
 void ApiServer::get_stream(const std::string& path, StreamRouteHandler handler) {
+    impl_->routes.emplace_back("GET", path);
     impl_->server.Get(path, [h = std::move(handler)](const httplib::Request& req,
                                                       httplib::Response& res) {
         const auto trace_id = allocate_trace_id();
         ScopedTraceContext trace_scope(trace_id);
         const auto started_at = std::chrono::steady_clock::now();
         log_request_start(req, "stream");
+        const CallerScope caller_scope(res);
         try {
             h(req, res);
             log_request_end(req, "stream", res.status == 0 ? 200 : res.status, started_at);

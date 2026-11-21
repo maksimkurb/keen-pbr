@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next"
 
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { apiErrorMessage } from "@/api/client"
 
 import {
   getGetAuthSettingsQueryKey,
@@ -32,6 +33,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { useDraftForm } from "@/lib/draft-form"
+import { ApiTokensCard } from "@/pages/api-tokens-card"
 
 /** Names mirror the auth settings API; `password_confirmation` is UI only. */
 type SecurityDraft = {
@@ -136,12 +138,15 @@ function LoadedSecurityPage({
         cors: { allowed_origins: origins },
         password_set: Boolean(value.password) || passwordSet,
       }))
-    } catch {
-      form.setServerErrors({ form: t("auth.settings.updateFailed") })
+    } catch (error) {
+      form.setServerErrors({
+        form: apiErrorMessage(error, t("auth.settings.updateFailed")),
+      })
     }
   }
 
   return (
+    <>
     <form className="space-y-6" onSubmit={form.onSubmit(save)}>
       <Card>
         <CardHeader>
@@ -261,6 +266,8 @@ function LoadedSecurityPage({
         </Button>
       </div>
     </form>
+    <ApiTokensCard authEnabled={settings.authentication.enabled ?? false} />
+    </>
   )
 }
 

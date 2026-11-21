@@ -61,6 +61,11 @@ std::int64_t LifecycleOperationCoordinator::now_seconds() {
     return static_cast<std::int64_t>(std::time(nullptr));
 }
 
+bool LifecycleOperationCoordinator::busy() const {
+    KPBR_LOCK_GUARD(mutex_);
+    return active_.has_value();
+}
+
 std::optional<std::string> LifecycleOperationCoordinator::begin(
     LifecycleOperationType type, std::vector<LifecycleOperationStage> stages,
     LifecycleOperationSnapshot& created) {

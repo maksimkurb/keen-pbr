@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { formatPath, useDraftForm } from "@/lib/draft-form"
+import { getListFileProblem } from "@/lib/list-file-policy"
 import { getTagNameValidationError } from "@/lib/tag-name-validation"
 import { ChoiceButton } from "@/components/ui/choice-button"
 
@@ -80,6 +81,8 @@ export function ListUpsertPage({
   const { t } = useTranslation()
   const configQuery = useGetConfig()
   const loadedConfig = selectConfig(configQuery.data)
+  const configDir =
+    configQuery.data?.status === 200 ? configQuery.data.data.config_dir : ""
   const backTo = mode === "edit" ? "/lists" : undefined
 
   if (!loadedConfig) {
@@ -150,6 +153,7 @@ export function ListUpsertPage({
         existingListNames={Object.keys(listsMap)}
         listId={listId}
         loadedConfig={loadedConfig}
+        configDir={configDir}
         mode={mode}
       />
     </UpsertPage>
@@ -163,7 +167,9 @@ function ListForm({
   existingListNames,
   listId,
   loadedConfig,
+  configDir,
 }: {
+  configDir: string
   mode: "create" | "edit"
   outbounds: Outbound[]
   draft: ListDraft
@@ -244,6 +250,21 @@ function ListForm({
       }
     }
   }
+
+  // Early advice only; the server decides. A path that is already saved is
+  // never refused, so only a changed one is checked.
+  const fileProblem =
+    configDir && values.file.trim() && values.file.trim() !== draft.file.trim()
+      ? getListFileProblem(values.file.trim(), configDir)
+      : null
+  const fileWarning = fileProblem
+    ? t(`pages.listUpsert.fields.fileProblem.${fileProblem.kind}`, {
+        ...("part" in fileProblem ? { part: fileProblem.part } : {}),
+        ...("directory" in fileProblem
+          ? { directory: fileProblem.directory }
+          : {}),
+      })
+    : null
 
   // The name control also shows errors addressed to the whole list entry.
   const nameError = form.errorFor("name", { alsoClaims: [""] })
@@ -453,6 +474,9 @@ function ListForm({
                     description={t("pages.listUpsert.fields.fileHint")}
                     error={form.errorFor("file")}
                   />
+                  {fileWarning ? (
+                    <p className="text-sm text-destructive">{fileWarning}</p>
+                  ) : null}
                 </FieldContent>
               </Field>
             </FieldGroup>
