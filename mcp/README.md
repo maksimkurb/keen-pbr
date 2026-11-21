@@ -4,6 +4,9 @@ An MCP server that lets Claude (or another MCP client) inspect and change a
 keen-pbr router through its REST API. It runs as a separate stdio process and
 does not need anything installed on the router.
 
+Full user guide: [English](../docs/content/docs/mcp.md) ·
+[Russian](../docs/content/docs/mcp.ru.md).
+
 The server is aimed at two jobs:
 
 - **Diagnostics** — find out why routing or DNS is broken and which
@@ -144,7 +147,7 @@ restores the previous config in that case.
 | Tool | What it does |
 |---|---|
 | `create_rule` | Adds a route rule, for example “list Y via outbound Z”. |
-| `update_rule` | Changes fields of an existing rule by index. |
+| `update_rule` | Changes fields of an existing rule by index; pass `null` to remove an optional condition. |
 | `delete_rule` | Removes a rule by index. |
 
 ### Apply (write access required)

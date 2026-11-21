@@ -1,6 +1,6 @@
 ---
 title: Поддержать проект (карты РФ)
-weight: 11
+weight: 12
 toc: false
 contextMenu: false
 custom_css: |

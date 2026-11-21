@@ -13,7 +13,7 @@ For the full configuration reference, see [Configuration]({{< relref "/docs/conf
 
 If you want to understand how lists, rules and outbounds fit together, see [Concepts]({{< relref "/docs/concepts" >}}).
 
-Commands and service signals are described in [CLI]({{< relref "/docs/cli" >}}), HTTP integration in [REST API]({{< relref "/docs/rest-api" >}}).
+Commands and service signals are described in [CLI]({{< relref "/docs/cli" >}}), HTTP integration in [REST API]({{< relref "/docs/rest-api" >}}), and control from Claude and other AI assistants in [MCP server]({{< relref "/docs/mcp" >}}).
 
 If something is not working, see [Troubleshooting]({{< relref "/docs/troubleshooting" >}}) or [FAQ]({{< relref "/docs/faq" >}}).
 
