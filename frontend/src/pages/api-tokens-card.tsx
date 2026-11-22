@@ -1,4 +1,5 @@
 import { apiErrorMessage } from "@/api/client"
+import { copyToClipboard } from "@/lib/clipboard"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -148,10 +149,9 @@ export function ApiTokensCard({ authEnabled }: { authEnabled: boolean }) {
 
   const copyToken = async () => {
     if (!createdToken) return
-    try {
-      await navigator.clipboard.writeText(createdToken)
+    if (await copyToClipboard(createdToken)) {
       toast.success(t("auth.tokens.copied"))
-    } catch {
+    } else {
       toast.error(t("auth.tokens.copyFailed"))
     }
   }

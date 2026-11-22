@@ -1,6 +1,7 @@
 import { Check, Copy, Terminal } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { copyToClipboard } from "@/lib/clipboard"
 
 import {
   InputGroup,
@@ -95,41 +96,5 @@ async function copyCommand(
   command: string,
   setCopyFeedback: (value: "idle" | "copied" | "failed") => void
 ) {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(command)
-      setCopyFeedback("copied")
-      return
-    }
-  } catch {
-    // Fall back to `execCommand("copy")` on insecure origins where the Clipboard API is unavailable.
-  }
-
-  if (copyCommandWithExec(command)) {
-    setCopyFeedback("copied")
-  } else {
-    setCopyFeedback("failed")
-  }
-}
-
-function copyCommandWithExec(command: string) {
-  const textarea = document.createElement("textarea")
-  textarea.value = command
-  textarea.setAttribute("readonly", "")
-  textarea.style.position = "fixed"
-  textarea.style.top = "0"
-  textarea.style.left = "0"
-  textarea.style.opacity = "0"
-
-  document.body.appendChild(textarea)
-  textarea.focus()
-  textarea.select()
-
-  try {
-    return document.execCommand("copy")
-  } catch {
-    return false
-  } finally {
-    document.body.removeChild(textarea)
-  }
+  setCopyFeedback((await copyToClipboard(command)) ? "copied" : "failed")
 }
