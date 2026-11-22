@@ -24,6 +24,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -245,18 +246,17 @@ export function ApiTokensCard({ authEnabled }: { authEnabled: boolean }) {
             </TableBody>
           </Table>
         )}
-
-        <div className="flex justify-end">
-          <Button
-            disabled={!authEnabled}
-            onClick={openCreate}
-            type="button"
-            variant="outline"
-          >
-            {t("auth.tokens.create")}
-          </Button>
-        </div>
       </CardContent>
+      <CardFooter className="justify-end">
+        <Button
+          disabled={!authEnabled}
+          onClick={openCreate}
+          size="xl"
+          type="button"
+        >
+          {t("auth.tokens.create")}
+        </Button>
+      </CardFooter>
 
       <ResponsiveDialog
         description={t("auth.tokens.createDescription")}
