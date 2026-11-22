@@ -1,8 +1,24 @@
 {
   "name": "keen-pbr-mcp",
   "version": "0.1.0",
-  "private": true,
   "description": "Model Context Protocol server for the keen-pbr REST API",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maksimkurb/keen-pbr.git",
+    "directory": "mcp"
+  },
+  "homepage": "https://github.com/maksimkurb/keen-pbr/tree/main/mcp#readme",
+  "bugs": {
+    "url": "https://github.com/maksimkurb/keen-pbr/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "keen-pbr",
+    "keenetic",
+    "routing"
+  ],
   "type": "module",
   "bin": {
     "keen-pbr-mcp": "dist/index.js"
@@ -19,7 +35,8 @@
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "api:generate": "openapi-typescript ../docs/openapi.yaml -o src/generated/api-types.ts"
+    "api:generate": "openapi-typescript ../docs/openapi.yaml -o src/generated/api-types.ts",
+    "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
@@ -31,5 +48,8 @@
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.1.1"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
