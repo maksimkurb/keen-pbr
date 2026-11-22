@@ -230,30 +230,6 @@
                 href="https://keen-pbr.fyi/ru/docs/rest-api/"
                 />
   </url><url>
-    <loc>https://keen-pbr.fyi/docs/configuration/full-reference-config/</loc>
-    <xhtml:link
-                rel="alternate"
-                hreflang="en-us"
-                href="https://keen-pbr.fyi/docs/configuration/full-reference-config/"
-                />
-    <xhtml:link
-                rel="alternate"
-                hreflang="ru"
-                href="https://keen-pbr.fyi/ru/docs/configuration/full-reference-config/"
-                />
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/mcp/</loc>
-    <xhtml:link
-                rel="alternate"
-                hreflang="en-us"
-                href="https://keen-pbr.fyi/docs/mcp/"
-                />
-    <xhtml:link
-                rel="alternate"
-                hreflang="ru"
-                href="https://keen-pbr.fyi/ru/docs/mcp/"
-                />
-  </url><url>
     <loc>https://keen-pbr.fyi/docs/faq/</loc>
     <xhtml:link
                 rel="alternate"
@@ -264,6 +240,18 @@
                 rel="alternate"
                 hreflang="ru"
                 href="https://keen-pbr.fyi/ru/docs/faq/"
+                />
+  </url><url>
+    <loc>https://keen-pbr.fyi/docs/configuration/full-reference-config/</loc>
+    <xhtml:link
+                rel="alternate"
+                hreflang="en-us"
+                href="https://keen-pbr.fyi/docs/configuration/full-reference-config/"
+                />
+    <xhtml:link
+                rel="alternate"
+                hreflang="ru"
+                href="https://keen-pbr.fyi/ru/docs/configuration/full-reference-config/"
                 />
   </url><url>
     <loc>https://keen-pbr.fyi/docs/configuration/multi-wan/</loc>
