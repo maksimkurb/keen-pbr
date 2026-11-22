@@ -1,6 +1,6 @@
 {
   "name": "keen-pbr-mcp",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Model Context Protocol server for the keen-pbr REST API",
   "license": "GPL-3.0-only",
   "repository": {
@@ -36,7 +36,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "api:generate": "openapi-typescript ../docs/openapi.yaml -o src/generated/api-types.ts",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run build && npm test",
+    "postversion": "git commit -m \"chore(mcp): release $npm_package_version\" -- package.json package-lock.json && git tag -a -m \"mcp-$npm_package_version\" \"mcp-$npm_package_version\""
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
