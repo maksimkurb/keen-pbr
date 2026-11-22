@@ -92,9 +92,21 @@ namespace api {
     }
     #endif
 
+    enum class ApiTokenScope : int { READ, READ_PROMETHEUS, WRITE, WRITE_RULES };
+
+    struct ApiTokenConfig {
+        std::optional<int64_t> created_at;
+        std::optional<int64_t> expires_at;
+        std::optional<std::string> id;
+        std::optional<std::string> name;
+        std::optional<std::vector<ApiTokenScope>> scopes;
+        std::optional<std::string> token_hash;
+    };
+
     struct AuthenticationConfig {
         std::optional<bool> enabled;
         std::optional<std::string> password_hash;
+        std::optional<std::vector<ApiTokenConfig>> tokens;
     };
 
     struct CorsConfig {
@@ -110,6 +122,42 @@ namespace api {
         std::optional<int64_t> max_request_body_bytes;
         std::optional<int64_t> read_timeout_seconds;
         std::optional<int64_t> write_timeout_seconds;
+    };
+
+    struct ApiTokenCreateRequest {
+        std::optional<int64_t> expires_at;
+        std::string name;
+        std::vector<ApiTokenScope> scopes;
+    };
+
+    struct ApiTokenInfo {
+        int64_t created_at;
+        std::optional<int64_t> expires_at;
+        std::string id;
+        std::optional<int64_t> last_used_at;
+        std::string name;
+        std::vector<ApiTokenScope> scopes;
+    };
+
+    struct ApiTokenCreateResponse {
+        ApiTokenInfo info;
+        std::string token;
+    };
+
+    struct ApiTokenListResponse {
+        std::vector<ApiTokenInfo> tokens;
+    };
+
+    struct ApiTokenRevokeRequest {
+        std::string id;
+    };
+
+    struct AuthCorsRequest {
+        std::vector<std::string> allowed_origins;
+    };
+
+    struct AuthEnabledRequest {
+        bool enabled;
     };
 
     struct AuthLoginRequest {
@@ -399,6 +447,7 @@ namespace api {
 
     struct ConfigStateResponse {
         DraftConfig config;
+        std::string config_dir;
         bool is_draft;
         std::optional<std::map<std::string, ListRefreshState>> list_refresh_state;
     };
@@ -1080,6 +1129,15 @@ namespace api {
 
     struct KeenPbrTypes {
         std::optional<ApiConfig> api_config;
+        std::optional<ApiTokenConfig> api_token_config;
+        std::optional<ApiTokenCreateRequest> api_token_create_request;
+        std::optional<ApiTokenCreateResponse> api_token_create_response;
+        std::optional<ApiTokenInfo> api_token_info;
+        std::optional<ApiTokenListResponse> api_token_list_response;
+        std::optional<ApiTokenRevokeRequest> api_token_revoke_request;
+        std::optional<ApiTokenScope> api_token_scope;
+        std::optional<AuthCorsRequest> auth_cors_request;
+        std::optional<AuthEnabledRequest> auth_enabled_request;
         std::optional<AuthenticationConfig> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
         std::optional<AuthLoginResponse> auth_login_response;
@@ -1245,6 +1303,9 @@ namespace api {
 
 namespace keen_pbr3 {
 namespace api {
+    void from_json(const json & j, ApiTokenConfig & x);
+    void to_json(json & j, const ApiTokenConfig & x);
+
     void from_json(const json & j, AuthenticationConfig & x);
     void to_json(json & j, const AuthenticationConfig & x);
 
@@ -1253,6 +1314,27 @@ namespace api {
 
     void from_json(const json & j, ApiConfig & x);
     void to_json(json & j, const ApiConfig & x);
+
+    void from_json(const json & j, ApiTokenCreateRequest & x);
+    void to_json(json & j, const ApiTokenCreateRequest & x);
+
+    void from_json(const json & j, ApiTokenInfo & x);
+    void to_json(json & j, const ApiTokenInfo & x);
+
+    void from_json(const json & j, ApiTokenCreateResponse & x);
+    void to_json(json & j, const ApiTokenCreateResponse & x);
+
+    void from_json(const json & j, ApiTokenListResponse & x);
+    void to_json(json & j, const ApiTokenListResponse & x);
+
+    void from_json(const json & j, ApiTokenRevokeRequest & x);
+    void to_json(json & j, const ApiTokenRevokeRequest & x);
+
+    void from_json(const json & j, AuthCorsRequest & x);
+    void to_json(json & j, const AuthCorsRequest & x);
+
+    void from_json(const json & j, AuthEnabledRequest & x);
+    void to_json(json & j, const AuthEnabledRequest & x);
 
     void from_json(const json & j, AuthLoginRequest & x);
     void to_json(json & j, const AuthLoginRequest & x);
@@ -1554,6 +1636,9 @@ namespace api {
     void from_json(const json & j, KeenPbrTypes & x);
     void to_json(json & j, const KeenPbrTypes & x);
 
+    void from_json(const json & j, ApiTokenScope & x);
+    void to_json(json & j, const ApiTokenScope & x);
+
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
 
@@ -1728,15 +1813,36 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshotType & x);
     void to_json(json & j, const StatusEventSnapshotType & x);
 
+    inline void from_json(const json & j, ApiTokenConfig& x) {
+        x.created_at = get_stack_optional<int64_t>(j, "created_at");
+        x.expires_at = get_stack_optional<int64_t>(j, "expires_at");
+        x.id = get_stack_optional<std::string>(j, "id");
+        x.name = get_stack_optional<std::string>(j, "name");
+        x.scopes = get_stack_optional<std::vector<ApiTokenScope>>(j, "scopes");
+        x.token_hash = get_stack_optional<std::string>(j, "token_hash");
+    }
+
+    inline void to_json(json & j, const ApiTokenConfig & x) {
+        j = json::object();
+        j["created_at"] = x.created_at;
+        j["expires_at"] = x.expires_at;
+        j["id"] = x.id;
+        j["name"] = x.name;
+        j["scopes"] = x.scopes;
+        j["token_hash"] = x.token_hash;
+    }
+
     inline void from_json(const json & j, AuthenticationConfig& x) {
         x.enabled = get_stack_optional<bool>(j, "enabled");
         x.password_hash = get_stack_optional<std::string>(j, "password_hash");
+        x.tokens = get_stack_optional<std::vector<ApiTokenConfig>>(j, "tokens");
     }
 
     inline void to_json(json & j, const AuthenticationConfig & x) {
         j = json::object();
         j["enabled"] = x.enabled;
         j["password_hash"] = x.password_hash;
+        j["tokens"] = x.tokens;
     }
 
     inline void from_json(const json & j, CorsConfig& x) {
@@ -1769,6 +1875,85 @@ namespace api {
         j["max_request_body_bytes"] = x.max_request_body_bytes;
         j["read_timeout_seconds"] = x.read_timeout_seconds;
         j["write_timeout_seconds"] = x.write_timeout_seconds;
+    }
+
+    inline void from_json(const json & j, ApiTokenCreateRequest& x) {
+        x.expires_at = get_stack_optional<int64_t>(j, "expires_at");
+        x.name = j.at("name").get<std::string>();
+        x.scopes = j.at("scopes").get<std::vector<ApiTokenScope>>();
+    }
+
+    inline void to_json(json & j, const ApiTokenCreateRequest & x) {
+        j = json::object();
+        j["expires_at"] = x.expires_at;
+        j["name"] = x.name;
+        j["scopes"] = x.scopes;
+    }
+
+    inline void from_json(const json & j, ApiTokenInfo& x) {
+        x.created_at = j.at("created_at").get<int64_t>();
+        x.expires_at = get_stack_optional<int64_t>(j, "expires_at");
+        x.id = j.at("id").get<std::string>();
+        x.last_used_at = get_stack_optional<int64_t>(j, "last_used_at");
+        x.name = j.at("name").get<std::string>();
+        x.scopes = j.at("scopes").get<std::vector<ApiTokenScope>>();
+    }
+
+    inline void to_json(json & j, const ApiTokenInfo & x) {
+        j = json::object();
+        j["created_at"] = x.created_at;
+        j["expires_at"] = x.expires_at;
+        j["id"] = x.id;
+        j["last_used_at"] = x.last_used_at;
+        j["name"] = x.name;
+        j["scopes"] = x.scopes;
+    }
+
+    inline void from_json(const json & j, ApiTokenCreateResponse& x) {
+        x.info = j.at("info").get<ApiTokenInfo>();
+        x.token = j.at("token").get<std::string>();
+    }
+
+    inline void to_json(json & j, const ApiTokenCreateResponse & x) {
+        j = json::object();
+        j["info"] = x.info;
+        j["token"] = x.token;
+    }
+
+    inline void from_json(const json & j, ApiTokenListResponse& x) {
+        x.tokens = j.at("tokens").get<std::vector<ApiTokenInfo>>();
+    }
+
+    inline void to_json(json & j, const ApiTokenListResponse & x) {
+        j = json::object();
+        j["tokens"] = x.tokens;
+    }
+
+    inline void from_json(const json & j, ApiTokenRevokeRequest& x) {
+        x.id = j.at("id").get<std::string>();
+    }
+
+    inline void to_json(json & j, const ApiTokenRevokeRequest & x) {
+        j = json::object();
+        j["id"] = x.id;
+    }
+
+    inline void from_json(const json & j, AuthCorsRequest& x) {
+        x.allowed_origins = j.at("allowed_origins").get<std::vector<std::string>>();
+    }
+
+    inline void to_json(json & j, const AuthCorsRequest & x) {
+        j = json::object();
+        j["allowed_origins"] = x.allowed_origins;
+    }
+
+    inline void from_json(const json & j, AuthEnabledRequest& x) {
+        x.enabled = j.at("enabled").get<bool>();
+    }
+
+    inline void to_json(json & j, const AuthEnabledRequest & x) {
+        j = json::object();
+        j["enabled"] = x.enabled;
     }
 
     inline void from_json(const json & j, AuthLoginRequest& x) {
@@ -2342,6 +2527,7 @@ namespace api {
 
     inline void from_json(const json & j, ConfigStateResponse& x) {
         x.config = j.at("config").get<DraftConfig>();
+        x.config_dir = j.at("config_dir").get<std::string>();
         x.is_draft = j.at("is_draft").get<bool>();
         x.list_refresh_state = get_stack_optional<std::map<std::string, ListRefreshState>>(j, "list_refresh_state");
     }
@@ -2349,6 +2535,7 @@ namespace api {
     inline void to_json(json & j, const ConfigStateResponse & x) {
         j = json::object();
         j["config"] = x.config;
+        j["config_dir"] = x.config_dir;
         j["is_draft"] = x.is_draft;
         j["list_refresh_state"] = x.list_refresh_state;
     }
@@ -3572,6 +3759,15 @@ namespace api {
 
     inline void from_json(const json & j, KeenPbrTypes& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
+        x.api_token_config = get_stack_optional<ApiTokenConfig>(j, "ApiTokenConfig");
+        x.api_token_create_request = get_stack_optional<ApiTokenCreateRequest>(j, "ApiTokenCreateRequest");
+        x.api_token_create_response = get_stack_optional<ApiTokenCreateResponse>(j, "ApiTokenCreateResponse");
+        x.api_token_info = get_stack_optional<ApiTokenInfo>(j, "ApiTokenInfo");
+        x.api_token_list_response = get_stack_optional<ApiTokenListResponse>(j, "ApiTokenListResponse");
+        x.api_token_revoke_request = get_stack_optional<ApiTokenRevokeRequest>(j, "ApiTokenRevokeRequest");
+        x.api_token_scope = get_stack_optional<ApiTokenScope>(j, "ApiTokenScope");
+        x.auth_cors_request = get_stack_optional<AuthCorsRequest>(j, "AuthCorsRequest");
+        x.auth_enabled_request = get_stack_optional<AuthEnabledRequest>(j, "AuthEnabledRequest");
         x.authentication_config = get_stack_optional<AuthenticationConfig>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
         x.auth_login_response = get_stack_optional<AuthLoginResponse>(j, "AuthLoginResponse");
@@ -3736,6 +3932,15 @@ namespace api {
     inline void to_json(json & j, const KeenPbrTypes & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
+        j["ApiTokenConfig"] = x.api_token_config;
+        j["ApiTokenCreateRequest"] = x.api_token_create_request;
+        j["ApiTokenCreateResponse"] = x.api_token_create_response;
+        j["ApiTokenInfo"] = x.api_token_info;
+        j["ApiTokenListResponse"] = x.api_token_list_response;
+        j["ApiTokenRevokeRequest"] = x.api_token_revoke_request;
+        j["ApiTokenScope"] = x.api_token_scope;
+        j["AuthCorsRequest"] = x.auth_cors_request;
+        j["AuthEnabledRequest"] = x.auth_enabled_request;
         j["AuthenticationConfig"] = x.authentication_config;
         j["AuthLoginRequest"] = x.auth_login_request;
         j["AuthLoginResponse"] = x.auth_login_response;
@@ -3895,6 +4100,24 @@ namespace api {
         j["ValidationError"] = x.validation_error;
         j["XtExtensionHealth"] = x.xt_extension_health;
         j["XtExtensionHealthKind"] = x.xt_extension_health_kind;
+    }
+
+    inline void from_json(const json & j, ApiTokenScope & x) {
+        if (j == "read") x = ApiTokenScope::READ;
+        else if (j == "read:prometheus") x = ApiTokenScope::READ_PROMETHEUS;
+        else if (j == "write") x = ApiTokenScope::WRITE;
+        else if (j == "write:rules") x = ApiTokenScope::WRITE_RULES;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"ApiTokenScope\""); }
+    }
+
+    inline void to_json(json & j, const ApiTokenScope & x) {
+        switch (x) {
+            case ApiTokenScope::READ: j = "read"; break;
+            case ApiTokenScope::READ_PROMETHEUS: j = "read:prometheus"; break;
+            case ApiTokenScope::WRITE: j = "write"; break;
+            case ApiTokenScope::WRITE_RULES: j = "write:rules"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"ApiTokenScope\": " + std::to_string(static_cast<int>(x)));
+        }
     }
 
     inline void from_json(const json & j, CheckStatus & x) {

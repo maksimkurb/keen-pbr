@@ -61,6 +61,7 @@ using Config               = api::ConfigObject;
 using DaemonConfig         = api::DaemonConfig;
 using ApiConfig            = api::ApiConfig;
 using AuthenticationConfig = api::AuthenticationConfig;
+using ApiTokenConfig       = api::ApiTokenConfig;
 using CorsConfig           = api::CorsConfig;
 using Outbound             = api::Outbound;
 using OutboundType         = api::OutboundType;  // enum: INTERFACE, TABLE, BLACKHOLE, IGNORE, URLTEST

@@ -11,6 +11,7 @@ servers:
 security:
   - basicAuth: []
   - bearerAuth: []
+  - authToken: []
 
 paths:
   /metrics:
@@ -21,6 +22,11 @@ paths:
         authentication as other protected endpoints. The metrics provider may
         be unavailable during startup or when metrics support is disabled.
       operationId: getMetrics
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["read:prometheus"]
+        - authToken: ["read:prometheus"]
       responses:
         "200":
           description: Prometheus metrics
@@ -73,6 +79,10 @@ paths:
     post:
       summary: Revoke the current WebUI session
       operationId: postAuthLogout
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - authToken: []
       responses:
         "204":
           description: Session revoked
@@ -81,6 +91,10 @@ paths:
     get:
       summary: Get administrator password state
       operationId: getAuthPasswordStatus
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - authToken: []
       responses:
         "200":
           description: Password state
@@ -92,6 +106,10 @@ paths:
       summary: Set the administrator password
       description: Accepts the clear-text password and immediately persists only its verifier in the server configuration.
       operationId: postAuthPassword
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - authToken: []
       requestBody:
         required: true
         content:
@@ -112,6 +130,10 @@ paths:
     get:
       summary: Get authentication and CORS settings
       operationId: getAuthSettings
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - authToken: []
       responses:
         "200":
           description: Current security settings
@@ -123,6 +145,10 @@ paths:
       summary: Update authentication and CORS settings immediately
       description: Persists API security settings and updates the running API server without applying a pending routing configuration draft.
       operationId: postAuthSettings
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - authToken: []
       requestBody:
         required: true
         content:
@@ -139,6 +165,129 @@ paths:
         "400":
           description: Invalid security settings
 
+  /api/auth/enabled:
+    post:
+      summary: Turn API authentication on or off
+      description: >
+        Changes only this setting and takes effect immediately. Requires the
+        administrator password or a WebUI session; an API token cannot call it.
+      operationId: postAuthEnabled
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - authToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthEnabledRequest"
+      responses:
+        "200":
+          description: Setting updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthPasswordStatus"
+        "400":
+          description: Invalid request
+
+  /api/auth/cors:
+    post:
+      summary: Set the allowed CORS origins
+      description: >
+        Changes only this setting and takes effect immediately. Requires the
+        administrator password or a WebUI session; an API token cannot call it.
+      operationId: postAuthCors
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - authToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthCorsRequest"
+      responses:
+        "200":
+          description: Setting updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthPasswordStatus"
+        "400":
+          description: Invalid request
+
+  /api/auth/tokens:
+    get:
+      summary: List API tokens
+      description: >
+        Requires the administrator password or a WebUI session; an API token cannot
+        list or manage tokens. Token values and hashes are never returned.
+      operationId: getAuthTokens
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - authToken: []
+      responses:
+        "200":
+          description: API tokens
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiTokenListResponse"
+    post:
+      summary: Create an API token
+      description: >
+        Requires the administrator password or a WebUI session. The token value is
+        returned once; only its hash is stored. Send it as `Authorization: Bearer <token>`.
+      operationId: postAuthTokens
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - authToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiTokenCreateRequest"
+      responses:
+        "200":
+          description: Token created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiTokenCreateResponse"
+        "400":
+          description: Invalid token request
+
+  /api/auth/tokens/revoke:
+    post:
+      summary: Revoke an API token
+      description: Requires the administrator password or a WebUI session.
+      operationId: postAuthTokensRevoke
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - authToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiTokenRevokeRequest"
+      responses:
+        "200":
+          description: Token revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiTokenListResponse"
+        "404":
+          description: No such token
+
   /api/health/service:
     get:
       summary: Service health and outbound status
@@ -147,6 +296,11 @@ paths:
         config summary for the daemon. Outbound runtime diagnostics
         are exposed via `/api/runtime/outbounds`.
       operationId: getHealthService
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["read"]
+        - authToken: ["read"]
       responses:
         "200":
           description: Service health and outbound status
@@ -162,6 +316,11 @@ paths:
         Applies keen-pbr routing/firewall runtime state without stopping the
         API process.
       operationId: postServiceStart
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["write"]
+        - authToken: ["write"]
       responses:
         "202":
           description: Lifecycle operation accepted
@@ -179,6 +338,11 @@ paths:
         Removes keen-pbr routing/firewall runtime state while keeping the
         API process running.
       operationId: postServiceStop
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["write"]
+        - authToken: ["write"]
       responses:
         "202":
           description: Lifecycle operation accepted
@@ -195,6 +359,11 @@ paths:
       description: >
         Re-applies keen-pbr routing/firewall runtime state.
       operationId: postServiceRestart
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["write"]
+        - authToken: ["write"]
       responses:
         "202":
           description: Lifecycle operation accepted
@@ -214,6 +383,11 @@ paths:
         and the routing runtime is running, the runtime is rebuilt so the new
         list contents take effect immediately.
       operationId: postListsRefresh
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["write:rules"]
+        - authToken: ["write:rules"]
       requestBody:
         required: false
         content:
@@ -253,6 +427,11 @@ paths:
         Returns the latest editable routing configuration object together with a flag
         indicating whether it is a staged in-memory draft.
       operationId: getConfig
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["read"]
+        - authToken: ["read"]
       responses:
         "200":
           description: Current configuration and draft status
@@ -274,6 +453,11 @@ paths:
         runtime. API authentication and CORS are managed separately through
         `/api/auth/settings`.
       operationId: postConfig
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["write:rules"]
+        - authToken: ["write:rules"]
       requestBody:
         required: true
         content:
@@ -309,6 +493,11 @@ paths:
         present. The web UI shows them as placeholders; they are never
         written to the config.
       operationId: getConfigDefaults
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["read"]
+        - authToken: ["read"]
       responses:
         "200":
           description: Defaults for unset settings
@@ -324,6 +513,11 @@ paths:
         Persists the currently staged in-memory config to disk and then applies
         it to the routing runtime.
       operationId: postConfigSave
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["write:rules"]
+        - authToken: ["write:rules"]
       responses:
         "202":
           description: Lifecycle operation accepted
@@ -354,6 +548,11 @@ paths:
         last saved configuration as the visible configuration. The saved file
         and routing runtime are not changed.
       operationId: postConfigDiscard
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["write:rules"]
+        - authToken: ["write:rules"]
       responses:
         "200":
           description: Staged config discarded successfully
@@ -382,6 +581,11 @@ paths:
         daemon and reconciles routing against it. Available only
         after a committed apply fails before the transaction is verified.
       operationId: postConfigRollback
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["write"]
+        - authToken: ["write"]
       responses:
         "202":
           description: Rollback lifecycle operation accepted
@@ -405,6 +609,11 @@ paths:
         queries the live kernel firewall sets to determine the actual outbound.
         Useful for diagnosing routing mismatches without restarting the daemon.
       operationId: postRoutingTest
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["read"]
+        - authToken: ["read"]
       requestBody:
         required: true
         content:
@@ -433,6 +642,11 @@ paths:
         configuration. Checks that the firewall chain exists, all rules are
         present, route tables are populated, and policy rules are in place.
       operationId: getHealthRouting
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["read"]
+        - authToken: ["read"]
       responses:
         "200":
           description: Routing health report
@@ -456,6 +670,11 @@ paths:
         apply to the current configuration. The web UI overview and
         `keen-pbr status` show this same list.
       operationId: getHealthIssues
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["read"]
+        - authToken: ["read"]
       responses:
         "200":
           description: Classified health issues
@@ -473,6 +692,11 @@ paths:
         reachability. Use this to distinguish the currently active interface
         from interfaces that are merely on standby as backups.
       operationId: getRuntimeOutbounds
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["read"]
+        - authToken: ["read"]
       responses:
         "200":
           description: Live outbound/interface runtime state
@@ -489,6 +713,11 @@ paths:
         execution failures have been recorded. The response remains successful
         when the file does not exist so diagnostics can be collected safely.
       operationId: getDiagnosticsCommandFailure
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["read"]
+        - authToken: ["read"]
       responses:
         "200":
           description: Command failure log contents
@@ -511,6 +740,11 @@ paths:
         addresses. On KeeneticOS, it also includes cached human-readable
         interface descriptions when they can be resolved through RCI.
       operationId: getRuntimeInterfaces
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["read"]
+        - authToken: ["read"]
       responses:
         "200":
           description: Live system interface inventory
@@ -537,6 +771,11 @@ paths:
         comments are sent every 15 seconds; reconnecting starts with a fresh
         snapshot and no event replay is performed.
       operationId: getStatusEvents
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["read"]
+        - authToken: ["read"]
       responses:
         "200":
           description: Live status stream
@@ -561,6 +800,11 @@ paths:
         Keenetic reports. Only one check runs at a time. All fields of the
         body are optional.
       operationId: postDnsServersCheck
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["read"]
+        - authToken: ["read"]
       requestBody:
         required: false
         content:
@@ -608,6 +852,11 @@ paths:
         `show=all` requires API authentication to be enabled; without it the
         request is refused with `403`.
       operationId: getDnsTest
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - apiToken: ["read"]
+        - authToken: ["read"]
       parameters:
         - name: show
           in: query
@@ -659,9 +908,30 @@ components:
     basicAuth:
       type: http
       scheme: basic
+      description: The administrator password, user name `admin`. Accepted everywhere.
     bearerAuth:
       type: http
       scheme: bearer
+      description: A WebUI session token from `POST /api/auth/login`. Accepted everywhere.
+    authToken:
+      type: apiKey
+      in: header
+      name: X-Auth-Token
+      description: >
+        The same credentials as `Authorization`, sent in `X-Auth-Token` for
+        clients behind a reverse proxy that uses `Authorization` itself. The value
+        is a bare token (a session token or an API token `kpbr_...`), `Bearer <token>`
+        or `Basic <base64>`. When present it is the only credential considered and
+        `Authorization` is ignored. It carries the same scopes as `apiToken`.
+    apiToken:
+      type: http
+      scheme: bearer
+      bearerFormat: kpbr_...
+      description: >
+        A long-lived API token (`Authorization: Bearer kpbr_...`). The scope list
+        of an operation is the least access that allows it: `read:prometheus`,
+        `read`, `write:rules` or `write` (a wider scope also satisfies a narrower one).
+        An operation without `apiToken` cannot be called with a token.
   schemas:
 
     StatusEventSnapshot:
@@ -1009,6 +1279,22 @@ components:
           type: integer
           format: int64
 
+    AuthEnabledRequest:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+
+    AuthCorsRequest:
+      type: object
+      required: [allowed_origins]
+      properties:
+        allowed_origins:
+          type: array
+          items:
+            type: string
+
     AuthSettingsRequest:
       type: object
       required: [authentication, cors]
@@ -1095,6 +1381,83 @@ components:
         password:
           type: string
           minLength: 1
+
+    ApiTokenScope:
+      type: string
+      description: >
+        `read:prometheus` reads /metrics only. `read` reads everything, including
+        /metrics. `write:rules` edits and applies the routing rules and lists (it
+        includes `read`). `write` manages the whole system.
+      enum: ["read:prometheus", "read", "write:rules", "write"]
+
+    ApiTokenInfo:
+      type: object
+      required: [id, name, scopes, created_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          maxLength: 128
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiTokenScope"
+        created_at:
+          type: integer
+          format: int64
+        expires_at:
+          type: integer
+          format: int64
+          description: Unix time after which the token is rejected. Omitted for a token that never expires.
+        last_used_at:
+          type: integer
+          format: int64
+          description: Unix time of the last request. Kept in memory only, so it is omitted after a restart.
+
+    ApiTokenListResponse:
+      type: object
+      required: [tokens]
+      properties:
+        tokens:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiTokenInfo"
+
+    ApiTokenCreateRequest:
+      type: object
+      required: [name, scopes]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        scopes:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ApiTokenScope"
+        expires_at:
+          type: integer
+          format: int64
+          description: Unix time in the future. Omit for a token that never expires.
+
+    ApiTokenCreateResponse:
+      type: object
+      required: [token, info]
+      properties:
+        token:
+          type: string
+          description: The token value. Shown once.
+        info:
+          $ref: "#/components/schemas/ApiTokenInfo"
+
+    ApiTokenRevokeRequest:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
 
     AuthPasswordStatus:
       type: object
@@ -1376,7 +1739,9 @@ components:
       properties:
         url:
           type: string
-          description: HTTP(S) URL to a remote list file to download and cache.
+          description: >
+            HTTP(S) URL to a remote list file to download and cache. An API token
+            with `write:rules` access cannot add or change it.
           example: "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/apple"
         domains:
           type: array
@@ -1394,8 +1759,12 @@ components:
           example: ["93.184.216.34", "10.0.0.0/8"]
         file:
           type: string
-          description: Path to a local list file.
-          example: "./my-list.txt"
+          description: >
+            Path to a local list file. When set or changed through the API it must be
+            an absolute path to a `.lst`, `.txt` or `.list` file inside the directory
+            that holds the config file (`config_dir` in `GET /api/config`) or below it.
+            A path already in the config file is kept as it is.
+          example: "/etc/keen-pbr/lists/my-list.lst"
         ttl_ms:
           type: integer
           minimum: 0
@@ -2406,7 +2775,7 @@ components:
           remote_list:
             url: "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/apple"
           local_list:
-            file: "./my-list.txt"
+            file: "/etc/keen-pbr/lists/my-list.lst"
         dns:
           servers:
             - tag: "vpn_dns"
@@ -3563,10 +3932,15 @@ components:
 
     ConfigStateResponse:
       type: object
-      required: [config, is_draft]
+      required: [config, is_draft, config_dir]
       properties:
         config:
           $ref: "#/components/schemas/DraftConfig"
+        config_dir:
+          type: string
+          description: >
+            The directory that holds the config file. A list `file` set through
+            the API must be a `.lst`, `.txt` or `.list` file inside it (or below it).
         is_draft:
           type: boolean
           description: >

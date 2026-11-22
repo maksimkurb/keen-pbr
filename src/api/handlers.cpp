@@ -13,6 +13,7 @@
 #include "handler_dns_check.hpp"
 #include "handler_diagnostics.hpp"
 #include "handler_status_events.hpp"
+#include "handler_tokens.hpp"
 
 #include <httplib.h>
 
@@ -23,6 +24,7 @@ void register_api_handlers(ApiServer& server, ApiContext& ctx) {
     register_reload_handler(server, ctx);
     register_lists_refresh_handler(server, ctx);
     register_config_handler(server, ctx);
+    register_tokens_handler(server, ctx);
     register_health_routing_handler(server, ctx);
     register_runtime_interfaces_handler(server, ctx);
     register_runtime_outbounds_handler(server, ctx);

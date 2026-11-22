@@ -10,6 +10,9 @@ import type { DraftConfig } from './draftConfig';
 
 export interface ConfigStateResponse {
   config: DraftConfig;
+  /** The directory that holds the config file. A list `file` set through the API must be a `.lst`, `.txt` or `.list` file inside it (or below it).
+   */
+  config_dir: string;
   /** Whether the returned config is a staged in-memory draft rather than the currently persisted config.
    */
   is_draft: boolean;

@@ -4,10 +4,14 @@
 
 #include "../config/config.hpp"
 
+#include <cstdint>
 #include <functional>
+#include <map>
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <utility>
+#include <vector>
 #include <stdexcept>
 #include <string>
 
@@ -61,6 +65,11 @@ private:
 // HTTP REST API server using cpp-httplib.
 // Runs in a background thread and integrates with the Daemon event loop
 // for shutdown coordination.
+// True while this thread handles a request made by an API token that may
+// change rules but not the rest of the system (`write:rules` without `write`).
+// Handlers that accept a whole document use it to refuse changes outside rules.
+bool api_caller_rules_only();
+
 class ApiServer {
 public:
     // Construct with listen address from ApiConfig.
@@ -123,6 +132,12 @@ public:
     // call once per heartbeat; it never verifies a password.
     using StreamAuthorization = std::function<bool()>;
     StreamAuthorization stream_authorization(const httplib::Request& request);
+
+    // Every method and path served so far, including the built-in auth routes.
+    std::vector<std::pair<std::string, std::string>> registered_routes() const;
+
+    // When each API token (by id) last made a request. Kept in memory only.
+    std::map<std::string, std::int64_t> token_last_used() const;
 
     // Apply authentication, CORS, and WebUI identity settings without
     // restarting the listening socket. Auth changes revoke active sessions.

@@ -25,6 +25,12 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ApiTokenCreateRequest,
+  ApiTokenCreateResponse,
+  ApiTokenListResponse,
+  ApiTokenRevokeRequest,
+  AuthCorsRequest,
+  AuthEnabledRequest,
   AuthLoginRequest,
   AuthLoginResponse,
   AuthPasswordRequest,
@@ -865,6 +871,486 @@ export const usePostAuthSettings = <TError = void,
         TContext
       > => {
       return useMutation(getPostAuthSettingsMutationOptions(options), queryClient);
+    }
+
+/**
+ * Changes only this setting and takes effect immediately. Requires the administrator password or a WebUI session; an API token cannot call it.
+
+ * @summary Turn API authentication on or off
+ */
+export type postAuthEnabledResponse200 = {
+  data: AuthPasswordStatus
+  status: 200
+}
+
+export type postAuthEnabledResponse400 = {
+  data: void
+  status: 400
+}
+
+export type postAuthEnabledResponseSuccess = (postAuthEnabledResponse200) & {
+  headers: Headers;
+};
+export type postAuthEnabledResponseError = (postAuthEnabledResponse400) & {
+  headers: Headers;
+};
+
+export type postAuthEnabledResponse = (postAuthEnabledResponseSuccess | postAuthEnabledResponseError)
+
+export const getPostAuthEnabledUrl = () => {
+
+
+
+
+  return `/api/auth/enabled`
+}
+
+export const postAuthEnabled = async (authEnabledRequest: AuthEnabledRequest, options?: RequestInit): Promise<postAuthEnabledResponse> => {
+
+  return apiFetch<postAuthEnabledResponse>(getPostAuthEnabledUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      authEnabledRequest,)
+  }
+);}
+
+
+
+
+export const getPostAuthEnabledMutationOptions = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAuthEnabled>>, TError,{data: AuthEnabledRequest}, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postAuthEnabled>>, TError,{data: AuthEnabledRequest}, TContext> => {
+
+const mutationKey = ['postAuthEnabled'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAuthEnabled>>, {data: AuthEnabledRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postAuthEnabled(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostAuthEnabledMutationResult = NonNullable<Awaited<ReturnType<typeof postAuthEnabled>>>
+    export type PostAuthEnabledMutationBody = AuthEnabledRequest
+    export type PostAuthEnabledMutationError = void
+
+    /**
+ * @summary Turn API authentication on or off
+ */
+export const usePostAuthEnabled = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAuthEnabled>>, TError,{data: AuthEnabledRequest}, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postAuthEnabled>>,
+        TError,
+        {data: AuthEnabledRequest},
+        TContext
+      > => {
+      return useMutation(getPostAuthEnabledMutationOptions(options), queryClient);
+    }
+
+/**
+ * Changes only this setting and takes effect immediately. Requires the administrator password or a WebUI session; an API token cannot call it.
+
+ * @summary Set the allowed CORS origins
+ */
+export type postAuthCorsResponse200 = {
+  data: AuthPasswordStatus
+  status: 200
+}
+
+export type postAuthCorsResponse400 = {
+  data: void
+  status: 400
+}
+
+export type postAuthCorsResponseSuccess = (postAuthCorsResponse200) & {
+  headers: Headers;
+};
+export type postAuthCorsResponseError = (postAuthCorsResponse400) & {
+  headers: Headers;
+};
+
+export type postAuthCorsResponse = (postAuthCorsResponseSuccess | postAuthCorsResponseError)
+
+export const getPostAuthCorsUrl = () => {
+
+
+
+
+  return `/api/auth/cors`
+}
+
+export const postAuthCors = async (authCorsRequest: AuthCorsRequest, options?: RequestInit): Promise<postAuthCorsResponse> => {
+
+  return apiFetch<postAuthCorsResponse>(getPostAuthCorsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      authCorsRequest,)
+  }
+);}
+
+
+
+
+export const getPostAuthCorsMutationOptions = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAuthCors>>, TError,{data: AuthCorsRequest}, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postAuthCors>>, TError,{data: AuthCorsRequest}, TContext> => {
+
+const mutationKey = ['postAuthCors'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAuthCors>>, {data: AuthCorsRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postAuthCors(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostAuthCorsMutationResult = NonNullable<Awaited<ReturnType<typeof postAuthCors>>>
+    export type PostAuthCorsMutationBody = AuthCorsRequest
+    export type PostAuthCorsMutationError = void
+
+    /**
+ * @summary Set the allowed CORS origins
+ */
+export const usePostAuthCors = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAuthCors>>, TError,{data: AuthCorsRequest}, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postAuthCors>>,
+        TError,
+        {data: AuthCorsRequest},
+        TContext
+      > => {
+      return useMutation(getPostAuthCorsMutationOptions(options), queryClient);
+    }
+
+/**
+ * Requires the administrator password or a WebUI session; an API token cannot list or manage tokens. Token values and hashes are never returned.
+
+ * @summary List API tokens
+ */
+export type getAuthTokensResponse200 = {
+  data: ApiTokenListResponse
+  status: 200
+}
+
+export type getAuthTokensResponseSuccess = (getAuthTokensResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getAuthTokensResponse = (getAuthTokensResponseSuccess)
+
+export const getGetAuthTokensUrl = () => {
+
+
+
+
+  return `/api/auth/tokens`
+}
+
+export const getAuthTokens = async ( options?: RequestInit): Promise<getAuthTokensResponse> => {
+
+  return apiFetch<getAuthTokensResponse>(getGetAuthTokensUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAuthTokensQueryKey = () => {
+    return [
+    `/api/auth/tokens`
+    ] as const;
+    }
+
+
+export const getGetAuthTokensQueryOptions = <TData = Awaited<ReturnType<typeof getAuthTokens>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAuthTokens>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAuthTokensQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAuthTokens>>> = ({ signal }) => getAuthTokens({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAuthTokens>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAuthTokensQueryResult = NonNullable<Awaited<ReturnType<typeof getAuthTokens>>>
+export type GetAuthTokensQueryError = unknown
+
+
+export function useGetAuthTokens<TData = Awaited<ReturnType<typeof getAuthTokens>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAuthTokens>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAuthTokens>>,
+          TError,
+          Awaited<ReturnType<typeof getAuthTokens>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAuthTokens<TData = Awaited<ReturnType<typeof getAuthTokens>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAuthTokens>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAuthTokens>>,
+          TError,
+          Awaited<ReturnType<typeof getAuthTokens>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAuthTokens<TData = Awaited<ReturnType<typeof getAuthTokens>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAuthTokens>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List API tokens
+ */
+
+export function useGetAuthTokens<TData = Awaited<ReturnType<typeof getAuthTokens>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAuthTokens>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAuthTokensQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+/**
+ * Requires the administrator password or a WebUI session. The token value is returned once; only its hash is stored. Send it as `Authorization: Bearer <token>`.
+
+ * @summary Create an API token
+ */
+export type postAuthTokensResponse200 = {
+  data: ApiTokenCreateResponse
+  status: 200
+}
+
+export type postAuthTokensResponse400 = {
+  data: void
+  status: 400
+}
+
+export type postAuthTokensResponseSuccess = (postAuthTokensResponse200) & {
+  headers: Headers;
+};
+export type postAuthTokensResponseError = (postAuthTokensResponse400) & {
+  headers: Headers;
+};
+
+export type postAuthTokensResponse = (postAuthTokensResponseSuccess | postAuthTokensResponseError)
+
+export const getPostAuthTokensUrl = () => {
+
+
+
+
+  return `/api/auth/tokens`
+}
+
+export const postAuthTokens = async (apiTokenCreateRequest: ApiTokenCreateRequest, options?: RequestInit): Promise<postAuthTokensResponse> => {
+
+  return apiFetch<postAuthTokensResponse>(getPostAuthTokensUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      apiTokenCreateRequest,)
+  }
+);}
+
+
+
+
+export const getPostAuthTokensMutationOptions = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAuthTokens>>, TError,{data: ApiTokenCreateRequest}, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postAuthTokens>>, TError,{data: ApiTokenCreateRequest}, TContext> => {
+
+const mutationKey = ['postAuthTokens'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAuthTokens>>, {data: ApiTokenCreateRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postAuthTokens(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostAuthTokensMutationResult = NonNullable<Awaited<ReturnType<typeof postAuthTokens>>>
+    export type PostAuthTokensMutationBody = ApiTokenCreateRequest
+    export type PostAuthTokensMutationError = void
+
+    /**
+ * @summary Create an API token
+ */
+export const usePostAuthTokens = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAuthTokens>>, TError,{data: ApiTokenCreateRequest}, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postAuthTokens>>,
+        TError,
+        {data: ApiTokenCreateRequest},
+        TContext
+      > => {
+      return useMutation(getPostAuthTokensMutationOptions(options), queryClient);
+    }
+
+/**
+ * Requires the administrator password or a WebUI session.
+ * @summary Revoke an API token
+ */
+export type postAuthTokensRevokeResponse200 = {
+  data: ApiTokenListResponse
+  status: 200
+}
+
+export type postAuthTokensRevokeResponse404 = {
+  data: void
+  status: 404
+}
+
+export type postAuthTokensRevokeResponseSuccess = (postAuthTokensRevokeResponse200) & {
+  headers: Headers;
+};
+export type postAuthTokensRevokeResponseError = (postAuthTokensRevokeResponse404) & {
+  headers: Headers;
+};
+
+export type postAuthTokensRevokeResponse = (postAuthTokensRevokeResponseSuccess | postAuthTokensRevokeResponseError)
+
+export const getPostAuthTokensRevokeUrl = () => {
+
+
+
+
+  return `/api/auth/tokens/revoke`
+}
+
+export const postAuthTokensRevoke = async (apiTokenRevokeRequest: ApiTokenRevokeRequest, options?: RequestInit): Promise<postAuthTokensRevokeResponse> => {
+
+  return apiFetch<postAuthTokensRevokeResponse>(getPostAuthTokensRevokeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      apiTokenRevokeRequest,)
+  }
+);}
+
+
+
+
+export const getPostAuthTokensRevokeMutationOptions = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAuthTokensRevoke>>, TError,{data: ApiTokenRevokeRequest}, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postAuthTokensRevoke>>, TError,{data: ApiTokenRevokeRequest}, TContext> => {
+
+const mutationKey = ['postAuthTokensRevoke'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAuthTokensRevoke>>, {data: ApiTokenRevokeRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postAuthTokensRevoke(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostAuthTokensRevokeMutationResult = NonNullable<Awaited<ReturnType<typeof postAuthTokensRevoke>>>
+    export type PostAuthTokensRevokeMutationBody = ApiTokenRevokeRequest
+    export type PostAuthTokensRevokeMutationError = void
+
+    /**
+ * @summary Revoke an API token
+ */
+export const usePostAuthTokensRevoke = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAuthTokensRevoke>>, TError,{data: ApiTokenRevokeRequest}, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postAuthTokensRevoke>>,
+        TError,
+        {data: ApiTokenRevokeRequest},
+        TContext
+      > => {
+      return useMutation(getPostAuthTokensRevokeMutationOptions(options), queryClient);
     }
 
 /**
