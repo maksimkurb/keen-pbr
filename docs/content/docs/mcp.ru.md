@@ -28,16 +28,7 @@ MCP-сервер позволяет управлять keen-pbr из Claude Desk
 
 ## Установка
 
-Скачайте репозиторий keen-pbr и соберите MCP-сервер:
-
-```bash {filename="bash"}
-git clone https://github.com/maksimkurb/keen-pbr.git
-cd keen-pbr/mcp
-npm install
-npm run build
-```
-
-После сборки появится файл `mcp/dist/index.js`. Его полный путь понадобится в настройках клиента.
+MCP-сервер опубликован в npm как [`keen-pbr-mcp`](https://www.npmjs.com/package/keen-pbr-mcp). Скачивать и собирать ничего не нужно: клиент запускает его через `npx` (он входит в Node.js), как показано в настройках ниже.
 
 ## Настройка
 
@@ -58,8 +49,8 @@ npm run build
 {
   "mcpServers": {
     "keen-pbr": {
-      "command": "node",
-      "args": ["/полный/путь/keen-pbr/mcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "keen-pbr-mcp"],
       "env": {
         "KEEN_PBR_URL": "http://192.168.1.1:12121",
         "KEEN_PBR_TOKEN": "ваш-api-токен",
@@ -79,7 +70,7 @@ claude mcp add keen-pbr \
   --env KEEN_PBR_URL=http://192.168.1.1:12121 \
   --env KEEN_PBR_TOKEN=ваш-api-токен \
   --env KEEN_PBR_ALLOW_WRITE=1 \
-  -- node /полный/путь/keen-pbr/mcp/dist/index.js
+  -- npx -y keen-pbr-mcp
 ```
 
 Если изменения не нужны, уберите строку с `KEEN_PBR_ALLOW_WRITE`.
@@ -145,7 +136,7 @@ claude mcp add keen-pbr \
 
 ## Если что-то не работает
 
-**Клиент не видит сервер.** Проверьте, что в настройках указан полный путь к `mcp/dist/index.js` и что после изменения настроек клиент перезапущен.
+**Клиент не видит сервер.** Проверьте, что в настройках запускается `npx -y keen-pbr-mcp` и установлен Node.js 20 или новее, и что после изменения настроек клиент перезапущен.
 
 **Не удаётся подключиться к роутеру.** Откройте веб-интерфейс keen-pbr по тому же адресу, который указан в `KEEN_PBR_URL`. Если он не открывается, проверьте, что API включён и порт доступен с компьютера.
 

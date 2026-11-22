@@ -28,16 +28,7 @@ Copy the token and keep it somewhere safe. Treat it like a password: do not publ
 
 ## Install
 
-Download the keen-pbr repository and build the MCP server:
-
-```bash {filename="bash"}
-git clone https://github.com/maksimkurb/keen-pbr.git
-cd keen-pbr/mcp
-npm install
-npm run build
-```
-
-The build creates `mcp/dist/index.js`. You will need its full path in the client settings.
+The server is published on npm as [`keen-pbr-mcp`](https://www.npmjs.com/package/keen-pbr-mcp). Nothing needs to be downloaded or built: the client starts it with `npx` (it comes with Node.js), as shown in the settings below.
 
 ## Configure
 
@@ -58,8 +49,8 @@ Open `claude_desktop_config.json` (**Settings** → **Developer** → **Edit Con
 {
   "mcpServers": {
     "keen-pbr": {
-      "command": "node",
-      "args": ["/full/path/to/keen-pbr/mcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "keen-pbr-mcp"],
       "env": {
         "KEEN_PBR_URL": "http://192.168.1.1:12121",
         "KEEN_PBR_TOKEN": "your-api-token",
@@ -79,7 +70,7 @@ claude mcp add keen-pbr \
   --env KEEN_PBR_URL=http://192.168.1.1:12121 \
   --env KEEN_PBR_TOKEN=your-api-token \
   --env KEEN_PBR_ALLOW_WRITE=1 \
-  -- node /full/path/to/keen-pbr/mcp/dist/index.js
+  -- npx -y keen-pbr-mcp
 ```
 
 If you do not need changes, leave out the `KEEN_PBR_ALLOW_WRITE` line.
@@ -145,7 +136,7 @@ The assistant picks the right tool and shows the list of changes. When everythin
 
 ## If something does not work
 
-**The client does not see the server.** Check that the settings point to the full path of `mcp/dist/index.js`, and restart the client after changing its settings.
+**The client does not see the server.** Check that the settings run `npx -y keen-pbr-mcp` and that Node.js 20 or newer is installed, then restart the client after changing its settings.
 
 **Cannot connect to the router.** Open the keen-pbr web interface at the same address you put in `KEEN_PBR_URL`. If it does not open, check that the API is enabled and that the port is reachable from the computer.
 

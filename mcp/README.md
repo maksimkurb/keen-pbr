@@ -4,8 +4,8 @@ An MCP server that lets Claude (or another MCP client) inspect and change a
 keen-pbr router through its REST API. It runs as a separate stdio process and
 does not need anything installed on the router.
 
-Full user guide: [English](../docs/content/docs/mcp.md) ·
-[Russian](../docs/content/docs/mcp.ru.md).
+Full user guide: [English](https://keen-pbr.fyi/docs/mcp/) ·
+[Russian](https://keen-pbr.fyi/ru/docs/mcp/).
 
 The server is aimed at two jobs:
 
