@@ -23,13 +23,10 @@ The server is aimed at two jobs:
 
 ## Install
 
-```sh
-cd mcp
-npm install
-npm run build
-```
-
-This produces `mcp/dist/index.js`. Use its absolute path in the client config.
+The server is published on npm as
+[`keen-pbr-mcp`](https://www.npmjs.com/package/keen-pbr-mcp). MCP clients start
+it with `npx -y keen-pbr-mcp`, so there is nothing to install or build by
+hand. See the client examples below.
 
 ## Environment
 
@@ -52,8 +49,8 @@ Add this to `claude_desktop_config.json` (`Settings → Developer → Edit Confi
 {
   "mcpServers": {
     "keen-pbr": {
-      "command": "node",
-      "args": ["/absolute/path/to/keen-pbr/mcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "keen-pbr-mcp"],
       "env": {
         "KEEN_PBR_URL": "http://192.168.1.1:12121",
         "KEEN_PBR_TOKEN": "your-api-token",
@@ -74,7 +71,7 @@ claude mcp add keen-pbr \
   --env KEEN_PBR_URL=http://192.168.1.1:12121 \
   --env KEEN_PBR_TOKEN=your-api-token \
   --env KEEN_PBR_ALLOW_WRITE=1 \
-  -- node /absolute/path/to/keen-pbr/mcp/dist/index.js
+  -- npx -y keen-pbr-mcp
 ```
 
 Omit `KEEN_PBR_ALLOW_WRITE` for a read-only setup.
@@ -174,6 +171,19 @@ are intentionally not exposed.
   router firewall allows the client machine to reach the API port.
 
 ## Development
+
+To run a local checkout instead of the npm package:
+
+```sh
+cd mcp
+npm install
+npm run build
+```
+
+Then use `node /absolute/path/to/keen-pbr/mcp/dist/index.js` as the client
+command instead of `npx`.
+
+Tests and type generation:
 
 ```sh
 npm test          # vitest, mocked HTTP layer
