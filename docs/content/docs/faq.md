@@ -1,6 +1,6 @@
 ---
 title: FAQ
-weight: 6
+weight: 7
 aliases:
   - /docs/troubleshooting/faq/
 ---

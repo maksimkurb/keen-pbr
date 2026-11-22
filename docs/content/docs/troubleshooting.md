@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-weight: 7
+weight: 8
 aliases:
   - /docs/troubleshooting/troubleshooting/
 ---

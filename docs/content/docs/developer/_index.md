@@ -1,6 +1,6 @@
 ---
 title: Developer
-weight: 9
+weight: 10
 ---
 
 This section is for developers and package maintainers.

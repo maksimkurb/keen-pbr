@@ -1,6 +1,6 @@
 ---
 title: Поддержать проект
-weight: 10
+weight: 11
 toc: false
 ---
 

@@ -1,6 +1,6 @@
 ---
 title: Changelog
-weight: 8
+weight: 9
 ---
 
 What changed in each keen-pbr release, and what to do when you upgrade.
