@@ -1,6 +1,6 @@
 {
   "name": "keen-pbr-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Model Context Protocol server for the keen-pbr REST API",
   "license": "GPL-3.0-only",
   "repository": {
