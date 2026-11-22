@@ -95,9 +95,15 @@ ipset_hash_net_available() {
 }
 
 check_netfilter_addons_component() {
-    local components component
+    local components component rc
 
-    if ! components="$("$KEEN_PBR" --config "$CONFIG" --log-target stderr keenetic missing-components)"; then
+    components="$("$KEEN_PBR" --config "$CONFIG" --log-target stderr keenetic missing-components)"
+    rc=$?
+    if [ "$rc" -eq 3 ]; then
+        # RCI wants an access token; the service creates it once it runs.
+        log "Skipping the Keenetic component check until an RCI access token exists"
+        return 0
+    elif [ "$rc" -ne 0 ]; then
         log_error "Failed to fetch installed Keenetic components"
         return 0
     fi

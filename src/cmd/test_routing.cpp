@@ -455,6 +455,9 @@ struct DefaultGatewayEval {
     std::optional<DefaultGatewayBypassEntry> bypass;
 };
 
+// The applied list holds CIDR strings only: where an entry came from (route,
+// interface address, reserved range) is unknown.  Source is a placeholder, so
+// callers must never describe an applied entry to the user.
 std::vector<DefaultGatewayBypassEntry> applied_bypass_entries(const RuleState& state) {
     std::vector<DefaultGatewayBypassEntry> entries;
     entries.reserve(state.criteria.default_gateway_bypass.size());
@@ -1222,6 +1225,7 @@ TestRoutingResult compute_test_routing(const Config& config,
                 } else {
                     actual_criteria[idx] =
                         match_rule_criteria(route_rules[idx], ip, packet, nullptr, &applied);
+                    applied.bypass.reset();  // source unknown, only the verdict is used
                     if (applied.evaluated) applied_uses_gateway[idx] = applied.uses_default_gateway;
                 }
             }
@@ -1240,6 +1244,7 @@ TestRoutingResult compute_test_routing(const Config& config,
                 }
                 actual_criteria[idx] =
                     match_rule_criteria(route_rules[idx], ip, packet, nullptr, &applied);
+                applied.bypass.reset();  // source unknown, only the verdict is used
                 if (applied.evaluated) applied_uses_gateway[idx] = applied.uses_default_gateway;
             }
             if (set_write_evidence_lookup) {
@@ -1401,11 +1406,24 @@ std::vector<std::string> describe_entry_details(const TestRoutingEntry& entry) {
         if (dg.uses_default_gateway.has_value() &&
             dg.applied_uses_default_gateway.has_value() &&
             *dg.uses_default_gateway != *dg.applied_uses_default_gateway) {
-            lines.push_back(*dg.applied_uses_default_gateway
-                ? "Firewall: still treats " + entry.ip +
-                      " as default-gateway traffic (last applied routes)"
-                : "Firewall: does not treat " + entry.ip +
-                      " as default-gateway traffic yet (last applied routes)");
+            if (*dg.applied_uses_default_gateway) {
+                // The reason comes from the fresh side: the applied list only
+                // has CIDR strings and cannot say what its entries are.
+                std::string line = "Firewall: still treats " + entry.ip +
+                                   " as default-gateway traffic";
+                if (dg.bypass) {
+                    line += ": " + dg.bypass->cidr +
+                            " was not in the bypass list from the last apply (" +
+                            describe_bypass(entry.ip, *dg.bypass) + ")";
+                } else {
+                    line += " (the bypass list from the last apply does not cover it)";
+                }
+                lines.push_back(std::move(line));
+            } else {
+                lines.push_back("Firewall: does not treat " + entry.ip +
+                                " as default-gateway traffic yet: the bypass list from "
+                                "the last apply covers it");
+            }
         }
     }
 

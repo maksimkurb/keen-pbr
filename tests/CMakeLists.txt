@@ -75,6 +75,7 @@ add_executable(keen-pbr-tests
   test_policy_rule.cpp
   test_routing_reconciler.cpp
   test_policy_rule_reload.cpp
+  test_netlink_rules.cpp
   test_routing_verifier.cpp
   test_runtime_interface_inventory.cpp
   test_keenetic_interface_descriptions.cpp

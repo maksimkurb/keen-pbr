@@ -311,6 +311,20 @@ bool rule_matches_mark(const DumpedRule& r, std::uint32_t mark) {
     return ((mark & r.fwmask) == (r.fwmark & r.fwmask)) != r.invert;
 }
 
+ForeignPolicyRule foreign_rule_base(const DumpedRule& r, std::uint32_t fwmark_mask) {
+    ForeignPolicyRule rule;
+    rule.priority = r.priority;
+    rule.fwmark = r.fwmark;
+    rule.fwmask = r.fwmask;
+    rule.invert = r.invert;
+    rule.table = r.table;
+    rule.action = r.action;
+    rule.nop = r.nop;
+    rule.goto_target = r.goto_target;
+    rule.overlap = r.fwmask & fwmark_mask;
+    return rule;
+}
+
 // Foreign rules with a fwmark selector, one entry per (priority, fwmark,
 // fwmask, invert) across both families, with how they treat our marks.
 std::vector<ForeignPolicyRule> foreign_fwmark_rules(
@@ -326,14 +340,7 @@ std::vector<ForeignPolicyRule> foreign_fwmark_rules(
                    x.fwmask == r.fwmask && x.invert == r.invert;
         });
         if (dup) continue;
-        ForeignPolicyRule rule;
-        rule.priority = r.priority;
-        rule.fwmark = r.fwmark;
-        rule.fwmask = r.fwmask;
-        rule.invert = r.invert;
-        rule.table = r.table;
-        rule.action = r.action;
-        rule.overlap = r.fwmask & fwmark_mask;
+        ForeignPolicyRule rule = foreign_rule_base(r, fwmark_mask);
         for (const auto& [tag, mark] : outbound_marks) {
             if (rule_matches_mark(r, mark & fwmark_mask)) rule.matched_outbounds.push_back(tag);
         }
@@ -341,6 +348,26 @@ std::vector<ForeignPolicyRule> foreign_fwmark_rules(
         out.push_back(std::move(rule));
     }
     return out;
+}
+
+// keen-pbr's rule that routes `mark`: the lowest priority among the own rules
+// whose selector matches it (and that apply to the family).
+const RuleSpec* own_rule_for_mark(const std::vector<RuleSpec>& own_rules, int family,
+                                  std::uint32_t mark) {
+    const RuleSpec* best = nullptr;
+    for (const auto& s : own_rules) {
+        if (s.family != 0 && s.family != family) continue;
+        if ((mark & s.fwmask) != (s.fwmark & s.fwmask)) continue;
+        if (best == nullptr || s.priority < best->priority) best = &s;
+    }
+    return best;
+}
+
+// The foreign rule sends the packet where keen-pbr's rule would: same action,
+// and for a lookup the same table.
+bool same_outcome_as_own(const DumpedRule& r, const RuleSpec& own) {
+    if (r.goto_target.has_value() || r.action != own.action) return false;
+    return r.action != RuleAction::lookup || r.table == own.table;
 }
 
 }  // namespace
@@ -369,11 +396,33 @@ std::vector<ForeignPolicyRule> find_foreign_policy_rule_precedence(
     if (own_rules.empty()) return out;
     std::uint32_t lowest = own_rules.front().priority;
     for (const auto& own : own_rules) lowest = std::min(lowest, own.priority);
-    for (auto& rule :
-         foreign_fwmark_rules(dumped, own_rules, fwmark_mask, ns, outbound_marks)) {
-        if (rule.priority < lowest && !rule.matched_outbounds.empty()) {
-            out.push_back(std::move(rule));
+    for (const auto& r : dumped) {
+        if (r.fwmask == 0 || r.priority >= lowest) continue;
+        if (r.nop) continue;
+        // A jump that lands before keen-pbr's rules changes nothing for them.
+        if (r.goto_target.has_value() && *r.goto_target <= lowest) continue;
+        if (is_own_policy_rule(r, own_rules) || rule_in_namespace(r, ns)) continue;
+
+        ForeignPolicyRule rule = foreign_rule_base(r, fwmark_mask);
+        for (const auto& [tag, mark] : outbound_marks) {
+            if (!rule_matches_mark(r, mark & fwmark_mask)) continue;
+            const RuleSpec* own = own_rule_for_mark(own_rules, r.family, mark);
+            // keen-pbr does not route this mark, or the rule does the same.
+            if (own == nullptr || same_outcome_as_own(r, *own)) continue;
+            rule.matched_outbounds.push_back(tag);
         }
+        if (rule.matched_outbounds.empty()) continue;
+        rule.matches_all_outbounds = rule.matched_outbounds.size() == outbound_marks.size();
+
+        // The same rule in both families reads the same in the warning.
+        const bool dup = std::any_of(out.begin(), out.end(), [&](const ForeignPolicyRule& x) {
+            return x.priority == rule.priority && x.fwmark == rule.fwmark &&
+                   x.fwmask == rule.fwmask && x.invert == rule.invert &&
+                   x.table == rule.table && x.action == rule.action &&
+                   x.goto_target == rule.goto_target &&
+                   x.matched_outbounds == rule.matched_outbounds;
+        });
+        if (!dup) out.push_back(std::move(rule));
     }
     return out;
 }
@@ -473,15 +522,22 @@ std::vector<HealthWarning> evaluate_fwmark_conflict_warnings(
              dumped_rules, own_rules, fwmark_mask, ns, outbound_marks)) {
         HealthWarning w;
         w.code = HealthWarningCode::foreign_rule_precedence;
-        const std::string target =
-            r.action == RuleAction::lookup
-                ? "lookup " + std::to_string(r.table)
-                : (r.action == RuleAction::unreachable ? "unreachable" : "blackhole");
+        std::string target;
+        if (r.goto_target.has_value()) {
+            target = "goto " + std::to_string(*r.goto_target);
+        } else if (r.action == RuleAction::lookup) {
+            target = "lookup " + std::to_string(r.table);
+        } else {
+            target = r.action == RuleAction::unreachable ? "unreachable" : "blackhole";
+        }
         w.message = "Foreign ip rule priority " + std::to_string(r.priority) + " \"" +
                     foreign_rule_selector(r) + " " + target +
                     "\" is evaluated before keen-pbr rules and also matches packets "
                     "keen-pbr marked (" + matched_outbounds_text(r) + "); ";
-        if (r.action == RuleAction::lookup) {
+        if (r.goto_target.has_value()) {
+            w.message += "such traffic jumps past keen-pbr's rules and never reaches "
+                         "keen-pbr's routing";
+        } else if (r.action == RuleAction::lookup) {
             w.message += "such traffic uses table " + std::to_string(r.table) +
                          " first and follows keen-pbr only if that table has no route";
         } else {

@@ -15,6 +15,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <fstream>
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
@@ -35,6 +36,14 @@ constexpr auto kProvisionRetryInterval = std::chrono::minutes(10);
 
 enum class RciMode { kUnknown, kHttpPlain, kHttpToken };
 
+// Whether this firmware has RCI access tokens, learned from `ndmc ... generate`
+// (and from a token being accepted).
+enum class TokenSupport { kUnknown, kSupported, kUnsupported };
+
+using RciClock = std::function<std::chrono::steady_clock::time_point()>;
+
+std::chrono::steady_clock::time_point steady_now() { return std::chrono::steady_clock::now(); }
+
 RciNdmcResult run_ndmc(const std::vector<std::string>& args) {
     SafeExecTimeouts timeouts;
     timeouts.timeout = std::chrono::seconds(5);
@@ -50,6 +59,7 @@ struct RciEnv {
     std::string http_base;
     std::shared_ptr<HttpTransport> transport;
     RciNdmcFn ndmc;
+    RciClock now;
 };
 
 // Two locks, always taken in this order:
@@ -67,31 +77,40 @@ struct RciState {
     std::string http_base{kDefaultHttpBase};     // [shared]
     std::shared_ptr<HttpTransport> transport;    // [shared]
     RciNdmcFn ndmc{run_ndmc};                    // [shared]
+    RciClock now{steady_now};                    // [shared]
+    // Tokenless access is in use because no token could be created; when this
+    // time has passed the next request looks for a way in again.
+    std::optional<std::chrono::steady_clock::time_point> plain_recheck_at; // [shared]
 
     std::string token_file;                   // [search] where the token is kept
     bool may_create_token{false};             // [search] only the service creates tokens
     bool provision_blocked{false};            // [search] retrying in this run cannot help
-    std::optional<bool> firmware_wants_token; // [search] KeeneticOS 5.2+, decided once known
+    TokenSupport token_support{TokenSupport::kUnknown}; // [search]
     std::optional<std::chrono::steady_clock::time_point> last_provision_attempt; // [search]
     std::string last_provision_error;         // [search]
+    std::string last_logged_provision_error;  // [search] one warning per distinct error
 };
 
 struct Snapshot {
     RciMode mode{RciMode::kUnknown};
     std::string token;
+    std::optional<std::chrono::steady_clock::time_point> plain_recheck_at;
     RciEnv env;
 };
 
 Snapshot take_snapshot(RciState& state) {
     std::lock_guard<std::mutex> lock(state.mutex);
     if (!state.transport) state.transport = default_http_transport();
-    return {state.mode, state.token,
-            {state.http_base, state.transport, state.ndmc}};
+    return {state.mode, state.token, state.plain_recheck_at,
+            {state.http_base, state.transport, state.ndmc, state.now}};
 }
 
-void publish_mode(RciState& state, RciMode mode) {
+// Setting a mode also sets (or clears) the recheck time that belongs to it.
+void publish_mode(RciState& state, RciMode mode,
+                  std::optional<std::chrono::steady_clock::time_point> plain_recheck_at = std::nullopt) {
     std::lock_guard<std::mutex> lock(state.mutex);
     state.mode = mode;
+    state.plain_recheck_at = plain_recheck_at;
 }
 
 void publish_token(RciState& state, const std::string& token) {
@@ -243,19 +262,25 @@ std::string block_provisioning(RciState& state, std::string error) {
     return state.last_provision_error;
 }
 
+// Only a firmware without tokens and a missing ndmc block creating tokens for
+// the rest of the run.  Anything else (the admin user lacking the Web
+// configurator permission, a failing ndmc) can be fixed while running, so it is
+// retried after kProvisionRetryInterval.
 std::string describe_generate_failure(RciState& state, const RciNdmcResult& result) {
     const std::string output = lower_copy(result.output);
     if (output.find("argument parse error") != std::string::npos ||
         output.find("no such command") != std::string::npos) {
+        state.token_support = TokenSupport::kUnsupported;
         return block_provisioning(state, "this KeeneticOS version has no RCI access tokens");
-    }
-    if (output.find("invalid username") != std::string::npos) {
-        return block_provisioning(
-            state, "the admin user needs the \"Web configurator\" permission to create an RCI "
-                   "access token");
     }
     if (result.exit_code == 127 || result.exit_code < 0) {
         return block_provisioning(state, "ndmc is not available");
+    }
+    if (output.find("invalid username") != std::string::npos) {
+        state.last_provision_error =
+            "the admin user needs the \"Web configurator\" permission to create an RCI "
+            "access token";
+        return state.last_provision_error;
     }
     state.last_provision_error =
         "ndmc could not create an RCI access token: " + first_line(result.output);
@@ -296,7 +321,7 @@ std::optional<std::string> provision_token(RciState& state, const RciEnv& env,
         return std::string("an RCI access token is required; the keen-pbr service creates it");
     }
     if (state.provision_blocked) return state.last_provision_error;
-    const auto now = std::chrono::steady_clock::now();
+    const auto now = env.now();
     if (state.last_provision_attempt && now - *state.last_provision_attempt < kProvisionRetryInterval) {
         return state.last_provision_error.empty()
                    ? std::string("an RCI access token was created moments ago; not creating another")
@@ -309,6 +334,7 @@ std::optional<std::string> provision_token(RciState& state, const RciEnv& env,
     const auto generated_token = rci_detail::parse_generated_token(generated.output);
     if (!generated_token) return describe_generate_failure(state, generated);
 
+    state.token_support = TokenSupport::kSupported;
     token = generated_token->value;
     publish_token(state, token);
     try {
@@ -320,6 +346,7 @@ std::optional<std::string> provision_token(RciState& state, const RciEnv& env,
     remove_stale_tokens(env, generated_token->id);
     Logger::instance().info("Keenetic RCI: created access token \"{}\" for user admin", kTokenName);
     state.last_provision_error.clear();
+    state.last_logged_provision_error.clear();
     return std::nullopt;
 }
 
@@ -333,63 +360,43 @@ std::string reject_fresh_token(RciState& state, std::string& token, const Attemp
                                          attempt.error + ")");
 }
 
-bool release_is_at_least_5_2(const std::string& version_body) {
-    try {
-        const auto json = nlohmann::json::parse(version_body);
-        if (!json.is_object()) return false;
-        const auto release = json.find("release");
-        if (release == json.end() || !release->is_string()) return false;
-        const std::string text = release->get<std::string>(); // "5.02.B.4.0-0"
-        const auto dot = text.find('.');
-        if (dot == std::string::npos) return false;
-        const int major = std::stoi(text.substr(0, dot));
-        const int minor = std::stoi(text.substr(dot + 1));
-        return major > 5 || (major == 5 && minor >= 2);
-    } catch (const std::exception&) {
-        return false;
-    }
-}
-
-// KeeneticOS 5.2 logs a warning for every tokenless RCI request and is
-// closing that access, so the service switches to a token there right away.
-// Remembered once the version is known; a failed probe is not remembered, so
-// the next request asks again.  Needs search_mutex.
-std::optional<bool> firmware_wants_token(RciState& state, const RciEnv& env, const std::string& uri,
-                                         const std::string& body, const RciRequestLimits& limits) {
-    if (!state.may_create_token) return false;
-    if (!state.firmware_wants_token) {
-        if (uri == "/rci/show/version") {
-            state.firmware_wants_token = release_is_at_least_5_2(body);
-        } else {
-            const auto version = http_attempt(env, "GET", "/rci/show/version", "", limits, "");
-            if (!version.ok) return std::nullopt;
-            state.firmware_wants_token = release_is_at_least_5_2(version.body);
-        }
-    }
-    return state.firmware_wants_token;
-}
-
 // ---------------------------------------------------------------- request
 
 [[noreturn]] void throw_attempt(const Attempt& attempt) {
     throw HttpError(attempt.error, attempt.status);
 }
 
+// A 401/403 the known way in answered, handed to the search so it does not
+// send the same request again to get the same refusal.  An empty token means
+// the refused request was tokenless.
+struct Rejection {
+    std::string token;
+    Attempt attempt;
+};
+
 // One request on the way in that worked last time.  Returns the body on
 // success.  Throws for an answer that needs no new search (an HTTP error other
 // than 401/403, or no HTTP answer at all: a timeout says nothing about the
-// token or the mode).  Returns no value when a new search is warranted.
+// token or the mode).  Returns no value when a new search is warranted, and
+// then sends nothing (tokenless access whose recheck time has come) or has
+// recorded the refusal in `rejected`.
 std::optional<std::string> try_known_way(const Snapshot& snap, const std::string& method,
                                          const std::string& uri, const std::string& body,
-                                         const RciRequestLimits& limits) {
+                                         const RciRequestLimits& limits,
+                                         std::optional<Rejection>& rejected) {
     switch (snap.mode) {
         case RciMode::kHttpToken:
         case RciMode::kHttpPlain: {
-            auto attempt = http_attempt(snap.env, method, uri, body, limits,
-                                        snap.mode == RciMode::kHttpToken ? snap.token
-                                                                         : std::string());
+            if (snap.mode == RciMode::kHttpPlain && snap.plain_recheck_at &&
+                snap.env.now() >= *snap.plain_recheck_at) {
+                return std::nullopt; // time to see whether a token can be created now
+            }
+            const std::string token =
+                snap.mode == RciMode::kHttpToken ? snap.token : std::string();
+            auto attempt = http_attempt(snap.env, method, uri, body, limits, token);
             if (attempt.ok) return std::move(attempt.body);
             if (!is_auth_failure(attempt.status)) throw_attempt(attempt);
+            rejected = Rejection{token, std::move(attempt)};
             return std::nullopt;
         }
         case RciMode::kUnknown:
@@ -398,10 +405,30 @@ std::optional<std::string> try_known_way(const Snapshot& snap, const std::string
     return std::nullopt;
 }
 
-// Find a way in.  Runs under search_mutex, so one thread at a time; others
-// keep using the mode that is published.
+std::string join_errors(const std::vector<std::string>& errors) {
+    std::string message;
+    for (const auto& error : errors) {
+        if (error.empty()) continue;
+        if (!message.empty()) message += "; ";
+        message += error;
+    }
+    return message.empty() ? "Keenetic RCI is unavailable" : message;
+}
+
+// Find a way in.  Runs under search_mutex, so one thread at a time.
+//
+//   1. a token we hold: a verdict (answer, timeout, other error) is final; only
+//      a refusal (401/403) moves on, forgetting the token in memory.
+//   2. the service creates a token (KeeneticOS 5.2+ accepts one even before it
+//      enforces them) and sends the request with it once.
+//   3. tokenless, for firmware without tokens and while none can be created.
+//
+// A request is never sent twice with an answer in between: after a timeout or
+// another error the request may have run, so it is not repeated (a POST must
+// not execute twice).  A refusal means it did not run.
 std::string search_way_in(RciState& state, const std::string& method, const std::string& uri,
-                          const std::string& body, const RciRequestLimits& limits) {
+                          const std::string& body, const RciRequestLimits& limits,
+                          const std::optional<Rejection>& rejected) {
     Snapshot snap = take_snapshot(state);
     const RciEnv& env = snap.env;
     std::string token = snap.token;
@@ -410,109 +437,114 @@ std::string search_way_in(RciState& state, const std::string& method, const std:
     std::vector<std::string> errors;
     long last_status = 0;
 
+    // 1. The token we hold.
     if (!token.empty()) {
-        auto attempt = http_attempt(env, method, uri, body, limits, token);
+        auto attempt = (rejected && rejected->token == token)
+                           ? rejected->attempt
+                           : http_attempt(env, method, uri, body, limits, token);
         if (attempt.ok) {
+            state.token_support = TokenSupport::kSupported;
             publish_mode(state, RciMode::kHttpToken);
             return std::move(attempt.body);
         }
-        if (attempt.status != 0 && !is_auth_failure(attempt.status)) {
+        if (!is_auth_failure(attempt.status)) {
+            // A timeout or another error says nothing about the token: keep it
+            // and do not look for another way in.
             publish_mode(state, RciMode::kHttpToken);
             throw_attempt(attempt);
         }
-        if (is_auth_failure(attempt.status)) {
-            token.clear(); // revoked; a fresh one is created below if needed
-            publish_token(state, token);
-            errors.push_back("saved access token rejected: " + attempt.error);
-        } else {
-            errors.push_back("HTTP: " + attempt.error);
-        }
+        // Revoked.  Forgotten in memory only; the file is replaced when a new
+        // token is written.
+        token.clear();
+        publish_token(state, token);
+        errors.push_back("saved access token rejected: " + attempt.error);
         last_status = attempt.status;
     }
 
-    bool auth_required = false;
+    // 2. A new token, created by the service.
+    std::optional<std::string> provision_error;
+    if (state.may_create_token && state.token_support != TokenSupport::kUnsupported) {
+        provision_error = provision_token(state, env, token);
+        if (provision_error) {
+            errors.push_back(*provision_error);
+        } else {
+            const auto attempt = http_attempt(env, method, uri, body, limits, token);
+            if (attempt.ok) {
+                state.token_support = TokenSupport::kSupported;
+                publish_mode(state, RciMode::kHttpToken);
+                return attempt.body;
+            }
+            if (!is_auth_failure(attempt.status)) {
+                // No verdict on the token: keep it, and the request is not
+                // sent again (it may have run).
+                publish_mode(state, RciMode::kHttpToken);
+                throw_attempt(attempt);
+            }
+            errors.push_back(reject_fresh_token(state, token, attempt));
+            last_status = attempt.status;
+        }
+    }
+
+    // 3. Without a token.
     {
-        auto attempt = http_attempt(env, method, uri, body, limits, "");
+        auto attempt = (rejected && rejected->token.empty())
+                           ? rejected->attempt
+                           : http_attempt(env, method, uri, body, limits, "");
         if (attempt.ok) {
-            const auto wants = firmware_wants_token(state, env, uri, attempt.body, limits);
-            // Mode stays unknown while the firmware is unknown, so the next
-            // request asks again.
-            if (wants.has_value()) publish_mode(state, RciMode::kHttpPlain);
-            if (wants.value_or(false)) {
-                if (const auto error = provision_token(state, env, token)) {
+            std::optional<std::chrono::steady_clock::time_point> recheck;
+            if (state.may_create_token && state.token_support != TokenSupport::kUnsupported) {
+                if (!state.provision_blocked && state.last_provision_attempt) {
+                    recheck = *state.last_provision_attempt + kProvisionRetryInterval;
+                    if (*recheck <= env.now()) recheck = env.now() + kProvisionRetryInterval;
+                }
+                const std::string& reason =
+                    provision_error ? *provision_error : state.last_provision_error;
+                if (!reason.empty() && reason != state.last_logged_provision_error) {
+                    state.last_logged_provision_error = reason;
                     Logger::instance().warn(
                         "Keenetic RCI: using tokenless access, which KeeneticOS 5.2 is phasing "
                         "out: {}",
-                        *error);
-                } else {
-                    // Prove the new token on the same request before relying on it.
-                    const auto check = http_attempt(env, method, uri, body, limits, token);
-                    if (check.ok) {
-                        publish_mode(state, RciMode::kHttpToken);
-                    } else if (is_auth_failure(check.status)) {
-                        Logger::instance().warn("Keenetic RCI: {}",
-                                                reject_fresh_token(state, token, check));
-                    } else {
-                        // No verdict on the token (timeout, other error): keep
-                        // it and look again on the next request.
-                        publish_mode(state, RciMode::kUnknown);
-                    }
+                        reason);
                 }
             }
+            publish_mode(state, RciMode::kHttpPlain, recheck);
             return std::move(attempt.body);
         }
         if (attempt.status != 0 && !is_auth_failure(attempt.status)) {
             publish_mode(state, RciMode::kHttpPlain);
             throw_attempt(attempt);
         }
-        auth_required = is_auth_failure(attempt.status);
         errors.push_back("HTTP: " + attempt.error);
         if (attempt.status != 0) last_status = attempt.status;
-    }
-
-    if (auth_required) {
-        if (const auto error = provision_token(state, env, token)) {
-            errors.push_back(*error);
-        } else {
-            auto attempt = http_attempt(env, method, uri, body, limits, token);
-            if (attempt.ok) {
-                publish_mode(state, RciMode::kHttpToken);
-                return std::move(attempt.body);
-            }
-            if (is_auth_failure(attempt.status)) {
-                errors.push_back(reject_fresh_token(state, token, attempt));
-            } else {
-                errors.push_back("new access token: " + attempt.error);
-            }
-            if (attempt.status != 0) last_status = attempt.status;
+        if (is_auth_failure(attempt.status) && !state.may_create_token) {
+            errors.push_back("an RCI access token is required; the keen-pbr service creates it");
         }
     }
 
-    std::string message;
-    for (const auto& error : errors) {
-        if (error.empty()) continue;
-        if (!message.empty()) message += "; ";
-        message += error;
-    }
-    throw HttpError(message.empty() ? "Keenetic RCI is unavailable" : message, last_status);
+    throw HttpError(join_errors(errors), last_status);
 }
 
 std::string rci_request(const std::string& method, const std::string& uri, const std::string& body,
                         const RciRequestLimits& limits) {
     RciState& state = rci_state();
 
+    std::optional<Rejection> rejected;
     const Snapshot first = take_snapshot(state);
-    if (auto answer = try_known_way(first, method, uri, body, limits)) return std::move(*answer);
+    if (auto answer = try_known_way(first, method, uri, body, limits, rejected)) {
+        return std::move(*answer);
+    }
 
     std::lock_guard<std::mutex> search_lock(state.search_mutex);
-    // Another thread may have found a way in while this one waited.
+    // Another thread may have changed the way in while this one waited.
     const Snapshot current = take_snapshot(state);
-    if (current.mode != first.mode || current.token != first.token) {
-        if (auto answer = try_known_way(current, method, uri, body, limits)) {
+    if (current.mode != first.mode || current.token != first.token ||
+        current.plain_recheck_at != first.plain_recheck_at) {
+        rejected.reset();
+        if (auto answer = try_known_way(current, method, uri, body, limits, rejected)) {
             return std::move(*answer);
         }
     }
-    return search_way_in(state, method, uri, body, limits);
+    return search_way_in(state, method, uri, body, limits, rejected);
 }
 
 } // namespace
@@ -571,6 +603,40 @@ std::vector<std::string> parse_token_ids(const std::string& ndmc_output, const s
     return ids;
 }
 
+std::vector<std::string> missing_netfilter_components(const std::string& components_json) {
+    // A JSON string or array naming the installed components.  Anything else
+    // (an error object, an empty answer) is a failure, not "all missing".
+    const auto answer = nlohmann::json::parse(components_json);
+    std::string text;
+    if (answer.is_string()) {
+        text = answer.get<std::string>();
+    } else if (answer.is_array()) {
+        for (const auto& item : answer) {
+            if (item.is_string()) text += item.get<std::string>() + ' ';
+        }
+    }
+    if (text.find_first_not_of(" \t\r\n,") == std::string::npos) {
+        throw std::runtime_error("unexpected components answer");
+    }
+    std::vector<std::string> have;
+    std::string word;
+    for (const char c : text + ' ') {
+        if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '-' || c == '_') {
+            word += c;
+        } else if (!word.empty()) {
+            have.push_back(std::move(word));
+            word.clear();
+        }
+    }
+    std::vector<std::string> missing;
+    for (const char* component : {"opkg-kmod-netfilter", "opkg-kmod-netfilter-addons"}) {
+        if (std::find(have.begin(), have.end(), component) == have.end()) {
+            missing.emplace_back(component);
+        }
+    }
+    return missing;
+}
+
 } // namespace rci_detail
 
 // ---------------------------------------------------------------- public API
@@ -583,6 +649,23 @@ std::string rci_get(const std::string& path, const RciRequestLimits& limits) {
 
 std::string rci_post(const std::string& json_body, const RciRequestLimits& limits) {
     return rci_request("POST", "/rci/", json_body, limits);
+}
+
+bool rci_answers(const RciRequestLimits& limits, std::string* note) {
+    try {
+        (void)rci_get("show/version", limits);
+        return true;
+    } catch (const HttpError& e) {
+        // 401/403: RCI is up and wants an access token.
+        if (is_auth_failure(e.status_code())) {
+            if (note != nullptr) {
+                *note = "RCI is up; it needs an access token, which the service creates";
+            }
+            return true;
+        }
+        if (note != nullptr) *note = e.what();
+        return false;
+    }
 }
 
 void configure_rci_token_file(const std::string& path, bool allow_create) {
@@ -621,6 +704,12 @@ void set_rci_ndmc_for_tests(RciNdmcFn ndmc) {
     state.ndmc = std::move(ndmc);
 }
 
+void set_rci_clock_for_tests(std::function<std::chrono::steady_clock::time_point()> now) {
+    RciState& state = rci_state();
+    std::lock_guard<std::mutex> lock(state.mutex);
+    state.now = now ? std::move(now) : RciClock(steady_now);
+}
+
 void reset_rci_test_state() {
     RciState& state = rci_state();
     std::lock_guard<std::mutex> search_lock(state.search_mutex);
@@ -630,9 +719,12 @@ void reset_rci_test_state() {
     state.token.clear();
     state.token_file.clear();
     state.provision_blocked = false;
-    state.firmware_wants_token.reset();
+    state.token_support = TokenSupport::kUnknown;
+    state.plain_recheck_at.reset();
     state.last_provision_attempt.reset();
     state.last_provision_error.clear();
+    state.last_logged_provision_error.clear();
+    state.now = steady_now;
     state.http_base = kDefaultHttpBase;
     state.transport.reset();
     state.ndmc = run_ndmc;

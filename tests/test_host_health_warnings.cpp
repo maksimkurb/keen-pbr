@@ -332,7 +332,8 @@ TEST_CASE("fwmark overlap: foreign ip rules") {
 
 namespace {
 
-// Marks 0x01000000..0x15000000 in mask 0xff000000, own lowest priority 401.
+// Marks 0x01000000..0x15000000 in mask 0xff000000.  keen-pbr routes mark N
+// with priority 400+N (lowest 401) into table 150+N.
 struct ForeignRuleFixture {
     OutboundMarkMap marks;
     std::vector<RuleSpec> own;
@@ -341,13 +342,13 @@ struct ForeignRuleFixture {
     ForeignRuleFixture() {
         for (std::uint32_t i = 1; i <= 0x15; ++i) {
             marks["out" + std::to_string(i)] = i << 24U;
+            RuleSpec spec;
+            spec.priority = 400 + i;
+            spec.fwmark = i << 24U;
+            spec.fwmask = kMask;
+            spec.table = 150 + i;
+            own.push_back(spec);
         }
-        RuleSpec spec;
-        spec.priority = 401;
-        spec.fwmark = 0x01000000U;
-        spec.fwmask = kMask;
-        spec.table = 150;
-        own.push_back(spec);
     }
 
     static DumpedRule rule(std::uint32_t priority, std::uint32_t fwmark,
@@ -453,6 +454,87 @@ TEST_CASE("foreign ip rule: inverted and plain rules with the same values are se
         f.own, ForeignRuleFixture::kMask, {}, f.marks);
     REQUIRE(w.size() == 1);
     CHECK(w[0].code == HealthWarningCode::foreign_rule_precedence);
+}
+
+TEST_CASE("foreign ip rule: the same table as keen-pbr's before it is harmless") {
+    ForeignRuleFixture f;
+    f.marks = {{"out1", 0x01000000U}};
+    // out1 -> table 151.
+    CHECK(f.warnings(ForeignRuleFixture::rule(110, 0x1bd00, 0xffffffffU, true, 151)).empty());
+}
+
+TEST_CASE("foreign ip rule: a mark keen-pbr has no rule for is harmless") {
+    ForeignRuleFixture f;
+    f.marks["unrouted"] = 0x30000000U;
+    const auto w = f.warnings(ForeignRuleFixture::rule(110, 0x30000000U, 0xff000000U, false));
+    // The mask-bit overlap warning still applies; only the precedence one is dropped.
+    CHECK_FALSE(has_code(w, HealthWarningCode::foreign_rule_precedence));
+}
+
+TEST_CASE("foreign ip rule: only the outbounds with another table are named") {
+    ForeignRuleFixture f;
+    f.marks = {{"out1", 0x01000000U}, {"out2", 0x02000000U}};
+    // "not fwmark 0": every marked packet; table 151 is out1's, out2 uses 152.
+    const auto w = f.warnings(ForeignRuleFixture::rule(110, 0x0, 0xff000000U, true, 151));
+    REQUIRE(w.size() == 1);
+    CHECK(w[0].code == HealthWarningCode::foreign_rule_precedence);
+    CHECK(w[0].message.find("outbounds: out2") != std::string::npos);
+    CHECK(w[0].message.find("out1") == std::string::npos);
+    CHECK(w[0].message.find("all outbounds") == std::string::npos);
+}
+
+TEST_CASE("foreign ip rule: a nop rule is harmless") {
+    ForeignRuleFixture f;
+    auto r = ForeignRuleFixture::rule(110, 0x1bd00, 0xffffffffU, true, 0);
+    r.nop = true;
+    CHECK(f.warnings(r).empty());
+}
+
+TEST_CASE("foreign ip rule: a goto before keen-pbr's rules is harmless") {
+    ForeignRuleFixture f;
+    auto r = ForeignRuleFixture::rule(110, 0x1bd00, 0xffffffffU, true, 0);
+    r.goto_target = 300;
+    CHECK(f.warnings(r).empty());
+    r.goto_target = 401;  // lands on keen-pbr's first rule
+    CHECK(f.warnings(r).empty());
+}
+
+TEST_CASE("foreign ip rule: a goto past keen-pbr's rules diverts") {
+    ForeignRuleFixture f;
+    auto r = ForeignRuleFixture::rule(110, 0x1bd00, 0xffffffffU, true, 0);
+    r.goto_target = 32000;
+    const auto w = f.warnings(r);
+    REQUIRE(w.size() == 1);
+    CHECK(w[0].code == HealthWarningCode::foreign_rule_precedence);
+    CHECK(w[0].message.find("goto 32000") != std::string::npos);
+    CHECK(w[0].message.find("lookup") == std::string::npos);
+}
+
+TEST_CASE("foreign ip rule: a blackhole differs from keen-pbr's lookup") {
+    ForeignRuleFixture f;
+    auto r = ForeignRuleFixture::rule(110, 0x1bd00, 0xffffffffU, true, 0);
+    r.action = RuleAction::blackhole;
+    const auto w = f.warnings(r);
+    REQUIRE(w.size() == 1);
+    CHECK(w[0].message.find("blackhole") != std::string::npos);
+}
+
+TEST_CASE("foreign ip rule: rules differing only in the table are judged separately") {
+    ForeignRuleFixture f;
+    f.marks = {{"out1", 0x01000000U}};
+    const auto w = evaluate_fwmark_conflict_warnings(
+        {},
+        {ForeignRuleFixture::rule(110, 0x1bd00, 0xffffffffU, true, 151),
+         ForeignRuleFixture::rule(110, 0x1bd00, 0xffffffffU, true, 7120)},
+        f.own, ForeignRuleFixture::kMask, {}, f.marks);
+    REQUIRE(w.size() == 1);
+    CHECK(w[0].message.find("lookup 7120") != std::string::npos);
+}
+
+TEST_CASE("foreign ip rule: without own rules nothing is reported") {
+    ForeignRuleFixture f;
+    f.own.clear();
+    CHECK(f.warnings(ForeignRuleFixture::rule(110, 0x1bd00, 0xffffffffU, true)).empty());
 }
 
 TEST_CASE("routing health JSON carries foreign_rule_precedence") {

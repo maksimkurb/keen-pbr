@@ -1,5 +1,3 @@
-#include <algorithm>
-#include <cctype>
 #include <charconv>
 #include <cstdlib>
 #include <cstring>
@@ -31,6 +29,7 @@
 #ifdef USE_KEENETIC_API
 #include <filesystem>
 
+#include "http/http_client.hpp"
 #include "keenetic/rci_client.hpp"
 #endif
 #include "ipc/control_client.hpp"
@@ -155,57 +154,51 @@ long parse_cli_integer(const char *flag, const char *text, long minimum,
   return value;
 }
 
-// Hidden commands for the init script, so it does not talk to RCI itself:
-//   keenetic rci-ready          exit 0 once RCI answers
-//   keenetic missing-components print required netfilter components that are
-//                               not installed, one per line
-int run_keenetic_command(const std::string &command,
-                         const std::string &config_path) {
 #ifdef USE_KEENETIC_API
-  // Read-only: only the service creates RCI tokens (and deletes older ones).
-  // These run before it starts and use the token it saved, if any.
-  keen_pbr3::configure_rci_token_file(
-      (std::filesystem::path(config_path).parent_path() / "rci-token").string(),
-      false);
+// The RCI access token lives next to the config.
+std::string rci_token_path(const std::string &config_path) {
+  return (std::filesystem::path(config_path).parent_path() / "rci-token")
+      .string();
+}
+#endif
+
+// Hidden commands for the init script, so it does not talk to RCI itself:
+//   keenetic rci-ready          exit 0 once RCI answers (a request for an
+//                               access token counts: RCI is up)
+//   keenetic missing-components print required netfilter components that are
+//                               not installed, one per line; exit 3 when RCI
+//                               wants an access token the service has not
+//                               created yet, 1 on any other failure
+// Both are read-only: they run before the running service is stopped, and
+// creating a token would delete the one that service uses.
+int run_keenetic_command(const std::string &command) {
+#ifdef USE_KEENETIC_API
   try {
     if (command == "rci-ready") {
-      (void)keen_pbr3::rci_get("show/version");
-      return 0;
+      std::string note;
+      if (keen_pbr3::rci_answers({}, &note)) {
+        if (!note.empty()) std::cerr << note << '\n';
+        return 0;
+      }
+      std::cerr << "keen-pbr keenetic rci-ready: " << note << '\n';
+      return 1;
     }
     if (command == "missing-components") {
-      // A JSON string or array naming the installed components.  Anything else
-      // (an error object, an empty answer) is a failure, not "all missing".
-      const auto answer = nlohmann::json::parse(
-          keen_pbr3::rci_get("show/version/ndw/components"));
-      std::string text;
-      if (answer.is_string()) {
-        text = answer.get<std::string>();
-      } else if (answer.is_array()) {
-        for (const auto &item : answer) {
-          if (item.is_string()) text += item.get<std::string>() + ' ';
+      try {
+        const auto missing =
+            keen_pbr3::rci_detail::missing_netfilter_components(
+                keen_pbr3::rci_get("show/version/ndw/components"));
+        for (const auto &component : missing) std::cout << component << '\n';
+        return 0;
+      } catch (const keen_pbr3::HttpError &e) {
+        if (e.status_code() == 401 || e.status_code() == 403) {
+          std::cerr << "keen-pbr keenetic missing-components: not checked: "
+                       "RCI needs an access token, which the service creates "
+                       "when it starts\n";
+          return 3;
         }
+        throw;
       }
-      if (text.find_first_not_of(" \t\r\n,") == std::string::npos) {
-        throw std::runtime_error("unexpected components answer");
-      }
-      std::vector<std::string> have;
-      std::string token;
-      for (const char c : text + ' ') {
-        if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '-' ||
-            c == '_') {
-          token += c;
-        } else if (!token.empty()) {
-          have.push_back(std::move(token));
-          token.clear();
-        }
-      }
-      for (const char *component :
-           {"opkg-kmod-netfilter", "opkg-kmod-netfilter-addons"}) {
-        if (std::find(have.begin(), have.end(), component) == have.end()) {
-          std::cout << component << '\n';
-        }
-      }
-      return 0;
     }
   } catch (const std::exception &e) {
     std::cerr << "keen-pbr keenetic " << command << ": " << e.what() << '\n';
@@ -215,7 +208,6 @@ int run_keenetic_command(const std::string &command,
   return 2;
 #else
   (void)command;
-  (void)config_path;
   std::cerr << "keen-pbr keenetic: not available in this build\n";
   return 1;
 #endif
@@ -555,6 +547,14 @@ int main(int argc, char *argv[]) {
       return 64;
     }
 
+    // Every mode that may query RCI uses the saved access token; only the
+    // service creates one (and deletes the older ones).  Set before anything
+    // queries RCI.  A missing token file is not an error.
+#ifdef USE_KEENETIC_API
+    keen_pbr3::configure_rci_token_file(rci_token_path(opts.config_path),
+                                        /*allow_create=*/opts.run_service);
+#endif
+
     if (opts.run_resolver_detect) {
       return keen_pbr3::run_dnsmasq_command(opts.detect_args, opts.config_path,
                                             KEEN_PBR_DNSMASQ_HOOK);
@@ -575,7 +575,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (!opts.keenetic_command.empty()) {
-      return run_keenetic_command(opts.keenetic_command, opts.config_path);
+      return run_keenetic_command(opts.keenetic_command);
     }
 
     if (opts.run_status || opts.download_lists ||
@@ -626,15 +626,6 @@ int main(int argc, char *argv[]) {
       return keen_pbr3::run_status_command(config, config_path,
                                            state.at("routing_health"), state);
     }
-
-    // Only the service creates RCI access tokens; it keeps them next to the
-    // config.  Set before anything queries RCI (config validation may).
-#ifdef USE_KEENETIC_API
-    if (opts.run_service) {
-      keen_pbr3::configure_rci_token_file(
-          (std::filesystem::path(opts.config_path).parent_path() / "rci-token").string());
-    }
-#endif
 
     // Parse directly from the file and destroy the stream before the daemon is
     // constructed, keeping neither raw JSON nor the stream buffer alive.

@@ -10,6 +10,7 @@
 #include <memory>
 #include <net/if.h>
 #include <netinet/in.h>
+#include <optional>
 #include <tuple>
 
 #include <linux/fib_rules.h>
@@ -38,66 +39,100 @@ int native_rule_action(RuleAction action) {
     return FR_ACT_TO_TBL;
 }
 
-// libnl's rule object has no accessor for the invert flag ("not fwmark ..."),
-// so it is read from a second dump of the raw RTM_NEWRULE messages.  The rule
-// is matched back to the cache entry by this key.
-struct InvertedRuleKey {
-    int family{0};
-    uint32_t priority{0};
-    uint32_t fwmark{0};
-    uint32_t fwmask{0};
-    uint32_t table{0};
-    bool operator==(const InvertedRuleKey& other) const {
-        return family == other.family && priority == other.priority &&
-               fwmark == other.fwmark && fwmask == other.fwmask && table == other.table;
+// One raw RTM_GETRULE dump.  Each RTM_NEWRULE message is converted on its own,
+// so the "not" flag (which libnl's rule object does not expose) stays with the
+// rule it came from.
+int collect_dumped_rule(struct nl_msg* msg, void* arg) {
+    auto* out = static_cast<std::vector<DumpedRule>*>(arg);
+    if (auto rule = netlink_detail::dumped_rule_from_message(msg)) {
+        out->push_back(*rule);
     }
-};
-
-int collect_inverted_rule(struct nl_msg* msg, void* arg) {
-    auto* out = static_cast<std::vector<InvertedRuleKey>*>(arg);
-    struct nlmsghdr* header = nlmsg_hdr(msg);
-    if (header->nlmsg_type != RTM_NEWRULE) return NL_OK;
-    const auto* rule = static_cast<const struct fib_rule_hdr*>(nlmsg_data(header));
-    if ((rule->flags & FIB_RULE_INVERT) == 0) return NL_OK;
-    struct nlattr* attrs[FRA_MAX + 1] = {};
-    if (nlmsg_parse(header, static_cast<int>(sizeof(*rule)), attrs, FRA_MAX, nullptr) < 0) {
-        return NL_OK;
-    }
-    InvertedRuleKey key;
-    key.family = rule->family;
-    key.priority = attrs[FRA_PRIORITY] != nullptr ? nla_get_u32(attrs[FRA_PRIORITY]) : 0U;
-    key.fwmark = attrs[FRA_FWMARK] != nullptr ? nla_get_u32(attrs[FRA_FWMARK]) : 0U;
-    key.fwmask = attrs[FRA_FWMASK] != nullptr ? nla_get_u32(attrs[FRA_FWMASK]) : 0U;
-    key.table = attrs[FRA_TABLE] != nullptr ? nla_get_u32(attrs[FRA_TABLE]) : rule->table;
-    out->push_back(key);
     return NL_OK;
 }
 
-// Best effort: without the flag a "not" rule looks like a plain one.
-std::vector<InvertedRuleKey> dump_inverted_rules(struct nl_sock* sock, int family) {
-    std::vector<InvertedRuleKey> out;
+constexpr int kRuleDumpAttempts = 3;
+
+std::vector<DumpedRule> dump_rules_raw(struct nl_sock* sock, int family) {
+    std::vector<DumpedRule> out;
     struct nl_cb* callbacks = nl_cb_alloc(NL_CB_DEFAULT);
-    if (callbacks == nullptr) return out;
-    nl_cb_set(callbacks, NL_CB_VALID, NL_CB_CUSTOM, collect_inverted_rule, &out);
-    struct rtgenmsg request{};
-    request.rtgen_family = static_cast<unsigned char>(family);
-    int err = nl_send_simple(sock, RTM_GETRULE, NLM_F_DUMP, &request, sizeof(request));
-    if (err >= 0) err = nl_recvmsgs(sock, callbacks);
-    if (err < 0) {
-        Logger::instance().debug("Cannot read ip rule invert flags: {}", nl_geterror(err));
+    if (callbacks == nullptr) {
+        throw NetlinkError("Failed to alloc rule dump callbacks");
+    }
+    nl_cb_set(callbacks, NL_CB_VALID, NL_CB_CUSTOM, collect_dumped_rule, &out);
+
+    int err = 0;
+    for (int attempt = 0; attempt < kRuleDumpAttempts; ++attempt) {
         out.clear();
+        struct rtgenmsg request{};
+        request.rtgen_family = static_cast<unsigned char>(family);
+        err = nl_send_simple(sock, RTM_GETRULE, NLM_F_DUMP, &request, sizeof(request));
+        if (err >= 0) err = nl_recvmsgs(sock, callbacks);
+        // The rule table changed while it was being dumped: start over.
+        if (err != -NLE_DUMP_INTR) break;
     }
     nl_cb_put(callbacks);
+    if (err < 0) {
+        throw NetlinkError(std::string("Failed to dump policy rules: ") + nl_geterror(err));
+    }
     return out;
 }
 
 RuleAction dumped_rule_action(int action) {
-    if (action == FR_ACT_UNREACHABLE) return RuleAction::unreachable;
+    if (action == FR_ACT_UNREACHABLE || action == FR_ACT_PROHIBIT) {
+        return RuleAction::unreachable;
+    }
     if (action == FR_ACT_BLACKHOLE) return RuleAction::blackhole;
     return RuleAction::lookup;
 }
 
 } // namespace
+
+namespace netlink_detail {
+
+std::optional<DumpedRule> dumped_rule_from_message(struct nl_msg* msg) {
+    if (msg == nullptr) return std::nullopt;
+    struct nlmsghdr* header = nlmsg_hdr(msg);
+    if (header->nlmsg_type != RTM_NEWRULE ||
+        nlmsg_datalen(header) < static_cast<int>(sizeof(struct fib_rule_hdr))) {
+        return std::nullopt;
+    }
+    const auto* hdr = static_cast<const struct fib_rule_hdr*>(nlmsg_data(header));
+
+    // libnl parses the message into its rule object (it keeps its defaults for
+    // an absent fwmark/fwmask); the flags and the goto target are not exposed
+    // by it, so they are read from the same message.
+    struct ParseCtx {
+        std::optional<DumpedRule> rule;
+    } ctx;
+    const int err = nl_msg_parse(msg, [](struct nl_object* obj, void* arg) {
+        auto* parse = static_cast<ParseCtx*>(arg);
+        auto* rule = reinterpret_cast<struct rtnl_rule*>(obj);
+
+        DumpedRule dr;
+        dr.priority = rtnl_rule_get_prio(rule);
+        dr.fwmark   = rtnl_rule_get_mark(rule);
+        dr.fwmask   = rtnl_rule_get_mask(rule);
+        dr.table    = rtnl_rule_get_table(rule);
+        dr.family   = rtnl_rule_get_family(rule);
+        dr.action   = dumped_rule_action(rtnl_rule_get_action(rule));
+        parse->rule = dr;
+    }, &ctx);
+    if (err < 0 || !ctx.rule.has_value()) return std::nullopt;
+
+    DumpedRule dr = *ctx.rule;
+    dr.invert = (hdr->flags & FIB_RULE_INVERT) != 0;
+    dr.nop = hdr->action == FR_ACT_NOP;
+    if (hdr->action == FR_ACT_GOTO) {
+        struct nlattr* attrs[FRA_MAX + 1] = {};
+        if (nlmsg_parse(header, static_cast<int>(sizeof(*hdr)), attrs, FRA_MAX, nullptr) >= 0 &&
+            attrs[FRA_GOTO] != nullptr) {
+            dr.goto_target = nla_get_u32(attrs[FRA_GOTO]);
+        }
+    }
+    return dr;
+}
+
+} // namespace netlink_detail
 
 namespace {
 
@@ -603,36 +638,7 @@ std::vector<DumpedRule> NetlinkManager::dump_policy_rules(int family) {
     KPBR_LOCK_GUARD(mutex_);
     OperationErrorCounter error_counter(impl_->errors);
 
-    struct nl_cache* raw_cache = nullptr;
-    int err = rtnl_rule_alloc_cache(impl_->sock, family, &raw_cache);
-    if (err < 0) {
-        throw NetlinkError(std::string("Failed to alloc rule cache: ") +
-                           nl_geterror(err));
-    }
-    CachePtr cache(raw_cache);
-
-    std::vector<DumpedRule> result;
-
-    nl_cache_foreach(cache.get(), [](struct nl_object* obj, void* arg) {
-        auto* out = static_cast<std::vector<DumpedRule>*>(arg);
-        auto* rule = reinterpret_cast<struct rtnl_rule*>(obj);
-
-        DumpedRule dr;
-        dr.priority = rtnl_rule_get_prio(rule);
-        dr.fwmark   = rtnl_rule_get_mark(rule);
-        dr.fwmask   = rtnl_rule_get_mask(rule);
-        dr.table    = rtnl_rule_get_table(rule);
-        dr.family   = rtnl_rule_get_family(rule);
-        dr.action   = dumped_rule_action(rtnl_rule_get_action(rule));
-
-        out->push_back(dr);
-    }, &result);
-
-    const auto inverted = dump_inverted_rules(impl_->sock, family);
-    for (auto& dr : result) {
-        const InvertedRuleKey key{dr.family, dr.priority, dr.fwmark, dr.fwmask, dr.table};
-        dr.invert = std::find(inverted.begin(), inverted.end(), key) != inverted.end();
-    }
+    auto result = dump_rules_raw(impl_->sock, family);
 
     error_counter.success();
     return result;

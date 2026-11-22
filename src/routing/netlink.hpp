@@ -9,6 +9,8 @@
 
 #include "../util/traced_mutex.hpp"
 
+struct nl_msg;  // libnl
+
 namespace keen_pbr3 {
 
 class NetlinkError : public std::runtime_error {
@@ -114,7 +116,15 @@ struct DumpedRule {
     int family{0};              // AF_INET or AF_INET6
     RuleAction action{RuleAction::lookup};
     bool invert{false};         // "not fwmark ...": FIB_RULE_INVERT
+    bool nop{false};            // FR_ACT_NOP: matches but does nothing
+    std::optional<uint32_t> goto_target; // FR_ACT_GOTO: priority jumped to
 };
+
+namespace netlink_detail {
+// Convert one RTM_NEWRULE message (protocol NETLINK_ROUTE) into a DumpedRule.
+// nullopt when the message is not a parsable rule.  Exposed for tests.
+std::optional<DumpedRule> dumped_rule_from_message(struct nl_msg* msg);
+} // namespace netlink_detail
 
 // A network interface dumped from the kernel (read-only snapshot)
 struct DumpedInterface {

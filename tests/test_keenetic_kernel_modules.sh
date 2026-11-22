@@ -9,7 +9,7 @@ trap 'rm -rf "$tmp_script" "$tmp_dir"' EXIT
 
 # Load only the module helpers; sysfs, insmod and logging are replaced below,
 # so nothing touches the real system.
-awk '/^(kernel_module_present|load_kernel_module|report_module_failure|ensure_intercept_modules_loaded)\(\)/ { keep=1 }
+awk '/^(kernel_module_present|load_kernel_module|report_module_failure|ensure_intercept_modules_loaded|check_netfilter_addons_component)\(\)/ { keep=1 }
      keep { print }
      keep && /^}/ { keep=0 }' "$init_script" > "$tmp_script"
 . "$tmp_script"
@@ -71,5 +71,45 @@ LOGGED=""
 load_kernel_module probe xt_NFLOG "" ""
 [ $? = 2 ] || fail "insmod failure must return 2"
 [ -z "$LOGGED" ] || fail "probe failures must be silent"
+
+# Component check: exit 3 from the helper means RCI wants a token the service
+# has not created yet, which is not an error.
+cat > "$tmp_dir/keen-pbr" <<'STUB'
+#!/bin/sh
+[ -z "${STUB_OUT:-}" ] || printf '%s\n' "$STUB_OUT"
+exit "${STUB_RC:-0}"
+STUB
+chmod +x "$tmp_dir/keen-pbr"
+KEEN_PBR="$tmp_dir/keen-pbr"
+CONFIG="$tmp_dir/config.json"
+
+LOGGED=""
+export STUB_RC=3 STUB_OUT=""
+check_netfilter_addons_component || fail "component check must never fail"
+case "$LOGGED" in
+    "|info:Skipping the Keenetic component check until an RCI access token exists") ;;
+    *) fail "exit 3 must be an info message only" ;;
+esac
+
+LOGGED=""
+export STUB_RC=1 STUB_OUT=""
+check_netfilter_addons_component || fail "component check must never fail"
+case "$LOGGED" in
+    "|error:Failed to fetch installed Keenetic components") ;;
+    *) fail "other failures must be an error" ;;
+esac
+
+LOGGED=""
+export STUB_RC=0 STUB_OUT="opkg-kmod-netfilter-addons"
+check_netfilter_addons_component || fail "component check must never fail"
+case "$LOGGED" in
+    "|error:Missing Keenetic component opkg-kmod-netfilter-addons") ;;
+    *) fail "missing component must be an error" ;;
+esac
+
+LOGGED=""
+export STUB_RC=0 STUB_OUT=""
+check_netfilter_addons_component || fail "component check must never fail"
+[ -z "$LOGGED" ] || fail "nothing missing must be silent"
 
 printf '%s\n' 'Keenetic kernel module loading: PASS'

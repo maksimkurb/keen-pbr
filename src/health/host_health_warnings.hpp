@@ -101,6 +101,8 @@ struct ForeignPolicyRule {
     bool invert{false};  // "not fwmark ..."
     std::uint32_t table{0};
     RuleAction action{RuleAction::lookup};
+    bool nop{false};
+    std::optional<std::uint32_t> goto_target;  // jump target of a goto rule
     // fwmask & keen-pbr's mask: the mark bits of ours the rule looks at.
     std::uint32_t overlap{0};
     // Outbounds whose mark the rule matches (see matches below).
@@ -127,9 +129,15 @@ std::vector<ForeignPolicyRule> find_foreign_policy_rule_overlaps(
     const OutboundMarkMap& outbound_marks = {});
 
 // Rules evaluated before keen-pbr's own rules (lower priority number than the
-// lowest of `own_rules`) that match at least one outbound mark, whatever bits
-// they look at: a "not fwmark X" rule catches every marked packet.  Moving
-// bits does not help here; the rule priorities do.
+// lowest of `own_rules`) that send a packet keen-pbr marked somewhere else,
+// whatever bits they look at: a "not fwmark X" rule catches every marked
+// packet.  Moving bits does not help here; the rule priorities do.
+// Per outbound mark the rule is harmless when keen-pbr has no rule for that
+// mark, or when it does the same as keen-pbr's rule (same action and, for a
+// lookup, same table); `matched_outbounds` lists only the others.  `nop` rules
+// and `goto` rules that jump to the lowest own priority or before it are
+// skipped; a goto past keen-pbr's rules diverts.  prohibit reads as unreachable.
+// Without `own_rules` there is nothing to compare with and nothing is reported.
 std::vector<ForeignPolicyRule> find_foreign_policy_rule_precedence(
     const std::vector<DumpedRule>& dumped, const std::vector<RuleSpec>& own_rules,
     std::uint32_t fwmark_mask, const RuleNamespace& ns = {},

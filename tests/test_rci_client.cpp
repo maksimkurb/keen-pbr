@@ -121,10 +121,12 @@ struct TokenTest {
             ndmc_calls.push_back(args.at(2));
             return ndmc_handler(args.at(2));
         });
+        set_rci_clock_for_tests([this] { return clock_now; });
     }
     ~TokenTest() { reset_rci_test_state(); }
 
     std::shared_ptr<FakeTransport> transport;
+    std::chrono::steady_clock::time_point clock_now{std::chrono::steady_clock::now()};
     std::vector<std::string> ndmc_calls;
     std::function<RciNdmcResult(const std::string&)> ndmc_handler = [](const std::string&) {
         return RciNdmcResult{};
@@ -154,40 +156,78 @@ TEST_CASE("RCI tokens: parse the generated token and the token listing") {
           std::vector<std::string>{"2"});
 }
 
-TEST_CASE("RCI tokens: tokenless HTTP is used while the router allows it") {
+namespace {
+
+RciNdmcResult generate_ok(const std::string& command) {
+    if (command.rfind("authentication token generate", 0) == 0) {
+        return RciNdmcResult{0, generate_output(kSampleToken)};
+    }
+    return RciNdmcResult{0, ""};
+}
+
+// 5.1.9: ndmc knows no token commands.
+RciNdmcResult generate_unsupported(const std::string&) {
+    return RciNdmcResult{0, "Command::Base error[7405602]: argument parse error."};
+}
+
+constexpr const char* kGenerate = "authentication token generate keen-pbr";
+
+std::ptrdiff_t count_calls(const TokenTest& test, const std::string& command) {
+    return std::count(test.ndmc_calls.begin(), test.ndmc_calls.end(), command);
+}
+
+std::ptrdiff_t count_posts(const TokenTest& test) {
+    return std::count_if(test.transport->requests.begin(), test.transport->requests.end(),
+                         [](const HttpTransportRequest& r) { return r.method == "POST"; });
+}
+
+void write_token_file(const TokenDir& dir) { std::ofstream(dir.file) << kSampleToken << "\n"; }
+
+constexpr const char* kPostBody = R"({"show":{"version":{}}})";
+
+} // namespace
+
+TEST_CASE("RCI tokens: firmware without tokens uses tokenless HTTP and asks ndmc only once") {
     TokenTest test;
     TokenDir dir;
-    configure_rci_token_file(dir.file);
+    configure_rci_token_file(dir.file, true);
+    test.ndmc_handler = generate_unsupported;
     test.transport->handler = [](const HttpTransportRequest&) { return respond(200, "{\"a\":1}"); };
 
     CHECK(rci_get("show/version") == "{\"a\":1}");
     REQUIRE(test.transport->requests.size() == 1);
     CHECK(test.transport->requests[0].url == "http://127.0.0.1:79/rci/show/version");
     CHECK(token_header(test.transport->requests[0]).empty());
-    CHECK(test.ndmc_calls.empty());
+    CHECK(test.ndmc_calls == std::vector<std::string>{kGenerate});
     CHECK_FALSE(std::filesystem::exists(dir.file));
+
+    // No token support is remembered: no more ndmc calls, even much later.
+    test.transport->requests.clear();
+    test.clock_now += std::chrono::hours(1);
+    CHECK(rci_get("show/dns-proxy") == "{\"a\":1}");
+    CHECK(test.transport->requests.size() == 1);
+    CHECK(test.ndmc_calls.size() == 1);
 }
 
-TEST_CASE("RCI tokens: 401 creates a token, replaces old keen-pbr tokens and saves it") {
+TEST_CASE("RCI tokens: the service creates a token first, replaces old keen-pbr tokens and saves it") {
     TokenTest test;
     TokenDir dir;
-    configure_rci_token_file(dir.file);
+    configure_rci_token_file(dir.file, true);
     test.ndmc_handler = [](const std::string& command) {
         if (command == "show authentication token") return RciNdmcResult{0, kTokenListing};
-        if (command == "authentication token generate keen-pbr") {
-            return RciNdmcResult{0, generate_output(kSampleToken)};
-        }
-        return RciNdmcResult{0, ""};
+        return generate_ok(command);
     };
-    test.transport->handler = [](const HttpTransportRequest& request) {
-        return token_header(request) == kSampleToken ? respond(200) : respond(401);
-    };
+    // Tokenless access would still work on 5.2; the token is used regardless.
+    test.transport->handler = [](const HttpTransportRequest&) { return respond(200); };
 
-    CHECK(rci_post(R"({"show":{"version":{}}})") == "{}");
+    CHECK(rci_post(kPostBody) == "{}");
+    // One request, with the new token.
+    REQUIRE(test.transport->requests.size() == 1);
+    CHECK(token_header(test.transport->requests[0]) == kSampleToken);
+    CHECK(test.transport->requests[0].method == "POST");
     // Created and saved first; old keen-pbr tokens go one by one afterwards,
     // each delete checked against a fresh listing.
-    CHECK(test.ndmc_calls == std::vector<std::string>{"authentication token generate keen-pbr",
-                                                      "show authentication token",
+    CHECK(test.ndmc_calls == std::vector<std::string>{kGenerate, "show authentication token",
                                                       "authentication token delete 5",
                                                       "show authentication token"});
     CHECK(dir.read() == std::string(kSampleToken) + "\n");
@@ -206,8 +246,8 @@ TEST_CASE("RCI tokens: 401 creates a token, replaces old keen-pbr tokens and sav
 TEST_CASE("RCI tokens: a saved token is reused without ndmc") {
     TokenTest test;
     TokenDir dir;
-    { std::ofstream(dir.file) << kSampleToken << "\n"; }
-    configure_rci_token_file(dir.file);
+    write_token_file(dir);
+    configure_rci_token_file(dir.file, true);
     test.transport->handler = [](const HttpTransportRequest& request) {
         return token_header(request) == kSampleToken ? respond(200) : respond(403);
     };
@@ -221,26 +261,36 @@ TEST_CASE("RCI tokens: a saved token is reused without ndmc") {
 TEST_CASE("RCI tokens: a rejected saved token falls back to tokenless HTTP") {
     TokenTest test;
     TokenDir dir;
-    { std::ofstream(dir.file) << kSampleToken << "\n"; }
-    configure_rci_token_file(dir.file);
+    write_token_file(dir);
     // 5.2 Beta 4: a wrong token gets 403, no token at all still gets 200.
     test.transport->handler = [](const HttpTransportRequest& request) {
         return token_header(request).empty() ? respond(200) : respond(403);
     };
 
-    CHECK(rci_get("show/version") == "{}");
-    CHECK(test.transport->requests.size() == 2);
-    CHECK(test.ndmc_calls.empty());
+    SUBCASE("service whose ndmc is unavailable") {
+        test.ndmc_handler = [](const std::string&) { return RciNdmcResult{127, ""}; };
+        configure_rci_token_file(dir.file, true);
+        CHECK(rci_get("show/version") == "{}");
+        CHECK(test.transport->requests.size() == 2); // token 403, tokenless 200
+        CHECK(test.ndmc_calls == std::vector<std::string>{kGenerate});
+        // The refused token's file stays until a new token replaces it.
+        CHECK(dir.read() == std::string(kSampleToken) + "\n");
+    }
+    SUBCASE("process that may not create tokens") {
+        configure_rci_token_file(dir.file, false);
+        CHECK(rci_get("show/version") == "{}");
+        CHECK(test.transport->requests.size() == 2);
+        CHECK(test.ndmc_calls.empty());
+        CHECK(dir.read() == std::string(kSampleToken) + "\n");
+    }
 }
 
 TEST_CASE("RCI tokens: firmware without tokens reports the refusal and creates none") {
     TokenTest test;
     TokenDir dir;
-    configure_rci_token_file(dir.file);
+    configure_rci_token_file(dir.file, true);
     // 5.1.9: every HTTP request is refused and ndmc knows no token commands.
-    test.ndmc_handler = [](const std::string&) {
-        return RciNdmcResult{0, "Command::Base error[7405602]: argument parse error."};
-    };
+    test.ndmc_handler = generate_unsupported;
     test.transport->handler = [](const HttpTransportRequest&) { return respond(403); };
 
     CHECK_THROWS_AS((void)rci_get("show/version"), HttpError);
@@ -253,7 +303,7 @@ TEST_CASE("RCI tokens: firmware without tokens reports the refusal and creates n
 TEST_CASE("RCI tokens: the error names the missing admin permission") {
     TokenTest test;
     TokenDir dir;
-    configure_rci_token_file(dir.file);
+    configure_rci_token_file(dir.file, true);
     test.ndmc_handler = [](const std::string& command) {
         if (command.rfind("authentication token generate", 0) == 0) {
             return RciNdmcResult{1, "Core::Security::Authenticator error: invalid username."};
@@ -271,105 +321,71 @@ TEST_CASE("RCI tokens: the error names the missing admin permission") {
     }
 }
 
-TEST_CASE("RCI tokens: errors other than 401/403 are reported without creating a token") {
+TEST_CASE("RCI tokens: a process that may not create tokens says the service does") {
     TokenTest test;
     TokenDir dir;
-    configure_rci_token_file(dir.file);
-    test.transport->handler = [](const HttpTransportRequest&) { return respond(404); };
+    configure_rci_token_file(dir.file, false);
+    test.transport->handler = [](const HttpTransportRequest&) { return respond(401); };
 
-    CHECK_THROWS_AS((void)rci_get("show/nothing"), HttpError);
+    try {
+        (void)rci_get("show/version");
+        FAIL("expected HttpError");
+    } catch (const HttpError& e) {
+        CHECK(std::string(e.what()).find("the keen-pbr service creates it") != std::string::npos);
+        CHECK(e.status_code() == 401);
+    }
     CHECK(test.ndmc_calls.empty());
 }
 
+TEST_CASE("RCI tokens: errors other than 401/403 are reported without creating a token") {
+    TokenTest test;
+    TokenDir dir;
+    write_token_file(dir);
+    test.transport->handler = [](const HttpTransportRequest&) { return respond(404); };
+
+    SUBCASE("service") { configure_rci_token_file(dir.file, true); }
+    SUBCASE("process that may not create tokens") { configure_rci_token_file(dir.file, false); }
+
+    CHECK_THROWS_AS((void)rci_get("show/nothing"), HttpError);
+    CHECK(test.transport->requests.size() == 1);
+    CHECK(test.ndmc_calls.empty());
+    CHECK(dir.read() == std::string(kSampleToken) + "\n");
+}
+
 TEST_CASE("RCI tokens: one-shot commands never create tokens") {
-    TokenTest test; // no configure_rci_token_file()
+    TokenTest test; // not configured to create tokens
     test.transport->handler = [](const HttpTransportRequest&) { return respond(401); };
 
     CHECK_THROWS_AS((void)rci_get("show/version"), HttpError);
     CHECK(test.ndmc_calls.empty());
 }
 
-namespace {
-HttpTransportResponse version_52() {
-    return respond(200, R"({"release":"5.02.B.4.0-0","title":"5.2 Beta 4"})");
-}
-bool is_version(const HttpTransportRequest& request) {
-    return request.url.size() >= 17 && request.url.compare(request.url.size() - 17, 17, "/rci/show/version") == 0;
-}
-} // namespace
-
-TEST_CASE("RCI tokens: KeeneticOS 5.2 switches to a token while tokenless access still works") {
-    TokenTest test;
-    TokenDir dir;
-    configure_rci_token_file(dir.file);
-    test.ndmc_handler = [](const std::string& command) {
-        if (command.rfind("authentication token generate", 0) == 0) {
-            return RciNdmcResult{0, generate_output(kSampleToken)};
-        }
-        return RciNdmcResult{0, ""};
-    };
-    test.transport->handler = [](const HttpTransportRequest& request) {
-        return is_version(request) ? version_52() : respond(200, "{\"dns\":1}");
-    };
-
-    CHECK(rci_get("show/dns-proxy") == "{\"dns\":1}");
-    CHECK(dir.read() == std::string(kSampleToken) + "\n");
-    REQUIRE(test.transport->requests.size() == 3); // plain, version probe, token check
-    CHECK(token_header(test.transport->requests[2]) == kSampleToken);
-
-    test.transport->requests.clear();
-    CHECK(rci_get("show/dns-proxy") == "{\"dns\":1}");
-    REQUIRE(test.transport->requests.size() == 1);
-    CHECK(token_header(test.transport->requests[0]) == kSampleToken);
-}
-
-TEST_CASE("RCI tokens: older firmware keeps tokenless access and creates no token") {
-    TokenTest test;
-    TokenDir dir;
-    configure_rci_token_file(dir.file);
-    test.transport->handler = [](const HttpTransportRequest&) {
-        return respond(200, R"({"release":"4.03.C.6.3-1","title":"4.3.6.3"})");
-    };
-
-    CHECK_NOTHROW((void)rci_get("show/version"));
-    CHECK(test.ndmc_calls.empty());
-    CHECK_FALSE(std::filesystem::exists(dir.file));
-}
-
 TEST_CASE("RCI tokens: a token refused right after creation stops further attempts") {
     TokenTest test;
     TokenDir dir;
-    configure_rci_token_file(dir.file);
-    test.ndmc_handler = [](const std::string& command) {
-        if (command.rfind("authentication token generate", 0) == 0) {
-            return RciNdmcResult{0, generate_output(kSampleToken)};
-        }
-        return RciNdmcResult{0, ""};
-    };
+    configure_rci_token_file(dir.file, true);
+    test.ndmc_handler = generate_ok;
     test.transport->handler = [](const HttpTransportRequest& request) {
-        if (!token_header(request).empty()) return respond(403);
-        return is_version(request) ? version_52() : respond(200);
+        return token_header(request).empty() ? respond(200) : respond(403);
     };
 
-    CHECK(rci_get("show/version") == R"({"release":"5.02.B.4.0-0","title":"5.2 Beta 4"})");
-    const auto generated = std::count(test.ndmc_calls.begin(), test.ndmc_calls.end(),
-                                      "authentication token generate keen-pbr");
-    CHECK(generated == 1);
+    CHECK(rci_get("show/version") == "{}");
+    CHECK(test.transport->requests.size() == 2); // the new token, then tokenless
+    CHECK(count_calls(test, kGenerate) == 1);
 
     // Tokenless access keeps working and no more tokens are made in this run.
     test.transport->requests.clear();
+    test.clock_now += std::chrono::hours(1);
     CHECK(rci_get("show/dns-proxy") == "{}");
     CHECK(test.transport->requests.size() == 1);
-    CHECK(std::count(test.ndmc_calls.begin(), test.ndmc_calls.end(),
-                     "authentication token generate keen-pbr") == 1);
+    CHECK(token_header(test.transport->requests[0]).empty());
+    CHECK(count_calls(test, kGenerate) == 1);
 }
 
 TEST_CASE("RCI tokens: commands that may not create tokens use the saved token only") {
     TokenTest test;
     TokenDir dir;
-    {
-        std::ofstream(dir.file) << kSampleToken << "\n";
-    }
+    write_token_file(dir);
     configure_rci_token_file(dir.file, false);
     test.transport->handler = [](const HttpTransportRequest& request) {
         return token_header(request).empty() ? respond(401) : respond(200, "{\"ok\":1}");
@@ -394,10 +410,8 @@ TEST_CASE("RCI tokens: commands that may not create tokens use the saved token o
 TEST_CASE("RCI tokens: a timeout on the working token neither searches nor creates a token") {
     TokenTest test;
     TokenDir dir;
-    {
-        std::ofstream(dir.file) << kSampleToken << "\n";
-    }
-    configure_rci_token_file(dir.file);
+    write_token_file(dir);
+    configure_rci_token_file(dir.file, true);
     bool fail = false;
     test.transport->handler = [&fail](const HttpTransportRequest&) -> HttpTransportResponse {
         if (fail) throw HttpTransportError("timeout");
@@ -416,60 +430,238 @@ TEST_CASE("RCI tokens: a timeout on the working token neither searches nor creat
     CHECK(token_header(test.transport->requests.back()) == kSampleToken);
 }
 
+TEST_CASE("RCI tokens: a saved token in a fresh process survives a timeout") {
+    TokenTest test;
+    TokenDir dir;
+    write_token_file(dir);
+    configure_rci_token_file(dir.file, true);
+    test.transport->handler = [](const HttpTransportRequest&) -> HttpTransportResponse {
+        throw HttpTransportError("timeout");
+    };
+
+    // The very first request times out: no tokenless attempt, no new token
+    // (that would delete the token another instance may use), file untouched.
+    CHECK_THROWS_AS((void)rci_get("show/version"), HttpError);
+    REQUIRE(test.transport->requests.size() == 1);
+    CHECK(token_header(test.transport->requests[0]) == kSampleToken);
+    CHECK(test.ndmc_calls.empty());
+    CHECK(dir.read() == std::string(kSampleToken) + "\n");
+
+    test.transport->handler = [](const HttpTransportRequest& request) {
+        return token_header(request) == kSampleToken ? respond(200, "{\"t\":1}") : respond(403);
+    };
+    test.transport->requests.clear();
+    CHECK(rci_get("show/version") == "{\"t\":1}");
+    REQUIRE(test.transport->requests.size() == 1);
+    CHECK(token_header(test.transport->requests[0]) == kSampleToken);
+    CHECK(test.ndmc_calls.empty());
+}
+
 TEST_CASE("RCI tokens: a timeout while proving a fresh token keeps the token") {
     TokenTest test;
     TokenDir dir;
-    configure_rci_token_file(dir.file);
-    test.ndmc_handler = [](const std::string& command) {
-        if (command.rfind("authentication token generate", 0) == 0) {
-            return RciNdmcResult{0, generate_output(kSampleToken)};
-        }
-        return RciNdmcResult{0, ""};
-    };
-    test.transport->handler = [](const HttpTransportRequest& request) -> HttpTransportResponse {
-        if (!token_header(request).empty()) throw HttpTransportError("timeout");
-        return is_version(request) ? version_52() : respond(200);
+    configure_rci_token_file(dir.file, true);
+    test.ndmc_handler = generate_ok;
+    test.transport->handler = [](const HttpTransportRequest&) -> HttpTransportResponse {
+        throw HttpTransportError("timeout");
     };
 
-    CHECK_NOTHROW((void)rci_get("show/dns-proxy"));
+    CHECK_THROWS_AS((void)rci_get("show/dns-proxy", {}), HttpError);
+    CHECK(test.transport->requests.size() == 1); // not repeated, not tokenless
     CHECK(dir.read() == std::string(kSampleToken) + "\n");
 
-    // The next request tries the token again instead of creating another.
+    // The next request uses the token instead of creating another.
     test.transport->handler = [](const HttpTransportRequest& request) {
         return token_header(request).empty() ? respond(403) : respond(200, "{\"t\":1}");
     };
     CHECK(rci_get("show/dns-proxy") == "{\"t\":1}");
-    CHECK(std::count(test.ndmc_calls.begin(), test.ndmc_calls.end(),
-                     "authentication token generate keen-pbr") == 1);
+    CHECK(count_calls(test, kGenerate) == 1);
 }
 
-TEST_CASE("RCI tokens: a failed version probe is retried, not remembered") {
+TEST_CASE("RCI tokens: a failed token creation is retried after ten minutes") {
     TokenTest test;
     TokenDir dir;
-    configure_rci_token_file(dir.file);
-    test.ndmc_handler = [](const std::string& command) {
-        if (command.rfind("authentication token generate", 0) == 0) {
-            return RciNdmcResult{0, generate_output(kSampleToken)};
+    configure_rci_token_file(dir.file, true);
+    bool permitted = false;
+    test.ndmc_handler = [&permitted](const std::string& command) {
+        if (command.rfind("authentication token generate", 0) == 0 && !permitted) {
+            return RciNdmcResult{1, "Core::Security::Authenticator error: invalid username."};
         }
-        return RciNdmcResult{0, ""};
+        return generate_ok(command);
     };
-    bool probe_fails = true;
-    // The request itself is "show/dns-proxy"; only the probe (show/version) fails.
-    test.transport->handler = [&probe_fails](const HttpTransportRequest& request) -> HttpTransportResponse {
-        if (!token_header(request).empty()) return respond(200, "{\"t\":1}");
-        if (is_version(request)) {
-            if (probe_fails) throw HttpTransportError("timeout");
-            return version_52();
-        }
-        return respond(200, "{}");
+    test.transport->handler = [](const HttpTransportRequest& request) {
+        return token_header(request).empty() ? respond(200) : respond(200, "{\"t\":1}");
     };
 
-    CHECK(rci_get("show/dns-proxy") == "{}");
-    CHECK(test.ndmc_calls.empty());
-    probe_fails = false;
-    CHECK(rci_get("show/dns-proxy") == "{}"); // asks again, now creates the token
+    CHECK(rci_get("show/version") == "{}"); // tokenless meanwhile
+    CHECK(test.transport->requests.size() == 1);
+    CHECK(test.ndmc_calls == std::vector<std::string>{kGenerate});
+    CHECK_FALSE(std::filesystem::exists(dir.file));
+
+    // Within the interval: one request, no ndmc.
+    permitted = true;
+    test.clock_now += std::chrono::minutes(5);
+    test.transport->requests.clear();
+    CHECK(rci_get("show/version") == "{}");
+    CHECK(test.transport->requests.size() == 1);
+    CHECK(test.ndmc_calls.size() == 1);
+
+    // After it: the token is created and used for this very request.
+    test.clock_now += std::chrono::minutes(6);
+    test.transport->requests.clear();
+    CHECK(rci_get("show/version") == "{\"t\":1}");
+    REQUIRE(test.transport->requests.size() == 1);
+    CHECK(token_header(test.transport->requests[0]) == kSampleToken);
+    CHECK(count_calls(test, kGenerate) == 2);
     CHECK(dir.read() == std::string(kSampleToken) + "\n");
-    CHECK(rci_get("show/dns-proxy") == "{\"t\":1}");
+
+    struct stat before{};
+    REQUIRE(::stat(dir.file.c_str(), &before) == 0);
+    CHECK(rci_get("show/version") == "{\"t\":1}");
+    struct stat after{};
+    REQUIRE(::stat(dir.file.c_str(), &after) == 0);
+    CHECK(after.st_ino == before.st_ino); // written once
+    CHECK(count_calls(test, kGenerate) == 2);
+}
+
+TEST_CASE("RCI tokens: a missing ndmc is not asked again") {
+    TokenTest test;
+    TokenDir dir;
+    configure_rci_token_file(dir.file, true);
+    test.ndmc_handler = [](const std::string&) { return RciNdmcResult{127, ""}; };
+    test.transport->handler = [](const HttpTransportRequest&) { return respond(200); };
+
+    CHECK(rci_get("show/version") == "{}");
+    CHECK(test.ndmc_calls == std::vector<std::string>{kGenerate});
+    for (int i = 0; i < 3; ++i) {
+        test.clock_now += std::chrono::minutes(30);
+        CHECK(rci_get("show/version") == "{}");
+    }
+    CHECK(test.ndmc_calls.size() == 1);
+    CHECK_FALSE(std::filesystem::exists(dir.file));
+}
+
+TEST_CASE("RCI tokens: a POST is sent at most once while a way in is found") {
+    TokenTest test;
+    TokenDir dir;
+    std::atomic<int> executed{0}; // POSTs answered with 2xx
+    auto answer = [&executed](const HttpTransportRequest& request, long status) {
+        if (request.method == "POST" && status >= 200 && status < 300) ++executed;
+        return respond(status);
+    };
+
+    SUBCASE("a fresh token works") {
+        configure_rci_token_file(dir.file, true);
+        test.ndmc_handler = generate_ok;
+        test.transport->handler = [&](const HttpTransportRequest& r) { return answer(r, 200); };
+        (void)rci_post(kPostBody);
+        CHECK(count_posts(test) == 1);
+    }
+    SUBCASE("a fresh token times out") {
+        configure_rci_token_file(dir.file, true);
+        test.ndmc_handler = generate_ok;
+        test.transport->handler = [](const HttpTransportRequest&) -> HttpTransportResponse {
+            throw HttpTransportError("timeout");
+        };
+        CHECK_THROWS_AS((void)rci_post(kPostBody), HttpError);
+        CHECK(count_posts(test) == 1);
+    }
+    SUBCASE("a fresh token gets a server error") {
+        configure_rci_token_file(dir.file, true);
+        test.ndmc_handler = generate_ok;
+        test.transport->handler = [&](const HttpTransportRequest& r) { return answer(r, 500); };
+        CHECK_THROWS_AS((void)rci_post(kPostBody), HttpError);
+        CHECK(count_posts(test) == 1);
+    }
+    SUBCASE("a saved token times out") {
+        write_token_file(dir);
+        configure_rci_token_file(dir.file, true);
+        test.ndmc_handler = generate_ok;
+        test.transport->handler = [](const HttpTransportRequest&) -> HttpTransportResponse {
+            throw HttpTransportError("timeout");
+        };
+        CHECK_THROWS_AS((void)rci_post(kPostBody), HttpError);
+        CHECK(count_posts(test) == 1);
+        CHECK(test.ndmc_calls.empty());
+    }
+    SUBCASE("refusals do not run the request, so it runs once in the end") {
+        write_token_file(dir);
+        configure_rci_token_file(dir.file, true);
+        test.ndmc_handler = generate_ok;
+        test.transport->handler = [&](const HttpTransportRequest& r) {
+            return answer(r, token_header(r).empty() ? 200 : 403);
+        };
+        (void)rci_post(kPostBody);
+        CHECK(executed.load() == 1);
+        CHECK(count_posts(test) == 3); // saved token, fresh token, tokenless
+    }
+}
+
+TEST_CASE("RCI tokens: a refusal on the known way is not repeated by the search") {
+    TokenTest test;
+    TokenDir dir;
+    write_token_file(dir);
+    configure_rci_token_file(dir.file, true);
+    test.ndmc_handler = [](const std::string&) { return RciNdmcResult{127, ""}; };
+    bool revoked = false;
+    test.transport->handler = [&revoked](const HttpTransportRequest& request) {
+        if (token_header(request).empty()) return respond(200, "{\"plain\":1}");
+        return revoked ? respond(403) : respond(200);
+    };
+
+    CHECK(rci_get("show/version") == "{}");
+    revoked = true;
+    test.transport->requests.clear();
+    CHECK(rci_get("show/version") == "{\"plain\":1}");
+    CHECK(test.transport->requests.size() == 2); // the token once, then tokenless
+}
+
+TEST_CASE("RCI client: rci_answers is true while RCI is up, token or not") {
+    TokenTest test;
+    long status = 200;
+    bool timeout = false;
+    test.transport->handler = [&](const HttpTransportRequest&) -> HttpTransportResponse {
+        if (timeout) throw HttpTransportError("timeout");
+        return respond(status);
+    };
+
+    CHECK(rci_answers());
+    status = 401;
+    {
+        std::string note;
+        CHECK(rci_answers({}, &note));
+        CHECK_FALSE(note.empty());
+    }
+    status = 403;
+    CHECK(rci_answers());
+    CHECK(test.ndmc_calls.empty()); // never creates tokens here
+    status = 500;
+    {
+        std::string note;
+        CHECK_FALSE(rci_answers({}, &note));
+        CHECK(note.find("500") != std::string::npos);
+    }
+    timeout = true;
+    CHECK_FALSE(rci_answers());
+}
+
+TEST_CASE("RCI client: netfilter components the router lacks") {
+    using rci_detail::missing_netfilter_components;
+    const std::vector<std::string> none;
+    CHECK(missing_netfilter_components(R"("base opkg-kmod-netfilter opkg-kmod-netfilter-addons")") ==
+          none);
+    CHECK(missing_netfilter_components(R"("base opkg-kmod-netfilter")") ==
+          std::vector<std::string>{"opkg-kmod-netfilter-addons"});
+    CHECK(missing_netfilter_components(R"(["base","opkg-kmod-netfilter-addons"])") ==
+          std::vector<std::string>{"opkg-kmod-netfilter"});
+    CHECK(missing_netfilter_components(R"("base, ndw")") ==
+          std::vector<std::string>{"opkg-kmod-netfilter", "opkg-kmod-netfilter-addons"});
+
+    // Not an answer naming components: a failure, never "everything is missing".
+    CHECK_THROWS(missing_netfilter_components(R"({"error":"unauthorized"})"));
+    CHECK_THROWS(missing_netfilter_components(""));
+    CHECK_THROWS(missing_netfilter_components(R"("")"));
+    CHECK_THROWS(missing_netfilter_components("[]"));
 }
 
 TEST_CASE("RCI tokens: a stale or linked temporary file does not decide the token file") {
@@ -478,13 +670,8 @@ TEST_CASE("RCI tokens: a stale or linked temporary file does not decide the toke
     const std::string outside = dir.dir + "/outside";
     std::ofstream(outside) << "keep\n";
     REQUIRE(::symlink(outside.c_str(), (dir.file + ".tmp").c_str()) == 0);
-    configure_rci_token_file(dir.file);
-    test.ndmc_handler = [](const std::string& command) {
-        if (command.rfind("authentication token generate", 0) == 0) {
-            return RciNdmcResult{0, generate_output(kSampleToken)};
-        }
-        return RciNdmcResult{0, ""};
-    };
+    configure_rci_token_file(dir.file, true);
+    test.ndmc_handler = generate_ok;
     test.transport->handler = [](const HttpTransportRequest& request) {
         return token_header(request).empty() ? respond(401) : respond(200);
     };

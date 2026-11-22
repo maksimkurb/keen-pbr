@@ -1221,6 +1221,86 @@ TestRoutingResult run_target_only(const Config& config,
 
 } // namespace
 
+namespace {
+
+// Text the CLI prints for a result (table and detail lines).
+std::string render_stdout(const TestRoutingResult& result) {
+    const nlohmann::json response = {{"result", test_routing_result_to_json(result)}};
+    std::ostringstream stdout_capture;
+    std::ostringstream stderr_capture;
+    auto* previous_stdout = std::cout.rdbuf(stdout_capture.rdbuf());
+    auto* previous_stderr = std::cerr.rdbuf(stderr_capture.rdbuf());
+    run_test_routing_command(response, TestRoutingCriteria{});
+    std::cout.rdbuf(previous_stdout);
+    std::cerr.rdbuf(previous_stderr);
+    return stdout_capture.str();
+}
+
+bool contains(const std::string& text, const std::string& part) {
+    return text.find(part) != std::string::npos;
+}
+
+} // namespace
+
+TEST_CASE("compute_test_routing: applied list without the interface address explains the fresh reason") {
+    const Config config = default_gateway_config();
+    const auto network = lan_snapshot();
+    const std::vector<RuleState> realized{realized_gateway_rule("vpn", {"10.8.0.0/24"})};
+
+    const auto result = run_gateway(config, "192.168.1.50", &network, &realized);
+    const auto& entry = result.entries.front();
+    REQUIRE(entry.default_gateway.has_value());
+    CHECK(entry.default_gateway->uses_default_gateway == std::optional<bool>(false));
+    REQUIRE(entry.default_gateway->bypass.has_value());
+    CHECK(entry.default_gateway->bypass->source == DefaultGatewayBypassSource::Address);
+    CHECK(entry.default_gateway->bypass->interface == std::optional<std::string>("br0"));
+    CHECK(entry.default_gateway->applied_uses_default_gateway == std::optional<bool>(true));
+
+    const std::string text = render_stdout(result);
+    CHECK(contains(text, "Firewall: still treats 192.168.1.50 as default-gateway traffic"));
+    CHECK(contains(text, "the network of br0"));
+    CHECK(contains(text, "was not in the bypass list from the last apply"));
+    CHECK_FALSE(contains(text, "reserved address range"));
+    CHECK_FALSE(contains(text, "last applied routes"));
+}
+
+TEST_CASE("compute_test_routing: applied interface address with host bits matches the fresh side") {
+    const Config config = default_gateway_config();
+    const auto network = lan_snapshot();
+    const std::vector<RuleState> realized{realized_gateway_rule("vpn", {"192.168.1.1/24"})};
+
+    const auto result = run_gateway(config, "192.168.1.50", &network, &realized);
+    const auto& entry = result.entries.front();
+    REQUIRE(entry.default_gateway.has_value());
+    CHECK(entry.default_gateway->uses_default_gateway == std::optional<bool>(false));
+    CHECK(entry.default_gateway->applied_uses_default_gateway == std::optional<bool>(false));
+
+    const std::string text = render_stdout(result);
+    CHECK_FALSE(contains(text, "Firewall:"));
+    CHECK_FALSE(contains(text, "reserved address range"));
+}
+
+TEST_CASE("compute_test_routing: applied bypass list that covers a fresh default-gateway address") {
+    const Config config = default_gateway_config();
+    const auto network = lan_snapshot();
+    const std::vector<RuleState> realized{realized_gateway_rule(
+        "vpn", {"10.8.0.0/24", "10.9.0.0/16", "192.168.1.0/24"})};
+
+    const auto result = run_gateway(config, "10.9.0.5", &network, &realized);
+    const auto& entry = result.entries.front();
+    REQUIRE(entry.default_gateway.has_value());
+    CHECK(entry.default_gateway->uses_default_gateway == std::optional<bool>(true));
+    CHECK(entry.default_gateway->applied_uses_default_gateway == std::optional<bool>(false));
+
+    const std::string text = render_stdout(result);
+    CHECK(contains(text, "Firewall: does not treat 10.9.0.5 as default-gateway traffic yet: "
+                         "the bypass list from the last apply covers it"));
+    CHECK_FALSE(contains(text, "reserved address range"));
+    CHECK_FALSE(contains(text, "the network of"));
+    CHECK_FALSE(contains(text, "has its own route"));
+    CHECK_FALSE(contains(text, "last applied routes"));
+}
+
 TEST_CASE("compute_test_routing: target-only request evaluates a default_gateway rule") {
     const Config config = default_gateway_config();
     const auto network = lan_snapshot();
