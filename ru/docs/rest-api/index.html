@@ -51,7 +51,7 @@ REST API доступен, если:
 Prometheus и Grafana показывают состояние VPN-каналов и задержку (см. GET /metrics). Задание cron обновляет списки по расписанию через POST /api/lists/refresh. Скрипт перезапускает маршрутизацию через POST /api/service/restart. Если вы пользуетесь только веб-интерфейсом, эту страницу можно не читать.
 REST API доступен, если:
 Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация В веб-интерфейсе откройте Безопасность &gt; Аутентификация и CORS. Включите Включить аутентификацию, введите Новый пароль и подтвердите его. Если API должен принимать запросы из браузера с другого сайта, добавьте его адрес в Разрешённые источники CORS (по одному в строке). Изменения вступают в силу сразу.">
-	<meta itemprop="wordCount" content="3314">
+	<meta itemprop="wordCount" content="3788">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
 	<meta name="twitter:description" content="REST API нужен, чтобы управлять keen-pbr и следить за ним из скриптов и внешних систем. Например:
@@ -490,6 +490,18 @@ REST API доступен, если:
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
       hx:hextra-focus-visible-inset
         hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/mcp/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">MCP-сервер</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
       href="/ru/docs/faq/"
       
     >
@@ -802,6 +814,17 @@ REST API доступен, если:
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
       hx:hextra-focus-visible-inset
         hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/ru/docs/mcp/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">MCP-сервер</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
       href="/ru/docs/faq/"
       
     >
@@ -978,6 +1001,14 @@ REST API доступен, если:
     <div class="hextra-scrollbar hx:sticky hx:top-16 hx:overflow-y-auto hx:pr-4 hx:pt-6 hx:text-sm [hyphens:auto] hx:max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] hx:ltr:-mr-4 hx:rtl:-ml-4"><p class="hx:mb-4 hx:font-semibold hx:tracking-tight">На этой странице</p><ul>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f">Конфигурация
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#x-auth-token">Передача данных для входа в X-Auth-Token
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#api-token-scopes">Доступ API-токена
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1263,11 +1294,60 @@ REST API доступен, если:
 </div>
 <p>Чтобы сразу записать хеш в файл, выполните <code>keen-pbr --config /path/to/config.json hash-password --update</code>. После этого перезапустите сервис keen-pbr: демон не видит изменений, сделанных в файле снаружи.</p>
 <p>Пароль хранится в виде хеша Argon2id. Хеши из старых версий keen-pbr не подходят: задайте пароль заново.</p>
-<p>Когда аутентификация включена, запросы к API выполняются одним из двух способов:</p>
+<p>Когда аутентификация включена, запросы к API выполняются одним из трёх способов:</p>
 <ul>
 <li>Basic-аутентификация: имя пользователя <code>admin</code> и ваш пароль (<code>curl -u admin:password ...</code>).</li>
 <li>Bearer-токен: временный ключ, который выдаёт <code>POST /api/auth/login</code> и который передаётся в заголовке <code>Authorization: Bearer &lt;токен&gt;</code>. Токен действует 24 часа. Одновременно действует только один токен: новый вход, в том числе в веб-интерфейсе, отменяет предыдущий. После перезапуска демона токен нужно получить заново.</li>
+<li>API-токен: долгоживущий ключ для скриптов и мониторинга, передаётся в том же заголовке (<code>Authorization: Bearer kpbr_...</code>). Создайте его в веб-интерфейсе: <strong>Безопасность</strong> &gt; <strong>API-токены</strong>. Укажите название, нужный доступ и при желании срок действия. Токен показывается один раз, поэтому сразу скопируйте его. Ненужный токен отзовите там же. Токены переживают перезапуск и смену пароля.</li>
 </ul>
+<h3>Передача данных для входа в X-Auth-Token<span class="hx:absolute hx:-mt-20" id="x-auth-token"></span>
+    <a href="#x-auth-token" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Любой из этих способов можно передать в заголовке <code>X-Auth-Token</code> вместо <code>Authorization</code>. Это нужно за reverse proxy, который сам использует <code>Authorization</code>, например за прокси Keenetic. Значение: сам токен (<code>kpbr_...</code> или токен входа) либо тот же текст, что и в <code>Authorization</code> (<code>Bearer &lt;токен&gt;</code>, <code>Basic &lt;base64&gt;</code>).</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -H <span class="s2">&#34;X-Auth-Token: kpbr_...&#34;</span> http://192.168.1.1:12121/api/health/service</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Если отправлены оба заголовка, используется только <code>X-Auth-Token</code>: при неверном значении запрос отклоняется, даже если <code>Authorization</code> верный. Пустой заголовок <code>X-Auth-Token</code> игнорируется, и используется <code>Authorization</code>. Веб-интерфейс передаёт его сам.</p>
+<h3>Доступ API-токена<span class="hx:absolute hx:-mt-20" id="api-token-scopes"></span>
+    <a href="#api-token-scopes" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Выбирайте минимальный доступ, которого хватает для задачи:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Доступ</th>
+					<th>Что можно с токеном</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>read:prometheus</code></td>
+					<td>Читать только <code>/metrics</code>.</td>
+			</tr>
+			<tr>
+					<td><code>read</code></td>
+					<td>Читать всё: конфигурацию, состояние, здоровье, диагностику и <code>/metrics</code>. Проверка маршрута и проверка DNS тоже считаются чтением.</td>
+			</tr>
+			<tr>
+					<td><code>write:rules</code></td>
+					<td>Всё из <code>read</code>, а также изменять и применять правила маршрутизации и списки, обновлять списки. Запрос, который меняет что-то ещё в конфигурации, отклоняется с кодом <code>403</code>; правила для списков ниже.</td>
+			</tr>
+			<tr>
+					<td><code>write</code></td>
+					<td>Управлять всей системой, включая запуск и остановку службы и откат конфигурации.</td>
+			</tr>
+	</tbody>
+</table>
+<p><strong>Списки и <code>write:rules</code>.</strong> Токен <code>write:rules</code> может добавлять и менять записи списков с <code>domains</code>, <code>ip_cidrs</code> или <code>file</code>. Добавлять и менять <code>url</code> и <code>detour</code> списка он не может; если они уже заданы, они остаются как есть. На токен <code>write</code> это ограничение не действует.</p>
+<p><strong>Файлы списков.</strong> Через веб-API (при любом способе входа и с любым токеном) <code>file</code> списка можно задать только как абсолютный путь к файлу с расширением <code>.lst</code>, <code>.txt</code> или <code>.list</code>, который лежит в каталоге конфигурации (где находится <code>config.json</code>, например <code>/etc/keen-pbr</code>) или в любой папке внутри него. В пути не должно быть частей <code>.</code> и <code>..</code> и управляющих символов. Отклонённый запрос возвращает ошибку с названием поля списка и причиной (<code>403</code> для токена <code>write:rules</code>, иначе <code>400</code>). Пути, которые уже есть в <code>config.json</code>, продолжают работать и не отклоняются, пока вы не измените их через API. Чтобы использовать файл в другом месте, отредактируйте <code>config.json</code> вручную. <code>GET /api/config</code> возвращает каталог как <code>config_dir</code>.</p>
+<p>Токен никогда не может сменить пароль, настройки аутентификации или другие токены: для этого нужен пароль администратора или вход в веб-интерфейс. Запрос вне доступа токена возвращает <code>403</code>, неизвестный, отозванный или просроченный токен — <code>401</code>.</p>
 <p>Без входа доступны только <code>GET /api/auth/status</code> и <code>POST /api/auth/login</code>. <code>/metrics</code> защищён так же, как остальной API.</p>
 <p>Если аутентификация выключена, запросы из браузера с других сайтов блокируются. Если включена, разрешены адреса из <strong>Разрешённые источники CORS</strong>, а также расширения Chrome и Firefox. Пароль передаётся по сети открытым текстом, поэтому используйте доверенную сеть или HTTPS через reverse proxy (веб-сервер перед keen-pbr).</p>
 <p>По умолчанию API слушает <code>0.0.0.0:12121</code> (значение <code>api.listen</code>). Все маршруты доступны по этому адресу.</p>
@@ -1340,6 +1420,14 @@ REST API доступен, если:
 					<td><code>/api/auth/status</code>, <code>/api/auth/login</code>, <code>/api/auth/logout</code>, <code>/api/auth/password</code>, <code>/api/auth/settings</code></td>
 					<td>Состояние аутентификации, вход и выход, пароль (<code>GET</code> показывает, задан ли он; <code>POST</code> задаёт новый), настройки аутентификации и CORS.</td>
 			</tr>
+			<tr>
+					<td><code>POST /api/auth/enabled</code>, <code>POST /api/auth/cors</code></td>
+					<td>Включить или выключить аутентификацию (<code>{&quot;enabled&quot;: true}</code>) или задать разрешённые источники CORS (<code>{&quot;allowed_origins&quot;: [&quot;https://example.com&quot;]}</code>). Каждый запрос меняет только свою настройку, поэтому не отменит токен, который вы в этот момент создали или отозвали. Только с паролем администратора или входом в веб-интерфейс.</td>
+			</tr>
+			<tr>
+					<td><code>/api/auth/tokens</code>, <code>/api/auth/tokens/revoke</code></td>
+					<td>API-токены: <code>GET</code> показывает список (название, доступ, срок, последнее использование; сам ключ не показывается), <code>POST</code> создаёт токен и один раз возвращает ключ, <code>POST .../revoke</code> с <code>{&quot;id&quot;: &quot;...&quot;}</code> отзывает. Только с паролем администратора или после входа в веб-интерфейс.</td>
+			</tr>
 	</tbody>
 </table>
 <hr>
@@ -1390,7 +1478,7 @@ REST API доступен, если:
 <p>При включённом перехвате ответ содержит объект <code>intercept</code>: активность перехвата DNS (<code>dns_hold_active</code>) и анализа трафика (<code>l7_active</code>), доступные возможности ядра (<code>nfqueue</code>, <code>nflog</code>, <code>connbytes</code>, <code>addrtype</code>) и счётчики обработанных пакетов, ошибок и переполнений очередей (<abbr title="Механизм netfilter, который передаёт пакеты программе и ждёт её решения. keen-pbr так ненадолго задерживает DNS-ответы.">NFQUEUE</abbr>/NFLOG). Эти значения нужны в основном для диагностики.</p>
 <p>Состояние каналов (здоровье, задержка) смотрите в <code>GET /api/runtime/outbounds</code>.</p>
 <h2>GET /metrics<span class="hx:absolute hx:-mt-20" id="get-metrics"></span>
-    <a href="#get-metrics" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает метрики в текстовом формате Prometheus 0.0.4. Prometheus периодически обращается к этому адресу (scrape) и сохраняет значения. Аутентификация та же, что у API: используйте Basic-аутентификацию или текущий Bearer-токен. Если метрики недоступны, ответ <code>503</code>:</p>
+    <a href="#get-metrics" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Возвращает метрики в текстовом формате Prometheus 0.0.4. Prometheus периодически обращается к этому адресу (scrape) и сохраняет значения. Аутентификация та же, что у API: используйте Basic-аутентификацию, текущий Bearer-токен или API-токен с доступом <code>read:prometheus</code> (или шире). Если метрики недоступны, ответ <code>503</code>:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -u admin:password http://127.0.0.1:12121/metrics</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
@@ -2481,10 +2569,10 @@ REST API доступен, если:
         title="Использование CLI keen-pbr"
         class="hx:flex hx:max-w-[50%] hx:items-center hx:gap-1 hx:py-4 hx:text-base hx:font-medium hx:text-gray-600 hx:transition-colors [word-break:break-word] hx:hover:text-primary-600 hx:dark:text-gray-300 hx:md:text-lg hx:ltr:pr-4 hx:rtl:pl-4"
       ><svg class="hx:inline hx:h-5 hx:shrink-0 hx:ltr:rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>Использование CLI keen-pbr</a><a
-        href="/ru/docs/faq/"
-        title="FAQ"
+        href="/ru/docs/mcp/"
+        title="MCP-сервер"
         class="hx:flex hx:max-w-[50%] hx:items-center hx:gap-1 hx:py-4 hx:text-base hx:font-medium hx:text-gray-600 hx:transition-colors [word-break:break-word] hx:hover:text-primary-600 hx:dark:text-gray-300 hx:md:text-lg hx:ltr:ml-auto hx:ltr:pl-4 hx:ltr:text-right hx:rtl:mr-auto hx:rtl:pr-4 hx:rtl:text-left"
-      >FAQ<svg class="hx:inline hx:h-5 hx:shrink-0 hx:rtl:-rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></a></div>
+      >MCP-сервер<svg class="hx:inline hx:h-5 hx:shrink-0 hx:rtl:-rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></a></div>
       </main>
     </article>
   </div>

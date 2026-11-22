@@ -4893,11 +4893,60 @@ On Keenetic routers, &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;
 &lt;/div&gt;
 &lt;p&gt;To write the hash straight into the file, run &lt;code&gt;keen-pbr --config /path/to/config.json hash-password --update&lt;/code&gt;. Then restart the keen-pbr service: the daemon does not notice changes made to the file from outside.&lt;/p&gt;
 &lt;p&gt;The password is stored as an Argon2id hash. Hashes from older keen-pbr versions do not work: set the password again.&lt;/p&gt;
-&lt;p&gt;When authentication is on, requests to the API use one of two methods:&lt;/p&gt;
+&lt;p&gt;When authentication is on, requests to the API use one of three methods:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;Basic authentication: username &lt;code&gt;admin&lt;/code&gt; and your password (&lt;code&gt;curl -u admin:password ...&lt;/code&gt;).&lt;/li&gt;
 &lt;li&gt;Bearer token: a temporary key issued by &lt;code&gt;POST /api/auth/login&lt;/code&gt; and sent in the header &lt;code&gt;Authorization: Bearer &amp;lt;token&amp;gt;&lt;/code&gt;. A token is valid for 24 hours. Only one token is valid at a time: a new login, including one in the web interface, cancels the previous one. After the daemon restarts, get a new token.&lt;/li&gt;
+&lt;li&gt;API token: a long-lived key for scripts and monitoring, sent in the same header (&lt;code&gt;Authorization: Bearer kpbr_...&lt;/code&gt;). Create it in the web interface under &lt;strong&gt;Security&lt;/strong&gt; &amp;gt; &lt;strong&gt;API tokens&lt;/strong&gt;: give it a name, pick the access it needs and, if you like, an expiry. The token is shown once, so copy it right away. Revoke a token there when it is no longer needed. Tokens survive a restart and a password change.&lt;/li&gt;
 &lt;/ul&gt;
+&lt;h3&gt;Sending credentials in X-Auth-Token&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;x-auth-token&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#x-auth-token&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Any of these credentials can be sent in the &lt;code&gt;X-Auth-Token&lt;/code&gt; header instead of &lt;code&gt;Authorization&lt;/code&gt;. This is needed behind a reverse proxy that uses &lt;code&gt;Authorization&lt;/code&gt; itself, for example the Keenetic one. The value is the token on its own (&lt;code&gt;kpbr_...&lt;/code&gt; or a login token) or the same text as in &lt;code&gt;Authorization&lt;/code&gt; (&lt;code&gt;Bearer &amp;lt;token&amp;gt;&lt;/code&gt;, &lt;code&gt;Basic &amp;lt;base64&amp;gt;&lt;/code&gt;).&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;curl -H &lt;span class=&#34;s2&#34;&gt;&amp;#34;X-Auth-Token: kpbr_...&amp;#34;&lt;/span&gt; http://192.168.1.1:12121/api/health/service&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;If both headers are sent, only &lt;code&gt;X-Auth-Token&lt;/code&gt; is used: when its value is wrong, the request is refused even if &lt;code&gt;Authorization&lt;/code&gt; is correct. An empty &lt;code&gt;X-Auth-Token&lt;/code&gt; header is ignored and &lt;code&gt;Authorization&lt;/code&gt; is used. The web interface sends it automatically.&lt;/p&gt;
+&lt;h3&gt;API token access&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;api-token-scopes&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#api-token-scopes&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Pick the smallest access that does the job:&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;Access&lt;/th&gt;
+					&lt;th&gt;What the token can do&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;read:prometheus&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Read &lt;code&gt;/metrics&lt;/code&gt; only.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;read&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Read everything: configuration, status, health, diagnostics and &lt;code&gt;/metrics&lt;/code&gt;. Running a routing test or a DNS check also counts as reading.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;write:rules&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Everything in &lt;code&gt;read&lt;/code&gt;, plus edit and apply the routing rules and lists, and refresh lists. A request that changes anything else in the configuration is refused with &lt;code&gt;403&lt;/code&gt;; see the rules for lists below.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;write&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Manage the whole system, including starting and stopping the service and rolling back the configuration.&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;Lists and &lt;code&gt;write:rules&lt;/code&gt;.&lt;/strong&gt; A &lt;code&gt;write:rules&lt;/code&gt; token may add or change list entries that use &lt;code&gt;domains&lt;/code&gt;, &lt;code&gt;ip_cidrs&lt;/code&gt; or &lt;code&gt;file&lt;/code&gt;. It cannot add or change &lt;code&gt;url&lt;/code&gt; or &lt;code&gt;detour&lt;/code&gt; of a list; an entry that already has them keeps them. A token with &lt;code&gt;write&lt;/code&gt; is not limited like this.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;List files.&lt;/strong&gt; Through the web API (any login method or token), the &lt;code&gt;file&lt;/code&gt; of a list can only be set to an absolute path of a file with the extension &lt;code&gt;.lst&lt;/code&gt;, &lt;code&gt;.txt&lt;/code&gt; or &lt;code&gt;.list&lt;/code&gt; that lies in the configuration directory (the one that holds &lt;code&gt;config.json&lt;/code&gt;, for example &lt;code&gt;/etc/keen-pbr&lt;/code&gt;) or in any folder below it. The path must not contain &lt;code&gt;.&lt;/code&gt; or &lt;code&gt;..&lt;/code&gt; parts or control characters. A refused request returns an error that names the list field and the reason (&lt;code&gt;403&lt;/code&gt; for a &lt;code&gt;write:rules&lt;/code&gt; token, &lt;code&gt;400&lt;/code&gt; otherwise). Paths that are already in &lt;code&gt;config.json&lt;/code&gt; keep working and are never refused unless you change them through the API. To use a file in another location, edit &lt;code&gt;config.json&lt;/code&gt; by hand. &lt;code&gt;GET /api/config&lt;/code&gt; returns the directory as &lt;code&gt;config_dir&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;A token can never change the password, the authentication settings or other tokens: that needs the administrator password or a web interface login. A request outside the token&amp;rsquo;s access returns &lt;code&gt;403&lt;/code&gt;; an unknown, revoked or expired token returns &lt;code&gt;401&lt;/code&gt;.&lt;/p&gt;
 &lt;p&gt;Without logging in, only &lt;code&gt;GET /api/auth/status&lt;/code&gt; and &lt;code&gt;POST /api/auth/login&lt;/code&gt; are available. &lt;code&gt;/metrics&lt;/code&gt; is protected like the rest of the API.&lt;/p&gt;
 &lt;p&gt;When authentication is off, requests from other websites in a browser are blocked. When it is on, addresses from &lt;strong&gt;Allowed CORS origins&lt;/strong&gt; are allowed, as well as Chrome and Firefox extensions. The password travels over the network in clear text, so use a trusted network or HTTPS through a reverse proxy (a web server in front of keen-pbr).&lt;/p&gt;
 &lt;p&gt;By default, the API listens on &lt;code&gt;0.0.0.0:12121&lt;/code&gt; (&lt;code&gt;api.listen&lt;/code&gt;). All routes are served at that address.&lt;/p&gt;
@@ -4970,6 +5019,14 @@ On Keenetic routers, &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;
 					&lt;td&gt;&lt;code&gt;/api/auth/status&lt;/code&gt;, &lt;code&gt;/api/auth/login&lt;/code&gt;, &lt;code&gt;/api/auth/logout&lt;/code&gt;, &lt;code&gt;/api/auth/password&lt;/code&gt;, &lt;code&gt;/api/auth/settings&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;Authentication status, login and logout, password (&lt;code&gt;GET&lt;/code&gt; shows whether one is set; &lt;code&gt;POST&lt;/code&gt; sets a new one), and authentication and CORS settings.&lt;/td&gt;
 			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;POST /api/auth/enabled&lt;/code&gt;, &lt;code&gt;POST /api/auth/cors&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Turn authentication on or off (&lt;code&gt;{&amp;quot;enabled&amp;quot;: true}&lt;/code&gt;) or set the allowed CORS origins (&lt;code&gt;{&amp;quot;allowed_origins&amp;quot;: [&amp;quot;https://example.com&amp;quot;]}&lt;/code&gt;). Each changes only its own setting, so it cannot undo a token you created or revoked at the same moment. Only with the administrator password or a web interface login.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;/api/auth/tokens&lt;/code&gt;, &lt;code&gt;/api/auth/tokens/revoke&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;API tokens: &lt;code&gt;GET&lt;/code&gt; lists them (name, access, expiry, last use; never the key), &lt;code&gt;POST&lt;/code&gt; creates one and returns the key once, &lt;code&gt;POST .../revoke&lt;/code&gt; with &lt;code&gt;{&amp;quot;id&amp;quot;: &amp;quot;...&amp;quot;}&lt;/code&gt; revokes one. Only with the administrator password or a web interface login.&lt;/td&gt;
+			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;hr&gt;
@@ -5020,7 +5077,7 @@ On Keenetic routers, &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;
 &lt;p&gt;When interception is enabled, the response includes an &lt;code&gt;intercept&lt;/code&gt; object: whether DNS interception (&lt;code&gt;dns_hold_active&lt;/code&gt;) and traffic analysis (&lt;code&gt;l7_active&lt;/code&gt;) are active, the kernel features available (&lt;code&gt;nfqueue&lt;/code&gt;, &lt;code&gt;nflog&lt;/code&gt;, &lt;code&gt;connbytes&lt;/code&gt;, &lt;code&gt;addrtype&lt;/code&gt;), and counters of processed packets, errors and queue overruns (&lt;abbr title=&#34;A netfilter mechanism that passes packets to a user-space program and waits for its verdict. keen-pbr uses it to hold DNS replies briefly.&#34;&gt;NFQUEUE&lt;/abbr&gt;/NFLOG). These values are mostly useful for diagnostics.&lt;/p&gt;
 &lt;p&gt;For channel state (health, latency) see &lt;code&gt;GET /api/runtime/outbounds&lt;/code&gt;.&lt;/p&gt;
 &lt;h2&gt;GET /metrics&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;get-metrics&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#get-metrics&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Returns metrics in Prometheus text format 0.0.4. Prometheus requests this address periodically (a scrape) and stores the values. Authentication is the same as for the API: use Basic authentication or the current Bearer token. If metrics are unavailable, the response is &lt;code&gt;503&lt;/code&gt;:&lt;/p&gt;
+    &lt;a href=&#34;#get-metrics&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Returns metrics in Prometheus text format 0.0.4. Prometheus requests this address periodically (a scrape) and stores the values. Authentication is the same as for the API: use Basic authentication, the current Bearer token or an API token with &lt;code&gt;read:prometheus&lt;/code&gt; (or wider) access. If metrics are unavailable, the response is &lt;code&gt;503&lt;/code&gt;:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;curl -u admin:password http://127.0.0.1:12121/metrics&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
@@ -6109,180 +6166,6 @@ address, or &lt;abbr title=&#34;A 6-bit field in the IP header used to mark traf
     </item>
     
     <item>
-      <title>FAQ</title>
-      <link>https://keen-pbr.fyi/docs/faq/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      
-      <guid>https://keen-pbr.fyi/docs/faq/</guid>
-      <description>
-        
-        
-        &lt;h2&gt;What firewall backend will be used?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;what-firewall-backend-will-be-used&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#what-firewall-backend-will-be-used&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;It depends on &lt;code&gt;daemon.firewall_backend&lt;/code&gt;. The default is &lt;code&gt;&amp;quot;auto&amp;quot;&lt;/code&gt;: keen-pbr uses nftables if the &lt;code&gt;nft&lt;/code&gt; command is available, and iptables/ipset otherwise. On Keenetic, iptables/ipset is always used.&lt;/p&gt;
-&lt;h2&gt;How do I reload lists without restarting the service?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-do-i-reload-lists-without-restarting-the-service&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#how-do-i-reload-lists-without-restarting-the-service&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Run the command for your platform:&lt;/p&gt;
-
-
-
-
-&lt;div class=&#34;hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain&#34;&gt;
-  &lt;div class=&#34;hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800&#34; role=&#34;tablist&#34; data-tab-group=&#34;Keenetic / NetCraze,OpenWrt,Debian&#34;&gt;&lt;button class=&#34;hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset&#34; id=&#34;tabs-tab-tabs-00-0&#34; role=&#34;tab&#34; type=&#34;button&#34; aria-controls=&#34;tabs-panel-tabs-00-0&#34; aria-selected=&#34;true&#34; tabindex=&#34;0&#34; data-state=&#34;selected&#34;&gt;&lt;span class=&#34;hx:inline-flex hx:items-center hx:gap-1.5&#34;&gt;&lt;span&gt;Keenetic / NetCraze&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;&lt;button class=&#34;hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset&#34; id=&#34;tabs-tab-tabs-00-1&#34; role=&#34;tab&#34; type=&#34;button&#34; aria-controls=&#34;tabs-panel-tabs-00-1&#34; aria-selected=&#34;false&#34; tabindex=&#34;-1&#34;&gt;&lt;span class=&#34;hx:inline-flex hx:items-center hx:gap-1.5&#34;&gt;&lt;span&gt;OpenWrt&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;&lt;button class=&#34;hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset&#34; id=&#34;tabs-tab-tabs-00-2&#34; role=&#34;tab&#34; type=&#34;button&#34; aria-controls=&#34;tabs-panel-tabs-00-2&#34; aria-selected=&#34;false&#34; tabindex=&#34;-1&#34;&gt;&lt;span class=&#34;hx:inline-flex hx:items-center hx:gap-1.5&#34;&gt;&lt;span&gt;Debian&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;
-&lt;/div&gt;
-&lt;div&gt;&lt;div class=&#34;hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block&#34; id=&#34;tabs-panel-tabs-00-0&#34; role=&#34;tabpanel&#34; aria-labelledby=&#34;tabs-tab-tabs-00-0&#34; aria-hidden=&#34;false&#34; tabindex=&#34;0&#34; data-state=&#34;selected&#34;&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr reload&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Copy code&#34;
-    aria-label=&#34;Copy code&#34;
-    data-copied-label=&#34;Copied!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
-&lt;/div&gt;&lt;div class=&#34;hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block&#34; id=&#34;tabs-panel-tabs-00-1&#34; role=&#34;tabpanel&#34; aria-labelledby=&#34;tabs-tab-tabs-00-1&#34; aria-hidden=&#34;true&#34;&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;service keen-pbr reload&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Copy code&#34;
-    aria-label=&#34;Copy code&#34;
-    data-copied-label=&#34;Copied!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
-&lt;/div&gt;&lt;div class=&#34;hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block&#34; id=&#34;tabs-panel-tabs-00-2&#34; role=&#34;tabpanel&#34; aria-labelledby=&#34;tabs-tab-tabs-00-2&#34; aria-hidden=&#34;true&#34;&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;systemctl reload keen-pbr&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Copy code&#34;
-    aria-label=&#34;Copy code&#34;
-    data-copied-label=&#34;Copied!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
-&lt;/div&gt;&lt;/div&gt;
-
-&lt;p&gt;This is a full reload: it re-downloads all remote lists and re-applies the firewall and routing rules.&lt;/p&gt;
-&lt;p&gt;In the &lt;code&gt;keen-pbr-headless&lt;/code&gt; build this command does not work. To re-download the lists and apply them, run &lt;code&gt;keen-pbr download --reload&lt;/code&gt;.&lt;/p&gt;
-&lt;details class=&#34;hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group&#34; &gt;
-  &lt;summary class=&#34;hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[&#39;&#39;] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90&#34;&gt;
-    &lt;strong class=&#34;hx:text-lg&#34;&gt;What &lt;code&gt;reapply-firewall&lt;/code&gt; does&lt;/strong&gt;
-  &lt;/summary&gt;
-  &lt;div class=&#34;hx:p-2 hx:overflow-hidden&#34;&gt;
-    On Keenetic there is also &lt;code&gt;/opt/etc/init.d/S80keen-pbr reapply-firewall&lt;/code&gt;. It re-verifies the routing tables and starts the &lt;code&gt;urltest&lt;/code&gt; and &lt;code&gt;icmptest&lt;/code&gt; channel checks immediately, but does not re-download lists.
-  &lt;/div&gt;
-&lt;/details&gt;
-&lt;h2&gt;What happens if a remote list URL is unreachable at startup?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;what-happens-if-a-remote-list-url-is-unreachable-at-startup&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#what-happens-if-a-remote-list-url-is-unreachable-at-startup&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;keen-pbr uses the cached copy from &lt;code&gt;daemon.cache_dir&lt;/code&gt; if available. If there is no cache either, a list that has only &lt;code&gt;url&lt;/code&gt; stays empty until a download succeeds; keen-pbr keeps retrying in the background.&lt;/p&gt;
-&lt;h2&gt;How does the urltest outbound select the best link?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-does-the-urltest-outbound-select-the-best-link&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#how-does-the-urltest-outbound-select-the-best-link&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Every &lt;code&gt;interval_ms&lt;/code&gt;, keen-pbr sends an HTTP request to the configured &lt;code&gt;url&lt;/code&gt; through each link and measures the round-trip latency. With &lt;code&gt;strategy: &amp;quot;priority&amp;quot;&lt;/code&gt;, the link with the lowest latency is selected. If the new best link is faster than the current one by less than &lt;code&gt;tolerance_ms&lt;/code&gt;, keen-pbr does not switch. Links are checked group by group: the next group in &lt;code&gt;outbound_groups&lt;/code&gt; is used only when no link in the previous one works.&lt;/p&gt;
-&lt;p&gt;If a link fails &lt;code&gt;failure_threshold&lt;/code&gt; checks in a row, keen-pbr stops using it for &lt;code&gt;timeout_ms&lt;/code&gt;, then tries it again with a few checks. This keeps traffic from bouncing between links while one of them is unstable.&lt;/p&gt;
-&lt;p&gt;The &lt;code&gt;icmptest&lt;/code&gt; outbound works the same way, but checks each link with a ping to its &lt;code&gt;target&lt;/code&gt; address instead of an HTTP request.&lt;/p&gt;
-&lt;h2&gt;Can I route DNS queries through a VPN?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;can-i-route-dns-queries-through-a-vpn&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#can-i-route-dns-queries-through-a-vpn&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Yes. Use the &lt;code&gt;detour&lt;/code&gt; field in &lt;code&gt;dns.servers&lt;/code&gt; to bind DNS queries for that server to a specific outbound:&lt;/p&gt;
-&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;servers&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;10.8.0.1&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;detour&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Copy code&#34;
-    aria-label=&#34;Copy code&#34;
-    data-copied-label=&#34;Copied!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
-&lt;h2&gt;What&amp;rsquo;s the list file format?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;whats-the-list-file-format&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#whats-the-list-file-format&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;One entry per line. Supported formats:&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;IPv4 address: &lt;code&gt;93.184.216.34&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;IPv6 address: &lt;code&gt;2606:2800:220:1:248:1893:25c8:1946&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;&lt;abbr title=&#34;Subnet notation: an address and prefix length, for example 192.168.1.0/24.&#34;&gt;CIDR&lt;/abbr&gt;: &lt;code&gt;10.0.0.0/8&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;Domain: &lt;code&gt;example.com&lt;/code&gt; (automatically includes all sub-domains)
-&lt;ul&gt;
-&lt;li&gt;entries like &lt;code&gt;*.example.com&lt;/code&gt; work the same way as &lt;code&gt;example.com&lt;/code&gt;&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;Lines starting with &lt;code&gt;#&lt;/code&gt; are comments and are skipped&lt;/li&gt;
-&lt;li&gt;Empty lines are skipped&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;How do I verify routing is correctly applied?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-do-i-verify-routing-is-correctly-applied&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#how-do-i-verify-routing-is-correctly-applied&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Run:&lt;/p&gt;
-&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;keen-pbr status&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Copy code&#34;
-    aria-label=&#34;Copy code&#34;
-    data-copied-label=&#34;Copied!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
-&lt;p&gt;keen-pbr compares the firewall rules, routing tables and &lt;code&gt;ip rule&lt;/code&gt; entries in the kernel with what it expects and marks each item &lt;code&gt;OK&lt;/code&gt;, &lt;code&gt;MISSING&lt;/code&gt;, &lt;code&gt;MISMATCH&lt;/code&gt; or &lt;code&gt;ERROR&lt;/code&gt;. The same check is in the web UI: the &lt;strong&gt;Diagnostics&lt;/strong&gt; panel on the &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Dashboard&lt;/strong&gt; page. To check a specific site, click &lt;strong&gt;Where does this traffic go?&lt;/strong&gt; on the same page or run &lt;code&gt;keen-pbr test-routing &amp;lt;domain-or-ip&amp;gt;&lt;/code&gt;.&lt;/p&gt;
-&lt;h2&gt;Why does a check from the router itself not go through the VPN?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;router-own-traffic&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#router-own-traffic&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;The &lt;strong&gt;Process router&amp;rsquo;s own traffic&lt;/strong&gt; (shown in &lt;strong&gt;Advanced&lt;/strong&gt; settings mode) option (&lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;General&lt;/strong&gt;) is off by default: the rules apply to traffic from devices on your local network, not to commands like &lt;code&gt;curl&lt;/code&gt; in the router&amp;rsquo;s SSH console. Test routing from a device on the network. Also, if the &lt;strong&gt;Processed (inbound) interfaces&lt;/strong&gt; list is not empty, make sure the device connects through one of those interfaces.&lt;/p&gt;
-&lt;h2&gt;Can I combine multiple sources in one list?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;can-i-combine-multiple-sources-in-one-list&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#can-i-combine-multiple-sources-in-one-list&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Yes. &lt;code&gt;url&lt;/code&gt;, &lt;code&gt;domains&lt;/code&gt;, &lt;code&gt;ip_cidrs&lt;/code&gt;, and &lt;code&gt;file&lt;/code&gt; can all be set in the same list entry and the data is combined:&lt;/p&gt;
-&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;lists&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;combined&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;url&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;https://example.com/remote.txt&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;domains&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;extra.example.com&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;ip_cidrs&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;192.168.100.0/24&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;file&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;./local.txt&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Copy code&#34;
-    aria-label=&#34;Copy code&#34;
-    data-copied-label=&#34;Copied!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
-&lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200&#34;&gt;
-  &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
-  &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;The web UI can combine only &lt;code&gt;ip_cidrs&lt;/code&gt; and &lt;code&gt;domains&lt;/code&gt;. Do not combine them with &lt;code&gt;url&lt;/code&gt; or &lt;code&gt;file&lt;/code&gt;: the web UI does not support this, and a future version may reject it.&lt;/div&gt;
-  &lt;/div&gt;
-&lt;/div&gt;
-
-
-      </description>
-    </item>
-    
-    <item>
       <title>Full Reference Config</title>
       <link>https://keen-pbr.fyi/docs/configuration/full-reference-config/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
@@ -7049,6 +6932,488 @@ address, or &lt;abbr title=&#34;A 6-bit field in the IP header used to mark traf
 &lt;li&gt;&lt;code&gt;route.rules[]&lt;/code&gt; must include at least one matching condition: &lt;code&gt;list&lt;/code&gt;, &lt;code&gt;dscp&lt;/code&gt;, &lt;code&gt;src_port&lt;/code&gt;, &lt;code&gt;dest_port&lt;/code&gt;, &lt;code&gt;src_addr&lt;/code&gt;, &lt;code&gt;dest_addr&lt;/code&gt;, or &lt;code&gt;default_gateway&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;dns.rules[].allow_domain_rebinding&lt;/code&gt; is mainly for internal domains that intentionally resolve to private IP ranges.&lt;/li&gt;
 &lt;/ul&gt;
+
+      </description>
+    </item>
+    
+    <item>
+      <title>MCP server</title>
+      <link>https://keen-pbr.fyi/docs/mcp/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://keen-pbr.fyi/docs/mcp/</guid>
+      <description>
+        
+        
+        &lt;p&gt;The MCP server lets you control keen-pbr from Claude Desktop, Claude Code and other AI clients that support the Model Context Protocol. The assistant can see the routing state, find the cause of a failure, and change lists and rules in plain language, without editing the configuration by hand.&lt;/p&gt;
+&lt;h2&gt;What you need&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;what-you-need&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#what-you-need&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;Node.js 20 or newer on the computer that runs the client.&lt;/li&gt;
+&lt;li&gt;keen-pbr with the REST API enabled (&lt;code&gt;api.enabled: true&lt;/code&gt;).&lt;/li&gt;
+&lt;li&gt;A keen-pbr API token.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;Create a token&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;create-a-token&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#create-a-token&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;In the keen-pbr web interface, open &lt;strong&gt;Security&lt;/strong&gt; &amp;gt; &lt;strong&gt;API tokens&lt;/strong&gt;, click &lt;strong&gt;Create token&lt;/strong&gt; and select the permissions:&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;Permission&lt;/th&gt;
+					&lt;th&gt;What it allows&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;read&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;diagnostics: service, routes, outbounds and interfaces, routing and DNS checks&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;read:prometheus&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;metrics&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;write:rules&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;adding and removing domains, creating and editing lists and rules&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;write&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;saving changes and refreshing lists&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;Select all four for full access. If you only need to look around and diagnose, &lt;code&gt;read&lt;/code&gt; and &lt;code&gt;read:prometheus&lt;/code&gt; are enough.&lt;/p&gt;
+&lt;p&gt;Copy the token and keep it somewhere safe. Treat it like a password: do not publish it or send it in chats.&lt;/p&gt;
+&lt;h2&gt;Install&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#install&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Download the keen-pbr repository and build the MCP server:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;git clone https://github.com/maksimkurb/keen-pbr.git
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;nb&#34;&gt;cd&lt;/span&gt; keen-pbr/mcp
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;npm install
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;npm run build&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;The build creates &lt;code&gt;mcp/dist/index.js&lt;/code&gt;. You will need its full path in the client settings.&lt;/p&gt;
+&lt;h2&gt;Configure&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;configure&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#configure&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;The server reads its settings from environment variables:&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;Variable&lt;/th&gt;
+					&lt;th&gt;Required&lt;/th&gt;
+					&lt;th&gt;Value&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;KEEN_PBR_URL&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;yes&lt;/td&gt;
+					&lt;td&gt;Router API address, for example &lt;code&gt;http://192.168.1.1:12121&lt;/code&gt;. This is the same address you use to open the keen-pbr web interface.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;KEEN_PBR_TOKEN&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;yes&lt;/td&gt;
+					&lt;td&gt;API token from &lt;strong&gt;Security&lt;/strong&gt; &amp;gt; &lt;strong&gt;API tokens&lt;/strong&gt;.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;KEEN_PBR_ALLOW_WRITE&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;no&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;1&lt;/code&gt; allows changes. Without it the assistant can only inspect and diagnose.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;KEEN_PBR_TIMEOUT_MS&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;no&lt;/td&gt;
+					&lt;td&gt;Request timeout in milliseconds, from 1000 to 120000. Default 15000.&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3&gt;Claude Desktop&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;claude-desktop&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#claude-desktop&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open &lt;code&gt;claude_desktop_config.json&lt;/code&gt; (&lt;strong&gt;Settings&lt;/strong&gt; → &lt;strong&gt;Developer&lt;/strong&gt; → &lt;strong&gt;Edit Config&lt;/strong&gt;) and add the server:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;claude_desktop_config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;mcpServers&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;keen-pbr&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;command&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;node&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;args&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;/full/path/to/keen-pbr/mcp/dist/index.js&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;env&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;KEEN_PBR_URL&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;http://192.168.1.1:12121&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;KEEN_PBR_TOKEN&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;your-api-token&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nt&#34;&gt;&amp;#34;KEEN_PBR_ALLOW_WRITE&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;1&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Restart Claude Desktop. The &lt;code&gt;keen-pbr&lt;/code&gt; server appears in the tool list.&lt;/p&gt;
+&lt;h3&gt;Claude Code&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;claude-code&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#claude-code&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;claude mcp add keen-pbr &lt;span class=&#34;se&#34;&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --env &lt;span class=&#34;nv&#34;&gt;KEEN_PBR_URL&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;http://192.168.1.1:12121 &lt;span class=&#34;se&#34;&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --env &lt;span class=&#34;nv&#34;&gt;KEEN_PBR_TOKEN&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;your-api-token &lt;span class=&#34;se&#34;&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --env &lt;span class=&#34;nv&#34;&gt;KEEN_PBR_ALLOW_WRITE&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;m&#34;&gt;1&lt;/span&gt; &lt;span class=&#34;se&#34;&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  -- node /full/path/to/keen-pbr/mcp/dist/index.js&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;If you do not need changes, leave out the &lt;code&gt;KEEN_PBR_ALLOW_WRITE&lt;/code&gt; line.&lt;/p&gt;
+&lt;h2&gt;Example prompts&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;example-prompts&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#example-prompts&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&amp;ldquo;Why is my traffic not going through the VPN?&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;&amp;ldquo;Where does youtube.com go?&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;&amp;ldquo;Add example.com to list my_domains&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;&amp;ldquo;Create a rule: list my_domains through outbound vpn&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;&amp;ldquo;Check the DNS servers&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;&amp;ldquo;Save the changes&amp;rdquo;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;The assistant picks the right tool and shows the list of changes. When everything looks right, say &amp;ldquo;save&amp;rdquo; — the changes take effect after saving.&lt;/p&gt;
+&lt;h2&gt;Tools&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;tools&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#tools&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;h3&gt;Diagnostics&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;diagnostics&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#diagnostics&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;Tool&lt;/th&gt;
+					&lt;th&gt;What it shows&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;diagnose&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;The overall picture: what is broken, which outbound, interface or list is affected, and what to check next.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;get_health&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Service state, version, runtime mode, DNS interception and dnsmasq status.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;get_runtime_outbounds&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Which outbounds are healthy, degraded or unavailable.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;get_runtime_interfaces&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Interfaces: whether they are up, whether they have a carrier, and their addresses.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;get_command_failure&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;The most recent failed service commands, when they are recorded.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;routing_test&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Where a domain or IP really goes: expected and actual outbound, matched list and rule.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;dns_test&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;DNS, TLS and HTTP interception events over a short time window.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;dns_check_servers&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Checks whether DNS servers answer and whether their answers look tampered with.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;get_metrics&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;A short Prometheus metrics summary: errors, failed probes and counters.&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3&gt;Configuration&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;configuration&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#configuration&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;Tool&lt;/th&gt;
+					&lt;th&gt;What it shows&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;get_config&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;The whole configuration or one section: outbounds, lists, DNS, rules.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;list_rules&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Routing rules with their numbers, lists, DNS rules and outbound names.&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3&gt;Lists&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;lists&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#lists&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;Tool&lt;/th&gt;
+					&lt;th&gt;What it does&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;add_domain_to_list&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Adds domains to a list, creating the list when needed.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;remove_domain_from_list&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Removes domains from a list.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;create_list&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Creates a list from domains, IP addresses, a file or a URL.&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3&gt;Rules&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;rules&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#rules&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;Tool&lt;/th&gt;
+					&lt;th&gt;What it does&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;create_rule&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Adds a rule, for example &amp;ldquo;list my_domains through outbound vpn&amp;rdquo;.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;update_rule&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Changes a rule by number: outbound, lists, ports, addresses, DSCP or default gateway mode. An unnecessary condition can be removed.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;delete_rule&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Deletes a rule by number.&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3&gt;Apply changes&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;apply-changes&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#apply-changes&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;Tool&lt;/th&gt;
+					&lt;th&gt;What it does&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;save_config&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Saves and applies the changes.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;discard_config&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Cancels unsaved changes.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;rollback_config&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Restores the previous configuration after a failed apply.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;refresh_lists&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Downloads URL-backed lists again.&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2&gt;If something does not work&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;if-something-does-not-work&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#if-something-does-not-work&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;The client does not see the server.&lt;/strong&gt; Check that the settings point to the full path of &lt;code&gt;mcp/dist/index.js&lt;/code&gt;, and restart the client after changing its settings.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Cannot connect to the router.&lt;/strong&gt; Open the keen-pbr web interface at the same address you put in &lt;code&gt;KEEN_PBR_URL&lt;/code&gt;. If it does not open, check that the API is enabled and that the port is reachable from the computer.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;401 or 403 error.&lt;/strong&gt; The token was copied incompletely or does not have enough permissions. Create a new token with the required permissions.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;The assistant does not change settings.&lt;/strong&gt; Add &lt;code&gt;KEEN_PBR_ALLOW_WRITE=1&lt;/code&gt; to the server environment and restart the client.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Changes did not take effect.&lt;/strong&gt; Ask the assistant to save the configuration — edits take effect after saving.&lt;/p&gt;
+
+      </description>
+    </item>
+    
+    <item>
+      <title>FAQ</title>
+      <link>https://keen-pbr.fyi/docs/faq/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://keen-pbr.fyi/docs/faq/</guid>
+      <description>
+        
+        
+        &lt;h2&gt;What firewall backend will be used?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;what-firewall-backend-will-be-used&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#what-firewall-backend-will-be-used&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;It depends on &lt;code&gt;daemon.firewall_backend&lt;/code&gt;. The default is &lt;code&gt;&amp;quot;auto&amp;quot;&lt;/code&gt;: keen-pbr uses nftables if the &lt;code&gt;nft&lt;/code&gt; command is available, and iptables/ipset otherwise. On Keenetic, iptables/ipset is always used.&lt;/p&gt;
+&lt;h2&gt;How do I reload lists without restarting the service?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-do-i-reload-lists-without-restarting-the-service&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#how-do-i-reload-lists-without-restarting-the-service&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Run the command for your platform:&lt;/p&gt;
+
+
+
+
+&lt;div class=&#34;hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain&#34;&gt;
+  &lt;div class=&#34;hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800&#34; role=&#34;tablist&#34; data-tab-group=&#34;Keenetic / NetCraze,OpenWrt,Debian&#34;&gt;&lt;button class=&#34;hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset&#34; id=&#34;tabs-tab-tabs-00-0&#34; role=&#34;tab&#34; type=&#34;button&#34; aria-controls=&#34;tabs-panel-tabs-00-0&#34; aria-selected=&#34;true&#34; tabindex=&#34;0&#34; data-state=&#34;selected&#34;&gt;&lt;span class=&#34;hx:inline-flex hx:items-center hx:gap-1.5&#34;&gt;&lt;span&gt;Keenetic / NetCraze&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;&lt;button class=&#34;hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset&#34; id=&#34;tabs-tab-tabs-00-1&#34; role=&#34;tab&#34; type=&#34;button&#34; aria-controls=&#34;tabs-panel-tabs-00-1&#34; aria-selected=&#34;false&#34; tabindex=&#34;-1&#34;&gt;&lt;span class=&#34;hx:inline-flex hx:items-center hx:gap-1.5&#34;&gt;&lt;span&gt;OpenWrt&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;&lt;button class=&#34;hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset&#34; id=&#34;tabs-tab-tabs-00-2&#34; role=&#34;tab&#34; type=&#34;button&#34; aria-controls=&#34;tabs-panel-tabs-00-2&#34; aria-selected=&#34;false&#34; tabindex=&#34;-1&#34;&gt;&lt;span class=&#34;hx:inline-flex hx:items-center hx:gap-1.5&#34;&gt;&lt;span&gt;Debian&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;
+&lt;/div&gt;
+&lt;div&gt;&lt;div class=&#34;hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block&#34; id=&#34;tabs-panel-tabs-00-0&#34; role=&#34;tabpanel&#34; aria-labelledby=&#34;tabs-tab-tabs-00-0&#34; aria-hidden=&#34;false&#34; tabindex=&#34;0&#34; data-state=&#34;selected&#34;&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr reload&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;div class=&#34;hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block&#34; id=&#34;tabs-panel-tabs-00-1&#34; role=&#34;tabpanel&#34; aria-labelledby=&#34;tabs-tab-tabs-00-1&#34; aria-hidden=&#34;true&#34;&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;service keen-pbr reload&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;div class=&#34;hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block&#34; id=&#34;tabs-panel-tabs-00-2&#34; role=&#34;tabpanel&#34; aria-labelledby=&#34;tabs-tab-tabs-00-2&#34; aria-hidden=&#34;true&#34;&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;systemctl reload keen-pbr&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;This is a full reload: it re-downloads all remote lists and re-applies the firewall and routing rules.&lt;/p&gt;
+&lt;p&gt;In the &lt;code&gt;keen-pbr-headless&lt;/code&gt; build this command does not work. To re-download the lists and apply them, run &lt;code&gt;keen-pbr download --reload&lt;/code&gt;.&lt;/p&gt;
+&lt;details class=&#34;hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group&#34; &gt;
+  &lt;summary class=&#34;hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[&#39;&#39;] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90&#34;&gt;
+    &lt;strong class=&#34;hx:text-lg&#34;&gt;What &lt;code&gt;reapply-firewall&lt;/code&gt; does&lt;/strong&gt;
+  &lt;/summary&gt;
+  &lt;div class=&#34;hx:p-2 hx:overflow-hidden&#34;&gt;
+    On Keenetic there is also &lt;code&gt;/opt/etc/init.d/S80keen-pbr reapply-firewall&lt;/code&gt;. It re-verifies the routing tables and starts the &lt;code&gt;urltest&lt;/code&gt; and &lt;code&gt;icmptest&lt;/code&gt; channel checks immediately, but does not re-download lists.
+  &lt;/div&gt;
+&lt;/details&gt;
+&lt;h2&gt;What happens if a remote list URL is unreachable at startup?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;what-happens-if-a-remote-list-url-is-unreachable-at-startup&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#what-happens-if-a-remote-list-url-is-unreachable-at-startup&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;keen-pbr uses the cached copy from &lt;code&gt;daemon.cache_dir&lt;/code&gt; if available. If there is no cache either, a list that has only &lt;code&gt;url&lt;/code&gt; stays empty until a download succeeds; keen-pbr keeps retrying in the background.&lt;/p&gt;
+&lt;h2&gt;How does the urltest outbound select the best link?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-does-the-urltest-outbound-select-the-best-link&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#how-does-the-urltest-outbound-select-the-best-link&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Every &lt;code&gt;interval_ms&lt;/code&gt;, keen-pbr sends an HTTP request to the configured &lt;code&gt;url&lt;/code&gt; through each link and measures the round-trip latency. With &lt;code&gt;strategy: &amp;quot;priority&amp;quot;&lt;/code&gt;, the link with the lowest latency is selected. If the new best link is faster than the current one by less than &lt;code&gt;tolerance_ms&lt;/code&gt;, keen-pbr does not switch. Links are checked group by group: the next group in &lt;code&gt;outbound_groups&lt;/code&gt; is used only when no link in the previous one works.&lt;/p&gt;
+&lt;p&gt;If a link fails &lt;code&gt;failure_threshold&lt;/code&gt; checks in a row, keen-pbr stops using it for &lt;code&gt;timeout_ms&lt;/code&gt;, then tries it again with a few checks. This keeps traffic from bouncing between links while one of them is unstable.&lt;/p&gt;
+&lt;p&gt;The &lt;code&gt;icmptest&lt;/code&gt; outbound works the same way, but checks each link with a ping to its &lt;code&gt;target&lt;/code&gt; address instead of an HTTP request.&lt;/p&gt;
+&lt;h2&gt;Can I route DNS queries through a VPN?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;can-i-route-dns-queries-through-a-vpn&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#can-i-route-dns-queries-through-a-vpn&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Yes. Use the &lt;code&gt;detour&lt;/code&gt; field in &lt;code&gt;dns.servers&lt;/code&gt; to bind DNS queries for that server to a specific outbound:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;servers&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn_dns&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;10.8.0.1&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;detour&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;vpn&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;h2&gt;What&amp;rsquo;s the list file format?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;whats-the-list-file-format&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#whats-the-list-file-format&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;One entry per line. Supported formats:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;IPv4 address: &lt;code&gt;93.184.216.34&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;IPv6 address: &lt;code&gt;2606:2800:220:1:248:1893:25c8:1946&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;abbr title=&#34;Subnet notation: an address and prefix length, for example 192.168.1.0/24.&#34;&gt;CIDR&lt;/abbr&gt;: &lt;code&gt;10.0.0.0/8&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Domain: &lt;code&gt;example.com&lt;/code&gt; (automatically includes all sub-domains)
+&lt;ul&gt;
+&lt;li&gt;entries like &lt;code&gt;*.example.com&lt;/code&gt; work the same way as &lt;code&gt;example.com&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Lines starting with &lt;code&gt;#&lt;/code&gt; are comments and are skipped&lt;/li&gt;
+&lt;li&gt;Empty lines are skipped&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;How do I verify routing is correctly applied?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-do-i-verify-routing-is-correctly-applied&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#how-do-i-verify-routing-is-correctly-applied&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Run:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;keen-pbr status&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;keen-pbr compares the firewall rules, routing tables and &lt;code&gt;ip rule&lt;/code&gt; entries in the kernel with what it expects and marks each item &lt;code&gt;OK&lt;/code&gt;, &lt;code&gt;MISSING&lt;/code&gt;, &lt;code&gt;MISMATCH&lt;/code&gt; or &lt;code&gt;ERROR&lt;/code&gt;. The same check is in the web UI: the &lt;strong&gt;Diagnostics&lt;/strong&gt; panel on the &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Dashboard&lt;/strong&gt; page. To check a specific site, click &lt;strong&gt;Where does this traffic go?&lt;/strong&gt; on the same page or run &lt;code&gt;keen-pbr test-routing &amp;lt;domain-or-ip&amp;gt;&lt;/code&gt;.&lt;/p&gt;
+&lt;h2&gt;Why does a check from the router itself not go through the VPN?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;router-own-traffic&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#router-own-traffic&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;The &lt;strong&gt;Process router&amp;rsquo;s own traffic&lt;/strong&gt; (shown in &lt;strong&gt;Advanced&lt;/strong&gt; settings mode) option (&lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;General&lt;/strong&gt;) is off by default: the rules apply to traffic from devices on your local network, not to commands like &lt;code&gt;curl&lt;/code&gt; in the router&amp;rsquo;s SSH console. Test routing from a device on the network. Also, if the &lt;strong&gt;Processed (inbound) interfaces&lt;/strong&gt; list is not empty, make sure the device connects through one of those interfaces.&lt;/p&gt;
+&lt;h2&gt;Can I combine multiple sources in one list?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;can-i-combine-multiple-sources-in-one-list&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#can-i-combine-multiple-sources-in-one-list&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Yes. &lt;code&gt;url&lt;/code&gt;, &lt;code&gt;domains&lt;/code&gt;, &lt;code&gt;ip_cidrs&lt;/code&gt;, and &lt;code&gt;file&lt;/code&gt; can all be set in the same list entry and the data is combined:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;lists&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;combined&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;url&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;https://example.com/remote.txt&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;domains&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;extra.example.com&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;ip_cidrs&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;192.168.100.0/24&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;],&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;file&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;./local.txt&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200&#34;&gt;
+  &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
+
+  &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;The web UI can combine only &lt;code&gt;ip_cidrs&lt;/code&gt; and &lt;code&gt;domains&lt;/code&gt;. Do not combine them with &lt;code&gt;url&lt;/code&gt; or &lt;code&gt;file&lt;/code&gt;: the web UI does not support this, and a future version may reject it.&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
 
       </description>
     </item>

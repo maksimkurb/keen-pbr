@@ -50,10 +50,38 @@ To write the hash straight into the file, run `keen-pbr --config /path/to/config
 
 The password is stored as an Argon2id hash. Hashes from older keen-pbr versions do not work: set the password again.
 
-When authentication is on, requests to the API use one of two methods:
+When authentication is on, requests to the API use one of three methods:
 
 - Basic authentication: username `admin` and your password (`curl -u admin:password ...`).
 - Bearer token: a temporary key issued by `POST /api/auth/login` and sent in the header `Authorization: Bearer <token>`. A token is valid for 24 hours. Only one token is valid at a time: a new login, including one in the web interface, cancels the previous one. After the daemon restarts, get a new token.
+- API token: a long-lived key for scripts and monitoring, sent in the same header (`Authorization: Bearer kpbr_...`). Create it in the web interface under **Security** > **API tokens**: give it a name, pick the access it needs and, if you like, an expiry. The token is shown once, so copy it right away. Revoke a token there when it is no longer needed. Tokens survive a restart and a password change.
+
+### Sending credentials in X-Auth-Token {#x-auth-token}
+
+Any of these credentials can be sent in the `X-Auth-Token` header instead of `Authorization`. This is needed behind a reverse proxy that uses `Authorization` itself, for example the Keenetic one. The value is the token on its own (`kpbr_...` or a login token) or the same text as in `Authorization` (`Bearer <token>`, `Basic <base64>`).
+
+```bash
+curl -H "X-Auth-Token: kpbr_..." http://192.168.1.1:12121/api/health/service
+```
+
+If both headers are sent, only `X-Auth-Token` is used: when its value is wrong, the request is refused even if `Authorization` is correct. An empty `X-Auth-Token` header is ignored and `Authorization` is used. The web interface sends it automatically.
+
+### API token access {#api-token-scopes}
+
+Pick the smallest access that does the job:
+
+| Access | What the token can do |
+|---|---|
+| `read:prometheus` | Read `/metrics` only. |
+| `read` | Read everything: configuration, status, health, diagnostics and `/metrics`. Running a routing test or a DNS check also counts as reading. |
+| `write:rules` | Everything in `read`, plus edit and apply the routing rules and lists, and refresh lists. A request that changes anything else in the configuration is refused with `403`; see the rules for lists below. |
+| `write` | Manage the whole system, including starting and stopping the service and rolling back the configuration. |
+
+**Lists and `write:rules`.** A `write:rules` token may add or change list entries that use `domains`, `ip_cidrs` or `file`. It cannot add or change `url` or `detour` of a list; an entry that already has them keeps them. A token with `write` is not limited like this.
+
+**List files.** Through the web API (any login method or token), the `file` of a list can only be set to an absolute path of a file with the extension `.lst`, `.txt` or `.list` that lies in the configuration directory (the one that holds `config.json`, for example `/etc/keen-pbr`) or in any folder below it. The path must not contain `.` or `..` parts or control characters. A refused request returns an error that names the list field and the reason (`403` for a `write:rules` token, `400` otherwise). Paths that are already in `config.json` keep working and are never refused unless you change them through the API. To use a file in another location, edit `config.json` by hand. `GET /api/config` returns the directory as `config_dir`.
+
+A token can never change the password, the authentication settings or other tokens: that needs the administrator password or a web interface login. A request outside the token's access returns `403`; an unknown, revoked or expired token returns `401`.
 
 Without logging in, only `GET /api/auth/status` and `POST /api/auth/login` are available. `/metrics` is protected like the rest of the API.
 
@@ -80,6 +108,8 @@ The [OpenAPI document](https://github.com/maksimkurb/keen-pbr/blob/main/docs/ope
 | `GET /api/diagnostics/command-failure` | Log of recent system command failures. |
 | `GET /metrics` | Prometheus text metrics. |
 | `/api/auth/status`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/password`, `/api/auth/settings` | Authentication status, login and logout, password (`GET` shows whether one is set; `POST` sets a new one), and authentication and CORS settings. |
+| `POST /api/auth/enabled`, `POST /api/auth/cors` | Turn authentication on or off (`{"enabled": true}`) or set the allowed CORS origins (`{"allowed_origins": ["https://example.com"]}`). Each changes only its own setting, so it cannot undo a token you created or revoked at the same moment. Only with the administrator password or a web interface login. |
+| `/api/auth/tokens`, `/api/auth/tokens/revoke` | API tokens: `GET` lists them (name, access, expiry, last use; never the key), `POST` creates one and returns the key once, `POST .../revoke` with `{"id": "..."}` revokes one. Only with the administrator password or a web interface login. |
 
 ---
 
@@ -117,7 +147,7 @@ For channel state (health, latency) see `GET /api/runtime/outbounds`.
 
 ## GET /metrics
 
-Returns metrics in Prometheus text format 0.0.4. Prometheus requests this address periodically (a scrape) and stores the values. Authentication is the same as for the API: use Basic authentication or the current Bearer token. If metrics are unavailable, the response is `503`:
+Returns metrics in Prometheus text format 0.0.4. Prometheus requests this address periodically (a scrape) and stores the values. Authentication is the same as for the API: use Basic authentication, the current Bearer token or an API token with `read:prometheus` (or wider) access. If metrics are unavailable, the response is `503`:
 
 ```bash
 curl -u admin:password http://127.0.0.1:12121/metrics
