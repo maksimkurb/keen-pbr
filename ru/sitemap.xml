@@ -230,16 +230,16 @@
                 href="https://keen-pbr.fyi/ru/docs/configuration/advanced/"
                 />
   </url><url>
-    <loc>https://keen-pbr.fyi/ru/docs/faq/</loc>
+    <loc>https://keen-pbr.fyi/ru/docs/mcp/</loc>
     <xhtml:link
                 rel="alternate"
                 hreflang="en-us"
-                href="https://keen-pbr.fyi/docs/faq/"
+                href="https://keen-pbr.fyi/docs/mcp/"
                 />
     <xhtml:link
                 rel="alternate"
                 hreflang="ru"
-                href="https://keen-pbr.fyi/ru/docs/faq/"
+                href="https://keen-pbr.fyi/ru/docs/mcp/"
                 />
   </url><url>
     <loc>https://keen-pbr.fyi/ru/docs/configuration/full-reference-config/</loc>
@@ -252,6 +252,18 @@
                 rel="alternate"
                 hreflang="ru"
                 href="https://keen-pbr.fyi/ru/docs/configuration/full-reference-config/"
+                />
+  </url><url>
+    <loc>https://keen-pbr.fyi/ru/docs/faq/</loc>
+    <xhtml:link
+                rel="alternate"
+                hreflang="en-us"
+                href="https://keen-pbr.fyi/docs/faq/"
+                />
+    <xhtml:link
+                rel="alternate"
+                hreflang="ru"
+                href="https://keen-pbr.fyi/ru/docs/faq/"
                 />
   </url><url>
     <loc>https://keen-pbr.fyi/ru/docs/configuration/multi-wan/</loc>
